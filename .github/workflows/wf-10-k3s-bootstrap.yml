@@ -1,0 +1,81 @@
+name: "WF-10 TCE k3s Bootstrap"
+
+on:
+  workflow_dispatch:
+    inputs:
+      host:
+        description: "VPS IP/hostname"
+        required: true
+        default: "132.226.175.206"
+      username:
+        description: "SSH username"
+        required: true
+        default: "ubuntu"
+
+jobs:
+  bootstrap:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Configure SSH
+        env:
+          KEY: ${{ secrets.VPS_SSH_PRIVATE_KEY }}
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.ssh
+          printf '%s\n' "$KEY" | tr -d '\r' > ~/.ssh/tce_vps_key
+          chmod 600 ~/.ssh/tce_vps_key
+          ssh-keygen -y -f ~/.ssh/tce_vps_key >/dev/null
+
+      - name: Preflight existing services and disk
+        env:
+          H: ${{ inputs.host }}
+          U: ${{ inputs.username }}
+        run: |
+          set -euo pipefail
+          ssh -i ~/.ssh/tce_vps_key -o IdentitiesOnly=yes -o StrictHostKeyChecking=no -o ConnectTimeout=10 "$U@$H" 'bash -s' <<'REMOTE'
+          set -euo pipefail
+          echo '=== DISK ==='
+          df -h /
+          echo '=== MEMORY ==='
+          free -h
+          echo '=== EXISTING NGINX ==='
+          sudo systemctl is-active nginx
+          sudo nginx -t
+          echo '=== EXISTING DOCKER ==='
+          docker ps --format 'table {{.Names}}\t{{.Status}}\t{{.Ports}}'
+          echo '=== K3S EXISTING ==='
+          if command -v k3s >/dev/null 2>&1; then sudo k3s --version; else echo 'k3s not installed'; fi
+          REMOTE
+
+      - name: Bootstrap isolated single-node k3s
+        env:
+          H: ${{ inputs.host }}
+          U: ${{ inputs.username }}
+        run: |
+          set -euo pipefail
+          ssh -i ~/.ssh/tce_vps_key -o IdentitiesOnly=yes -o StrictHostKeyChecking=no -o ConnectTimeout=10 "$U@$H" 'bash -s' <<'REMOTE'
+          set -euo pipefail
+          NODE_NAME='tce-k3s-01'
+          NAMESPACE='tce'
+
+          if ! command -v k3s >/dev/null 2>&1; then
+            curl -sfL https://get.k3s.io | INSTALL_K3S_EXEC="server --node-name ${NODE_NAME} --disable traefik" sh -
+          fi
+
+          sudo systemctl enable --now k3s
+          sudo kubectl create namespace "$NAMESPACE" --dry-run=client -o yaml | sudo kubectl apply -f -
+          sudo kubectl label namespace "$NAMESPACE" app.kubernetes.io/part-of=tce --overwrite
+
+          echo '=== K3S STATUS ==='
+          sudo systemctl is-active k3s
+          sudo kubectl get nodes -o wide
+          sudo kubectl get namespace "$NAMESPACE"
+          echo '=== DISK AFTER INSTALL ==='
+          df -h /
+          echo 'TCE k3s bootstrap complete. Existing Nginx/Docker services were not modified.'
+          REMOTE
+
+      - name: Cleanup
+        if: always()
+        run: rm -f ~/.ssh/tce_vps_key
