@@ -1,0 +1,32 @@
+name: "WF-03 TCE Deploy Orchestrator"
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Deployment environment"
+        required: true
+        type: choice
+        options: [stg, prod]
+        default: stg
+      confirm:
+        description: "For prod type DEPLOY-TCE-PROD; leave blank for stg"
+        required: false
+        default: ""
+
+jobs:
+  bootstrap:
+    uses: ./.github/workflows/wf-10-k3s-bootstrap.yml
+    secrets: inherit
+
+  deploy-stg:
+    if: ${{ inputs.environment == 'stg' }}
+    needs: bootstrap
+    uses: ./.github/workflows/wf-04-tce-staging-deploy.yml
+    secrets: inherit
+
+  deploy-prod:
+    if: ${{ inputs.environment == 'prod' && inputs.confirm == 'DEPLOY-TCE-PROD' }}
+    needs: bootstrap
+    uses: ./.github/workflows/wf-05-tce-production-deploy.yml
+    secrets: inherit
