@@ -1,0 +1,58 @@
+name: VPS SSH Connectivity Test
+
+on:
+  workflow_dispatch:
+    inputs:
+      host:
+        description: "VPS hostname/IP"
+        required: true
+        default: "140.238.3.233"
+      port:
+        description: "SSH port"
+        required: true
+        default: "22"
+      username:
+        description: "SSH username"
+        required: true
+        default: "ubuntu"
+
+jobs:
+  test-ssh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Configure SSH key
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.VPS_SSH_PRIVATE_KEY }}
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/tce_vps_key
+          chmod 600 ~/.ssh/tce_vps_key
+
+      - name: Test TCP port
+        env:
+          HOST: ${{ inputs.host }}
+          PORT: ${{ inputs.port }}
+        run: |
+          echo "Testing $HOST:$PORT"
+          timeout 10 bash -c "</dev/tcp/$HOST/$PORT" \
+            && echo "TCP port is reachable" \
+            || { echo "TCP port is NOT reachable"; exit 1; }
+
+      - name: Test SSH authentication
+        env:
+          HOST: ${{ inputs.host }}
+          PORT: ${{ inputs.port }}
+          USERNAME: ${{ inputs.username }}
+        run: |
+          ssh -i ~/.ssh/tce_vps_key \
+            -o IdentitiesOnly=yes \
+            -o StrictHostKeyChecking=no \
+            -o ConnectTimeout=10 \
+            -p "$PORT" \
+            "$USERNAME@$HOST" \
+            'echo "SSH_CONNECTED"; hostname; whoami; uptime'
+
+      - name: Cleanup
+        if: always()
+        run: rm -f ~/.ssh/tce_vps_key
