@@ -1,0 +1,52 @@
+name: "WF-09 Nginx Readonly Audit"
+
+on:
+  workflow_dispatch:
+    inputs:
+      host:
+        description: "VPS IP/hostname"
+        required: true
+        default: "132.226.175.206"
+      username:
+        description: "SSH username"
+        required: true
+        default: "ubuntu"
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Configure SSH
+        env:
+          KEY: ${{ secrets.VPS_SSH_PRIVATE_KEY }}
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.ssh
+          printf '%s\n' "$KEY" | tr -d '\r' > ~/.ssh/tce_vps_key
+          chmod 600 ~/.ssh/tce_vps_key
+      - name: Read Nginx configuration only
+        env:
+          H: ${{ inputs.host }}
+          U: ${{ inputs.username }}
+        run: |
+          set -euo pipefail
+          ssh -i ~/.ssh/tce_vps_key -o IdentitiesOnly=yes -o StrictHostKeyChecking=no -o ConnectTimeout=10 "$U@$H" 'bash -s' <<'REMOTE'
+          set -euo pipefail
+          echo "=== NGINX VERSION ==="
+          nginx -v 2>&1 || true
+          echo "=== NGINX -T ==="
+          sudo nginx -T 2>&1
+          echo "=== ENABLED SITES ==="
+          sudo find /etc/nginx/sites-enabled -maxdepth 1 -type l -printf '%f -> %l\n' 2>/dev/null || true
+          echo "=== CONF.D ==="
+          sudo find /etc/nginx/conf.d -maxdepth 1 -type f -printf '%p\n' 2>/dev/null || true
+          echo "=== WILDCARD / MR CUTE / SERVER_NAME REFERENCES ==="
+          sudo grep -RniE 'server_name|mrcute\.space|\*\.' /etc/nginx 2>/dev/null || true
+          echo "=== CONFIG TEST ==="
+          sudo nginx -t
+          echo "READ-ONLY AUDIT COMPLETE: no Nginx files were modified and no reload was performed."
+          REMOTE
+      - name: Cleanup
+        if: always()
+        run: rm -f ~/.ssh/tce_vps_key
