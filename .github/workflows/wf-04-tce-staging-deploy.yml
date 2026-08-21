@@ -21,8 +21,10 @@ jobs:
       - name: Build FE + BE images
         run: |
           set -euo pipefail
-          docker build -t tce-frontend:stg -f Dockerfile .
-          docker build -t tce-service:stg -f apps/service/Dockerfile apps/service
+          docker build --pull -t tce-frontend:stg -f Dockerfile .
+          docker build --pull -t tce-service:stg -f apps/service/Dockerfile apps/service
+          docker image inspect tce-frontend:stg >/dev/null
+          docker image inspect tce-service:stg >/dev/null
           docker save tce-frontend:stg tce-service:stg | gzip > /tmp/tce-stg-images.tar.gz
       - name: Configure SSH
         env: { KEY: ${{ secrets.VPS_SSH_PRIVATE_KEY }} }
