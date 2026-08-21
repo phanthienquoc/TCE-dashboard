@@ -1,69 +1,59 @@
 name: "WF-04 TCE Staging Deploy"
 
 on:
+  workflow_call:
+    secrets: inherit
   workflow_dispatch:
     inputs:
-      host:
-        description: "VPS IP/hostname"
-        required: true
-        default: "132.226.175.206"
-      port:
-        description: "SSH port"
-        required: true
-        default: "22"
-      username:
-        description: "SSH username"
-        required: true
-        default: "ubuntu"
-      app_port:
-        description: "Isolated TCE staging port"
-        required: true
-        default: "3211"
+      host: { description: "VPS IP/hostname", required: true, default: "132.226.175.206" }
+      username: { description: "SSH username", required: true, default: "ubuntu" }
+
+env:
+  ENV_NAME: stg
+  NAMESPACE: tce-stg
 
 jobs:
   deploy-staging:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 20
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: Build
+      - uses: actions/checkout@v4
+      - name: Build FE + BE images
         run: |
           set -euo pipefail
-          npm install
-          npm run build
-          test -d dist
+          docker build -t tce-frontend:stg -f Dockerfile .
+          docker build -t tce-service:stg -f apps/service/Dockerfile apps/service
+          docker save tce-frontend:stg tce-service:stg | gzip > /tmp/tce-stg-images.tar.gz
       - name: Configure SSH
-        env:
-          KEY: ${{ secrets.VPS_SSH_PRIVATE_KEY }}
+        env: { KEY: ${{ secrets.VPS_SSH_PRIVATE_KEY }} }
         run: |
           set -euo pipefail
           mkdir -p ~/.ssh
           printf '%s\n' "$KEY" | tr -d '\r' > ~/.ssh/tce_vps_key
           chmod 600 ~/.ssh/tce_vps_key
           ssh-keygen -y -f ~/.ssh/tce_vps_key >/dev/null
-      - name: Deploy isolated staging
+      - name: Deploy to k3s STG
         env:
-          H: ${{ inputs.host }}
-          P: ${{ inputs.port }}
-          U: ${{ inputs.username }}
-          AP: ${{ inputs.app_port }}
+          H: ${{ inputs.host || '132.226.175.206' }}
+          U: ${{ inputs.username || 'ubuntu' }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL_STG }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY_STG }}
+          JWT_SECRET: ${{ secrets.JWT_SECRET_STG }}
         run: |
           set -euo pipefail
-          tar -C dist -czf /tmp/tce-staging.tar.gz .
-          scp -i ~/.ssh/tce_vps_key -o IdentitiesOnly=yes -o StrictHostKeyChecking=no -P "$P" /tmp/tce-staging.tar.gz "$U@$H:/tmp/tce-staging.tar.gz"
-          ssh -i ~/.ssh/tce_vps_key -o IdentitiesOnly=yes -o StrictHostKeyChecking=no -p "$P" "$U@$H" "AP=$AP bash -s" <<'REMOTE'
+          test -n "$SUPABASE_URL"; test -n "$SUPABASE_KEY"; test -n "$JWT_SECRET"
+          scp -i ~/.ssh/tce_vps_key -o IdentitiesOnly=yes -o StrictHostKeyChecking=no /tmp/tce-stg-images.tar.gz "$U@$H:/tmp/tce-stg-images.tar.gz"
+          scp -i ~/.ssh/tce_vps_key -o IdentitiesOnly=yes -o StrictHostKeyChecking=no infra/k3s/service-stg.yaml infra/k3s/frontend-stg.yaml "$U@$H:/tmp/"
+          ssh -i ~/.ssh/tce_vps_key -o IdentitiesOnly=yes -o StrictHostKeyChecking=no "$U@$H" "SUPABASE_URL='$SUPABASE_URL' SUPABASE_KEY='$SUPABASE_KEY' JWT_SECRET='$JWT_SECRET' bash -s" <<'REMOTE'
           set -euo pipefail
-          mkdir -p /home/ubuntu/tce/staging/dashboard
-          rm -rf /home/ubuntu/tce/staging/dashboard/*
-          tar -xzf /tmp/tce-staging.tar.gz -C /home/ubuntu/tce/staging/dashboard
-          rm -f /tmp/tce-staging.tar.gz
-          docker rm -f tce-staging-dashboard >/dev/null 2>&1 || true
-          docker run -d --name tce-staging-dashboard --restart unless-stopped -p "127.0.0.1:${AP}:80" -v /home/ubuntu/tce/staging/dashboard:/usr/share/nginx/html:ro nginx:1.27-alpine
-          sleep 2
-          curl -fsS "http://127.0.0.1:${AP}/" >/dev/null
-          echo "WF-04 STAGING HEALTHY"
+          sudo k3s ctr images import /tmp/tce-stg-images.tar.gz
+          sudo kubectl -n tce-stg create secret generic tce-app-secrets --from-literal=SUPABASE_URL="$SUPABASE_URL" --from-literal=SUPABASE_SERVICE_ROLE_KEY="$SUPABASE_KEY" --from-literal=JWT_SECRET="$JWT_SECRET" --dry-run=client -o yaml | sudo kubectl apply -f -
+          sudo kubectl apply -f /tmp/service-stg.yaml -f /tmp/frontend-stg.yaml
+          sudo kubectl -n tce-stg rollout status deployment/tce-service --timeout=180s
+          sudo kubectl -n tce-stg rollout status deployment/tce-frontend --timeout=180s
+          sudo kubectl -n tce-stg get pods,svc,ingress
+          rm -f /tmp/tce-stg-images.tar.gz /tmp/service-stg.yaml /tmp/frontend-stg.yaml
           REMOTE
       - name: Cleanup
         if: always()
-        run: rm -f ~/.ssh/tce_vps_key /tmp/tce-staging.tar.gz
+        run: rm -f ~/.ssh/tce_vps_key /tmp/tce-stg-images.tar.gz
