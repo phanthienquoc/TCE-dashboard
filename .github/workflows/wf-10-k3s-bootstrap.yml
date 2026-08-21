@@ -12,6 +12,9 @@ on:
         required: true
         default: "ubuntu"
 
+env:
+  TCE_NAMESPACE: tce
+
 jobs:
   bootstrap:
     runs-on: ubuntu-latest
@@ -35,16 +38,11 @@ jobs:
           set -euo pipefail
           ssh -i ~/.ssh/tce_vps_key -o IdentitiesOnly=yes -o StrictHostKeyChecking=no -o ConnectTimeout=10 "$U@$H" 'bash -s' <<'REMOTE'
           set -euo pipefail
-          echo '=== DISK ==='
           df -h /
-          echo '=== MEMORY ==='
           free -h
-          echo '=== EXISTING NGINX ==='
           sudo systemctl is-active nginx
           sudo nginx -t
-          echo '=== EXISTING DOCKER ==='
           docker ps --format 'table {{.Names}}\t{{.Status}}\t{{.Ports}}'
-          echo '=== K3S EXISTING ==='
           if command -v k3s >/dev/null 2>&1; then sudo k3s --version; else echo 'k3s not installed'; fi
           REMOTE
 
@@ -58,22 +56,34 @@ jobs:
           set -euo pipefail
           NODE_NAME='tce-k3s-01'
           NAMESPACE='tce'
-
           if ! command -v k3s >/dev/null 2>&1; then
             curl -sfL https://get.k3s.io | INSTALL_K3S_EXEC="server --node-name ${NODE_NAME} --disable traefik" sh -
           fi
-
           sudo systemctl enable --now k3s
           sudo kubectl create namespace "$NAMESPACE" --dry-run=client -o yaml | sudo kubectl apply -f -
           sudo kubectl label namespace "$NAMESPACE" app.kubernetes.io/part-of=tce --overwrite
-
-          echo '=== K3S STATUS ==='
-          sudo systemctl is-active k3s
           sudo kubectl get nodes -o wide
           sudo kubectl get namespace "$NAMESPACE"
-          echo '=== DISK AFTER INSTALL ==='
           df -h /
           echo 'TCE k3s bootstrap complete. Existing Nginx/Docker services were not modified.'
+          REMOTE
+
+      - name: Configure STG/PROD MFA secrets in k3s
+        env:
+          H: ${{ inputs.host }}
+          U: ${{ inputs.username }}
+          MFA_STG: ${{ secrets.MFA_ENCRYPTION_KEY_STG }}
+          MFA_PROD: ${{ secrets.MFA_ENCRYPTION_KEY_PROD }}
+        run: |
+          set -euo pipefail
+          test -n "$MFA_STG"
+          test -n "$MFA_PROD"
+          ssh -i ~/.ssh/tce_vps_key -o IdentitiesOnly=yes -o StrictHostKeyChecking=no "$U@$H" "MFA_STG='$MFA_STG' MFA_PROD='$MFA_PROD' bash -s" <<'REMOTE'
+          set -euo pipefail
+          umask 077
+          printf '%s' "$MFA_STG" | sudo kubectl -n tce create secret generic tce-auth-stg --from-literal=MFA_ENCRYPTION_KEY=- --dry-run=client -o yaml | sudo kubectl apply -f -
+          printf '%s' "$MFA_PROD" | sudo kubectl -n tce create secret generic tce-auth-prod --from-literal=MFA_ENCRYPTION_KEY=- --dry-run=client -o yaml | sudo kubectl apply -f -
+          sudo kubectl -n tce get secret tce-auth-stg tce-auth-prod
           REMOTE
 
       - name: Cleanup
