@@ -25,9 +25,28 @@ jobs:
         env:
           SSH_PRIVATE_KEY: ${{ secrets.VPS_SSH_PRIVATE_KEY }}
         run: |
+          set -euo pipefail
           mkdir -p ~/.ssh
-          printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/tce_vps_key
+          printf '%s\n' "$SSH_PRIVATE_KEY" | tr -d '\r' > ~/.ssh/tce_vps_key
           chmod 600 ~/.ssh/tce_vps_key
+
+      - name: Validate private key
+        run: |
+          set -euo pipefail
+          if [ ! -s ~/.ssh/tce_vps_key ]; then
+            echo "ERROR: VPS_SSH_PRIVATE_KEY is empty or unavailable."
+            exit 1
+          fi
+
+          if ssh-keygen -y -f ~/.ssh/tce_vps_key > /tmp/tce_vps_public_key 2>/tmp/tce_key_error; then
+            echo "Private key format: OK"
+            ssh-keygen -lf /tmp/tce_vps_public_key
+          else
+            echo "ERROR: GitHub Secret VPS_SSH_PRIVATE_KEY is not a valid private SSH key."
+            echo "ssh-keygen diagnostic:"
+            cat /tmp/tce_key_error
+            exit 1
+          fi
 
       - name: Test TCP port
         env:
@@ -55,4 +74,4 @@ jobs:
 
       - name: Cleanup
         if: always()
-        run: rm -f ~/.ssh/tce_vps_key
+        run: rm -f ~/.ssh/tce_vps_key /tmp/tce_vps_public_key /tmp/tce_key_error
