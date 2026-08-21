@@ -1,0 +1,41 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: tce-service
+  namespace: tce
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: tce-service }
+  template:
+    metadata:
+      labels: { app: tce-service }
+    spec:
+      containers:
+        - name: service
+          image: ghcr.io/phanthienquoc/tce-service:stg
+          imagePullPolicy: Always
+          ports: [{ containerPort: 8210 }]
+          env:
+            - name: NODE_ENV
+              value: staging
+            - name: PORT
+              value: "8210"
+          readinessProbe:
+            httpGet: { path: /api/health, port: 8210 }
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          resources:
+            requests: { cpu: 50m, memory: 128Mi }
+            limits: { cpu: 500m, memory: 512Mi }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: tce-service
+  namespace: tce
+spec:
+  selector: { app: tce-service }
+  ports:
+    - port: 8210
+      targetPort: 8210
