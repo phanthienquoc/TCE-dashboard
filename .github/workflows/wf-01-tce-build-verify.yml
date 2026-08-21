@@ -1,0 +1,35 @@
+name: "WF-01 TCE Build Verify"
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - 'src/**'
+      - 'index.html'
+      - 'package.json'
+      - 'vite.config.*'
+      - 'Dockerfile'
+      - 'apps/service/**'
+      - '.github/workflows/wf-01-tce-build-verify.yml'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build frontend
+        run: |
+          set -euo pipefail
+          docker build --pull -t tce-frontend:verify -f Dockerfile .
+          docker image inspect tce-frontend:verify >/dev/null
+      - name: Build backend
+        run: |
+          set -euo pipefail
+          docker build --pull -t tce-service:verify -f apps/service/Dockerfile apps/service
+          docker image inspect tce-service:verify >/dev/null
+      - name: Verify image metadata
+        run: |
+          docker image inspect tce-frontend:verify --format '{{.Config.ExposedPorts}}'
+          docker image inspect tce-service:verify --format '{{.Config.ExposedPorts}}'
