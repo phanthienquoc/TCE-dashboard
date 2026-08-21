@@ -1,0 +1,99 @@
+name: "WF-03 TCE Development Deploy"
+
+on:
+  workflow_dispatch:
+    inputs:
+      host:
+        description: "VPS IP/hostname"
+        required: true
+        default: "132.226.175.206"
+      port:
+        description: "SSH port"
+        required: true
+        default: "22"
+      username:
+        description: "SSH username"
+        required: true
+        default: "ubuntu"
+      app_port:
+        description: "Isolated TCE development port"
+        required: true
+        default: "3210"
+
+jobs:
+  deploy-development:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout TCE
+        uses: actions/checkout@v4
+
+      - name: Build dashboard artifact
+        run: |
+          set -euo pipefail
+          if [ ! -f package.json ]; then
+            echo "ERROR: package.json not found"
+            exit 1
+          fi
+          npm install
+          npm run build
+          test -d dist
+          echo "TCE dashboard build OK"
+
+      - name: Configure SSH
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.VPS_SSH_PRIVATE_KEY }}
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.ssh
+          printf '%s\n' "$SSH_PRIVATE_KEY" | tr -d '\r' > ~/.ssh/tce_vps_key
+          chmod 600 ~/.ssh/tce_vps_key
+          ssh-keygen -y -f ~/.ssh/tce_vps_key >/dev/null
+
+      - name: Upload isolated development build
+        env:
+          HOST: ${{ inputs.host }}
+          PORT: ${{ inputs.port }}
+          USERNAME: ${{ inputs.username }}
+        run: |
+          set -euo pipefail
+          tar -C dist -czf /tmp/tce-dist.tar.gz .
+          scp -i ~/.ssh/tce_vps_key -o IdentitiesOnly=yes -o StrictHostKeyChecking=no -o ConnectTimeout=10 \
+            -P "$PORT" /tmp/tce-dist.tar.gz "$USERNAME@$HOST:/tmp/tce-dist.tar.gz"
+          ssh -i ~/.ssh/tce_vps_key -o IdentitiesOnly=yes -o StrictHostKeyChecking=no -p "$PORT" "$USERNAME@$HOST" 'bash -s' <<'REMOTE'
+          set -euo pipefail
+          mkdir -p /home/ubuntu/tce/development/dashboard
+          rm -rf /home/ubuntu/tce/development/dashboard/*
+          tar -xzf /tmp/tce-dist.tar.gz -C /home/ubuntu/tce/development/dashboard
+          rm -f /tmp/tce-dist.tar.gz
+          echo "Development build uploaded."
+          REMOTE
+
+      - name: Start isolated TCE development container
+        env:
+          HOST: ${{ inputs.host }}
+          PORT: ${{ inputs.port }}
+          USERNAME: ${{ inputs.username }}
+          APP_PORT: ${{ inputs.app_port }}
+        run: |
+          set -euo pipefail
+          ssh -i ~/.ssh/tce_vps_key -o IdentitiesOnly=yes -o StrictHostKeyChecking=no -p "$PORT" "$USERNAME@$HOST" "APP_PORT=$APP_PORT bash -s" <<'REMOTE'
+          set -euo pipefail
+          APP_PORT="${APP_PORT}"
+          docker rm -f tce-development-dashboard >/dev/null 2>&1 || true
+          docker run -d \
+            --name tce-development-dashboard \
+            --restart unless-stopped \
+            -p "127.0.0.1:${APP_PORT}:80" \
+            -v /home/ubuntu/tce/development/dashboard:/usr/share/nginx/html:ro \
+            nginx:1.27-alpine
+          sleep 2
+          docker ps --filter name=tce-development-dashboard --format 'table {{.Names}}\t{{.Status}}\t{{.Ports}}'
+          curl -fsS "http://127.0.0.1:${APP_PORT}/" >/dev/null
+          echo "TCE development dashboard is healthy on 127.0.0.1:${APP_PORT}"
+          echo "Existing nginx/domain configuration was NOT modified."
+          REMOTE
+
+      - name: Cleanup runner key
+        if: always()
+        run: rm -f ~/.ssh/tce_vps_key /tmp/tce-dist.tar.gz
