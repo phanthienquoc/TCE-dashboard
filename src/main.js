@@ -1,5 +1,4 @@
 import './style.css';
-import { createClient } from '@supabase/supabase-js';
 
 const fallback = { account:{initial_capital:30000000,cashout_realized:0,capital_deployed:17600000,capital_available:12400000,recovery_remaining:30000000,current_cycle:1}, positions:[{symbol:'PTB',quantity:300,avg_cost:32,cost_basis:9600000,market_price:32,market_value:9600000,unrealized_pnl:0},{symbol:'SSI',quantity:400,avg_cost:20,cost_basis:8000000,market_price:20,market_value:8000000,unrealized_pnl:0}], orders:[{symbol:'PTB',side:'BUY',price:32,quantity:300,gross_value:9600000},{symbol:'SSI',side:'BUY',price:20,quantity:400,gross_value:8000000}]};
 const money=n=>new Intl.NumberFormat('vi-VN',{style:'currency',currency:'VND',maximumFractionDigits:0}).format(n);
@@ -7,8 +6,10 @@ const pct=(a,b)=>b?Math.round(a/b*100):0;
 
 async function load(){
   let data=fallback;
-  const url=import.meta.env.VITE_SUPABASE_URL, key=import.meta.env.VITE_SUPABASE_ANON_KEY;
-  if(url&&key){try{const sb=createClient(url,key); const {data:a}=await sb.from('tce_accounts').select('*').eq('name','TCE-30M').single(); const {data:p}=await sb.from('tce_positions').select('*').eq('account_id',a.id).order('symbol'); const {data:o}=await sb.from('tce_orders').select('*').eq('account_id',a.id).order('created_at',{ascending:false}).limit(20); if(a)data={account:a,positions:p||[],orders:o||[]};}catch(e){console.warn(e)}}
+  try {
+    const response = await fetch('/api/dashboard', { credentials:'include' });
+    if (response.ok) data = await response.json();
+  } catch (e) { console.warn('BE unavailable; using fallback dashboard data', e); }
   render(data);
 }
 function render(d){
