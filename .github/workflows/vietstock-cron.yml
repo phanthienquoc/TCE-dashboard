@@ -1,0 +1,37 @@
+name: TCE Vietstock Cron
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 1 * * *"
+
+jobs:
+  vietstock-sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      VIETSTOCK_FROM_DATE: ${{ vars.VIETSTOCK_FROM_DATE || '2015-01-01' }}
+      VIETSTOCK_MAX_PAGES: ${{ vars.VIETSTOCK_MAX_PAGES || '20' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Chromium
+        uses: browser-actions/setup-chrome@v1
+        with:
+          chrome-version: stable
+
+      - name: Install dependencies
+        working-directory: backend/jobs/vietstock
+        run: python -m pip install -r requirements.txt
+
+      - name: Run scraper
+        working-directory: backend/jobs/vietstock
+        run: python -m app
