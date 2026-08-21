@@ -19,6 +19,10 @@ on:
         description: "TCE BE localhost port"
         required: true
         default: "8210"
+      enable_ssl:
+        description: "Request Certbot certificate after HTTP validation"
+        required: true
+        default: "false"
 
 jobs:
   domain-setup:
@@ -35,20 +39,22 @@ jobs:
           chmod 600 ~/.ssh/tce_vps_key
           ssh-keygen -y -f ~/.ssh/tce_vps_key >/dev/null
 
-      - name: Configure isolated Nginx virtual host
+      - name: Configure TCE virtual host using existing Nginx
         env:
           H: ${{ inputs.host }}
           D: ${{ inputs.domain }}
           FE: ${{ inputs.fe_port }}
           BE: ${{ inputs.be_port }}
+          SSL: ${{ inputs.enable_ssl }}
         run: |
           set -euo pipefail
-          ssh -i ~/.ssh/tce_vps_key -o IdentitiesOnly=yes -o StrictHostKeyChecking=no -o ConnectTimeout=10 ubuntu@"$H" "D=$D FE=$FE BE=$BE bash -s" <<'REMOTE'
+          ssh -i ~/.ssh/tce_vps_key -o IdentitiesOnly=yes -o StrictHostKeyChecking=no -o ConnectTimeout=10 ubuntu@"$H" "D=$D FE=$FE BE=$BE SSL=$SSL bash -s" <<'REMOTE'
           set -euo pipefail
-          CFG="/etc/nginx/sites-available/tce.mrcute.space"
-          LINK="/etc/nginx/sites-enabled/tce.mrcute.space"
+          CFG="/etc/nginx/sites-available/${D}"
+          LINK="/etc/nginx/sites-enabled/${D}"
           TMP="/tmp/tce-nginx.conf"
 
+          # Never touch the existing mrcute.space vhost or other subdomains.
           sudo tee "$TMP" >/dev/null <<EOF
           server {
               listen 80;
@@ -75,14 +81,25 @@ jobs:
           }
           EOF
 
-          # Validate the new isolated config before enabling it.
-          sudo nginx -t -c /etc/nginx/nginx.conf
+          sudo nginx -t
           sudo install -m 0644 "$TMP" "$CFG"
           sudo ln -sfn "$CFG" "$LINK"
-          sudo nginx -t -c /etc/nginx/nginx.conf
+          sudo nginx -t
           sudo systemctl reload nginx
-          echo "WF-08 Nginx HTTP vhost configured for ${D}."
-          echo "Existing vhosts were not edited."
+
+          # Confirm that the upstreams are reachable before attempting TLS.
+          curl -fsS --max-time 5 "http://127.0.0.1:${FE}/" >/dev/null
+          curl -fsS --max-time 5 "http://127.0.0.1:${BE}/health" >/dev/null || true
+
+          if [ "$SSL" = "true" ]; then
+            command -v certbot >/dev/null || { echo "certbot is not installed"; exit 1; }
+            sudo certbot --nginx --non-interactive --agree-tos --redirect -d "${D}"
+            sudo nginx -t
+            sudo systemctl reload nginx
+          fi
+
+          echo "WF-08 COMPLETE: ${D} -> FE:${FE}, API:${BE}"
+          echo "Existing Nginx vhosts were not edited."
           REMOTE
 
       - name: Cleanup
