@@ -1,0 +1,36 @@
+name: "WF-07 TCE Backup"
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "30 18 * * *"
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Configure SSH
+        env:
+          KEY: ${{ secrets.VPS_SSH_PRIVATE_KEY }}
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.ssh
+          printf '%s\n' "$KEY" | tr -d '\r' > ~/.ssh/tce_vps_key
+          chmod 600 ~/.ssh/tce_vps_key
+      - name: Create TCE backup without touching existing stack
+        run: |
+          set -euo pipefail
+          ssh -i ~/.ssh/tce_vps_key -o IdentitiesOnly=yes -o StrictHostKeyChecking=no ubuntu@132.226.175.206 'bash -s' <<'REMOTE'
+          set -euo pipefail
+          BACKUP_DIR=/home/ubuntu/tce/backups
+          mkdir -p "$BACKUP_DIR"
+          TS=$(date +%Y%m%d-%H%M%S)
+          tar -czf "$BACKUP_DIR/tce-$TS.tar.gz" -C /home/ubuntu/tce development staging production
+          find "$BACKUP_DIR" -type f -name 'tce-*.tar.gz' -mtime +7 -delete
+          ls -lh "$BACKUP_DIR" | tail -10
+          echo "WF-07 BACKUP COMPLETE"
+          REMOTE
+      - name: Cleanup
+        if: always()
+        run: rm -f ~/.ssh/tce_vps_key
