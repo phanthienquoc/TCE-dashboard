@@ -1,0 +1,78 @@
+name: "WF-05 TCE Production Deploy"
+
+on:
+  workflow_dispatch:
+    inputs:
+      host:
+        description: "VPS IP/hostname"
+        required: true
+        default: "132.226.175.206"
+      port:
+        description: "SSH port"
+        required: true
+        default: "22"
+      username:
+        description: "SSH username"
+        required: true
+        default: "ubuntu"
+      app_port:
+        description: "Isolated TCE production port"
+        required: true
+        default: "3212"
+      confirm:
+        description: "Type DEPLOY-TCE-PROD to confirm"
+        required: true
+        default: ""
+
+jobs:
+  deploy-production:
+    if: ${{ inputs.confirm == 'DEPLOY-TCE-PROD' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Build
+        run: |
+          set -euo pipefail
+          npm install
+          npm run build
+          test -d dist
+      - name: Configure SSH
+        env:
+          KEY: ${{ secrets.VPS_SSH_PRIVATE_KEY }}
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.ssh
+          printf '%s\n' "$KEY" | tr -d '\r' > ~/.ssh/tce_vps_key
+          chmod 600 ~/.ssh/tce_vps_key
+          ssh-keygen -y -f ~/.ssh/tce_vps_key >/dev/null
+      - name: Deploy isolated production
+        env:
+          H: ${{ inputs.host }}
+          P: ${{ inputs.port }}
+          U: ${{ inputs.username }}
+          AP: ${{ inputs.app_port }}
+        run: |
+          set -euo pipefail
+          tar -C dist -czf /tmp/tce-production.tar.gz .
+          scp -i ~/.ssh/tce_vps_key -o IdentitiesOnly=yes -o StrictHostKeyChecking=no -P "$P" /tmp/tce-production.tar.gz "$U@$H:/tmp/tce-production.tar.gz"
+          ssh -i ~/.ssh/tce_vps_key -o IdentitiesOnly=yes -o StrictHostKeyChecking=no -p "$P" "$U@$H" "AP=$AP bash -s" <<'REMOTE'
+          set -euo pipefail
+          install -d /home/ubuntu/tce/production/releases
+          RELEASE="$(date +%Y%m%d-%H%M%S)"
+          mkdir -p "/home/ubuntu/tce/production/releases/$RELEASE"
+          tar -xzf /tmp/tce-production.tar.gz -C "/home/ubuntu/tce/production/releases/$RELEASE"
+          rm -f /tmp/tce-production.tar.gz
+          ln -sfn "/home/ubuntu/tce/production/releases/$RELEASE" /home/ubuntu/tce/production/current
+          docker rm -f tce-production-dashboard >/dev/null 2>&1 || true
+          docker run -d --name tce-production-dashboard --restart unless-stopped -p "127.0.0.1:${AP}:80" -v /home/ubuntu/tce/production/current:/usr/share/nginx/html:ro nginx:1.27-alpine
+          sleep 2
+          curl -fsS "http://127.0.0.1:${AP}/" >/dev/null
+          echo "WF-05 PRODUCTION HEALTHY"
+          echo "Release: $RELEASE"
+          echo "Existing nginx/domain configuration was NOT modified."
+          REMOTE
+      - name: Cleanup
+        if: always()
+        run: rm -f ~/.ssh/tce_vps_key /tmp/tce-production.tar.gz
