@@ -13,7 +13,8 @@ on:
         default: "ubuntu"
 
 env:
-  TCE_NAMESPACE: tce
+  TCE_STG_NAMESPACE: tce-stg
+  TCE_PROD_NAMESPACE: tce-prod
 
 jobs:
   bootstrap:
@@ -30,10 +31,8 @@ jobs:
           chmod 600 ~/.ssh/tce_vps_key
           ssh-keygen -y -f ~/.ssh/tce_vps_key >/dev/null
 
-      - name: Preflight existing services and disk
-        env:
-          H: ${{ inputs.host }}
-          U: ${{ inputs.username }}
+      - name: Preflight existing services
+        env: { H: ${{ inputs.host }}, U: ${{ inputs.username }} }
         run: |
           set -euo pipefail
           ssh -i ~/.ssh/tce_vps_key -o IdentitiesOnly=yes -o StrictHostKeyChecking=no -o ConnectTimeout=10 "$U@$H" 'bash -s' <<'REMOTE'
@@ -43,32 +42,28 @@ jobs:
           sudo systemctl is-active nginx
           sudo nginx -t
           docker ps --format 'table {{.Names}}\t{{.Status}}\t{{.Ports}}'
-          if command -v k3s >/dev/null 2>&1; then sudo k3s --version; else echo 'k3s not installed'; fi
           REMOTE
 
-      - name: Bootstrap isolated single-node k3s
-        env:
-          H: ${{ inputs.host }}
-          U: ${{ inputs.username }}
+      - name: Bootstrap isolated single-node k3s with Traefik
+        env: { H: ${{ inputs.host }}, U: ${{ inputs.username }} }
         run: |
           set -euo pipefail
           ssh -i ~/.ssh/tce_vps_key -o IdentitiesOnly=yes -o StrictHostKeyChecking=no -o ConnectTimeout=10 "$U@$H" 'bash -s' <<'REMOTE'
           set -euo pipefail
           NODE_NAME='tce-k3s-01'
-          NAMESPACE='tce'
           if ! command -v k3s >/dev/null 2>&1; then
-            curl -sfL https://get.k3s.io | INSTALL_K3S_EXEC="server --node-name ${NODE_NAME} --disable traefik" sh -
+            curl -sfL https://get.k3s.io | INSTALL_K3S_EXEC="server --node-name ${NODE_NAME}" sh -
           fi
           sudo systemctl enable --now k3s
-          sudo kubectl create namespace "$NAMESPACE" --dry-run=client -o yaml | sudo kubectl apply -f -
-          sudo kubectl label namespace "$NAMESPACE" app.kubernetes.io/part-of=tce --overwrite
+          sudo kubectl create namespace tce-stg --dry-run=client -o yaml | sudo kubectl apply -f -
+          sudo kubectl create namespace tce-prod --dry-run=client -o yaml | sudo kubectl apply -f -
+          sudo kubectl label namespace tce-stg app.kubernetes.io/part-of=tce environment=stg --overwrite
+          sudo kubectl label namespace tce-prod app.kubernetes.io/part-of=tce environment=prod --overwrite
           sudo kubectl get nodes -o wide
-          sudo kubectl get namespace "$NAMESPACE"
-          df -h /
-          echo 'TCE k3s bootstrap complete. Existing Nginx/Docker services were not modified.'
+          sudo kubectl -n kube-system get pods -l app.kubernetes.io/name=traefik
           REMOTE
 
-      - name: Configure STG/PROD MFA secrets in k3s
+      - name: Configure STG/PROD MFA secrets
         env:
           H: ${{ inputs.host }}
           U: ${{ inputs.username }}
@@ -81,9 +76,10 @@ jobs:
           ssh -i ~/.ssh/tce_vps_key -o IdentitiesOnly=yes -o StrictHostKeyChecking=no "$U@$H" "MFA_STG='$MFA_STG' MFA_PROD='$MFA_PROD' bash -s" <<'REMOTE'
           set -euo pipefail
           umask 077
-          printf '%s' "$MFA_STG" | sudo kubectl -n tce create secret generic tce-auth-stg --from-literal=MFA_ENCRYPTION_KEY=- --dry-run=client -o yaml | sudo kubectl apply -f -
-          printf '%s' "$MFA_PROD" | sudo kubectl -n tce create secret generic tce-auth-prod --from-literal=MFA_ENCRYPTION_KEY=- --dry-run=client -o yaml | sudo kubectl apply -f -
-          sudo kubectl -n tce get secret tce-auth-stg tce-auth-prod
+          sudo kubectl -n tce-stg create secret generic tce-auth --from-literal=MFA_ENCRYPTION_KEY="$MFA_STG" --dry-run=client -o yaml | sudo kubectl apply -f -
+          sudo kubectl -n tce-prod create secret generic tce-auth --from-literal=MFA_ENCRYPTION_KEY="$MFA_PROD" --dry-run=client -o yaml | sudo kubectl apply -f -
+          sudo kubectl -n tce-stg get secret tce-auth
+          sudo kubectl -n tce-prod get secret tce-auth
           REMOTE
 
       - name: Cleanup
