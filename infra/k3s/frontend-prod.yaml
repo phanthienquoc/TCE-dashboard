@@ -1,0 +1,36 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata: { name: tce-frontend, namespace: tce-prod }
+spec:
+  replicas: 1
+  selector: { matchLabels: { app: tce-frontend } }
+  template:
+    metadata: { labels: { app: tce-frontend } }
+    spec:
+      containers:
+        - name: frontend
+          image: tce-frontend:prod
+          imagePullPolicy: IfNotPresent
+          ports: [{ name: http, containerPort: 80 }]
+          readinessProbe: { httpGet: { path: /, port: http }, initialDelaySeconds: 5, periodSeconds: 10 }
+          livenessProbe: { httpGet: { path: /, port: http }, initialDelaySeconds: 15, periodSeconds: 20 }
+          resources: { requests: { cpu: 50m, memory: 64Mi }, limits: { cpu: 250m, memory: 256Mi } }
+---
+apiVersion: v1
+kind: Service
+metadata: { name: tce-frontend, namespace: tce-prod }
+spec:
+  selector: { app: tce-frontend }
+  ports: [{ port: 80, targetPort: http }]
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata: { name: tce, namespace: tce-prod }
+spec:
+  ingressClassName: traefik
+  rules:
+    - host: tce.mrcute.space
+      http:
+        paths:
+          - { path: /api, pathType: Prefix, backend: { service: { name: tce-service, port: { number: 8210 } } } }
+          - { path: /, pathType: Prefix, backend: { service: { name: tce-frontend, port: { number: 80 } } } }
