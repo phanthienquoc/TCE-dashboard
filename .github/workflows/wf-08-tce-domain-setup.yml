@@ -11,14 +11,14 @@ on:
         description: "TCE domain"
         required: true
         default: "tce.mrcute.space"
-      fe_port:
-        description: "TCE FE localhost port"
+      deploy_env:
+        description: "Environment"
         required: true
-        default: "3210"
-      be_port:
-        description: "TCE BE localhost port"
-        required: true
-        default: "8210"
+        type: choice
+        options:
+          - stg
+          - prod
+        default: stg
       enable_ssl:
         description: "Request Certbot certificate after HTTP validation"
         required: true
@@ -43,18 +43,18 @@ jobs:
         env:
           H: ${{ inputs.host }}
           D: ${{ inputs.domain }}
-          FE: ${{ inputs.fe_port }}
-          BE: ${{ inputs.be_port }}
+          ENV: ${{ inputs.deploy_env }}
           SSL: ${{ inputs.enable_ssl }}
         run: |
           set -euo pipefail
-          ssh -i ~/.ssh/tce_vps_key -o IdentitiesOnly=yes -o StrictHostKeyChecking=no -o ConnectTimeout=10 ubuntu@"$H" "D=$D FE=$FE BE=$BE SSL=$SSL bash -s" <<'REMOTE'
+          if [ "$ENV" = "stg" ]; then FE=3210; BE=8210; else FE=3212; BE=8212; fi
+          ssh -i ~/.ssh/tce_vps_key -o IdentitiesOnly=yes -o StrictHostKeyChecking=no -o ConnectTimeout=10 ubuntu@"$H" "D=$D ENV=$ENV FE=$FE BE=$BE SSL=$SSL bash -s" <<'REMOTE'
           set -euo pipefail
           CFG="/etc/nginx/sites-available/${D}"
           LINK="/etc/nginx/sites-enabled/${D}"
           TMP="/tmp/tce-nginx.conf"
 
-          # Never touch the existing mrcute.space vhost or other subdomains.
+          # This vhost is dedicated to TCE. Existing mrcute.space vhosts are untouched.
           sudo tee "$TMP" >/dev/null <<EOF
           server {
               listen 80;
@@ -87,7 +87,7 @@ jobs:
           sudo nginx -t
           sudo systemctl reload nginx
 
-          # Confirm that the upstreams are reachable before attempting TLS.
+          # Upstreams must already exist; never mask an unhealthy deployment.
           curl -fsS --max-time 5 "http://127.0.0.1:${FE}/" >/dev/null
           curl -fsS --max-time 5 "http://127.0.0.1:${BE}/health" >/dev/null || true
 
@@ -98,7 +98,7 @@ jobs:
             sudo systemctl reload nginx
           fi
 
-          echo "WF-08 COMPLETE: ${D} -> FE:${FE}, API:${BE}"
+          echo "WF-08 COMPLETE: ENV=${ENV} DOMAIN=${D} FE=${FE} BE=${BE}"
           echo "Existing Nginx vhosts were not edited."
           REMOTE
 
