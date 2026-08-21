@@ -1,0 +1,90 @@
+name: "WF-08 TCE Domain Setup"
+
+on:
+  workflow_dispatch:
+    inputs:
+      host:
+        description: "VPS IP/hostname"
+        required: true
+        default: "132.226.175.206"
+      domain:
+        description: "TCE domain"
+        required: true
+        default: "tce.mrcute.space"
+      fe_port:
+        description: "TCE FE localhost port"
+        required: true
+        default: "3210"
+      be_port:
+        description: "TCE BE localhost port"
+        required: true
+        default: "8210"
+
+jobs:
+  domain-setup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Configure SSH
+        env:
+          KEY: ${{ secrets.VPS_SSH_PRIVATE_KEY }}
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.ssh
+          printf '%s\n' "$KEY" | tr -d '\r' > ~/.ssh/tce_vps_key
+          chmod 600 ~/.ssh/tce_vps_key
+          ssh-keygen -y -f ~/.ssh/tce_vps_key >/dev/null
+
+      - name: Configure isolated Nginx virtual host
+        env:
+          H: ${{ inputs.host }}
+          D: ${{ inputs.domain }}
+          FE: ${{ inputs.fe_port }}
+          BE: ${{ inputs.be_port }}
+        run: |
+          set -euo pipefail
+          ssh -i ~/.ssh/tce_vps_key -o IdentitiesOnly=yes -o StrictHostKeyChecking=no -o ConnectTimeout=10 ubuntu@"$H" "D=$D FE=$FE BE=$BE bash -s" <<'REMOTE'
+          set -euo pipefail
+          CFG="/etc/nginx/sites-available/tce.mrcute.space"
+          LINK="/etc/nginx/sites-enabled/tce.mrcute.space"
+          TMP="/tmp/tce-nginx.conf"
+
+          sudo tee "$TMP" >/dev/null <<EOF
+          server {
+              listen 80;
+              listen [::]:80;
+              server_name ${D};
+
+              location /api/ {
+                  proxy_pass http://127.0.0.1:${BE}/;
+                  proxy_http_version 1.1;
+                  proxy_set_header Host \$host;
+                  proxy_set_header X-Real-IP \$remote_addr;
+                  proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+                  proxy_set_header X-Forwarded-Proto \$scheme;
+              }
+
+              location / {
+                  proxy_pass http://127.0.0.1:${FE};
+                  proxy_http_version 1.1;
+                  proxy_set_header Host \$host;
+                  proxy_set_header X-Real-IP \$remote_addr;
+                  proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+                  proxy_set_header X-Forwarded-Proto \$scheme;
+              }
+          }
+          EOF
+
+          # Validate the new isolated config before enabling it.
+          sudo nginx -t -c /etc/nginx/nginx.conf
+          sudo install -m 0644 "$TMP" "$CFG"
+          sudo ln -sfn "$CFG" "$LINK"
+          sudo nginx -t -c /etc/nginx/nginx.conf
+          sudo systemctl reload nginx
+          echo "WF-08 Nginx HTTP vhost configured for ${D}."
+          echo "Existing vhosts were not edited."
+          REMOTE
+
+      - name: Cleanup
+        if: always()
+        run: rm -f ~/.ssh/tce_vps_key
