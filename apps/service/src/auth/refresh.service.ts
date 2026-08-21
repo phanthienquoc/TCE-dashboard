@@ -1,18 +1,20 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
-import { createHash, randomUUID } from 'node:crypto';
-import { JwtService } from './jwt.service';
+import { createHash } from 'node:crypto';
+import { AuthRepository } from './auth.repository';
 import { AuthService } from './auth.service';
+import { JwtService } from './jwt.service';
 
 @Injectable()
 export class RefreshService {
-  constructor(private readonly auth: AuthService, private readonly jwt: JwtService) {}
+  constructor(private readonly auth: AuthService, private readonly repo: AuthRepository, private readonly jwt: JwtService) {}
 
-  rotate(userId: string, role: string, presented: string) {
+  async rotate(presented: string, ip?: string, userAgent?: string) {
     if (!presented) throw new UnauthorizedException('Refresh token required');
-    const tokenHash = createHash('sha256').update(presented).digest('hex');
     const next = this.auth.issueRefreshToken();
-    const familyId = randomUUID();
-    // Persistence adapter will atomically revoke old token and insert the replacement.
-    return { accessToken: this.jwt.issue(userId, role), refreshToken: next, tokenHash, familyId };
+    const oldHash = createHash('sha256').update(presented).digest('hex');
+    const newHash = createHash('sha256').update(next).digest('hex');
+    const expiresAt = new Date(Date.now() + Number(process.env.JWT_REFRESH_TTL_SECONDS || 2592000) * 1000);
+    const row = await this.repo.rotateRefreshToken(oldHash, newHash, expiresAt, ip, userAgent);
+    return { accessToken: this.jwt.issue(row.user_id, row.role), refreshToken: next };
   }
 }
