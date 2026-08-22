@@ -65,10 +65,8 @@ jobs:
           sudo nginx -t
           sudo systemctl is-active --quiet nginx
           getent hosts "$D"
-
           sudo mkdir -p "${ACME_ROOT}/.well-known/acme-challenge" "$BACKUP_DIR"
           sudo chown -R www-data:www-data "$ACME_ROOT"
-
           if [ -f "$CFG" ]; then sudo cp -a "$CFG" "$BACKUP"; else echo MISSING | sudo tee "$BACKUP" >/dev/null; fi
           echo "Rollback backup: $BACKUP"
 
@@ -77,16 +75,12 @@ jobs:
               listen 80;
               listen [::]:80;
               server_name ${D};
-
-              # Use root + try_files rather than alias so the ACME path maps
-              # unambiguously to /var/www/tce-acme/.well-known/acme-challenge/.
               location ^~ /.well-known/acme-challenge/ {
-                  root ${ACME_ROOT};
-                  try_files \$uri =404;
+                  alias ${ACME_ROOT}/.well-known/acme-challenge/;
                   default_type text/plain;
                   access_log off;
               }
-
+              location ~ /\\.(?!well-known) { deny all; }
               location /api/ {
                   proxy_pass http://127.0.0.1:${BE}/;
                   proxy_http_version 1.1;
@@ -106,8 +100,7 @@ jobs:
           }
           EOF
 
-          if [ "$DRY_RUN" = "true" ]; then sudo nginx -t -c /etc/nginx/nginx.conf; echo "DRY RUN: no changes made."; exit 0; fi
-
+          if [ "$DRY_RUN" = "true" ]; then sudo nginx -t; echo "DRY RUN: no changes made."; exit 0; fi
           sudo install -m 0644 "$TMP" "$CFG"
           sudo ln -sfn "$CFG" "$LINK"
           sudo nginx -t
@@ -118,34 +111,23 @@ jobs:
           CHECK="tce-acme-${TS}"
           CHECK_PATH="${ACME_ROOT}/.well-known/acme-challenge/${CHECK}"
           echo "$CHECK" | sudo tee "$CHECK_PATH" >/dev/null
+          sudo chmod 0644 "$CHECK_PATH"
           sudo test -s "$CHECK_PATH"
-          echo "Challenge file:"; sudo cat "$CHECK_PATH"
-
-          # Do not use curl -f here: with `set -e`, curl exits immediately on 404,
-          # preventing the diagnostic block from running.
           LOCAL_BODY="/tmp/tce-local-body-${TS}"
           LOCAL_CODE="$(curl --noproxy '*' -sS --max-time 10 -o "$LOCAL_BODY" -w '%{http_code}' -H "Host: ${D}" "http://127.0.0.1/.well-known/acme-challenge/${CHECK}" || true)"
           LOCAL_BODY_TEXT="$(cat "$LOCAL_BODY" 2>/dev/null || true)"
           echo "Local HTTP status: ${LOCAL_CODE}"
           echo "Local response body: ${LOCAL_BODY_TEXT}"
-
           if [ "$LOCAL_CODE" != "200" ] || [ "$LOCAL_BODY_TEXT" != "$CHECK" ]; then
             echo "LOCAL ACME FAILED"
-            echo "=== FILE CHECK ==="
-            sudo namei -l "$CHECK_PATH" || true
-            sudo ls -la "$ACME_ROOT/.well-known/acme-challenge/" || true
-            sudo cat "$CHECK_PATH" || true
-            echo "=== LISTENERS ==="
-            sudo ss -lntp | grep -E ':(80|443)\b' || true
-            echo "=== NGINX MATCHING VHOST ==="
-            sudo nginx -T 2>&1 | grep -n -A20 -B5 "server_name ${D}" || true
-            echo "=== NGINX ERROR LOG TAIL ==="
+            sudo nginx -T 2>&1 | grep -n -A25 -B5 "server_name ${D}" || true
+            sudo ss -lntp | grep -E ':(80|443)\\b' || true
             sudo tail -n 80 /var/log/nginx/error.log || true
             rm -f "$LOCAL_BODY"
+            sudo rm -f "$CHECK_PATH"
             exit 1
           fi
           rm -f "$LOCAL_BODY"
-          trap 'sudo rm -f "$CHECK_PATH"' EXIT
           echo "Local ACME OK."
 
           echo "=== ACME PUBLIC PREFLIGHT ==="
@@ -158,13 +140,12 @@ jobs:
             echo "PUBLIC ACME FAILED: DNS/network is not reaching this vhost."
             echo "This is safe: certificate issuance will NOT be attempted."
             rm -f "$PUBLIC_BODY"
+            sudo rm -f "$CHECK_PATH"
             exit 1
           fi
           rm -f "$PUBLIC_BODY"
           echo "Public ACME OK."
           sudo rm -f "$CHECK_PATH"
-          trap - EXIT
-
           curl --noproxy '*' -fsS -I --max-time 10 "http://${D}/"
 
           if [ "$SSL" = "true" ]; then
@@ -173,18 +154,17 @@ jobs:
             CERT_DIR="/etc/letsencrypt/live/${D}"
             test -s "${CERT_DIR}/fullchain.pem"
             test -s "${CERT_DIR}/privkey.pem"
-
             cat > "$TMP" <<EOF
           server {
               listen 80;
               listen [::]:80;
               server_name ${D};
               location ^~ /.well-known/acme-challenge/ {
-                  root ${ACME_ROOT};
-                  try_files \$uri =404;
+                  alias ${ACME_ROOT}/.well-known/acme-challenge/;
                   default_type text/plain;
                   access_log off;
               }
+              location ~ /\\.(?!well-known) { deny all; }
               location / { return 301 https://\$host\$request_uri; }
           }
           server {
@@ -193,6 +173,7 @@ jobs:
               server_name ${D};
               ssl_certificate ${CERT_DIR}/fullchain.pem;
               ssl_certificate_key ${CERT_DIR}/privkey.pem;
+              location ~ /\\.(?!well-known) { deny all; }
               location /api/ {
                   proxy_pass http://127.0.0.1:${BE}/;
                   proxy_http_version 1.1;
