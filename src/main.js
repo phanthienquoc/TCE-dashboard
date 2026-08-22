@@ -9,6 +9,7 @@ const route=()=>window.location.pathname.replace(/\/+$/,'')||'/';
 
 async function load(){
   let data=fallback;
+  const url=import.meta.env.VITE_SUPABASE_URL, key=import.meta.env.VITE_SUPABASE_ANON_KEY;
   if(url&&key){try{const sb=createClient(url,key); const {data:a}=await sb.from('tce_accounts').select('*').eq('name','TCE-30M').single(); const {data:p}=await sb.from('tce_positions').select('*').eq('account_id',a.id).order('symbol'); const {data:o}=await sb.from('tce_orders').select('*').eq('account_id',a.id).order('created_at',{ascending:false}).limit(20); if(a)data={account:a,positions:p||[],orders:o||[]};}catch(e){console.warn(e)}}
   window.__tceData=data;
   render(data,route());
