@@ -1,8 +1,9 @@
 import './style.css';
 import { createClient } from '@supabase/supabase-js';
 
-const fallback = { account:{initial_capital:30000000,cashout_realized:0,capital_deployed:17600000,capital_available:12400000,recovery_remaining:30000000,current_cycle:1}, positions:[{symbol:'PTB',quantity:300,avg_cost:32,cost_basis:9600000,market_price:32,market_value:9600000,unrealized_pnl:0},{symbol:'SSI',quantity:400,avg_cost:20,cost_basis:8000000,market_price:20,market_value:8000000,unrealized_pnl:0}], orders:[{symbol:'PTB',side:'BUY',price:32,quantity:300,gross_value:9600000},{symbol:'SSI',side:'BUY',price:20,quantity:400,gross_value:8000000}]};
-const money=n=>new Intl.NumberFormat('vi-VN',{style:'currency',currency:'VND',maximumFractionDigits:0}).format(n);
+const fallback = { account:{initial_capital:30000000,cashout_realized:0,capital_deployed:17600000,capital_available:12400000,recovery_remaining:30000000,current_cycle:1}, positions:[{symbol:'PTB',quantity:300,avg_cost:32,cost_basis:9600000,market_price:32,market_value:9600000,unrealized_pnl:0},{symbol:'SSI',quantity:400,avg_cost:20,cost_basis:8000000,market_price:20,market_value:8000000,unrealized_pnl:0}], orders:[],candidates:[] };
+const money=n=>new Intl.NumberFormat('vi-VN',{style:'currency',currency:'VND',maximumFractionDigits:0}).format(n||0);
+const num=n=>Number(n||0).toLocaleString('vi-VN');
 const pct=(a,b)=>b?Math.round(a/b*100):0;
 const routes=['/','/positions','/orders'];
 const route=()=>window.location.pathname.replace(/\/+$/,'')||'/';
@@ -10,19 +11,19 @@ const route=()=>window.location.pathname.replace(/\/+$/,'')||'/';
 async function load(){
   let data=fallback;
   const url=import.meta.env.VITE_SUPABASE_URL, key=import.meta.env.VITE_SUPABASE_ANON_KEY;
-  if(url&&key){try{const sb=createClient(url,key); const {data:a}=await sb.from('tce_accounts').select('*').eq('name','TCE-30M').single(); const {data:p}=await sb.from('tce_positions').select('*').eq('account_id',a.id).order('symbol'); const {data:o}=await sb.from('tce_orders').select('*').eq('account_id',a.id).order('created_at',{ascending:false}).limit(20); if(a)data={account:a,positions:p||[],orders:o||[]};}catch(e){console.warn(e)}}
+  if(url&&key){try{const sb=createClient(url,key); const {data:a}=await sb.from('tce_accounts').select('*').eq('name','TCE-30M').single(); if(a){const [{data:p},{data:o},{data:c}]=await Promise.all([sb.from('tce_positions').select('*').eq('account_id',a.id).order('symbol'),sb.from('tce_orders').select('*').eq('account_id',a.id).order('created_at',{ascending:false}).limit(20),sb.from('tce_buy_candidates').select('*').eq('account_id',a.id).in('status',['queued','ready']).order('rank').limit(5)]); data={account:a,positions:p||[],orders:o||[],candidates:c||[]};}}catch(e){console.warn(e)}}
   window.__tceData=data;
   render(data,route());
 }
 
 function positionsView(d){
-  const slots=Array.from({length:5},(_,i)=>d.positions[i]||null);
-  return `<section class="section page-section"><div class="section-head"><div><h2>Positions</h2><small>Open positions</small></div><span>${d.positions.length}</span></div><div class="cards">${d.positions.length?d.positions.map(p=>`<div class="position"><div><b>${p.symbol}</b><small>${p.quantity} cp • avg ${Number(p.avg_cost).toLocaleString('vi-VN')}</small></div><div class="right"><b>${money(p.market_value||p.cost_basis)}</b><small class="${(p.unrealized_pnl||0)>=0?'up':'down'}">${(p.unrealized_pnl||0)>=0?'+':''}${money(p.unrealized_pnl||0)}</small></div></div>`).join(''):'<div class="empty">No open positions</div>'}</div></section>
-  <section class="section planned"><div class="section-head"><div><h2>Next 5 positions</h2><small>Planned buying slots</small></div><span>5 slots</span></div><div class="planned-list">${slots.map((p,i)=>p?`<div class="planned-row"><span class="slot">${i+1}</span><div><b>${p.symbol}</b><small>Current position</small></div><span class="planned-status occupied">Occupied</span></div>`:`<div class="planned-row"><span class="slot">${i+1}</span><div><b>Position ${i+1}</b><small>Waiting for next buy candidate</small></div><span class="planned-status">Available</span></div>`).join('')}</div></section>`;
+  const candidates=d.candidates||[];
+  return `<section class="section page-section"><div class="section-head"><div><h2>Positions</h2><small>Open positions</small></div><span>${d.positions.length}</span></div><div class="cards">${d.positions.length?d.positions.map(p=>`<div class="position"><div><b>${p.symbol}</b><small>${p.quantity} cp • avg ${num(p.avg_cost)}</small></div><div class="right"><b>${money(p.market_value||p.cost_basis)}</b><small class="${(p.unrealized_pnl||0)>=0?'up':'down'}">${(p.unrealized_pnl||0)>=0?'+':''}${money(p.unrealized_pnl||0)}</small></div></div>`).join(''):'<div class="empty">No open positions</div>'}</div></section>
+  <section class="section planned"><div class="section-head"><div><h2>Next 5 positions</h2><small>Planned buying candidates</small></div><span>${candidates.length}/5</span></div><div class="planned-list">${Array.from({length:5},(_,i)=>candidates[i]).map((c,i)=>c?`<div class="planned-row"><span class="slot">${c.rank}</span><div><b>${c.symbol}</b><small>${c.target_quantity?`${num(c.target_quantity)} cp`:''}${c.target_price?` • target ${num(c.target_price)}`:''}${c.reason?` • ${c.reason}`:''}</small></div><span class="planned-status ${c.status==='ready'?'ready':''}">${c.status}</span></div>`:`<div class="planned-row"><span class="slot">${i+1}</span><div><b>Position ${i+1}</b><small>Waiting for next buy candidate</small></div><span class="planned-status">Available</span></div>`).join('')}</div></section>`;
 }
 
 function ordersView(d){
-  return `<section class="section page-section"><div class="section-head"><div><h2>Recent orders</h2><small>Latest 20 orders</small></div><span>${d.orders.length}</span></div><div class="orders">${d.orders.length?d.orders.map(o=>`<div class="order"><span class="badge ${o.side==='BUY'?'buy':'sell'}">${o.side}</span><b>${o.symbol}</b><span>${o.quantity} × ${Number(o.price).toLocaleString('vi-VN')}</span><strong>${money(o.gross_value)}</strong></div>`).join(''):'<div class="empty">No recent orders</div>'}</div></section>`;
+  return `<section class="section page-section"><div class="section-head"><div><h2>Recent orders</h2><small>Latest 20 orders</small></div><span>${d.orders.length}</span></div><div class="orders">${d.orders.length?d.orders.map(o=>`<div class="order"><span class="badge ${o.side==='BUY'?'buy':'sell'}">${o.side}</span><b>${o.symbol}</b><span>${o.quantity} × ${num(o.price)}</span><strong>${money(o.gross_value)}</strong></div>`).join(''):'<div class="empty">No recent orders</div>'}</div></section>`;
 }
 
 function overviewView(d){
