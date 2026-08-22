@@ -67,8 +67,6 @@ jobs:
           sudo mkdir -p "$ACME_ROOT/.well-known/acme-challenge" "$BACKUP_DIR"
           sudo chown -R www-data:www-data "$ACME_ROOT"
 
-          # Recover safely from a previous failed run that left this target vhost
-          # marked as default_server. Never modify another site's default vhost.
           if [ -f "$CFG" ]; then
             sudo cp -a "$CFG" "$BACKUP"
             if sudo grep -Eq '^[[:space:]]*listen[[:space:]]+80[[:space:]]+default_server' "$CFG" || \
@@ -80,20 +78,18 @@ jobs:
             echo MISSING | sudo tee "$BACKUP" >/dev/null
           fi
           echo "Rollback backup: $BACKUP"
-
-          # Validate the existing configuration after targeted recovery.
           sudo nginx -t
 
-          # Phase 1: ACME-only vhost. Do not claim default_server.
+          # Phase 1: ACME-only vhost. Use alias so the challenge maps directly
+          # to the challenge directory and does not depend on try_files/root resolution.
           cat > "$TMP" <<EOF
           server {
               listen 80;
               listen [::]:80;
               server_name ${D};
-              root ${ACME_ROOT};
               location ^~ /.well-known/acme-challenge/ {
                   default_type text/plain;
-                  try_files \$uri =404;
+                  alias ${ACME_ROOT}/.well-known/acme-challenge/;
               }
               location / { return 404; }
           }
@@ -127,6 +123,7 @@ jobs:
           if [ "$LOCAL_CODE" != "200" ] || [ "$LOCAL_BODY_TEXT" != "$CHECK" ]; then
             echo "LOCAL ACME FAILED"
             sudo nginx -T 2>&1 | grep -n -A30 -B5 "server_name ${D}" || true
+            sudo ls -la "$ACME_ROOT/.well-known/acme-challenge/" || true
             sudo ss -lntp | grep -E ':(80|443)\b' || true
             sudo tail -n 80 /var/log/nginx/error.log || true
             rm -f "$LOCAL_BODY"
@@ -163,10 +160,9 @@ jobs:
               listen 80;
               listen [::]:80;
               server_name ${D};
-              root ${ACME_ROOT};
               location ^~ /.well-known/acme-challenge/ {
                   default_type text/plain;
-                  try_files \$uri =404;
+                  alias ${ACME_ROOT}/.well-known/acme-challenge/;
               }
               location / { return 301 https://\$host\$request_uri; }
           }
