@@ -116,29 +116,48 @@ jobs:
           CHECK_PATH="${ACME_ROOT}/.well-known/acme-challenge/${CHECK}"
           echo "$CHECK" | sudo tee "$CHECK_PATH" >/dev/null
           sudo test -s "$CHECK_PATH"
-          trap 'sudo rm -f "$CHECK_PATH"' EXIT
+          echo "Challenge file:"; sudo cat "$CHECK_PATH"
 
-          # Hit the local listener directly. Do not allow HTTP(S) proxy environment variables
-          # or DNS/IPv6 routing to affect this test.
-          BODY="$(curl --noproxy '*' -fsS --max-time 10 -H "Host: ${D}" "http://127.0.0.1/.well-known/acme-challenge/${CHECK}")"
-          test "$BODY" = "$CHECK" || {
-            echo "LOCAL ACME FAILED: expected '$CHECK', got '$BODY'"
+          # Do not use curl -f here: with `set -e`, curl exits immediately on 404,
+          # preventing the diagnostic block from running.
+          LOCAL_BODY="/tmp/tce-local-body-${TS}"
+          LOCAL_CODE="$(curl --noproxy '*' -sS --max-time 10 -o "$LOCAL_BODY" -w '%{http_code}' -H "Host: ${D}" "http://127.0.0.1/.well-known/acme-challenge/${CHECK}" || true)"
+          LOCAL_BODY_TEXT="$(cat "$LOCAL_BODY" 2>/dev/null || true)"
+          echo "Local HTTP status: ${LOCAL_CODE}"
+          echo "Local response body: ${LOCAL_BODY_TEXT}"
+
+          if [ "$LOCAL_CODE" != "200" ] || [ "$LOCAL_BODY_TEXT" != "$CHECK" ]; then
+            echo "LOCAL ACME FAILED"
             echo "=== FILE CHECK ==="
-            sudo ls -la "$ACME_ROOT/.well-known/acme-challenge/"
+            sudo namei -l "$CHECK_PATH" || true
+            sudo ls -la "$ACME_ROOT/.well-known/acme-challenge/" || true
             sudo cat "$CHECK_PATH" || true
+            echo "=== LISTENERS ==="
+            sudo ss -lntp | grep -E ':(80|443)\b' || true
             echo "=== NGINX MATCHING VHOST ==="
-            sudo nginx -T 2>&1 | grep -n -A15 -B3 "server_name ${D}" || true
+            sudo nginx -T 2>&1 | grep -n -A20 -B5 "server_name ${D}" || true
+            echo "=== NGINX ERROR LOG TAIL ==="
+            sudo tail -n 80 /var/log/nginx/error.log || true
+            rm -f "$LOCAL_BODY"
             exit 1
-          }
+          fi
+          rm -f "$LOCAL_BODY"
+          trap 'sudo rm -f "$CHECK_PATH"' EXIT
           echo "Local ACME OK."
 
           echo "=== ACME PUBLIC PREFLIGHT ==="
-          BODY="$(curl --noproxy '*' -fsS --max-time 10 "http://${D}/.well-known/acme-challenge/${CHECK}")"
-          test "$BODY" = "$CHECK" || {
+          PUBLIC_BODY="/tmp/tce-public-body-${TS}"
+          PUBLIC_CODE="$(curl --noproxy '*' -sS --max-time 10 -o "$PUBLIC_BODY" -w '%{http_code}' "http://${D}/.well-known/acme-challenge/${CHECK}" || true)"
+          PUBLIC_BODY_TEXT="$(cat "$PUBLIC_BODY" 2>/dev/null || true)"
+          echo "Public HTTP status: ${PUBLIC_CODE}"
+          echo "Public response body: ${PUBLIC_BODY_TEXT}"
+          if [ "$PUBLIC_CODE" != "200" ] || [ "$PUBLIC_BODY_TEXT" != "$CHECK" ]; then
             echo "PUBLIC ACME FAILED: DNS/network is not reaching this vhost."
             echo "This is safe: certificate issuance will NOT be attempted."
+            rm -f "$PUBLIC_BODY"
             exit 1
-          }
+          fi
+          rm -f "$PUBLIC_BODY"
           echo "Public ACME OK."
           sudo rm -f "$CHECK_PATH"
           trap - EXIT
