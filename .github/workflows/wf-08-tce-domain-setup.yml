@@ -70,11 +70,11 @@ jobs:
           if [ -f "$CFG" ]; then sudo cp -a "$CFG" "$BACKUP"; else echo MISSING | sudo tee "$BACKUP" >/dev/null; fi
           echo "Rollback backup: $BACKUP"
 
-          # Phase 1: isolate ACME from FE/BE proxy and regex locations.
+          # Phase 1: ACME-only vhost. Do not claim default_server because another site already owns port 80.
           cat > "$TMP" <<EOF
           server {
-              listen 80 default_server;
-              listen [::]:80 default_server;
+              listen 80;
+              listen [::]:80;
               server_name ${D};
               root ${ACME_ROOT};
               location ^~ /.well-known/acme-challenge/ {
