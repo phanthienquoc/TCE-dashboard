@@ -2,7 +2,13 @@ name: WF-10 TCE K3s Bootstrap
 
 "on":
   workflow_call:
-    secrets: inherit
+    secrets:
+      VPS_SSH_PRIVATE_KEY:
+        required: true
+      MFA_ENCRYPTION_KEY_STG:
+        required: true
+      MFA_ENCRYPTION_KEY_PROD:
+        required: true
   workflow_dispatch:
     inputs:
       host:
