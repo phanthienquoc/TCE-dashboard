@@ -5,6 +5,7 @@ name: "WF-04 TCE Staging Deploy"
     inputs:
       host: { required: false, type: string, default: "132.226.175.206" }
       username: { required: false, type: string, default: "ubuntu" }
+      deploy: { required: false, type: boolean, default: true }
     secrets:
       VPS_SSH_PRIVATE_KEY: { required: true }
       SUPABASE_URL_STG: { required: true }
@@ -14,6 +15,7 @@ name: "WF-04 TCE Staging Deploy"
     inputs:
       host: { description: "VPS IP/hostname", required: true, default: "132.226.175.206", type: string }
       username: { description: "SSH username", required: true, default: "ubuntu", type: string }
+      deploy: { description: "Actually deploy changed components to STG", required: true, default: true, type: boolean }
 
 env:
   ENV_NAME: stg
