@@ -88,7 +88,7 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p /tmp/tce-stg-manifests
-          sed "s#tce-service:stg#tce-service:$IMAGE_TAG#g; s#path: /auth/status#path: /api/auth/status#g" infra/k3s/service-stg.yaml > /tmp/tce-stg-manifests/service-stg.yaml
+          sed "s#tce-service:stg#tce-service:$IMAGE_TAG#g; s#path: /auth/status#path: /api/health#g" infra/k3s/service-stg.yaml > /tmp/tce-stg-manifests/service-stg.yaml
           sed "s#tce-frontend:stg#tce-frontend:$IMAGE_TAG#g" infra/k3s/frontend-stg.yaml > /tmp/tce-stg-manifests/frontend-stg.yaml
           grep -E 'image:|path:' /tmp/tce-stg-manifests/*.yaml
 
