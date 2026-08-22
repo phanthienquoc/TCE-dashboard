@@ -1,17 +1,46 @@
 name: "WF-05 TCE Production Deploy"
 
-on:
+"on":
   workflow_call:
-    secrets: inherit
+    inputs:
+      host:
+        required: false
+        type: string
+        default: "132.226.175.206"
+      username:
+        required: false
+        type: string
+        default: "ubuntu"
+    secrets:
+      VPS_SSH_PRIVATE_KEY:
+        required: true
+      SUPABASE_URL_PROD:
+        required: true
+      SUPABASE_SERVICE_ROLE_KEY_PROD:
+        required: true
+      JWT_SECRET_PROD:
+        required: true
   workflow_dispatch:
     inputs:
-      host: { description: "VPS IP/hostname", required: true, default: "132.226.175.206" }
-      username: { description: "SSH username", required: true, default: "ubuntu" }
-      confirm: { description: "Type DEPLOY-TCE-PROD to confirm", required: true, default: "" }
+      host:
+        description: "VPS IP/hostname"
+        required: true
+        default: "132.226.175.206"
+        type: string
+      username:
+        description: "SSH username"
+        required: true
+        default: "ubuntu"
+        type: string
+      confirm:
+        description: "Type DEPLOY-TCE-PROD to confirm"
+        required: true
+        default: ""
+        type: string
 
 env:
-  ENV_NAME: prod
-  NAMESPACE: tce-prod
+  ENV_NAME: "prod"
+  NAMESPACE: "tce-prod"
 
 jobs:
   deploy-production:
@@ -23,13 +52,14 @@ jobs:
       - name: Build FE + BE images
         run: |
           set -euo pipefail
-          docker build --pull -t tce-frontend:prod -f Dockerfile .
+          docker build --pull -t tce-frontend:prod -f apps/web/Dockerfile apps/web
           docker build --pull -t tce-service:prod -f apps/service/Dockerfile apps/service
           docker image inspect tce-frontend:prod >/dev/null
           docker image inspect tce-service:prod >/dev/null
           docker save tce-frontend:prod tce-service:prod | gzip > /tmp/tce-prod-images.tar.gz
       - name: Configure SSH
-        env: { KEY: ${{ secrets.VPS_SSH_PRIVATE_KEY }} }
+        env:
+          KEY: ${{ secrets.VPS_SSH_PRIVATE_KEY }}
         run: |
           set -euo pipefail
           mkdir -p ~/.ssh
@@ -45,7 +75,9 @@ jobs:
           JWT_SECRET: ${{ secrets.JWT_SECRET_PROD }}
         run: |
           set -euo pipefail
-          test -n "$SUPABASE_URL"; test -n "$SUPABASE_KEY"; test -n "$JWT_SECRET"
+          test -n "$SUPABASE_URL"
+          test -n "$SUPABASE_KEY"
+          test -n "$JWT_SECRET"
           scp -i ~/.ssh/tce_vps_key -o IdentitiesOnly=yes -o StrictHostKeyChecking=no /tmp/tce-prod-images.tar.gz "$U@$H:/tmp/tce-prod-images.tar.gz"
           scp -i ~/.ssh/tce_vps_key -o IdentitiesOnly=yes -o StrictHostKeyChecking=no infra/k3s/service-prod.yaml infra/k3s/frontend-prod.yaml "$U@$H:/tmp/"
           ssh -i ~/.ssh/tce_vps_key -o IdentitiesOnly=yes -o StrictHostKeyChecking=no "$U@$H" "SUPABASE_URL='$SUPABASE_URL' SUPABASE_KEY='$SUPABASE_KEY' JWT_SECRET='$JWT_SECRET' bash -s" <<'REMOTE'
