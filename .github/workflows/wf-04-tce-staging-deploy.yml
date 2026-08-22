@@ -45,8 +45,10 @@ jobs:
               - 'Dockerfile'
               - 'package.json'
               - 'package-lock.json'
+              - 'packages/**'
             be:
               - 'apps/service/**'
+              - 'packages/**'
             deploy:
               - 'infra/k3s/**'
               - '.github/workflows/wf-04-tce-staging-deploy.yml'
@@ -66,10 +68,10 @@ jobs:
           echo "Deploy config changed: ${{ steps.filter.outputs.deploy }}"
 
   build-fe:
-    name: Build FE image
+    name: Build FE image (native ARM64)
     needs: detect-changes
     if: needs.detect-changes.outputs.fe == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04-arm
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
@@ -85,10 +87,10 @@ jobs:
         with: { name: tce-stg-fe-image, path: /tmp/tce-frontend.tar.gz, retention-days: 1 }
 
   build-be:
-    name: Build BE image
+    name: Build BE image (native ARM64)
     needs: detect-changes
     if: needs.detect-changes.outputs.be == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04-arm
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
