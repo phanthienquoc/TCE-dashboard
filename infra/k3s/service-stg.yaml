@@ -22,8 +22,8 @@ spec:
             - { name: JWT_SECRET, valueFrom: { secretKeyRef: { name: tce-app-secrets, key: JWT_SECRET } } }
             - { name: JWT_REFRESH_TTL_SECONDS, value: "2592000" }
             - { name: MFA_ENCRYPTION_KEY, valueFrom: { secretKeyRef: { name: tce-auth, key: MFA_ENCRYPTION_KEY } } }
-          readinessProbe: { httpGet: { path: /auth/status, port: http }, initialDelaySeconds: 5, periodSeconds: 10 }
-          livenessProbe: { httpGet: { path: /auth/status, port: http }, initialDelaySeconds: 15, periodSeconds: 20 }
+          readinessProbe: { httpGet: { path: /api/auth/status, port: http }, initialDelaySeconds: 5, periodSeconds: 10 }
+          livenessProbe: { httpGet: { path: /api/auth/status, port: http }, initialDelaySeconds: 15, periodSeconds: 20 }
           resources: { requests: { cpu: 50m, memory: 128Mi }, limits: { cpu: 500m, memory: 512Mi } }
 ---
 apiVersion: v1
