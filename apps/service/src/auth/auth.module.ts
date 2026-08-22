@@ -8,6 +8,12 @@ import { MfaService } from './mfa.service';
 import { MfaCryptoService } from './mfa-crypto.service';
 import { PasswordService } from './password.service';
 import { RefreshService } from './refresh.service';
+import { DbModule } from '../db/db.module';
 
-@Module({ controllers:[AuthController,MfaController], providers:[AuthService,AuthRepository,JwtService,MfaService,MfaCryptoService,PasswordService,RefreshService], exports:[AuthService,AuthRepository,JwtService,MfaService,MfaCryptoService,PasswordService,RefreshService] })
+@Module({
+  imports: [DbModule],
+  controllers: [AuthController, MfaController],
+  providers: [AuthService, AuthRepository, JwtService, MfaService, MfaCryptoService, PasswordService, RefreshService],
+  exports: [AuthService, AuthRepository, JwtService, MfaService, MfaCryptoService, PasswordService, RefreshService],
+})
 export class AuthModule {}
