@@ -56,4 +56,4 @@ jobs:
       - name: Verify Kubernetes YAML syntax
         run: |
           set -euo pipefail
-          ruby -e 'require "yaml"; Dir["infra/k3s/*.yaml"].each { |f| YAML.load_stream(File.read(f), aliases: true); puts "OK #{f}" }'
+          ruby -e 'require "yaml"; Dir["infra/k3s/*.yaml"].each { |f| YAML.parse_stream(File.read(f)); puts "OK #{f}" }'
