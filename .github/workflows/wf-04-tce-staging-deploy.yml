@@ -5,7 +5,6 @@ name: "WF-04 TCE Staging Deploy"
     inputs:
       host: { required: false, type: string, default: "132.226.175.206" }
       username: { required: false, type: string, default: "ubuntu" }
-      deploy: { required: false, type: boolean, default: false }
     secrets:
       VPS_SSH_PRIVATE_KEY: { required: true }
       SUPABASE_URL_STG: { required: true }
@@ -15,7 +14,6 @@ name: "WF-04 TCE Staging Deploy"
     inputs:
       host: { description: "VPS IP/hostname", required: true, default: "132.226.175.206", type: string }
       username: { description: "SSH username", required: true, default: "ubuntu", type: string }
-      deploy: { description: "Actually deploy changed components to STG", required: true, default: true, type: boolean }
 
 env:
   ENV_NAME: stg
@@ -23,37 +21,13 @@ env:
   TARGET_PLATFORM: linux/arm64
 
 jobs:
-  detect-changes:
-    name: Detect FE / BE / deploy changes
-    runs-on: ubuntu-latest
-    outputs:
-      fe: ${{ steps.filter.outputs.fe }}
-      be: ${{ steps.filter.outputs.be }}
-      deploy: ${{ steps.filter.outputs.deploy }}
-      deploy_allowed: ${{ inputs.deploy }}
-      image_tag: ${{ steps.version.outputs.image_tag }}
+  build-fe:
+    name: Build FE image (native ARM64)
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
-        with: { fetch-depth: 0 }
-      - name: Detect changed sources
-        id: filter
-        uses: dorny/paths-filter@v3
-        with:
-          filters: |
-            fe:
-              - 'src/**'
-              - 'index.html'
-              - 'public/**'
-              - 'vite.config.*'
-              - 'Dockerfile'
-              - 'package.json'
-              - 'package-lock.json'
-              - 'packages/**'
-            be:
-              - 'apps/service/**'
-              - 'packages/**'
-            deploy:
-              - 'infra/k3s/**'
+      - uses: docker/setup-buildx-action@v3
       - name: Resolve image version
         id: version
         run: |
@@ -63,25 +37,9 @@ jobs:
           echo "image_tag=stg-v${VERSION}-${SHA}" >> "$GITHUB_OUTPUT"
           echo "TCE version: v$VERSION"
           echo "Git SHA: $SHA"
-      - name: Print change matrix
-        run: |
-          echo "FE changed: ${{ steps.filter.outputs.fe }}"
-          echo "BE changed: ${{ steps.filter.outputs.be }}"
-          echo "Deploy config changed: ${{ steps.filter.outputs.deploy }}"
-          echo "Deploy allowed: ${{ inputs.deploy }}"
-
-  build-fe:
-    name: Build FE image (native ARM64)
-    needs: detect-changes
-    if: needs.detect-changes.outputs.fe == 'true'
-    runs-on: ubuntu-24.04-arm
-    timeout-minutes: 20
-    steps:
-      - uses: actions/checkout@v4
-      - uses: docker/setup-buildx-action@v3
       - name: Build ARM64 FE image
         env:
-          IMAGE_TAG: ${{ needs.detect-changes.outputs.image_tag }}
+          IMAGE_TAG: ${{ steps.version.outputs.image_tag }}
         run: |
           set -euo pipefail
           docker buildx build --platform "$TARGET_PLATFORM" --cache-from type=gha,scope=tce-fe-stg --cache-to type=gha,mode=max,scope=tce-fe-stg -t "tce-frontend:$IMAGE_TAG" -f Dockerfile . --output type=docker,dest=/tmp/tce-frontend.tar
@@ -91,16 +49,23 @@ jobs:
 
   build-be:
     name: Build BE image (native ARM64)
-    needs: detect-changes
-    if: needs.detect-changes.outputs.be == 'true'
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - uses: docker/setup-buildx-action@v3
+      - name: Resolve image version
+        id: version
+        run: |
+          set -euo pipefail
+          VERSION="$(node -p "require('./package.json').version")"
+          SHA="${GITHUB_SHA::7}"
+          echo "image_tag=stg-v${VERSION}-${SHA}" >> "$GITHUB_OUTPUT"
+          echo "TCE version: v$VERSION"
+          echo "Git SHA: $SHA"
       - name: Build ARM64 BE image
         env:
-          IMAGE_TAG: ${{ needs.detect-changes.outputs.image_tag }}
+          IMAGE_TAG: ${{ steps.version.outputs.image_tag }}
         run: |
           set -euo pipefail
           docker buildx build --platform "$TARGET_PLATFORM" --cache-from type=gha,scope=tce-be-stg --cache-to type=gha,mode=max,scope=tce-be-stg -t "tce-service:$IMAGE_TAG" -f apps/service/Dockerfile apps/service --output type=docker,dest=/tmp/tce-service.tar
@@ -109,41 +74,34 @@ jobs:
         with: { name: tce-stg-be-image, path: /tmp/tce-service.tar.gz, retention-days: 1 }
 
   deploy-staging:
-    name: Deploy changed components to STG
-    needs: [detect-changes, build-fe, build-be]
-    if: always() && needs.detect-changes.result == 'success' && needs.detect-changes.outputs.deploy_allowed == 'true' && (needs.detect-changes.outputs.fe == 'true' || needs.detect-changes.outputs.be == 'true' || needs.detect-changes.outputs.deploy == 'true') && (needs.build-fe.result == 'success' || needs.build-fe.result == 'skipped') && (needs.build-be.result == 'success' || needs.build-be.result == 'skipped')
+    name: Deploy FE + BE to STG
+    needs: [build-fe, build-be]
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
-      - name: Download FE image
-        if: needs.detect-changes.outputs.fe == 'true'
-        uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v4
         with: { name: tce-stg-fe-image, path: /tmp/tce-images }
-      - name: Download BE image
-        if: needs.detect-changes.outputs.be == 'true'
-        uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v4
         with: { name: tce-stg-be-image, path: /tmp/tce-images }
+      - name: Resolve image version
+        id: version
+        run: |
+          set -euo pipefail
+          VERSION="$(node -p "require('./package.json').version")"
+          SHA="${GITHUB_SHA::7}"
+          echo "image_tag=stg-v${VERSION}-${SHA}" >> "$GITHUB_OUTPUT"
+          echo "TCE version: v$VERSION"
+          echo "Git SHA: $SHA"
       - name: Render Kubernetes manifests
         env:
-          IMAGE_TAG: ${{ needs.detect-changes.outputs.image_tag }}
-          FE_CHANGED: ${{ needs.detect-changes.outputs.fe }}
-          BE_CHANGED: ${{ needs.detect-changes.outputs.be }}
-          DEPLOY_CHANGED: ${{ needs.detect-changes.outputs.deploy }}
+          IMAGE_TAG: ${{ steps.version.outputs.image_tag }}
         run: |
           set -euo pipefail
           mkdir -p /tmp/tce-stg-manifests
-          if [ "$FE_CHANGED" = "true" ]; then
-            sed "s#tce-frontend:stg#tce-frontend:$IMAGE_TAG#g" infra/k3s/frontend-stg.yaml > /tmp/tce-stg-manifests/frontend-stg.yaml
-          elif [ "$DEPLOY_CHANGED" = "true" ]; then
-            sed 's#tce-frontend:stg#tce-frontend:__CURRENT__#g' infra/k3s/frontend-stg.yaml > /tmp/tce-stg-manifests/frontend-stg.yaml
-          fi
-          if [ "$BE_CHANGED" = "true" ]; then
-            sed "s#tce-service:stg#tce-service:$IMAGE_TAG#g; s#path: /auth/status#path: /api/auth/status#g" infra/k3s/service-stg.yaml > /tmp/tce-stg-manifests/service-stg.yaml
-          elif [ "$DEPLOY_CHANGED" = "true" ]; then
-            sed 's#tce-service:stg#tce-service:__CURRENT__#g; s#path: /auth/status#path: /api/auth/status#g' infra/k3s/service-stg.yaml > /tmp/tce-stg-manifests/service-stg.yaml
-          fi
-          ls -la /tmp/tce-stg-manifests
+          sed "s#tce-service:stg#tce-service:$IMAGE_TAG#g; s#path: /auth/status#path: /api/health#g" infra/k3s/service-stg.yaml > /tmp/tce-stg-manifests/service-stg.yaml
+          sed "s#tce-frontend:stg#tce-frontend:$IMAGE_TAG#g" infra/k3s/frontend-stg.yaml > /tmp/tce-stg-manifests/frontend-stg.yaml
+          grep -E 'image:|path:' /tmp/tce-stg-manifests/*.yaml
       - name: Configure SSH
         env:
           KEY: ${{ secrets.VPS_SSH_PRIVATE_KEY }}
@@ -153,48 +111,71 @@ jobs:
           printf '%s\n' "$KEY" | tr -d '\r' > ~/.ssh/tce_vps_key
           chmod 600 ~/.ssh/tce_vps_key
           ssh-keygen -y -f ~/.ssh/tce_vps_key >/dev/null
-      - name: Deploy changed components to k3s STG
+      - name: Deploy to k3s STG
         env:
           H: ${{ inputs.host || '132.226.175.206' }}
           U: ${{ inputs.username || 'ubuntu' }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL_STG }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY_STG }}
           JWT_SECRET: ${{ secrets.JWT_SECRET_STG }}
-          IMAGE_TAG: ${{ needs.detect-changes.outputs.image_tag }}
-          FE_CHANGED: ${{ needs.detect-changes.outputs.fe }}
-          BE_CHANGED: ${{ needs.detect-changes.outputs.be }}
-          DEPLOY_CHANGED: ${{ needs.detect-changes.outputs.deploy }}
+          IMAGE_TAG: ${{ steps.version.outputs.image_tag }}
         run: |
           set -euo pipefail
-          test -n "$SUPABASE_URL"; test -n "$SUPABASE_KEY"; test -n "$JWT_SECRET"
-          if [ -f /tmp/tce-images/tce-frontend.tar.gz ]; then scp -i ~/.ssh/tce_vps_key -o IdentitiesOnly=yes -o StrictHostKeyChecking=no /tmp/tce-images/tce-frontend.tar.gz "$U@$H:/tmp/tce-frontend.tar.gz"; fi
-          if [ -f /tmp/tce-images/tce-service.tar.gz ]; then scp -i ~/.ssh/tce_vps_key -o IdentitiesOnly=yes -o StrictHostKeyChecking=no /tmp/tce-images/tce-service.tar.gz "$U@$H:/tmp/tce-service.tar.gz"; fi
-          for manifest in /tmp/tce-stg-manifests/*.yaml; do [ -f "$manifest" ] || continue; scp -i ~/.ssh/tce_vps_key -o IdentitiesOnly=yes -o StrictHostKeyChecking=no "$manifest" "$U@$H:/tmp/$(basename "$manifest")"; done
-          ssh -i ~/.ssh/tce_vps_key -o IdentitiesOnly=yes -o StrictHostKeyChecking=no "$U@$H" "SUPABASE_URL='$SUPABASE_URL' SUPABASE_KEY='$SUPABASE_KEY' JWT_SECRET='$JWT_SECRET' IMAGE_TAG='$IMAGE_TAG' FE_CHANGED='$FE_CHANGED' BE_CHANGED='$BE_CHANGED' DEPLOY_CHANGED='$DEPLOY_CHANGED' bash -s" <<'REMOTE'
+          test -n "$SUPABASE_URL"
+          test -n "$SUPABASE_KEY"
+          test -n "$JWT_SECRET"
+          scp -i ~/.ssh/tce_vps_key -o IdentitiesOnly=yes -o StrictHostKeyChecking=no /tmp/tce-images/tce-frontend.tar.gz "$U@$H:/tmp/tce-frontend.tar.gz"
+          scp -i ~/.ssh/tce_vps_key -o IdentitiesOnly=yes -o StrictHostKeyChecking=no /tmp/tce-images/tce-service.tar.gz "$U@$H:/tmp/tce-service.tar.gz"
+          scp -i ~/.ssh/tce_vps_key -o IdentitiesOnly=yes -o StrictHostKeyChecking=no /tmp/tce-stg-manifests/service-stg.yaml /tmp/tce-stg-manifests/frontend-stg.yaml "$U@$H:/tmp/"
+          ssh -i ~/.ssh/tce_vps_key -o IdentitiesOnly=yes -o StrictHostKeyChecking=no "$U@$H" "SUPABASE_URL='$SUPABASE_URL' SUPABASE_KEY='$SUPABASE_KEY' JWT_SECRET='$JWT_SECRET' IMAGE_TAG='$IMAGE_TAG' bash -s" <<'REMOTE'
           set -euo pipefail
           NS="tce-stg"
-          if [ -f /tmp/tce-frontend.tar.gz ]; then sudo k3s ctr images import /tmp/tce-frontend.tar.gz; fi
-          if [ -f /tmp/tce-service.tar.gz ]; then sudo k3s ctr images import /tmp/tce-service.tar.gz; fi
-          sudo kubectl -n "$NS" create secret generic tce-app-secrets --from-literal=SUPABASE_URL="$SUPABASE_URL" --from-literal=SUPABASE_SERVICE_ROLE_KEY="$SUPABASE_KEY" --from-literal=JWT_SECRET="$JWT_SECRET" --dry-run=client -o yaml | sudo kubectl apply -f -
-          resolve_current_image() { local deployment="$1"; sudo kubectl -n "$NS" get deployment "$deployment" -o jsonpath='{.spec.template.spec.containers[0].image}'; }
-          verify_image() { local image="$1"; echo "Checking k3s image: $image"; sudo k3s ctr images list | awk '{print $1}' | grep -Fxq "$image" || { echo "ERROR: image not found: $image"; sudo k3s ctr images list | grep -E 'tce-(service|frontend)' || true; exit 1; }; }
-          diagnostics() { local deployment="$1"; echo "=== DIAGNOSTICS: $deployment ==="; sudo kubectl -n "$NS" get deployment "$deployment" -o wide || true; sudo kubectl -n "$NS" get pods -o wide || true; sudo kubectl -n "$NS" describe deployment "$deployment" || true; sudo kubectl -n "$NS" get pods -l "app=$deployment" -o name | while read -r pod; do sudo kubectl -n "$NS" describe "$pod" || true; sudo kubectl -n "$NS" logs "$pod" --all-containers=true --tail=200 || true; sudo kubectl -n "$NS" logs "$pod" --all-containers=true --previous --tail=200 || true; done; sudo kubectl -n "$NS" get events --sort-by='.lastTimestamp' | tail -100 || true; }
-          deploy_and_wait() {
-            local manifest="$1"; local deployment="$2"; local image="$3"
-            [ -f "$manifest" ] || return 0
-            if grep -q '__CURRENT__' "$manifest"; then
-              current="$(resolve_current_image "$deployment")"
-              test -n "$current" || { echo "ERROR: cannot resolve current image for $deployment"; exit 1; }
-              sed -i "s#__CURRENT__#$current#g" "$manifest"
-              image="$current"
-              echo "Config-only deploy: preserving live image $image"
+          SERVICE_IMAGE="tce-service:${IMAGE_TAG}"
+          FRONTEND_IMAGE="tce-frontend:${IMAGE_TAG}"
+
+          import_if_missing() {
+            local image="$1"
+            local archive="$2"
+            if sudo k3s ctr images list | awk '{print $1}' | grep -Fxq "$image"; then
+              echo "Image already present: $image"
+            else
+              echo "Image missing: $image"
+              echo "Importing $archive..."
+              sudo k3s ctr images import "/tmp/$archive"
             fi
-            verify_image "$image"
-            sudo kubectl apply -f "$manifest"
-            if ! sudo kubectl -n "$NS" rollout status "deployment/$deployment" --timeout=180s; then diagnostics "$deployment"; exit 1; fi
           }
-          deploy_and_wait /tmp/service-stg.yaml tce-service "tce-service:$IMAGE_TAG"
-          deploy_and_wait /tmp/frontend-stg.yaml tce-frontend "tce-frontend:$IMAGE_TAG"
+
+          import_if_missing "$SERVICE_IMAGE" "tce-service.tar.gz"
+          import_if_missing "$FRONTEND_IMAGE" "tce-frontend.tar.gz"
+
+          sudo kubectl -n "$NS" create secret generic tce-app-secrets \
+            --from-literal=SUPABASE_URL="$SUPABASE_URL" \
+            --from-literal=SUPABASE_SERVICE_ROLE_KEY="$SUPABASE_KEY" \
+            --from-literal=JWT_SECRET="$JWT_SECRET" \
+            --dry-run=client -o yaml | sudo kubectl apply -f -
+
+          sudo kubectl apply -f /tmp/service-stg.yaml -f /tmp/frontend-stg.yaml
+
+          if ! sudo kubectl -n "$NS" rollout status deployment/tce-service --timeout=180s; then
+            echo "=== SERVICE DIAGNOSTICS ==="
+            sudo kubectl -n "$NS" get pods -o wide || true
+            sudo kubectl -n "$NS" describe pods || true
+            sudo kubectl -n "$NS" logs deployment/tce-service --all-containers=true --tail=200 || true
+            sudo kubectl -n "$NS" logs deployment/tce-service --all-containers=true --previous --tail=200 || true
+            sudo kubectl -n "$NS" get events --sort-by='.lastTimestamp' | tail -100 || true
+            exit 1
+          fi
+
+          if ! sudo kubectl -n "$NS" rollout status deployment/tce-frontend --timeout=180s; then
+            echo "=== FRONTEND DIAGNOSTICS ==="
+            sudo kubectl -n "$NS" get pods -o wide || true
+            sudo kubectl -n "$NS" describe pods || true
+            sudo kubectl -n "$NS" logs deployment/tce-frontend --all-containers=true --tail=200 || true
+            sudo kubectl -n "$NS" logs deployment/tce-frontend --all-containers=true --previous --tail=200 || true
+            sudo kubectl -n "$NS" get events --sort-by='.lastTimestamp' | tail -100 || true
+            exit 1
+          fi
+
           sudo kubectl -n "$NS" get pods,svc,ingress
           rm -f /tmp/tce-frontend.tar.gz /tmp/tce-service.tar.gz /tmp/service-stg.yaml /tmp/frontend-stg.yaml
           REMOTE
