@@ -52,7 +52,8 @@ jobs:
       - name: Build FE + BE images
         run: |
           set -euo pipefail
-          docker build --pull -t tce-frontend:prod -f apps/web/Dockerfile apps/web
+          # FE is the root Vite app; Docker build context must be repo root.
+          docker build --pull -t tce-frontend:prod -f Dockerfile .
           docker build --pull -t tce-service:prod -f apps/service/Dockerfile apps/service
           docker image inspect tce-frontend:prod >/dev/null
           docker image inspect tce-service:prod >/dev/null
