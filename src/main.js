@@ -1,5 +1,7 @@
 import './style.css';
 
+console.log('[TCE][FE] staging deploy trigger');
+
 const fallback = { account:{initial_capital:30000000,cashout_realized:0,capital_deployed:17600000,capital_available:12400000,recovery_remaining:30000000,current_cycle:1}, positions:[{symbol:'PTB',quantity:300,avg_cost:32,cost_basis:9600000,market_price:32,market_value:9600000,unrealized_pnl:0},{symbol:'SSI',quantity:400,avg_cost:20,cost_basis:8000000,market_price:20,market_value:8000000,unrealized_pnl:0}], orders:[{symbol:'PTB',side:'BUY',price:32,quantity:300,gross_value:9600000},{symbol:'SSI',side:'BUY',price:20,quantity:400,gross_value:8000000}]};
 const money=n=>new Intl.NumberFormat('vi-VN',{style:'currency',currency:'VND',maximumFractionDigits:0}).format(n);
 const pct=(a,b)=>b?Math.round(a/b*100):0;
