@@ -78,8 +78,11 @@ jobs:
               listen [::]:80;
               server_name ${D};
 
+              # Use root + try_files rather than alias so the ACME path maps
+              # unambiguously to /var/www/tce-acme/.well-known/acme-challenge/.
               location ^~ /.well-known/acme-challenge/ {
-                  alias ${ACME_ROOT}/.well-known/acme-challenge/;
+                  root ${ACME_ROOT};
+                  try_files \$uri =404;
                   default_type text/plain;
                   access_log off;
               }
@@ -177,7 +180,8 @@ jobs:
               listen [::]:80;
               server_name ${D};
               location ^~ /.well-known/acme-challenge/ {
-                  alias ${ACME_ROOT}/.well-known/acme-challenge/;
+                  root ${ACME_ROOT};
+                  try_files \$uri =404;
                   default_type text/plain;
                   access_log off;
               }
