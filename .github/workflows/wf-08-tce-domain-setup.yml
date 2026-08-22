@@ -113,29 +113,37 @@ jobs:
 
           echo "=== ACME LOCAL PREFLIGHT ==="
           CHECK="tce-acme-${TS}"
-          echo "$CHECK" | sudo tee "${ACME_ROOT}/.well-known/acme-challenge/${CHECK}" >/dev/null
-          trap 'sudo rm -f "${ACME_ROOT}/.well-known/acme-challenge/${CHECK}"' EXIT
+          CHECK_PATH="${ACME_ROOT}/.well-known/acme-challenge/${CHECK}"
+          echo "$CHECK" | sudo tee "$CHECK_PATH" >/dev/null
+          sudo test -s "$CHECK_PATH"
+          trap 'sudo rm -f "$CHECK_PATH"' EXIT
 
-          BODY="$(curl -fsS --max-time 10 --resolve "${D}:80:127.0.0.1" "http://${D}/.well-known/acme-challenge/${CHECK}")"
+          # Hit the local listener directly. Do not allow HTTP(S) proxy environment variables
+          # or DNS/IPv6 routing to affect this test.
+          BODY="$(curl --noproxy '*' -fsS --max-time 10 -H "Host: ${D}" "http://127.0.0.1/.well-known/acme-challenge/${CHECK}")"
           test "$BODY" = "$CHECK" || {
             echo "LOCAL ACME FAILED: expected '$CHECK', got '$BODY'"
-            sudo nginx -T 2>&1 | grep -n -A12 -B3 "server_name ${D}" || true
+            echo "=== FILE CHECK ==="
+            sudo ls -la "$ACME_ROOT/.well-known/acme-challenge/"
+            sudo cat "$CHECK_PATH" || true
+            echo "=== NGINX MATCHING VHOST ==="
+            sudo nginx -T 2>&1 | grep -n -A15 -B3 "server_name ${D}" || true
             exit 1
           }
           echo "Local ACME OK."
 
           echo "=== ACME PUBLIC PREFLIGHT ==="
-          BODY="$(curl -fsS --max-time 10 "http://${D}/.well-known/acme-challenge/${CHECK}")"
+          BODY="$(curl --noproxy '*' -fsS --max-time 10 "http://${D}/.well-known/acme-challenge/${CHECK}")"
           test "$BODY" = "$CHECK" || {
             echo "PUBLIC ACME FAILED: DNS/network is not reaching this vhost."
             echo "This is safe: certificate issuance will NOT be attempted."
             exit 1
           }
           echo "Public ACME OK."
-          sudo rm -f "${ACME_ROOT}/.well-known/acme-challenge/${CHECK}"
+          sudo rm -f "$CHECK_PATH"
           trap - EXIT
 
-          curl -fsS -I --max-time 10 "http://${D}/"
+          curl --noproxy '*' -fsS -I --max-time 10 "http://${D}/"
 
           if [ "$SSL" = "true" ]; then
             command -v certbot >/dev/null || { echo "certbot is not installed"; exit 1; }
@@ -184,7 +192,7 @@ jobs:
             sudo nginx -t
             sudo systemctl reload nginx
             sudo systemctl is-active --quiet nginx
-            curl -fsS -I --max-time 15 "https://${D}/"
+            curl --noproxy '*' -fsS -I --max-time 15 "https://${D}/"
           fi
           echo "=== TCE DOMAIN SETUP COMPLETE ==="
           REMOTE
