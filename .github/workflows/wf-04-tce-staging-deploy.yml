@@ -75,7 +75,8 @@ jobs:
       - uses: actions/checkout@v4
       - uses: docker/setup-buildx-action@v3
       - name: Build ARM64 FE image
-        env: { IMAGE_TAG: ${{ needs.detect-changes.outputs.image_tag }} }
+        env:
+          IMAGE_TAG: ${{ needs.detect-changes.outputs.image_tag }}
         run: |
           set -euo pipefail
           docker buildx build --platform "$TARGET_PLATFORM" --cache-from type=gha,scope=tce-fe-stg --cache-to type=gha,mode=max,scope=tce-fe-stg -t "tce-frontend:$IMAGE_TAG" -f Dockerfile . --output type=docker,dest=/tmp/tce-frontend.tar
@@ -93,7 +94,8 @@ jobs:
       - uses: actions/checkout@v4
       - uses: docker/setup-buildx-action@v3
       - name: Build ARM64 BE image
-        env: { IMAGE_TAG: ${{ needs.detect-changes.outputs.image_tag }} }
+        env:
+          IMAGE_TAG: ${{ needs.detect-changes.outputs.image_tag }}
         run: |
           set -euo pipefail
           docker buildx build --platform "$TARGET_PLATFORM" --cache-from type=gha,scope=tce-be-stg --cache-to type=gha,mode=max,scope=tce-be-stg -t "tce-service:$IMAGE_TAG" -f apps/service/Dockerfile apps/service --output type=docker,dest=/tmp/tce-service.tar
@@ -138,7 +140,8 @@ jobs:
           fi
           ls -la /tmp/tce-stg-manifests
       - name: Configure SSH
-        env: { KEY: ${{ secrets.VPS_SSH_PRIVATE_KEY }} }
+        env:
+          KEY: ${{ secrets.VPS_SSH_PRIVATE_KEY }}
         run: |
           set -euo pipefail
           mkdir -p ~/.ssh
