@@ -1,6 +1,8 @@
 import { Controller, Get, Module } from '@nestjs/common';
 import { AuthModule } from './auth/auth.module';
 import { DbModule } from './db/db.module';
+import { TceMonitorController } from './monitor/tce-monitor.controller';
+import { TceMonitorService } from './monitor/tce-monitor.service';
 
 @Controller()
 class HealthController {
@@ -16,6 +18,7 @@ class HealthController {
 
 @Module({
   imports: [DbModule, AuthModule],
-  controllers: [HealthController],
+  controllers: [HealthController, TceMonitorController],
+  providers: [TceMonitorService],
 })
 export class AppModule {}
