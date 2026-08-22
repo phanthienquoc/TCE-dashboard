@@ -69,11 +69,7 @@ jobs:
           sudo mkdir -p "${ACME_ROOT}/.well-known/acme-challenge" "$BACKUP_DIR"
           sudo chown -R www-data:www-data "$ACME_ROOT"
 
-          if [ -f "$CFG" ]; then
-            sudo cp -a "$CFG" "$BACKUP"
-          else
-            echo MISSING | sudo tee "$BACKUP" >/dev/null
-          fi
+          if [ -f "$CFG" ]; then sudo cp -a "$CFG" "$BACKUP"; else echo MISSING | sudo tee "$BACKUP" >/dev/null; fi
           echo "Rollback backup: $BACKUP"
 
           cat > "$TMP" <<EOF
@@ -85,7 +81,7 @@ jobs:
               location ^~ /.well-known/acme-challenge/ {
                   alias ${ACME_ROOT}/.well-known/acme-challenge/;
                   default_type text/plain;
-                  try_files \$uri =404;
+                  access_log off;
               }
 
               location /api/ {
@@ -107,11 +103,7 @@ jobs:
           }
           EOF
 
-          if [ "$DRY_RUN" = "true" ]; then
-            sudo nginx -t -c /etc/nginx/nginx.conf
-            echo "DRY RUN: no changes made."
-            exit 0
-          fi
+          if [ "$DRY_RUN" = "true" ]; then sudo nginx -t -c /etc/nginx/nginx.conf; echo "DRY RUN: no changes made."; exit 0; fi
 
           sudo install -m 0644 "$TMP" "$CFG"
           sudo ln -sfn "$CFG" "$LINK"
@@ -124,7 +116,6 @@ jobs:
           echo "$CHECK" | sudo tee "${ACME_ROOT}/.well-known/acme-challenge/${CHECK}" >/dev/null
           trap 'sudo rm -f "${ACME_ROOT}/.well-known/acme-challenge/${CHECK}"' EXIT
 
-          # Test the exact Nginx listener, bypassing DNS/proxy ambiguity.
           BODY="$(curl -fsS --max-time 10 --resolve "${D}:80:127.0.0.1" "http://${D}/.well-known/acme-challenge/${CHECK}")"
           test "$BODY" = "$CHECK" || {
             echo "LOCAL ACME FAILED: expected '$CHECK', got '$BODY'"
@@ -161,7 +152,7 @@ jobs:
               location ^~ /.well-known/acme-challenge/ {
                   alias ${ACME_ROOT}/.well-known/acme-challenge/;
                   default_type text/plain;
-                  try_files \$uri =404;
+                  access_log off;
               }
               location / { return 301 https://\$host\$request_uri; }
           }
