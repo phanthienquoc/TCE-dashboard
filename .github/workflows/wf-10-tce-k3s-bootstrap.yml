@@ -1,22 +1,24 @@
 name: WF-10 TCE K3s Bootstrap
 
-on:
+"on":
   workflow_call:
     secrets: inherit
   workflow_dispatch:
     inputs:
       host:
-        description: VPS IP/hostname
+        description: "VPS IP/hostname"
         required: true
-        default: 132.226.175.206
+        default: "132.226.175.206"
+        type: string
       username:
-        description: SSH username
+        description: "SSH username"
         required: true
-        default: ubuntu
+        default: "ubuntu"
+        type: string
 
 env:
-  TCE_STG_NAMESPACE: tce-stg
-  TCE_PROD_NAMESPACE: tce-prod
+  TCE_STG_NAMESPACE: "tce-stg"
+  TCE_PROD_NAMESPACE: "tce-prod"
 
 jobs:
   bootstrap:
@@ -26,7 +28,8 @@ jobs:
     steps:
       - name: Configure SSH
         env:
-          KEY: ${{ secrets.VPS_SSH_PRIVATE_KEY }}
+          KEY: "${{ secrets.VPS_SSH_PRIVATE_KEY }}"
+        shell: bash
         run: |
           set -euo pipefail
           test -n "$KEY"
@@ -37,8 +40,9 @@ jobs:
 
       - name: Preflight existing services
         env:
-          H: ${{ inputs.host || '132.226.175.206' }}
-          U: ${{ inputs.username || 'ubuntu' }}
+          H: "${{ inputs.host || '132.226.175.206' }}"
+          U: "${{ inputs.username || 'ubuntu' }}"
+        shell: bash
         run: |
           set -euo pipefail
           ssh -i ~/.ssh/tce_vps_key -o IdentitiesOnly=yes -o StrictHostKeyChecking=no -o ConnectTimeout=10 "$U@$H" 'bash -s' <<'REMOTE'
@@ -52,8 +56,9 @@ jobs:
 
       - name: Bootstrap K3s with Traefik
         env:
-          H: ${{ inputs.host || '132.226.175.206' }}
-          U: ${{ inputs.username || 'ubuntu' }}
+          H: "${{ inputs.host || '132.226.175.206' }}"
+          U: "${{ inputs.username || 'ubuntu' }}"
+        shell: bash
         run: |
           set -euo pipefail
           ssh -i ~/.ssh/tce_vps_key -o IdentitiesOnly=yes -o StrictHostKeyChecking=no "$U@$H" 'bash -s' <<'REMOTE'
@@ -66,15 +71,16 @@ jobs:
           sudo kubectl create namespace tce-prod --dry-run=client -o yaml | sudo kubectl apply -f -
           sudo kubectl label namespace tce-stg app.kubernetes.io/part-of=tce environment=stg --overwrite
           sudo kubectl label namespace tce-prod app.kubernetes.io/part-of=tce environment=prod --overwrite
-          sudo kubectl -n kube-system get pods -l app.kubernetes.io/name=traefik --no-headers
+          sudo kubectl -n kube-system get pods -l app.kubernetes.io/name=traefik
           REMOTE
 
       - name: Configure MFA secrets
         env:
-          H: ${{ inputs.host || '132.226.175.206' }}
-          U: ${{ inputs.username || 'ubuntu' }}
-          MFA_STG: ${{ secrets.MFA_ENCRYPTION_KEY_STG }}
-          MFA_PROD: ${{ secrets.MFA_ENCRYPTION_KEY_PROD }}
+          H: "${{ inputs.host || '132.226.175.206' }}"
+          U: "${{ inputs.username || 'ubuntu' }}"
+          MFA_STG: "${{ secrets.MFA_ENCRYPTION_KEY_STG }}"
+          MFA_PROD: "${{ secrets.MFA_ENCRYPTION_KEY_PROD }}"
+        shell: bash
         run: |
           set -euo pipefail
           test -n "$MFA_STG"
@@ -87,4 +93,5 @@ jobs:
 
       - name: Cleanup
         if: always()
+        shell: bash
         run: rm -f ~/.ssh/tce_vps_key
