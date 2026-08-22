@@ -1,35 +1,59 @@
 name: "WF-01 TCE Build Verify"
 
-on:
+"on":
   push:
     branches: [master]
     paths:
       - 'src/**'
       - 'index.html'
       - 'package.json'
+      - 'package-lock.json'
       - 'vite.config.*'
       - 'Dockerfile'
       - 'apps/service/**'
+      - 'infra/k3s/**'
       - '.github/workflows/wf-01-tce-build-verify.yml'
+      - '.github/workflows/wf-04-tce-staging-deploy.yml'
+      - '.github/workflows/wf-05-tce-production-deploy.yml'
   workflow_dispatch:
 
 jobs:
   build:
+    name: Build + Verify TCE images
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
-      - name: Build frontend
+
+      - name: Verify repository build inputs
+        run: |
+          set -euo pipefail
+          test -f Dockerfile
+          test -f package.json
+          test -f index.html
+          test -f apps/service/Dockerfile
+          test -f apps/service/package.json
+          test -d infra/k3s
+
+      - name: Build frontend image
         run: |
           set -euo pipefail
           docker build --pull -t tce-frontend:verify -f Dockerfile .
           docker image inspect tce-frontend:verify >/dev/null
-      - name: Build backend
+
+      - name: Build backend image
         run: |
           set -euo pipefail
           docker build --pull -t tce-service:verify -f apps/service/Dockerfile apps/service
           docker image inspect tce-service:verify >/dev/null
+
       - name: Verify image metadata
         run: |
+          set -euo pipefail
           docker image inspect tce-frontend:verify --format '{{.Config.ExposedPorts}}'
           docker image inspect tce-service:verify --format '{{.Config.ExposedPorts}}'
+
+      - name: Verify Kubernetes YAML syntax
+        run: |
+          set -euo pipefail
+          ruby -e 'require "yaml"; Dir["infra/k3s/*.yaml"].each { |f| YAML.load_stream(File.read(f), aliases: true); puts "OK #{f}" }'
