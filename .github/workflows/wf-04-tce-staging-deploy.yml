@@ -45,10 +45,8 @@ jobs:
               - 'Dockerfile'
               - 'package.json'
               - 'package-lock.json'
-              - 'packages/**'
             be:
               - 'apps/service/**'
-              - 'packages/**'
             deploy:
               - 'infra/k3s/**'
               - '.github/workflows/wf-04-tce-staging-deploy.yml'
@@ -119,7 +117,7 @@ jobs:
         if: needs.detect-changes.outputs.be == 'true'
         uses: actions/download-artifact@v4
         with: { name: tce-stg-be-image, path: /tmp/tce-images }
-      - name: Render changed Kubernetes manifests
+      - name: Render Kubernetes manifests
         env:
           IMAGE_TAG: ${{ needs.detect-changes.outputs.image_tag }}
           FE_CHANGED: ${{ needs.detect-changes.outputs.fe }}
@@ -128,12 +126,15 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p /tmp/tce-stg-manifests
-          if [ "$FE_CHANGED" = "true" ]; then sed "s#tce-frontend:stg#tce-frontend:$IMAGE_TAG#g" infra/k3s/frontend-stg.yaml > /tmp/tce-stg-manifests/frontend-stg.yaml; fi
-          if [ "$BE_CHANGED" = "true" ]; then sed "s#tce-service:stg#tce-service:$IMAGE_TAG#g; s#path: /auth/status#path: /api/auth/status#g" infra/k3s/service-stg.yaml > /tmp/tce-stg-manifests/service-stg.yaml; fi
-          if [ "$DEPLOY_CHANGED" = "true" ]; then
-            # Config-only deployment: keep the currently deployed image tags.
-            sed 's#tce-frontend:stg#tce-frontend:stg#g' infra/k3s/frontend-stg.yaml > /tmp/tce-stg-manifests/frontend-stg.yaml 2>/dev/null || true
-            sed 's#tce-service:stg#tce-service:stg#g; s#path: /auth/status#path: /api/auth/status#g' infra/k3s/service-stg.yaml > /tmp/tce-stg-manifests/service-stg.yaml 2>/dev/null || true
+          if [ "$FE_CHANGED" = "true" ]; then
+            sed "s#tce-frontend:stg#tce-frontend:$IMAGE_TAG#g" infra/k3s/frontend-stg.yaml > /tmp/tce-stg-manifests/frontend-stg.yaml
+          elif [ "$DEPLOY_CHANGED" = "true" ]; then
+            sed 's#tce-frontend:stg#tce-frontend:__CURRENT__#g' infra/k3s/frontend-stg.yaml > /tmp/tce-stg-manifests/frontend-stg.yaml
+          fi
+          if [ "$BE_CHANGED" = "true" ]; then
+            sed "s#tce-service:stg#tce-service:$IMAGE_TAG#g; s#path: /auth/status#path: /api/auth/status#g" infra/k3s/service-stg.yaml > /tmp/tce-stg-manifests/service-stg.yaml
+          elif [ "$DEPLOY_CHANGED" = "true" ]; then
+            sed 's#tce-service:stg#tce-service:__CURRENT__#g; s#path: /auth/status#path: /api/auth/status#g' infra/k3s/service-stg.yaml > /tmp/tce-stg-manifests/service-stg.yaml
           fi
           ls -la /tmp/tce-stg-manifests
       - name: Configure SSH
@@ -167,11 +168,25 @@ jobs:
           if [ -f /tmp/tce-frontend.tar.gz ]; then sudo k3s ctr images import /tmp/tce-frontend.tar.gz; fi
           if [ -f /tmp/tce-service.tar.gz ]; then sudo k3s ctr images import /tmp/tce-service.tar.gz; fi
           sudo kubectl -n "$NS" create secret generic tce-app-secrets --from-literal=SUPABASE_URL="$SUPABASE_URL" --from-literal=SUPABASE_SERVICE_ROLE_KEY="$SUPABASE_KEY" --from-literal=JWT_SECRET="$JWT_SECRET" --dry-run=client -o yaml | sudo kubectl apply -f -
-          verify_image() { local image="$1"; sudo k3s ctr images list | awk '{print $1}' | grep -Fxq "$image" || { echo "ERROR: image not found: $image"; sudo k3s ctr images list | grep -E 'tce-(service|frontend)' || true; exit 1; }; }
+          resolve_current_image() { local deployment="$1"; sudo kubectl -n "$NS" get deployment "$deployment" -o jsonpath='{.spec.template.spec.containers[0].image}'; }
+          verify_image() { local image="$1"; echo "Checking k3s image: $image"; sudo k3s ctr images list | awk '{print $1}' | grep -Fxq "$image" || { echo "ERROR: image not found: $image"; sudo k3s ctr images list | grep -E 'tce-(service|frontend)' || true; exit 1; }; }
           diagnostics() { local deployment="$1"; echo "=== DIAGNOSTICS: $deployment ==="; sudo kubectl -n "$NS" get deployment "$deployment" -o wide || true; sudo kubectl -n "$NS" get pods -o wide || true; sudo kubectl -n "$NS" describe deployment "$deployment" || true; sudo kubectl -n "$NS" get pods -l "app=$deployment" -o name | while read -r pod; do sudo kubectl -n "$NS" describe "$pod" || true; sudo kubectl -n "$NS" logs "$pod" --all-containers=true --tail=200 || true; sudo kubectl -n "$NS" logs "$pod" --all-containers=true --previous --tail=200 || true; done; sudo kubectl -n "$NS" get events --sort-by='.lastTimestamp' | tail -100 || true; }
-          deploy_and_wait() { local manifest="$1"; local deployment="$2"; local image="$3"; [ -f "$manifest" ] || return 0; verify_image "$image"; sudo kubectl apply -f "$manifest"; if ! sudo kubectl -n "$NS" rollout status "deployment/$deployment" --timeout=180s; then diagnostics "$deployment"; exit 1; fi; }
-          deploy_and_wait /tmp/service-stg.yaml tce-service "tce-service:${BE_CHANGED:-false}" || true
-          deploy_and_wait /tmp/frontend-stg.yaml tce-frontend "tce-frontend:${FE_CHANGED:-false}" || true
+          deploy_and_wait() {
+            local manifest="$1"; local deployment="$2"; local image="$3"
+            [ -f "$manifest" ] || return 0
+            if grep -q '__CURRENT__' "$manifest"; then
+              current="$(resolve_current_image "$deployment")"
+              test -n "$current" || { echo "ERROR: cannot resolve current image for $deployment"; exit 1; }
+              sed -i "s#__CURRENT__#$current#g" "$manifest"
+              image="$current"
+              echo "Config-only deploy: preserving live image $image"
+            fi
+            verify_image "$image"
+            sudo kubectl apply -f "$manifest"
+            if ! sudo kubectl -n "$NS" rollout status "deployment/$deployment" --timeout=180s; then diagnostics "$deployment"; exit 1; fi
+          }
+          deploy_and_wait /tmp/service-stg.yaml tce-service "tce-service:$IMAGE_TAG"
+          deploy_and_wait /tmp/frontend-stg.yaml tce-frontend "tce-frontend:$IMAGE_TAG"
           sudo kubectl -n "$NS" get pods,svc,ingress
           rm -f /tmp/tce-frontend.tar.gz /tmp/tce-service.tar.gz /tmp/service-stg.yaml /tmp/frontend-stg.yaml
           REMOTE
