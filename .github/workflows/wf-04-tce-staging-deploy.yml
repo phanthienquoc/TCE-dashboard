@@ -5,6 +5,7 @@ name: "WF-04 TCE Staging Deploy"
     inputs:
       host: { required: false, type: string, default: "132.226.175.206" }
       username: { required: false, type: string, default: "ubuntu" }
+      deploy: { required: false, type: boolean, default: false }
     secrets:
       VPS_SSH_PRIVATE_KEY: { required: true }
       SUPABASE_URL_STG: { required: true }
@@ -14,6 +15,7 @@ name: "WF-04 TCE Staging Deploy"
     inputs:
       host: { description: "VPS IP/hostname", required: true, default: "132.226.175.206", type: string }
       username: { description: "SSH username", required: true, default: "ubuntu", type: string }
+      deploy: { description: "Actually deploy changed components to STG", required: true, default: true, type: boolean }
 
 env:
   ENV_NAME: stg
@@ -28,6 +30,7 @@ jobs:
       fe: ${{ steps.filter.outputs.fe }}
       be: ${{ steps.filter.outputs.be }}
       deploy: ${{ steps.filter.outputs.deploy }}
+      deploy_allowed: ${{ inputs.deploy }}
       image_tag: ${{ steps.version.outputs.image_tag }}
     steps:
       - uses: actions/checkout@v4
@@ -51,7 +54,6 @@ jobs:
               - 'packages/**'
             deploy:
               - 'infra/k3s/**'
-              - '.github/workflows/wf-04-tce-staging-deploy.yml'
       - name: Resolve image version
         id: version
         run: |
@@ -66,6 +68,7 @@ jobs:
           echo "FE changed: ${{ steps.filter.outputs.fe }}"
           echo "BE changed: ${{ steps.filter.outputs.be }}"
           echo "Deploy config changed: ${{ steps.filter.outputs.deploy }}"
+          echo "Deploy allowed: ${{ inputs.deploy }}"
 
   build-fe:
     name: Build FE image (native ARM64)
@@ -108,7 +111,7 @@ jobs:
   deploy-staging:
     name: Deploy changed components to STG
     needs: [detect-changes, build-fe, build-be]
-    if: always() && needs.detect-changes.result == 'success' && (needs.detect-changes.outputs.fe == 'true' || needs.detect-changes.outputs.be == 'true' || needs.detect-changes.outputs.deploy == 'true') && (needs.build-fe.result == 'success' || needs.build-fe.result == 'skipped') && (needs.build-be.result == 'success' || needs.build-be.result == 'skipped')
+    if: always() && needs.detect-changes.result == 'success' && needs.detect-changes.outputs.deploy_allowed == 'true' && (needs.detect-changes.outputs.fe == 'true' || needs.detect-changes.outputs.be == 'true' || needs.detect-changes.outputs.deploy == 'true') && (needs.build-fe.result == 'success' || needs.build-fe.result == 'skipped') && (needs.build-be.result == 'success' || needs.build-be.result == 'skipped')
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
