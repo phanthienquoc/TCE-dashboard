@@ -51,17 +51,18 @@ jobs:
       - name: Build ARM64 FE + BE images
         run: |
           set -euo pipefail
-          # VPS is ARM64 (aarch64). GitHub hosted runners are normally amd64,
-          # so explicitly build images for the k3s node architecture.
+          # VPS is ARM64 (aarch64). Build exactly for the k3s node architecture.
           docker buildx build --platform "$TARGET_PLATFORM" --load \
             -t tce-frontend:stg -f Dockerfile .
           docker buildx build --platform "$TARGET_PLATFORM" --load \
             -t tce-service:stg -f apps/service/Dockerfile apps/service
 
-          docker image inspect tce-frontend:stg --format '{{.Architecture}}/{{.Os}}'
-          docker image inspect tce-service:stg --format '{{.Architecture}}/{{.Os}}'
-          test "$(docker image inspect tce-frontend:stg --format '{{.Architecture}}')" = "arm64"
-          test "$(docker image inspect tce-service:stg --format '{{.Architecture}}')" = "arm64"
+          FE_ARCH="$(docker image inspect tce-frontend:stg --format '{{.Architecture}}/{{.Os}}')"
+          BE_ARCH="$(docker image inspect tce-service:stg --format '{{.Architecture}}/{{.Os}}')"
+          echo "Frontend image: $FE_ARCH"
+          echo "Service image:  $BE_ARCH"
+          test "$FE_ARCH" = "arm64/linux"
+          test "$BE_ARCH" = "arm64/linux"
 
           docker save tce-frontend:stg tce-service:stg | gzip > /tmp/tce-stg-images.tar.gz
 
@@ -91,26 +92,45 @@ jobs:
           scp -i ~/.ssh/tce_vps_key -o IdentitiesOnly=yes -o StrictHostKeyChecking=no infra/k3s/service-stg.yaml infra/k3s/frontend-stg.yaml "$U@$H:/tmp/"
           ssh -i ~/.ssh/tce_vps_key -o IdentitiesOnly=yes -o StrictHostKeyChecking=no "$U@$H" "SUPABASE_URL='$SUPABASE_URL' SUPABASE_KEY='$SUPABASE_KEY' JWT_SECRET='$JWT_SECRET' bash -s" <<'REMOTE'
           set -euo pipefail
+          NS="tce-stg"
+
           sudo k3s ctr images import /tmp/tce-stg-images.tar.gz
-          sudo kubectl -n tce-stg create secret generic tce-app-secrets --from-literal=SUPABASE_URL="$SUPABASE_URL" --from-literal=SUPABASE_SERVICE_ROLE_KEY="$SUPABASE_KEY" --from-literal=JWT_SECRET="$JWT_SECRET" --dry-run=client -o yaml | sudo kubectl apply -f -
+          sudo kubectl -n "$NS" create secret generic tce-app-secrets \
+            --from-literal=SUPABASE_URL="$SUPABASE_URL" \
+            --from-literal=SUPABASE_SERVICE_ROLE_KEY="$SUPABASE_KEY" \
+            --from-literal=JWT_SECRET="$JWT_SECRET" \
+            --dry-run=client -o yaml | sudo kubectl apply -f -
+
           sudo kubectl apply -f /tmp/service-stg.yaml -f /tmp/frontend-stg.yaml
-          if ! sudo kubectl -n tce-stg rollout status deployment/tce-service --timeout=180s; then
+
+          # The manifests intentionally use stable local tags + IfNotPresent because
+          # images are imported directly into k3s containerd. Applying an unchanged
+          # manifest does NOT restart an existing pod, so explicitly restart both
+          # deployments after importing the new ARM64 images.
+          sudo kubectl -n "$NS" rollout restart deployment/tce-service
+          sudo kubectl -n "$NS" rollout restart deployment/tce-frontend
+
+          if ! sudo kubectl -n "$NS" rollout status deployment/tce-service --timeout=180s; then
             echo "=== SERVICE DIAGNOSTICS ==="
-            sudo kubectl -n tce-stg get pods -o wide || true
-            sudo kubectl -n tce-stg describe pods || true
-            sudo kubectl -n tce-stg logs deployment/tce-service --all-containers=true --tail=200 || true
-            sudo kubectl -n tce-stg get events --sort-by='.lastTimestamp' | tail -100 || true
+            sudo kubectl -n "$NS" get pods -o wide || true
+            sudo kubectl -n "$NS" describe pods || true
+            sudo kubectl -n "$NS" logs deployment/tce-service --all-containers=true --tail=200 || true
+            sudo kubectl -n "$NS" logs deployment/tce-service --all-containers=true --previous --tail=200 || true
+            sudo kubectl -n "$NS" get events --sort-by='.lastTimestamp' | tail -100 || true
             exit 1
           fi
-          if ! sudo kubectl -n tce-stg rollout status deployment/tce-frontend --timeout=180s; then
+
+          if ! sudo kubectl -n "$NS" rollout status deployment/tce-frontend --timeout=180s; then
             echo "=== FRONTEND DIAGNOSTICS ==="
-            sudo kubectl -n tce-stg get pods -o wide || true
-            sudo kubectl -n tce-stg describe pods || true
-            sudo kubectl -n tce-stg logs deployment/tce-frontend --all-containers=true --tail=200 || true
-            sudo kubectl -n tce-stg get events --sort-by='.lastTimestamp' | tail -100 || true
+            sudo kubectl -n "$NS" get pods -o wide || true
+            sudo kubectl -n "$NS" describe pods || true
+            sudo kubectl -n "$NS" logs deployment/tce-frontend --all-containers=true --tail=200 || true
+            sudo kubectl -n "$NS" logs deployment/tce-frontend --all-containers=true --previous --tail=200 || true
+            sudo kubectl -n "$NS" get events --sort-by='.lastTimestamp' | tail -100 || true
             exit 1
           fi
-          sudo kubectl -n tce-stg get pods,svc,ingress
+
+          sudo kubectl -n "$NS" get pods,svc,ingress
           rm -f /tmp/tce-stg-images.tar.gz /tmp/service-stg.yaml /tmp/frontend-stg.yaml
           REMOTE
 
