@@ -1,0 +1,210 @@
+name: "WF-08 TCE Domain Setup"
+
+on:
+  workflow_dispatch:
+    inputs:
+      host:
+        description: "VPS IP/hostname"
+        required: true
+        default: "132.226.175.206"
+      domain:
+        description: "TCE domain"
+        required: true
+        default: "tce.mrcute.space"
+      deploy_env:
+        description: "Environment"
+        required: true
+        type: choice
+        options: [stg, prod]
+        default: stg
+      enable_ssl:
+        description: "Request Certbot certificate after ACME preflight"
+        required: true
+        default: "true"
+      dry_run:
+        description: "Validate only; do not modify Nginx"
+        required: true
+        default: "false"
+
+jobs:
+  domain-setup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Configure SSH
+        env:
+          KEY: ${{ secrets.VPS_SSH_PRIVATE_KEY }}
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.ssh
+          printf '%s\n' "$KEY" | tr -d '\r' > ~/.ssh/tce_vps_key
+          chmod 600 ~/.ssh/tce_vps_key
+          ssh-keygen -y -f ~/.ssh/tce_vps_key >/dev/null
+
+      - name: Configure TCE HTTP and HTTPS safely
+        env:
+          H: ${{ inputs.host }}
+          D: ${{ inputs.domain }}
+          ENV: ${{ inputs.deploy_env }}
+          SSL: ${{ inputs.enable_ssl }}
+          DRY_RUN: ${{ inputs.dry_run }}
+        run: |
+          set -euo pipefail
+          if [ "$ENV" = "stg" ]; then FE=3210; BE=8210; else FE=3212; BE=8212; fi
+          ssh -i ~/.ssh/tce_vps_key -o IdentitiesOnly=yes -o StrictHostKeyChecking=no -o ConnectTimeout=10 ubuntu@"$H" "D='$D' ENV='$ENV' FE='$FE' BE='$BE' SSL='$SSL' DRY_RUN='$DRY_RUN' bash -s" <<'REMOTE'
+          set -euo pipefail
+          CFG="/etc/nginx/sites-available/${D}"
+          LINK="/etc/nginx/sites-enabled/${D}"
+          TMP="/tmp/tce-domain-${ENV}.conf"
+          ACME_ROOT="/var/www/tce-acme"
+          BACKUP_DIR="/var/backups/tce-nginx"
+          TS="$(date +%Y%m%d-%H%M%S)"
+          BACKUP="${BACKUP_DIR}/${ENV}-${D}-${TS}.conf"
+
+          echo "=== SAFETY PRECHECK ==="
+          sudo nginx -t
+          sudo systemctl is-active --quiet nginx
+          getent hosts "$D"
+          sudo mkdir -p "${ACME_ROOT}/.well-known/acme-challenge" "$BACKUP_DIR"
+          sudo chown -R www-data:www-data "$ACME_ROOT"
+          if [ -f "$CFG" ]; then sudo cp -a "$CFG" "$BACKUP"; else echo MISSING | sudo tee "$BACKUP" >/dev/null; fi
+          echo "Rollback backup: $BACKUP"
+
+          cat > "$TMP" <<EOF
+          server {
+              listen 80;
+              listen [::]:80;
+              server_name ${D};
+              location ^~ /.well-known/acme-challenge/ {
+                  alias ${ACME_ROOT}/.well-known/acme-challenge/;
+                  default_type text/plain;
+                  access_log off;
+              }
+              location ~ /\\.(?!well-known) { deny all; }
+              location /api/ {
+                  proxy_pass http://127.0.0.1:${BE}/;
+                  proxy_http_version 1.1;
+                  proxy_set_header Host \$host;
+                  proxy_set_header X-Real-IP \$remote_addr;
+                  proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+                  proxy_set_header X-Forwarded-Proto \$scheme;
+              }
+              location / {
+                  proxy_pass http://127.0.0.1:${FE};
+                  proxy_http_version 1.1;
+                  proxy_set_header Host \$host;
+                  proxy_set_header X-Real-IP \$remote_addr;
+                  proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+                  proxy_set_header X-Forwarded-Proto \$scheme;
+              }
+          }
+          EOF
+
+          if [ "$DRY_RUN" = "true" ]; then sudo nginx -t; echo "DRY RUN: no changes made."; exit 0; fi
+          sudo install -m 0644 "$TMP" "$CFG"
+          sudo ln -sfn "$CFG" "$LINK"
+          sudo nginx -t
+          sudo systemctl reload nginx
+          sudo systemctl is-active --quiet nginx
+
+          echo "=== ACME LOCAL PREFLIGHT ==="
+          CHECK="tce-acme-${TS}"
+          CHECK_PATH="${ACME_ROOT}/.well-known/acme-challenge/${CHECK}"
+          echo "$CHECK" | sudo tee "$CHECK_PATH" >/dev/null
+          sudo chmod 0644 "$CHECK_PATH"
+          sudo test -s "$CHECK_PATH"
+
+          LOCAL_BODY="/tmp/tce-local-body-${TS}"
+          LOCAL_CODE="$(curl --noproxy '*' -sS --max-time 10 -o "$LOCAL_BODY" -w '%{http_code}' -H "Host: ${D}" "http://127.0.0.1/.well-known/acme-challenge/${CHECK}" || true)"
+          LOCAL_BODY_TEXT="$(cat "$LOCAL_BODY" 2>/dev/null || true)"
+          echo "Local HTTP status: ${LOCAL_CODE}"
+          echo "Local response body: ${LOCAL_BODY_TEXT}"
+          if [ "$LOCAL_CODE" != "200" ] || [ "$LOCAL_BODY_TEXT" != "$CHECK" ]; then
+            echo "LOCAL ACME FAILED"
+            echo "=== NGINX VHOST ==="
+            sudo nginx -T 2>&1 | grep -n -A25 -B5 "server_name ${D}" || true
+            echo "=== LISTENERS ==="
+            sudo ss -lntp | grep -E ':(80|443)\\b' || true
+            echo "=== ERROR LOG ==="
+            sudo tail -n 80 /var/log/nginx/error.log || true
+            rm -f "$LOCAL_BODY"
+            sudo rm -f "$CHECK_PATH"
+            exit 1
+          fi
+          rm -f "$LOCAL_BODY"
+          echo "Local ACME OK."
+
+          echo "=== ACME PUBLIC PREFLIGHT ==="
+          PUBLIC_BODY="/tmp/tce-public-body-${TS}"
+          PUBLIC_CODE="$(curl --noproxy '*' -sS --max-time 10 -o "$PUBLIC_BODY" -w '%{http_code}' "http://${D}/.well-known/acme-challenge/${CHECK}" || true)"
+          PUBLIC_BODY_TEXT="$(cat "$PUBLIC_BODY" 2>/dev/null || true)"
+          echo "Public HTTP status: ${PUBLIC_CODE}"
+          echo "Public response body: ${PUBLIC_BODY_TEXT}"
+          if [ "$PUBLIC_CODE" != "200" ] || [ "$PUBLIC_BODY_TEXT" != "$CHECK" ]; then
+            echo "PUBLIC ACME FAILED: DNS/network is not reaching this vhost."
+            echo "This is safe: certificate issuance will NOT be attempted."
+            rm -f "$PUBLIC_BODY"
+            sudo rm -f "$CHECK_PATH"
+            exit 1
+          fi
+          rm -f "$PUBLIC_BODY"
+          echo "Public ACME OK."
+          sudo rm -f "$CHECK_PATH"
+          curl --noproxy '*' -fsS -I --max-time 10 "http://${D}/"
+
+          if [ "$SSL" = "true" ]; then
+            command -v certbot >/dev/null || { echo "certbot is not installed"; exit 1; }
+            sudo certbot certonly --webroot -w "$ACME_ROOT" --non-interactive --agree-tos --keep-until-expiring -d "$D"
+            CERT_DIR="/etc/letsencrypt/live/${D}"
+            test -s "${CERT_DIR}/fullchain.pem"
+            test -s "${CERT_DIR}/privkey.pem"
+            cat > "$TMP" <<EOF
+          server {
+              listen 80;
+              listen [::]:80;
+              server_name ${D};
+              location ^~ /.well-known/acme-challenge/ {
+                  alias ${ACME_ROOT}/.well-known/acme-challenge/;
+                  default_type text/plain;
+                  access_log off;
+              }
+              location ~ /\\.(?!well-known) { deny all; }
+              location / { return 301 https://\$host\$request_uri; }
+          }
+          server {
+              listen 443 ssl;
+              listen [::]:443 ssl;
+              server_name ${D};
+              ssl_certificate ${CERT_DIR}/fullchain.pem;
+              ssl_certificate_key ${CERT_DIR}/privkey.pem;
+              location ~ /\\.(?!well-known) { deny all; }
+              location /api/ {
+                  proxy_pass http://127.0.0.1:${BE}/;
+                  proxy_http_version 1.1;
+                  proxy_set_header Host \$host;
+                  proxy_set_header X-Real-IP \$remote_addr;
+                  proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+                  proxy_set_header X-Forwarded-Proto https;
+              }
+              location / {
+                  proxy_pass http://127.0.0.1:${FE};
+                  proxy_http_version 1.1;
+                  proxy_set_header Host \$host;
+                  proxy_set_header X-Real-IP \$remote_addr;
+                  proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+                  proxy_set_header X-Forwarded-Proto https;
+              }
+          }
+          EOF
+            sudo install -m 0644 "$TMP" "$CFG"
+            sudo nginx -t
+            sudo systemctl reload nginx
+            sudo systemctl is-active --quiet nginx
+            curl --noproxy '*' -fsS -I --max-time 15 "https://${D}/"
+          fi
+          echo "=== TCE DOMAIN SETUP COMPLETE ==="
+          REMOTE
+
+      - name: Cleanup
+        if: always()
+        run: rm -f ~/.ssh/tce_vps_key
