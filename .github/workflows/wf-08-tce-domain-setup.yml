@@ -62,15 +62,29 @@ jobs:
           BACKUP="${BACKUP_DIR}/${ENV}-${D}-${TS}.conf"
 
           echo "=== SAFETY PRECHECK ==="
-          sudo nginx -t
           sudo systemctl is-active --quiet nginx
           getent hosts "$D"
           sudo mkdir -p "$ACME_ROOT/.well-known/acme-challenge" "$BACKUP_DIR"
           sudo chown -R www-data:www-data "$ACME_ROOT"
-          if [ -f "$CFG" ]; then sudo cp -a "$CFG" "$BACKUP"; else echo MISSING | sudo tee "$BACKUP" >/dev/null; fi
+
+          # Recover safely from a previous failed run that left this target vhost
+          # marked as default_server. Never modify another site's default vhost.
+          if [ -f "$CFG" ]; then
+            sudo cp -a "$CFG" "$BACKUP"
+            if sudo grep -Eq '^[[:space:]]*listen[[:space:]]+80[[:space:]]+default_server' "$CFG" || \
+               sudo grep -Eq '^[[:space:]]*listen[[:space:]]+\[::\]:80[[:space:]]+default_server' "$CFG"; then
+              echo "Repairing stale default_server flag in ${CFG}"
+              sudo sed -i -E 's/(listen[[:space:]]+80)[[:space:]]+default_server;/\1;/; s/(listen[[:space:]]+\[::\]:80)[[:space:]]+default_server;/\1;/' "$CFG"
+            fi
+          else
+            echo MISSING | sudo tee "$BACKUP" >/dev/null
+          fi
           echo "Rollback backup: $BACKUP"
 
-          # Phase 1: ACME-only vhost. Do not claim default_server because another site already owns port 80.
+          # Validate the existing configuration after targeted recovery.
+          sudo nginx -t
+
+          # Phase 1: ACME-only vhost. Do not claim default_server.
           cat > "$TMP" <<EOF
           server {
               listen 80;
