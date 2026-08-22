@@ -23,6 +23,8 @@ jobs:
     if: ${{ inputs.environment == 'stg' }}
     needs: bootstrap
     uses: ./.github/workflows/wf-04-tce-staging-deploy.yml
+    with:
+      deploy: true
     secrets: inherit
 
   deploy-prod:
