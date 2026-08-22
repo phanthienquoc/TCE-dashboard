@@ -19,20 +19,17 @@ name: "WF-01 TCE Build Verify"
 
 jobs:
   build:
-    name: Build + Verify TCE images and required secrets
+    name: Build + Verify TCE images and STG secrets
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
 
-      - name: Verify required repository inputs
+      - name: Verify required STG repository secrets
         env:
           SUPABASE_URL_STG: ${{ secrets.SUPABASE_URL_STG }}
           SUPABASE_SERVICE_ROLE_KEY_STG: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY_STG }}
           JWT_SECRET_STG: ${{ secrets.JWT_SECRET_STG }}
-          SUPABASE_URL_PROD: ${{ secrets.SUPABASE_URL_PROD }}
-          SUPABASE_SERVICE_ROLE_KEY_PROD: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY_PROD }}
-          JWT_SECRET_PROD: ${{ secrets.JWT_SECRET_PROD }}
           VPS_SSH_PRIVATE_KEY: ${{ secrets.VPS_SSH_PRIVATE_KEY }}
         run: |
           set -euo pipefail
@@ -42,7 +39,7 @@ jobs:
           test -f apps/service/Dockerfile
           test -f apps/service/package.json
           test -d infra/k3s
-          for name in SUPABASE_URL_STG SUPABASE_SERVICE_ROLE_KEY_STG JWT_SECRET_STG SUPABASE_URL_PROD SUPABASE_SERVICE_ROLE_KEY_PROD JWT_SECRET_PROD VPS_SSH_PRIVATE_KEY; do
+          for name in SUPABASE_URL_STG SUPABASE_SERVICE_ROLE_KEY_STG JWT_SECRET_STG VPS_SSH_PRIVATE_KEY; do
             test -n "${!name}" || { echo "Missing required GitHub secret: $name"; exit 1; }
             echo "Secret present: $name"
           done
