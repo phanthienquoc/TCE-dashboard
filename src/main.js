@@ -9,14 +9,15 @@ const route=()=>window.location.pathname.replace(/\/+$/,'')||'/';
 
 async function load(){
   let data=fallback;
-  const url=import.meta.env.VITE_SUPABASE_URL, key=import.meta.env.VITE_SUPABASE_ANON_KEY;
   if(url&&key){try{const sb=createClient(url,key); const {data:a}=await sb.from('tce_accounts').select('*').eq('name','TCE-30M').single(); const {data:p}=await sb.from('tce_positions').select('*').eq('account_id',a.id).order('symbol'); const {data:o}=await sb.from('tce_orders').select('*').eq('account_id',a.id).order('created_at',{ascending:false}).limit(20); if(a)data={account:a,positions:p||[],orders:o||[]};}catch(e){console.warn(e)}}
   window.__tceData=data;
   render(data,route());
 }
 
 function positionsView(d){
-  return `<section class="section page-section"><div class="section-head"><div><h2>Positions</h2><small>Open positions</small></div><span>${d.positions.length}</span></div><div class="cards">${d.positions.length?d.positions.map(p=>`<div class="position"><div><b>${p.symbol}</b><small>${p.quantity} cp • avg ${Number(p.avg_cost).toLocaleString('vi-VN')}</small></div><div class="right"><b>${money(p.market_value||p.cost_basis)}</b><small class="${(p.unrealized_pnl||0)>=0?'up':'down'}">${(p.unrealized_pnl||0)>=0?'+':''}${money(p.unrealized_pnl||0)}</small></div></div>`).join(''):'<div class="empty">No open positions</div>'}</div></section>`;
+  const slots=Array.from({length:5},(_,i)=>d.positions[i]||null);
+  return `<section class="section page-section"><div class="section-head"><div><h2>Positions</h2><small>Open positions</small></div><span>${d.positions.length}</span></div><div class="cards">${d.positions.length?d.positions.map(p=>`<div class="position"><div><b>${p.symbol}</b><small>${p.quantity} cp • avg ${Number(p.avg_cost).toLocaleString('vi-VN')}</small></div><div class="right"><b>${money(p.market_value||p.cost_basis)}</b><small class="${(p.unrealized_pnl||0)>=0?'up':'down'}">${(p.unrealized_pnl||0)>=0?'+':''}${money(p.unrealized_pnl||0)}</small></div></div>`).join(''):'<div class="empty">No open positions</div>'}</div></section>
+  <section class="section planned"><div class="section-head"><div><h2>Next 5 positions</h2><small>Planned buying slots</small></div><span>5 slots</span></div><div class="planned-list">${slots.map((p,i)=>p?`<div class="planned-row"><span class="slot">${i+1}</span><div><b>${p.symbol}</b><small>Current position</small></div><span class="planned-status occupied">Occupied</span></div>`:`<div class="planned-row"><span class="slot">${i+1}</span><div><b>Position ${i+1}</b><small>Waiting for next buy candidate</small></div><span class="planned-status">Available</span></div>`).join('')}</div></section>`;
 }
 
 function ordersView(d){
