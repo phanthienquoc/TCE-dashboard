@@ -1,0 +1,136 @@
+name: "WF-11 TCE Nginx Domain"
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "TCE environment"
+        required: true
+        type: choice
+        options:
+          - stg
+          - prod
+        default: stg
+      enable_ssl:
+        description: "Enable/renew HTTPS with Certbot"
+        required: true
+        type: boolean
+        default: true
+      dry_run:
+        description: "Audit only; do not modify Nginx or reload"
+        required: true
+        type: boolean
+        default: false
+
+env:
+  VPS_HOST: 132.226.175.206
+  VPS_USER: ubuntu
+  NGINX_UPSTREAM: 127.0.0.1:80
+
+jobs:
+  configure-domain:
+    name: Configure TCE ${{ inputs.environment }} domain
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Configure SSH
+        env:
+          KEY: ${{ secrets.VPS_SSH_PRIVATE_KEY }}
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.ssh
+          printf '%s\n' "$KEY" | tr -d '\r' > ~/.ssh/tce_vps_key
+          chmod 600 ~/.ssh/tce_vps_key
+          ssh-keygen -y -f ~/.ssh/tce_vps_key >/dev/null
+
+      - name: Configure Nginx and HTTPS
+        env:
+          H: ${{ env.VPS_HOST }}
+          U: ${{ env.VPS_USER }}
+          ENV_NAME: ${{ inputs.environment }}
+          SSL: ${{ inputs.enable_ssl }}
+          DRY_RUN: ${{ inputs.dry_run }}
+          UPSTREAM: ${{ env.NGINX_UPSTREAM }}
+        run: |
+          set -euo pipefail
+
+          if [ "$ENV_NAME" = "stg" ]; then
+            DOMAIN="tce-stg.mrcute.space"
+          else
+            DOMAIN="tce.mrcute.space"
+          fi
+
+          export DOMAIN
+          echo "Environment : $ENV_NAME"
+          echo "Domain      : $DOMAIN"
+          echo "Upstream    : $UPSTREAM"
+          echo "SSL         : $SSL"
+          echo "Dry run     : $DRY_RUN"
+
+          ssh -i ~/.ssh/tce_vps_key \
+            -o IdentitiesOnly=yes \
+            -o StrictHostKeyChecking=no \
+            -o ConnectTimeout=10 \
+            "$U@$H" "DOMAIN='$DOMAIN' ENV_NAME='$ENV_NAME' SSL='$SSL' DRY_RUN='$DRY_RUN' UPSTREAM='$UPSTREAM' bash -s" <<'REMOTE'
+          set -euo pipefail
+
+          CFG="/etc/nginx/sites-available/${DOMAIN}"
+          LINK="/etc/nginx/sites-enabled/${DOMAIN}"
+          TMP="/tmp/tce-nginx-${ENV_NAME}.conf"
+
+          echo "=== PRECHECK ==="
+          sudo nginx -t
+          getent hosts "$DOMAIN" || true
+          curl -sS -I --max-time 10 "http://${DOMAIN}/" || true
+
+          cat > "$TMP" <<EOF
+          server {
+              listen 80;
+              listen [::]:80;
+              server_name ${DOMAIN};
+
+              location / {
+                  proxy_pass http://${UPSTREAM};
+                  proxy_http_version 1.1;
+                  proxy_set_header Host \$host;
+                  proxy_set_header X-Real-IP \$remote_addr;
+                  proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+                  proxy_set_header X-Forwarded-Proto \$scheme;
+                  proxy_set_header Upgrade \$http_upgrade;
+                  proxy_set_header Connection "upgrade";
+              }
+          }
+          EOF
+
+          echo "=== GENERATED CONFIG ==="
+          cat "$TMP"
+
+          if [ "$DRY_RUN" = "true" ]; then
+            echo "DRY RUN: no Nginx files modified and no reload performed."
+            exit 0
+          fi
+
+          sudo install -m 0644 "$TMP" "$CFG"
+          sudo ln -sfn "$CFG" "$LINK"
+          sudo nginx -t
+          sudo systemctl reload nginx
+
+          echo "=== HTTP CHECK ==="
+          curl -fsS -I --max-time 10 "http://${DOMAIN}/"
+
+          if [ "$SSL" = "true" ]; then
+            command -v certbot >/dev/null || { echo "certbot is not installed"; exit 1; }
+            sudo certbot --nginx --non-interactive --agree-tos --redirect -d "$DOMAIN"
+            sudo nginx -t
+            sudo systemctl reload nginx
+          fi
+
+          echo "=== HTTPS CHECK ==="
+          curl -fsS -I --max-time 15 "https://${DOMAIN}/"
+          echo "=== TCE DOMAIN SETUP COMPLETE ==="
+          echo "${DOMAIN} -> ${UPSTREAM}"
+          REMOTE
+
+      - name: Cleanup SSH key
+        if: always()
+        run: rm -f ~/.ssh/tce_vps_key
