@@ -1,7 +1,9 @@
 import { Injectable, ServiceUnavailableException } from '@nestjs/common';
+import { Auth, Data, Config } from '@ssi.developer/ssi-sdk';
 import { PlatformCredentialsService } from './platform-credentials.service';
 
 const SSI_BASE_URL = 'https://api.ssi.com.vn';
+const SSI_STREAM_URL = 'wss://stream.ssi.com.vn/ws/v3';
 
 type SsiCredentials = {
   apiKey?: string;
@@ -24,53 +26,67 @@ export class SsiService {
     return credentials;
   }
 
+  private createAuth(credentials: SsiCredentials) {
+    const config = new Config({
+      clientId: credentials.clientId ?? '',
+      apiKey: credentials.apiKey ?? '',
+      apiSecret: credentials.apiSecret ?? '',
+      privateKey: credentials.privateKey ?? '',
+      apiUrl: SSI_BASE_URL,
+      streamingUrl: SSI_STREAM_URL,
+      timeout: 60000,
+      maxRetries: 5,
+      retryDelay: 2000,
+      rateLimitPerSecond: 10,
+    });
+    return new Auth(config);
+  }
+
   async requestOtp(userId: string, environment = 'production') {
     const credentials = await this.load(userId, environment);
-    const response = await fetch(`${SSI_BASE_URL}/api/v3/auth/requestOtp`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-      body: JSON.stringify({ apiKey: credentials.apiKey, apiSecret: credentials.apiSecret }),
-    });
-    const body = await response.json().catch(() => ({}));
-    if (!response.ok) throw new ServiceUnavailableException(`SSI OTP request failed: ${body.msg ?? body.message ?? `HTTP ${response.status}`}`);
-    return { ok: true, message: body.message ?? 'SSI approval/OTP request sent', transactionId: body.transactionId ?? null };
+    try {
+      const auth = this.createAuth(credentials);
+      const result = await auth.requestOtp();
+      const data = (result?.data ?? {}) as Record<string, unknown>;
+      return {
+        ok: true,
+        message: String(data.message ?? 'SSI approval/OTP request sent'),
+        transactionId: typeof data.transactionId === 'string' ? data.transactionId : null,
+      };
+    } catch (error) {
+      throw this.ssiError('SSI OTP request failed', error);
+    }
   }
 
   async test(userId: string, environment = 'production', authInput: SsiAuthInput = {}) {
     const credentials = await this.load(userId, environment);
-    const tokenResponse = await fetch(`${SSI_BASE_URL}/api/v3/auth/token`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-      body: JSON.stringify({
-        apiKey: credentials.apiKey,
-        apiSecret: credentials.apiSecret,
-        ...(authInput.otp ? { otp: authInput.otp } : {}),
-        ...(authInput.transactionId ? { transactionId: authInput.transactionId } : {}),
-      }),
-    });
-    const tokenBody = await tokenResponse.json().catch(() => ({}));
-    if (!tokenResponse.ok || !tokenBody.accessToken) {
-      throw new ServiceUnavailableException(`SSI authentication failed: ${tokenBody.msg ?? tokenBody.message ?? `HTTP ${tokenResponse.status}`}`);
+    try {
+      const auth = this.createAuth(credentials);
+      const token = authInput.transactionId
+        ? await auth.authenticate(undefined, authInput.transactionId)
+        : await auth.authenticate(authInput.otp);
+
+      const data = new Data(auth);
+      const securities = await data.marketData.getSecuritiesByBoard('HOSE');
+
+      return {
+        ok: true,
+        provider: 'ssi',
+        sdk: '@ssi.developer/ssi-sdk@3.2.x',
+        apiVersion: 'v3',
+        environment,
+        authentication: 'ok',
+        marketData: 'ok',
+        securities: Array.isArray(securities) ? securities.length : null,
+        tokenExpiresAt: token?.expiresAt ?? auth.getToken()?.expiresAt ?? null,
+      };
+    } catch (error) {
+      throw this.ssiError('SSI authentication/market-data check failed', error);
     }
+  }
 
-    const dataResponse = await fetch(`${SSI_BASE_URL}/api/v3/data/securitiesByBoard?board=HOSE`, {
-      headers: { Accept: 'application/json', Authorization: `Bearer ${tokenBody.accessToken}` },
-    });
-    const dataBody = await dataResponse.json().catch(() => ({}));
-    if (!dataResponse.ok) throw new ServiceUnavailableException(`SSI market-data check failed: ${dataBody.msg ?? dataBody.message ?? `HTTP ${dataResponse.status}`}`);
-
-    return {
-      ok: true,
-      provider: 'ssi',
-      environment,
-      authentication: 'ok',
-      marketData: 'ok',
-      tokenExpiresAt: tokenBody.expiresAt ?? null,
-      rateLimit: {
-        limit: dataResponse.headers.get('x-ratelimit-limit'),
-        remaining: dataResponse.headers.get('x-ratelimit-remaining'),
-        reset: dataResponse.headers.get('x-ratelimit-reset'),
-      },
-    };
+  private ssiError(prefix: string, error: unknown) {
+    const message = error instanceof Error ? error.message : String(error);
+    return new ServiceUnavailableException(`${prefix}: ${message}`);
   }
 }
