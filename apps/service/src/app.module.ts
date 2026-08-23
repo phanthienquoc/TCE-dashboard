@@ -3,6 +3,7 @@ import { AuthModule } from './auth/auth.module';
 import { DbModule } from './db/db.module';
 import { TceMonitorController } from './monitor/tce-monitor.controller';
 import { TceMonitorService } from './monitor/tce-monitor.service';
+import { PlatformModule } from './platform/platform.module';
 
 @Controller()
 class HealthController {
@@ -17,7 +18,7 @@ class HealthController {
 }
 
 @Module({
-  imports: [DbModule, AuthModule],
+  imports: [DbModule, AuthModule, PlatformModule],
   controllers: [HealthController, TceMonitorController],
   providers: [TceMonitorService],
 })
