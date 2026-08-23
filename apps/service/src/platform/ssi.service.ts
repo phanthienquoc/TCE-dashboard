@@ -9,16 +9,15 @@ type SsiCredentials = {
   clientId?: string;
   privateKey?: string;
   accountNo?: string;
-  deviceId?: string;
-  otp?: string;
-  transactionId?: string;
 };
+
+type SsiAuthInput = { otp?: string; transactionId?: string };
 
 @Injectable()
 export class SsiService {
   constructor(private readonly credentials: PlatformCredentialsService) {}
 
-  async test(userId: string, environment = 'production') {
+  async test(userId: string, environment = 'production', authInput: SsiAuthInput = {}) {
     if (environment !== 'production') throw new ServiceUnavailableException('SSI UAT endpoint is not configured');
     const { credentials } = await this.credentials.getDecrypted(userId, 'ssi', environment) as { id: string; credentials: SsiCredentials };
     if (!credentials.apiKey || !credentials.apiSecret) throw new ServiceUnavailableException('SSI API Key and API Secret are required');
@@ -29,8 +28,8 @@ export class SsiService {
       body: JSON.stringify({
         apiKey: credentials.apiKey,
         apiSecret: credentials.apiSecret,
-        ...(credentials.otp ? { otp: credentials.otp } : {}),
-        ...(credentials.transactionId ? { transactionId: credentials.transactionId } : {}),
+        ...(authInput.otp ? { otp: authInput.otp } : {}),
+        ...(authInput.transactionId ? { transactionId: authInput.transactionId } : {}),
       }),
     });
     const tokenBody = await tokenResponse.json().catch(() => ({}));
