@@ -1,6 +1,7 @@
 import { Injectable, ServiceUnavailableException } from '@nestjs/common';
-import { Auth, Data, Config, Board } from '@ssi.developer/ssi-sdk';
+import { Auth, Data, Config, Board, Trading } from '@ssi.developer/ssi-sdk';
 import { PlatformCredentialsService } from './platform-credentials.service';
+import { SupabaseClientService } from '../db/supabase.client';
 
 const SSI_BASE_URL = 'https://api.ssi.com.vn';
 const SSI_STREAM_URL = 'wss://stream.ssi.com.vn/ws/v3';
@@ -10,7 +11,7 @@ type SsiAuthInput = { otp?: string; transactionId?: string };
 
 @Injectable()
 export class SsiService {
-  constructor(private readonly credentials: PlatformCredentialsService) {}
+  constructor(private readonly credentials: PlatformCredentialsService, private readonly supabase: SupabaseClientService) {}
 
   private async load(userId: string, environment: string) {
     if (environment !== 'production') throw new ServiceUnavailableException('SSI UAT endpoint is not configured');
@@ -34,6 +35,14 @@ export class SsiService {
     }));
   }
 
+  private async authenticate(credentials: SsiCredentials, authInput: SsiAuthInput = {}) {
+    const auth = this.createAuth(credentials);
+    const token = authInput.transactionId
+      ? await auth.authenticate(undefined, authInput.transactionId)
+      : await auth.authenticate(authInput.otp);
+    return { auth, token };
+  }
+
   async requestOtp(userId: string, environment = 'production') {
     try {
       const auth = this.createAuth(await this.load(userId, environment));
@@ -47,15 +56,92 @@ export class SsiService {
 
   async test(userId: string, environment = 'production', authInput: SsiAuthInput = {}) {
     try {
-      const auth = this.createAuth(await this.load(userId, environment));
-      const token = authInput.transactionId
-        ? await auth.authenticate(undefined, authInput.transactionId)
-        : await auth.authenticate(authInput.otp);
+      const credentials = await this.load(userId, environment);
+      const { auth, token } = await this.authenticate(credentials, authInput);
       const data = new Data(auth);
       const securities = await data.marketData.getSecuritiesInfoByBoard(Board.HOSE);
       return { ok: true, provider: 'ssi', sdk: '@ssi.developer/ssi-sdk@3.2.x', apiVersion: 'v3', environment, authentication: 'ok', marketData: 'ok', securities: securities.length, tokenExpiresAt: token?.expiresAt ?? auth.getToken()?.expiresAt ?? null };
     } catch (error) {
       throw this.ssiError('SSI authentication/market-data check failed', error);
+    }
+  }
+
+  async syncPortfolio(userId: string, environment = 'production', authInput: SsiAuthInput = {}) {
+    try {
+      const credentials = await this.load(userId, environment);
+      if (!credentials.accountNo) throw new ServiceUnavailableException('SSI Account No. is required before portfolio sync');
+      const { auth } = await this.authenticate(credentials, authInput);
+      const trading = new Trading(auth);
+      const accountNo = credentials.accountNo;
+      const [positions, balance, orders] = await Promise.all([
+        trading.portfolio.getEquityPositions(accountNo),
+        trading.portfolio.getEquityBalance(accountNo),
+        trading.portfolio.getTodayOrders(accountNo),
+      ]);
+
+      const positionRows = (positions ?? []).filter((p) => Number(p.quantity ?? 0) > 0).map((p) => {
+        const quantity = Number(p.quantity ?? 0);
+        const avgCost = Number(p.costPrice ?? 0);
+        return {
+          account_id: userId,
+          symbol: String(p.symbol).toUpperCase(),
+          quantity: Math.trunc(quantity),
+          avg_cost: avgCost,
+          cost_basis: quantity * avgCost,
+          market_price: null,
+          market_value: null,
+          unrealized_pnl: null,
+          status: 'OPEN',
+          cycle_no: 0,
+          updated_at: new Date().toISOString(),
+        };
+      });
+
+      if (positionRows.length) {
+        const { error } = await this.supabase.db.from('tce_positions').upsert(positionRows, { onConflict: 'account_id,symbol' });
+        if (error) throw error;
+      }
+
+      let ordersSynced = 0;
+      for (const order of orders ?? []) {
+        const quantity = Number(order.filledQuantity ?? order.quantity ?? 0);
+        const price = Number(order.avgPrice ?? order.price ?? 0);
+        if (!order.orderId || !order.symbol || quantity <= 0) continue;
+        const side = String(order.side ?? '').toUpperCase();
+        const gross = quantity * price;
+        const status = String(order.status ?? 'UNKNOWN').toUpperCase();
+        const { error } = await this.supabase.db.from('tce_orders').upsert({
+          account_id: userId,
+          order_date: String(order.inputTime ?? new Date().toISOString()).slice(0, 10),
+          symbol: String(order.symbol).toUpperCase(),
+          side: side === 'B' ? 'BUY' : side === 'S' ? 'SELL' : side,
+          price,
+          quantity: Math.trunc(quantity),
+          gross_value: gross,
+          fee_tax: 0,
+          net_cashflow: side === 'B' ? -gross : side === 'S' ? gross : 0,
+          cycle_no: 0,
+          status,
+          note: `SSI order ${order.orderId}`,
+        }, { onConflict: 'account_id,order_date,symbol,side,price,quantity' });
+        if (!error) ordersSynced += 1;
+      }
+
+      return {
+        ok: true,
+        provider: 'ssi',
+        apiVersion: 'v3',
+        accountNo,
+        positionsSynced: positionRows.length,
+        ordersSynced,
+        balance: {
+          availableCash: Number(balance?.availableCash ?? 0),
+          withdrawal: Number(balance?.withdrawal ?? 0),
+          totalDebt: Number(balance?.totalDebt ?? 0),
+        },
+      };
+    } catch (error) {
+      throw this.ssiError('SSI portfolio sync failed', error);
     }
   }
 
