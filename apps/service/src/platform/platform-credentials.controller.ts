@@ -1,10 +1,11 @@
 import { Body, Controller, Delete, Get, Headers, Param, Post, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '../auth/jwt.service';
 import { PlatformCredentialsService } from './platform-credentials.service';
+import { SsiService } from './ssi.service';
 
 @Controller('platform/credentials')
 export class PlatformCredentialsController {
-  constructor(private readonly service: PlatformCredentialsService, private readonly jwt: JwtService) {}
+  constructor(private readonly service: PlatformCredentialsService, private readonly ssi: SsiService, private readonly jwt: JwtService) {}
 
   private userId(auth?: string) {
     if (!auth?.startsWith('Bearer ')) throw new UnauthorizedException('Bearer token required');
@@ -18,6 +19,13 @@ export class PlatformCredentialsController {
   save(@Headers('authorization') auth: string | undefined, @Param('provider') provider: string, @Body() body: { environment?: string; credentials: Record<string, unknown> }) {
     if (!body?.credentials || typeof body.credentials !== 'object') throw new UnauthorizedException('Credentials are required');
     return this.service.save(this.userId(auth), provider, body.environment ?? 'production', body.credentials);
+  }
+
+  @Post(':provider/test')
+  test(@Headers('authorization') auth: string | undefined, @Param('provider') provider: string, @Body() body?: { environment?: string }) {
+    const userId = this.userId(auth);
+    if (provider === 'ssi') return this.ssi.test(userId, body?.environment ?? 'production');
+    throw new UnauthorizedException('Connection test is not implemented for this provider yet');
   }
 
   @Delete(':provider')
