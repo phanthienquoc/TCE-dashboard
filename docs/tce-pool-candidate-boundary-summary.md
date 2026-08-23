@@ -1,0 +1,1 @@
+Pool entries = research. Buy candidates = execution intent. Positions = current holdings. Position snapshots = hourly observations. Cashout events = cashout ledger events.
