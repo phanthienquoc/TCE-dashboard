@@ -4,6 +4,7 @@ import { AuthModule } from '../auth/auth.module';
 import { CredentialsCryptoService } from './credentials-crypto.service';
 import { PlatformCredentialsController } from './platform-credentials.controller';
 import { PlatformCredentialsService } from './platform-credentials.service';
+import { SsiService } from './ssi.service';
 
-@Module({ imports: [DbModule, AuthModule], controllers: [PlatformCredentialsController], providers: [CredentialsCryptoService, PlatformCredentialsService], exports: [PlatformCredentialsService] })
+@Module({ imports: [DbModule, AuthModule], controllers: [PlatformCredentialsController], providers: [CredentialsCryptoService, PlatformCredentialsService, SsiService], exports: [PlatformCredentialsService, SsiService] })
 export class PlatformCredentialsModule {}
