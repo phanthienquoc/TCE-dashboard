@@ -1,0 +1,1 @@
+TCE boundary: pool_entries stores Pool 5 research intelligence; buy_candidates stores promoted execution intent; positions stores live state; snapshots store hourly monitoring history; cashout_events stores cashout events.

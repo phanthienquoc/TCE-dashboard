@@ -1,0 +1,1 @@
+See docs/tce-data-model.md for the canonical TCE data flow.

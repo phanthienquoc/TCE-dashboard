@@ -1,0 +1,1 @@
+Only promoted Pool 5 entries belong in tce_buy_candidates. The pool remains the ranked hunting universe; execution candidates are not duplicate pool rows.
