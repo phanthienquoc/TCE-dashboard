@@ -11,11 +11,8 @@ alter table public.tce_buy_candidates
 create index if not exists idx_tce_buy_candidates_pool_entry
   on public.tce_buy_candidates(account_id, pool_entry_id);
 
--- Only one active execution candidate per account is allowed at a time.
-create unique index if not exists uq_tce_buy_candidate_active
-  on public.tce_buy_candidates(account_id)
-  where status in ('queued','ready');
-
+-- The execution queue can hold the two candidates corresponding to the two
+-- permitted TCE positions. Runtime capacity remains enforced by max_positions.
 comment on table public.tce_pool_entries is 'TCE hunting intelligence: ranked Pool 5 candidates. Not an execution queue.';
 comment on table public.tce_buy_candidates is 'TCE execution queue: only promoted pool candidates that are ready/queued for an actual buy decision.';
 comment on column public.tce_buy_candidates.pool_entry_id is 'Source Pool 5 entry promoted into the execution queue.';
