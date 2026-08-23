@@ -17,11 +17,27 @@ type SsiAuthInput = { otp?: string; transactionId?: string };
 export class SsiService {
   constructor(private readonly credentials: PlatformCredentialsService) {}
 
-  async test(userId: string, environment = 'production', authInput: SsiAuthInput = {}) {
+  private async load(userId: string, environment: string) {
     if (environment !== 'production') throw new ServiceUnavailableException('SSI UAT endpoint is not configured');
     const { credentials } = await this.credentials.getDecrypted(userId, 'ssi', environment) as { id: string; credentials: SsiCredentials };
     if (!credentials.apiKey || !credentials.apiSecret) throw new ServiceUnavailableException('SSI API Key and API Secret are required');
+    return credentials;
+  }
 
+  async requestOtp(userId: string, environment = 'production') {
+    const credentials = await this.load(userId, environment);
+    const response = await fetch(`${SSI_BASE_URL}/api/v3/auth/requestOtp`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify({ apiKey: credentials.apiKey, apiSecret: credentials.apiSecret }),
+    });
+    const body = await response.json().catch(() => ({}));
+    if (!response.ok) throw new ServiceUnavailableException(`SSI OTP request failed: ${body.msg ?? body.message ?? `HTTP ${response.status}`}`);
+    return { ok: true, message: body.message ?? 'SSI approval/OTP request sent', transactionId: body.transactionId ?? null };
+  }
+
+  async test(userId: string, environment = 'production', authInput: SsiAuthInput = {}) {
+    const credentials = await this.load(userId, environment);
     const tokenResponse = await fetch(`${SSI_BASE_URL}/api/v3/auth/token`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
