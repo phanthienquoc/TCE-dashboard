@@ -11,6 +11,7 @@ COPY --from=deps /app/package.json ./package.json
 COPY --from=deps /app/apps/service/package.json ./apps/service/package.json
 COPY tsconfig.base.json nx.json ./
 COPY apps/service ./apps/service
+COPY libs ./libs
 RUN npx nx build service
 RUN npm prune --omit=dev
 
@@ -18,10 +19,10 @@ FROM node:24-alpine
 WORKDIR /app
 ENV NODE_ENV=production
 ENV PORT=8210
-COPY --from=build /app/apps/service/package.json ./package.json
 COPY --from=build /app/node_modules ./node_modules
-COPY --from=build /app/apps/service/dist ./dist
+COPY --from=build /app/package.json ./package.json
+COPY --from=build /app/dist/apps/service ./dist
 EXPOSE 8210
 USER node
 HEALTHCHECK --interval=15s --timeout=3s --start-period=10s CMD wget -q -O /dev/null http://127.0.0.1:8210/auth/status || exit 1
-CMD ["node","dist/main.js"]
+CMD ["node","dist/src/main.js"]
