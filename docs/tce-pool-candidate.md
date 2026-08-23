@@ -1,0 +1,1 @@
+A Pool 5 row becomes a buy candidate only when status is TRIGGERED, an active position slot is available, and its score is positive. With max_positions=2, the execution layer must stop promoting candidates once both slots are occupied.
