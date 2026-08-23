@@ -21,6 +21,12 @@ export class PlatformCredentialsController {
     return this.service.save(this.userId(auth), provider, body.environment ?? 'production', body.credentials);
   }
 
+  @Post(':provider/request-otp')
+  requestOtp(@Headers('authorization') auth: string | undefined, @Param('provider') provider: string, @Body() body?: { environment?: string }) {
+    if (provider !== 'ssi') throw new UnauthorizedException('OTP flow is only available for SSI');
+    return this.ssi.requestOtp(this.userId(auth), body?.environment ?? 'production');
+  }
+
   @Post(':provider/test')
   test(@Headers('authorization') auth: string | undefined, @Param('provider') provider: string, @Body() body?: { environment?: string; otp?: string; transactionId?: string }) {
     const userId = this.userId(auth);
