@@ -22,9 +22,9 @@ export class PlatformCredentialsController {
   }
 
   @Post(':provider/test')
-  test(@Headers('authorization') auth: string | undefined, @Param('provider') provider: string, @Body() body?: { environment?: string }) {
+  test(@Headers('authorization') auth: string | undefined, @Param('provider') provider: string, @Body() body?: { environment?: string; otp?: string; transactionId?: string }) {
     const userId = this.userId(auth);
-    if (provider === 'ssi') return this.ssi.test(userId, body?.environment ?? 'production');
+    if (provider === 'ssi') return this.ssi.test(userId, body?.environment ?? 'production', { otp: body?.otp, transactionId: body?.transactionId });
     throw new UnauthorizedException('Connection test is not implemented for this provider yet');
   }
 
