@@ -70,7 +70,7 @@ jobs:
           IMAGE_TAG: ${{ steps.version.outputs.image_tag }}
         run: |
           set -euo pipefail
-          docker buildx build --platform "$TARGET_PLATFORM" --cache-from type=gha,scope=tce-be-stg --cache-to type=gha,mode=max,scope=tce-be-stg -t "tce-service:$IMAGE_TAG" -f apps/service/Dockerfile apps/service --output type=docker,dest=/tmp/tce-service.tar
+          docker buildx build --platform "$TARGET_PLATFORM" --cache-from type=gha,scope=tce-be-stg --cache-to type=gha,mode=max,scope=tce-be-stg -t "tce-service:$IMAGE_TAG" -f apps/service/Dockerfile . --output type=docker,dest=/tmp/tce-service.tar
           gzip -f /tmp/tce-service.tar
       - uses: actions/upload-artifact@v4
         with: { name: tce-stg-be-image, path: /tmp/tce-service.tar.gz, retention-days: 1 }
