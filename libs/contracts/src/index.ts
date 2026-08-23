@@ -5,3 +5,4 @@ export * from './errors.contract';
 export * from './ports.contract';
 export * from './credentials.contract';
 export * from './ssi.contract';
+export * from './tokens';
