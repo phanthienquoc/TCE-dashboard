@@ -1,6 +1,7 @@
 import { startAuthentication, startRegistration, browserSupportsWebAuthn } from '@simplewebauthn/browser';
 
-const apiBase = import.meta.env.VITE_SERVICE_URL || '/api';
+// Auth always uses the same-origin API. Nginx proxies /api/* to NestJS.
+const apiBase = '/api';
 const token = () => localStorage.getItem('tce_access_token') || '';
 const authHeaders = () => ({ Authorization:`Bearer ${token()}` });
 async function request(path, options={}) { const response=await fetch(`${apiBase}${path}`,{...options,headers:{...(options.headers||{}),'Content-Type':'application/json'}}); const data=await response.json().catch(()=>({})); if(!response.ok)throw new Error(data.message||data.error||'Authentication request failed'); return data; }
