@@ -6,6 +6,7 @@ export interface UserRow { id: string; email: string; password_hash: string; rol
 @Injectable()
 export class AuthRepository {
   constructor(private readonly supabase: SupabaseClientService) {}
+  async checkDatabase(): Promise<void> { const { error } = await this.supabase.db.from('users').select('id').limit(1); if (error) throw error; }
   async findUserByEmail(email: string): Promise<UserRow|null> { const { data, error } = await this.supabase.db.from('users').select('*').eq('email', email.toLowerCase()).maybeSingle(); if (error) throw error; return data as UserRow|null; }
   async findUserById(id: string): Promise<UserRow|null> { const { data, error } = await this.supabase.db.from('users').select('*').eq('id', id).maybeSingle(); if (error) throw error; return data as UserRow|null; }
   async createRefreshSession(userId: string, tokenHash: string, familyId: string, expiresAt: Date, ip?: string, userAgent?: string) {
