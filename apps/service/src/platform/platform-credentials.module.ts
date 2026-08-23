@@ -11,25 +11,9 @@ import { SupabaseClientService } from '../db/supabase.client';
   imports: [DbModule, AuthModule],
   controllers: [PlatformCredentialsController],
   providers: [
-    {
-      provide: CONTRACT_TOKENS.credentials,
-      inject: [SupabaseClientService],
-      useFactory: (db: SupabaseClientService) => {
-        const key = process.env.CREDENTIAL_ENCRYPTION_KEY;
-        if (!key) throw new Error('CREDENTIAL_ENCRYPTION_KEY is required');
-        return new SupabaseCredentialAdapter(db.db, key);
-      },
-    },
-    {
-      provide: CONTRACT_TOKENS.positionRepository,
-      inject: [SupabaseClientService],
-      useFactory: (db: SupabaseClientService) => new SupabasePositionAdapter(db.db),
-    },
-    {
-      provide: CONTRACT_TOKENS.orderRepository,
-      inject: [SupabaseClientService],
-      useFactory: (db: SupabaseClientService) => new SupabaseOrderAdapter(db.db),
-    },
+    { provide: CONTRACT_TOKENS.credentials, inject: [SupabaseClientService], useFactory: (db: SupabaseClientService) => { const key = process.env.TCE_CREDENTIAL_ENCRYPTION_KEY; if (!key) throw new Error('TCE_CREDENTIAL_ENCRYPTION_KEY is required'); return new SupabaseCredentialAdapter(db.db, key); } },
+    { provide: CONTRACT_TOKENS.positionRepository, inject: [SupabaseClientService], useFactory: (db: SupabaseClientService) => new SupabasePositionAdapter(db.db) },
+    { provide: CONTRACT_TOKENS.orderRepository, inject: [SupabaseClientService], useFactory: (db: SupabaseClientService) => new SupabaseOrderAdapter(db.db) },
     SsiApplicationService,
   ],
   exports: [CONTRACT_TOKENS.credentials, CONTRACT_TOKENS.positionRepository, CONTRACT_TOKENS.orderRepository, SsiApplicationService],
