@@ -21,41 +21,20 @@ External Provider
 
 `libs/contracts` is the only shared boundary for cross-layer provider interactions.
 
-It owns:
-
-- platform contracts (`PlatformPort`, `MarketDataPort`, `AccountDataPort`)
-- adapter ports (`BrokerPort`, `MarketProviderPort`, `DashboardSourcePort`)
-- dashboard contracts (`DashboardDataSource`, `DashboardSnapshot`, `SourceResult`)
-- TCE application ports (`PositionRepository`, `OrderRepository`, `MarketDataService`, `PortfolioService`)
-- shared `ContractResult<T>` and `ContractError`
+It owns platform, dashboard, TCE repository/service, credential, SSI connection, error/result contracts and Nest DI tokens.
 
 Provider implementations MUST return contract models and MUST NOT leak provider SDK DTOs.
 
 ## Result and error contract
 
-Provider failures are normalized to:
+Provider failures are normalized to `ContractResult<T>` with `ContractError` (`code`, `message`, `retryable`, `provider`). Supported classes include `UNAVAILABLE`, `UNAUTHORIZED`, `INVALID_INPUT`, `RATE_LIMITED`, `TIMEOUT`, and `PROVIDER_ERROR`.
 
-```text
-ContractResult<T>
-  ├── { ok: true, data }
-  └── { ok: false, error }
-                         ├── code
-                         ├── message
-                         ├── retryable
-                         └── provider
-```
+## Implemented platform adapters
 
-Supported error classes include `UNAVAILABLE`, `UNAUTHORIZED`, `INVALID_INPUT`, `RATE_LIMITED`, `TIMEOUT`, and `PROVIDER_ERROR`.
-
-## Platform boundary
-
-Platforms are adapters behind contracts:
-
-- SSI: broker account, portfolio, orders, trading and market data.
-- Binance: market/crypto data and exchange capabilities.
-- FastAPI: internal market/signal/scanner service.
-
-Provider SDK types are mapped at the adapter boundary and never cross into `libs/tce`, `libs/dashboard-data`, or `apps/web`.
+- `libs/ssi`: `SsiBrokerAdapter` — SSI SDK v3 is isolated here.
+- `libs/binance`: `BinanceMarketAdapter` — Binance HTTP is isolated here.
+- `libs/fastapi`: `FastApiMarketAdapter` — FastAPI HTTP is isolated here.
+- `libs/db`: Supabase credential, position and order persistence adapters.
 
 ## Dashboard data boundary
 
@@ -65,18 +44,15 @@ Dashboard data is sourced through `DashboardDataSource` / `DashboardSourcePort`:
 - SSI: broker truth (cash, live positions, broker orders).
 - FastAPI: market/signal/scanner data.
 
-Every source reports availability, timestamp and errors through the contract result model so a degraded provider does not take down the dashboard.
+Every source reports availability, timestamp and errors through the contract result model.
 
-## TCE application ports
+## Application composition
 
-The TCE domain uses repository/service ports such as:
+`apps/service` contains controllers and composition/orchestration only. `SsiApplicationService` loads credentials through `PlatformCredentialPort`, creates the SSI adapter, and persists normalized data through `PositionRepository` / `OrderRepository`.
 
-- `PositionRepository`
-- `OrderRepository`
-- `MarketDataService`
-- `PortfolioService`
+The legacy direct `SsiService`, `PlatformCredentialsService`, and `CredentialsCryptoService` were removed. Controllers no longer import provider SDKs or direct Supabase clients for platform operations.
 
-Implementations belong to adapters. The domain remains provider-agnostic.
+Credential encryption remains backward-compatible with the existing `v1` AES-256-GCM format and `TCE_CREDENTIAL_ENCRYPTION_KEY` environment variable.
 
 ## Dependency direction
 
@@ -86,29 +62,32 @@ apps/service ------------------> application contracts
 
 libs/tce ----------------------> libs/contracts
 libs/dashboard-data -----------> libs/contracts
-libs/platform/* ---------------> libs/contracts
-libs/* adapters ---------------> external SDK/API/DB
+libs/ssi ----------------------> libs/contracts
+libs/binance ------------------> libs/contracts
+libs/fastapi ------------------> libs/contracts
+libs/db -----------------------> libs/contracts
 
 NEVER:
 libs/tce ----------------------> SSI SDK
 libs/tce ----------------------> Binance SDK
 libs/tce ----------------------> Supabase SDK
 apps/web ----------------------> provider SDK
+apps/service ------------------> provider SDK / Supabase SDK
 ```
 
 ## Adding a new provider
 
 1. Define or extend a contract in `libs/contracts`.
-2. Implement the adapter under the appropriate provider/platform library.
+2. Implement an adapter under the appropriate library.
 3. Map provider DTOs into contract DTOs.
 4. Normalize failures to `ContractResult<T>`.
-5. Register the adapter through application composition/dependency injection.
+5. Register the adapter through application composition/DI.
 6. Add contract-level tests and adapter integration tests.
-7. Do not expose provider-specific fields unless the contract explicitly requires them.
+7. Never expose provider-specific fields unless the contract explicitly requires them.
 
 ## Non-negotiable constraints
 
-- No direct provider calls from TCE domain code.
+- No direct provider calls from TCE domain/application code.
 - No provider DTO leakage across boundaries.
 - No database access from UI.
 - No credentials/secrets in domain contracts.
