@@ -1,18 +1,11 @@
 import { Injectable, ServiceUnavailableException } from '@nestjs/common';
-import { Auth, Data, Config } from '@ssi.developer/ssi-sdk';
+import { Auth, Data, Config, Board } from '@ssi.developer/ssi-sdk';
 import { PlatformCredentialsService } from './platform-credentials.service';
 
 const SSI_BASE_URL = 'https://api.ssi.com.vn';
 const SSI_STREAM_URL = 'wss://stream.ssi.com.vn/ws/v3';
 
-type SsiCredentials = {
-  apiKey?: string;
-  apiSecret?: string;
-  clientId?: string;
-  privateKey?: string;
-  accountNo?: string;
-};
-
+type SsiCredentials = { apiKey?: string; apiSecret?: string; clientId?: string; privateKey?: string; accountNo?: string };
 type SsiAuthInput = { otp?: string; transactionId?: string };
 
 @Injectable()
@@ -27,7 +20,7 @@ export class SsiService {
   }
 
   private createAuth(credentials: SsiCredentials) {
-    const config = new Config({
+    return new Auth(new Config({
       clientId: credentials.clientId ?? '',
       apiKey: credentials.apiKey ?? '',
       apiSecret: credentials.apiSecret ?? '',
@@ -38,55 +31,35 @@ export class SsiService {
       maxRetries: 5,
       retryDelay: 2000,
       rateLimitPerSecond: 10,
-    });
-    return new Auth(config);
+    }));
   }
 
   async requestOtp(userId: string, environment = 'production') {
-    const credentials = await this.load(userId, environment);
     try {
-      const auth = this.createAuth(credentials);
+      const auth = this.createAuth(await this.load(userId, environment));
       const result = await auth.requestOtp();
       const data = (result?.data ?? {}) as Record<string, unknown>;
-      return {
-        ok: true,
-        message: String(data.message ?? 'SSI approval/OTP request sent'),
-        transactionId: typeof data.transactionId === 'string' ? data.transactionId : null,
-      };
+      return { ok: true, message: String(data.message ?? 'SSI approval/OTP request sent'), transactionId: typeof data.transactionId === 'string' ? data.transactionId : null };
     } catch (error) {
       throw this.ssiError('SSI OTP request failed', error);
     }
   }
 
   async test(userId: string, environment = 'production', authInput: SsiAuthInput = {}) {
-    const credentials = await this.load(userId, environment);
     try {
-      const auth = this.createAuth(credentials);
+      const auth = this.createAuth(await this.load(userId, environment));
       const token = authInput.transactionId
         ? await auth.authenticate(undefined, authInput.transactionId)
         : await auth.authenticate(authInput.otp);
-
       const data = new Data(auth);
-      const securities = await data.marketData.getSecuritiesByBoard('HOSE');
-
-      return {
-        ok: true,
-        provider: 'ssi',
-        sdk: '@ssi.developer/ssi-sdk@3.2.x',
-        apiVersion: 'v3',
-        environment,
-        authentication: 'ok',
-        marketData: 'ok',
-        securities: Array.isArray(securities) ? securities.length : null,
-        tokenExpiresAt: token?.expiresAt ?? auth.getToken()?.expiresAt ?? null,
-      };
+      const securities = await data.marketData.getSecuritiesInfoByBoard(Board.HOSE);
+      return { ok: true, provider: 'ssi', sdk: '@ssi.developer/ssi-sdk@3.2.x', apiVersion: 'v3', environment, authentication: 'ok', marketData: 'ok', securities: securities.length, tokenExpiresAt: token?.expiresAt ?? auth.getToken()?.expiresAt ?? null };
     } catch (error) {
       throw this.ssiError('SSI authentication/market-data check failed', error);
     }
   }
 
   private ssiError(prefix: string, error: unknown) {
-    const message = error instanceof Error ? error.message : String(error);
-    return new ServiceUnavailableException(`${prefix}: ${message}`);
+    return new ServiceUnavailableException(`${prefix}: ${error instanceof Error ? error.message : String(error)}`);
   }
 }
