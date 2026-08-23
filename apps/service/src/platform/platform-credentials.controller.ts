@@ -34,6 +34,12 @@ export class PlatformCredentialsController {
     throw new UnauthorizedException('Connection test is not implemented for this provider yet');
   }
 
+  @Post(':provider/sync')
+  sync(@Headers('authorization') auth: string | undefined, @Param('provider') provider: string, @Body() body?: { environment?: string; otp?: string; transactionId?: string }) {
+    if (provider !== 'ssi') throw new UnauthorizedException('Portfolio sync is only available for SSI');
+    return this.ssi.syncPortfolio(this.userId(auth), body?.environment ?? 'production', { otp: body?.otp, transactionId: body?.transactionId });
+  }
+
   @Delete(':provider')
   remove(@Headers('authorization') auth: string | undefined, @Param('provider') provider: string, @Body() body?: { environment?: string }) {
     return this.service.remove(this.userId(auth), provider, body?.environment ?? 'production');
