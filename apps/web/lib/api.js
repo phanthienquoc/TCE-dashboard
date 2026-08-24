@@ -43,6 +43,14 @@ export function notifyApiError(error, fallback = 'API request failed.') {
   }));
 }
 
+function notifyAuthRefreshed(token) {
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('tce:auth-refreshed', {
+      detail: { accessToken: token },
+    }));
+  }
+}
+
 function notifyAuthExpired() {
   if (typeof window !== 'undefined') {
     window.dispatchEvent(new CustomEvent('tce:auth-expired'));
@@ -63,6 +71,7 @@ async function refreshAccessToken() {
   }
 
   setAccessToken(data.accessToken);
+  notifyAuthRefreshed(data.accessToken);
   return data.accessToken;
 }
 
