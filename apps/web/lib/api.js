@@ -1,7 +1,7 @@
 'use client';
 
 import axios from 'axios';
-import { clearSession, getAccessToken } from './session';
+import { clearSession } from './session';
 
 let accessToken = '';
 let refreshPromise = null;
@@ -11,7 +11,7 @@ export function setAccessToken(token) {
 }
 
 function currentAccessToken() {
-  return accessToken || getAccessToken();
+  return accessToken;
 }
 
 export const api = axios.create({
