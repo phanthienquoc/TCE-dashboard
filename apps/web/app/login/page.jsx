@@ -13,8 +13,6 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    // A login page is a clean auth boundary. Never let an expired token or
-    // refresh token interfere with the first credential POST.
     clearSession();
   }, []);
 
@@ -38,11 +36,6 @@ export default function LoginPage() {
     }
   }
 
-  function handleSubmit(event) {
-    event.preventDefault();
-    void submit();
-  }
-
   return (
     <section className="auth-shell">
       <div className="auth-glow" />
@@ -59,7 +52,8 @@ export default function LoginPage() {
           <h1>Sign in</h1>
           <p>Access your trading workspace securely.</p>
         </div>
-        <form onSubmit={handleSubmit}>
+
+        <div className="auth-fields">
           <label>
             Email
             <input
@@ -68,7 +62,6 @@ export default function LoginPage() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="you@example.com"
-              required
             />
           </label>
           <label>
@@ -79,22 +72,26 @@ export default function LoginPage() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="Enter your password"
-              required
             />
           </label>
-          <div className="auth-options">
-            <span className="secure-badge">● Backend secured</span>
-          </div>
-          <button
-            className="auth-submit"
-            disabled={loading}
-            type="submit"
-          >
-            <span>{loading ? 'Signing in…' : 'Sign in'}</span>
-            <span>→</span>
-          </button>
-          <div className="auth-error" role="alert">{error}</div>
-        </form>
+        </div>
+
+        <div className="auth-options">
+          <span className="secure-badge">● Backend secured</span>
+        </div>
+
+        <button
+          className="auth-submit"
+          type="button"
+          disabled={loading}
+          onClick={submit}
+        >
+          <span>{loading ? 'Signing in…' : 'Sign in'}</span>
+          <span>→</span>
+        </button>
+
+        <div className="auth-error" role="alert">{error}</div>
+
         <div className="auth-footer">
           <span>Next.js • Axios • JWT</span>
         </div>
