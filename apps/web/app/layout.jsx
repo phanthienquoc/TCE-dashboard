@@ -1,4 +1,5 @@
 import './globals.css';
+import ToastHost from './ToastHost';
 
 export const metadata = {
   title: 'TCE Dashboard',
@@ -17,7 +18,10 @@ export const viewport = {
 export default function RootLayout({ children }) {
   return (
     <html lang="vi">
-      <body>{children}</body>
+      <body>
+        {children}
+        <ToastHost />
+      </body>
     </html>
   );
 }
