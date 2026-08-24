@@ -19,6 +19,10 @@ COPY libs ./libs
 # are reported at the actual dependency boundary.
 RUN node -e "for (const p of ['@nestjs/common','@nestjs/core','@supabase/supabase-js','@ssi.developer/ssi-sdk','nx','typescript']) require.resolve(p)"
 RUN ./node_modules/.bin/nx build service
+
+# Node ESM requires explicit .js extensions for relative imports.
+RUN node apps/service/scripts/fix-esm-extensions.mjs /app/dist/apps/service
+
 RUN test -f /app/dist/apps/service/src/main.js
 RUN test -f /app/dist/apps/service/src/app.module.js
 RUN node --check /app/dist/apps/service/src/main.js
