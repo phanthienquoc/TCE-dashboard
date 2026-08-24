@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Headers, Post, UnauthorizedException } from '@nestjs/common';
+import { Controller, Get, Headers, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '../auth/jwt.service';
 import { DashboardService } from './dashboard.service';
 
@@ -16,13 +16,38 @@ export class DashboardController {
     return this.dashboard.get(this.userId(auth));
   }
 
-  @Post('positions')
-  createPosition(@Headers('authorization') auth: string | undefined, @Body() body: Record<string, unknown>) {
-    return this.dashboard.createPosition(this.userId(auth), body);
+  @Get('account')
+  getAccount(@Headers('authorization') auth?: string) {
+    return this.dashboard.getAccount(this.userId(auth));
   }
 
-  @Post('orders')
-  createOrder(@Headers('authorization') auth: string | undefined, @Body() body: Record<string, unknown>) {
-    return this.dashboard.createOrder(this.userId(auth), body);
+  @Get('positions')
+  getPositions(@Headers('authorization') auth?: string) {
+    return this.dashboard.getPositions(this.userId(auth));
+  }
+
+  @Get('strategy')
+  getStrategy(@Headers('authorization') auth?: string) {
+    return this.dashboard.getStrategy(this.userId(auth));
+  }
+
+  @Get('pools')
+  getPools(@Headers('authorization') auth?: string) {
+    return this.dashboard.getPoolsForUser(this.userId(auth));
+  }
+
+  @Get('next-positions')
+  getNextPositions(@Headers('authorization') auth?: string) {
+    return this.dashboard.getNextPositionsForUser(this.userId(auth));
+  }
+
+  @Get('orders')
+  getOrders(@Headers('authorization') auth?: string) {
+    return this.dashboard.getOrdersForUser(this.userId(auth));
+  }
+
+  @Get('sources')
+  getSources(@Headers('authorization') auth?: string) {
+    return this.dashboard.getSources(this.userId(auth));
   }
 }

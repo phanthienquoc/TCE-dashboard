@@ -7,23 +7,71 @@ import { DashboardSourcesService } from './dashboard-sources.service';
 export class DashboardService {
   constructor(private readonly supabase: SupabaseClientService, private readonly sources: DashboardSourcesService) {}
 
+  async getAccount(userId: string) {
+    const account = await this.resolveAccount(userId);
+    const { data: strategy, error } = await this.supabase.db.from('tce_strategy_config').select('account_id,max_positions,pool_size,core_capital,burst_capital,monitor_interval_minutes,market_open,market_close,timezone').eq('account_id', account.id).maybeSingle();
+    if (error) throw error;
+    return {
+      userId,
+      accountId: account.id,
+      name: account.name,
+      initial_capital: Number(account.initial_capital ?? 0),
+      capital_deployed: Number(account.capital_deployed ?? 0),
+      capital_available: Number(account.capital_available ?? 0),
+      cashout_target: Number(account.cashout_target ?? 0),
+      cashout_realized: Number(account.cashout_realized ?? 0),
+      recovery_remaining: Number(account.recovery_remaining ?? 0),
+      current_cycle: Number(account.current_cycle ?? 1),
+      status: account.status,
+      max_positions: strategy?.max_positions ?? 2,
+      pool_size: strategy?.pool_size ?? 5,
+    };
+  }
+
+  async getPositions(userId: string) {
+    const account = await this.resolveAccount(userId);
+    const { data, error } = await this.supabase.db.from('tce_positions').select('id,account_id,symbol,quantity,avg_cost,cost_basis,market_price,market_value,unrealized_pnl,status,cycle_no').eq('account_id', account.id).neq('status', 'CLOSED').order('symbol');
+    if (error) throw error;
+    return data ?? [];
+  }
+
+  async getStrategy(userId: string) {
+    const account = await this.resolveAccount(userId);
+    const { data, error } = await this.supabase.db.from('tce_strategy_config').select('account_id,max_positions,pool_size,core_capital,burst_capital,monitor_interval_minutes,market_open,market_close,timezone,updated_at').eq('account_id', account.id).maybeSingle();
+    if (error) throw error;
+    return data;
+  }
+
+  async getPoolsForUser(userId: string) {
+    const account = await this.resolveAccount(userId);
+    return this.getPools(account.id);
+  }
+
+  async getNextPositionsForUser(userId: string) {
+    const account = await this.resolveAccount(userId);
+    return this.getNextPositions(account.id);
+  }
+
+  async getOrdersForUser(userId: string) {
+    const account = await this.resolveAccount(userId);
+    return this.getOrders(account.id);
+  }
+
+  async getSources(userId: string) {
+    return this.sources.status(userId);
+  }
+
   async get(userId: string): Promise<DashboardSnapshot> {
     const account = await this.resolveAccount(userId);
-    const [positions, strategy] = await Promise.all([
-      this.supabase.db.from('tce_positions').select('id,account_id,symbol,quantity,avg_cost,cost_basis,market_price,market_value,unrealized_pnl,status,cycle_no').eq('account_id', account.id).neq('status', 'CLOSED').order('symbol'),
-      this.supabase.db.from('tce_strategy_config').select('account_id,max_positions,pool_size,core_capital,burst_capital,monitor_interval_minutes,market_open,market_close,timezone').eq('account_id', account.id).maybeSingle(),
-    ]);
-    if (positions.error) throw positions.error;
-    if (strategy.error) throw strategy.error;
-
-    const rows = positions.data ?? [];
-    const [pools, nextPositions, orders, sources] = await Promise.all([
+    const [positions, strategy, pools, nextPositions, orders, sources] = await Promise.all([
+      this.getPositions(userId),
+      this.getStrategy(userId),
       this.getPools(account.id),
       this.getNextPositions(account.id),
       this.getOrders(account.id),
       this.sources.status(userId),
     ]);
-
+    const rows = positions;
     const deployed = Number(account.capital_deployed ?? rows.reduce((sum, p) => sum + Number(p.market_value ?? p.cost_basis ?? 0), 0));
     const unrealized = rows.reduce((sum, p) => sum + Number(p.unrealized_pnl ?? 0), 0);
     return {
@@ -39,8 +87,8 @@ export class DashboardService {
         recovery_remaining: Number(account.recovery_remaining ?? 0),
         current_cycle: Number(account.current_cycle ?? Math.max(1, ...rows.map((p) => Number(p.cycle_no ?? 1)))),
         unrealized_pnl: Math.round(unrealized),
-        max_positions: strategy.data?.max_positions ?? 2,
-        pool_size: strategy.data?.pool_size ?? 5,
+        max_positions: strategy?.max_positions ?? 2,
+        pool_size: strategy?.pool_size ?? 5,
       },
       positions: rows,
       orders,
