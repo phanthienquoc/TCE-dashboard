@@ -85,25 +85,36 @@ export async function getDashboard() {
   return data;
 }
 
+export async function getDashboardData() {
+  const token = getAccessToken();
+  const headers = authHeaders(token);
+  const params = { _: Date.now() };
+  const [account, positions, strategy, pools, nextPositions, orders, sources] = await Promise.all([
+    api.get('/dashboard/account', { params, headers }),
+    api.get('/dashboard/positions', { params, headers }),
+    api.get('/dashboard/strategy', { params, headers }),
+    api.get('/dashboard/pools', { params, headers }),
+    api.get('/dashboard/next-positions', { params, headers }),
+    api.get('/dashboard/orders', { params, headers }),
+    api.get('/dashboard/sources', { params, headers }),
+  ]);
+
+  return {
+    account: account.data,
+    positions: positions.data || [],
+    strategy: strategy.data,
+    pools: pools.data || [],
+    nextPositions: nextPositions.data || [],
+    orders: orders.data || [],
+    sources: sources.data,
+  };
+}
+
 export async function getBackendStatus() {
   const token = getAccessToken();
   const { data } = await api.get('/auth/status', {
     params: { _: Date.now() },
     headers: authHeaders(token),
-  });
-  return data;
-}
-
-export async function createPosition(payload) {
-  const { data } = await api.post('/dashboard/positions', payload, {
-    headers: authHeaders(),
-  });
-  return data;
-}
-
-export async function createOrder(payload) {
-  const { data } = await api.post('/dashboard/orders', payload, {
-    headers: authHeaders(),
   });
   return data;
 }
