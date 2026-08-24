@@ -1,1 +1,0 @@
-Contract: a pool row is not a buy order. A buy candidate references its source pool row with pool_entry_id and records promoted_at.

@@ -1,1 +1,0 @@
-Expected: TRIGGERED + open slot + positive score may promote; full position capacity must not promote.

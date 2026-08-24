@@ -1,4 +1,4 @@
-import { Controller, Get, Headers, UnauthorizedException } from '@nestjs/common';
+import { Body, Controller, Get, Headers, Post, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '../auth/jwt.service';
 import { DashboardService } from './dashboard.service';
 
@@ -14,5 +14,15 @@ export class DashboardController {
   @Get()
   get(@Headers('authorization') auth?: string) {
     return this.dashboard.get(this.userId(auth));
+  }
+
+  @Post('positions')
+  createPosition(@Headers('authorization') auth: string | undefined, @Body() body: Record<string, unknown>) {
+    return this.dashboard.createPosition(this.userId(auth), body);
+  }
+
+  @Post('orders')
+  createOrder(@Headers('authorization') auth: string | undefined, @Body() body: Record<string, unknown>) {
+    return this.dashboard.createOrder(this.userId(auth), body);
   }
 }

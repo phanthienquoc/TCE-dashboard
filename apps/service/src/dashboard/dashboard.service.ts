@@ -1,139 +1,72 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
+import type { DashboardSnapshot } from '@tce/dashboard-data';
 import { SupabaseClientService } from '../db/supabase.client';
-
-type Position = {
-  id: string;
-  account_id: string;
-  symbol: string;
-  quantity: number;
-  avg_cost: number;
-  cost_basis: number;
-  market_price: number | null;
-  market_value: number | null;
-  unrealized_pnl: number | null;
-  status: string;
-  cycle_no: number | null;
-};
+import { DashboardSourcesService } from './dashboard-sources.service';
 
 @Injectable()
 export class DashboardService {
-  constructor(private readonly supabase: SupabaseClientService) {}
+  constructor(private readonly supabase: SupabaseClientService, private readonly sources: DashboardSourcesService) {}
 
-  async get(userId: string) {
-    const accountId = await this.resolveAccountId(userId);
-
+  async get(userId: string): Promise<DashboardSnapshot> {
     const [positions, strategy] = await Promise.all([
-      this.supabase.db.from('tce_positions')
-        .select('id,account_id,symbol,quantity,avg_cost,cost_basis,market_price,market_value,unrealized_pnl,status,cycle_no')
-        .eq('account_id', accountId)
-        .neq('status', 'CLOSED')
-        .order('symbol'),
-      this.supabase.db.from('tce_strategy_config')
-        .select('account_id,max_positions,pool_size,monitor_interval_minutes,market_open,market_close,timezone')
-        .eq('account_id', accountId)
-        .maybeSingle(),
+      this.supabase.db.from('tce_positions').select('id,account_id,symbol,quantity,avg_cost,cost_basis,market_price,market_value,unrealized_pnl,status,cycle_no').eq('account_id', userId).neq('status', 'CLOSED').order('symbol'),
+      this.supabase.db.from('tce_strategy_config').select('account_id,max_positions,pool_size,monitor_interval_minutes,market_open,market_close,timezone').eq('account_id', userId).maybeSingle(),
     ]);
-
     if (positions.error) throw positions.error;
     if (strategy.error) throw strategy.error;
 
-    const rows = (positions.data ?? []) as Position[];
-    const deployed = rows.reduce((sum, p) => sum + Number(p.market_value ?? p.cost_basis ?? 0), 0);
-    const unrealized = rows.reduce((sum, p) => sum + Number(p.unrealized_pnl ?? 0), 0);
-
-    const [pools, nextPositions, orders] = await Promise.all([
-      this.getPool(accountId),
-      this.getNextPositions(accountId),
-      this.getOrders(accountId),
+    const rows = positions.data ?? [];
+    const [pools, nextPositions, orders, sources] = await Promise.all([
+      this.safeShared('tce_shared_pools', 'id,symbol,rank,status,metadata,updated_at'),
+      this.safeShared('tce_shared_next_positions', 'id,rank,symbol,target_quantity,target_price,reason,status,updated_at'),
+      this.safeAccount('tce_orders', userId, 'id,order_date,symbol,side,price,quantity,gross_value,fee_tax,net_cashflow,cycle_no,status,note,created_at'),
+      this.sources.status(userId),
     ]);
 
+    const deployed = rows.reduce((sum, p) => sum + Number(p.market_value ?? p.cost_basis ?? 0), 0);
+    const unrealized = rows.reduce((sum, p) => sum + Number(p.unrealized_pnl ?? 0), 0);
     return {
-      account: {
-        userId,
-        accountId,
-        initial_capital: 0,
-        capital_deployed: Math.round(deployed),
-        capital_available: 0,
-        cashout_realized: 0,
-        recovery_remaining: 0,
-        current_cycle: Math.max(1, ...rows.map((p) => Number(p.cycle_no ?? 1))),
-        unrealized_pnl: Math.round(unrealized),
-        max_positions: strategy.data?.max_positions ?? 2,
-      },
+      account: { userId, initial_capital: 0, capital_deployed: Math.round(deployed), capital_available: 0, cashout_realized: 0, recovery_remaining: 0, current_cycle: Math.max(1, ...rows.map((p) => Number(p.cycle_no ?? 1))), unrealized_pnl: Math.round(unrealized), max_positions: strategy.data?.max_positions ?? 2 },
       positions: rows,
       orders,
       pools,
       nextPositions,
-      // Compatibility for the existing UI.
-      candidates: nextPositions,
+      sources,
     };
   }
 
-  private async resolveAccountId(userId: string): Promise<string> {
-    const { data: mapped, error: mappedError } = await this.supabase.db
-      .from('tce_accounts')
-      .select('id')
-      .eq('user_id', userId)
-      .maybeSingle();
-
-    if (mappedError) throw mappedError;
-    if (mapped?.id) return mapped.id;
-
-    // Compatibility for databases that have not applied the account mapping
-    // migration yet. The migration makes user_id authoritative afterward.
-    const { data: user, error: userError } = await this.supabase.db
-      .from('users')
-      .select('email')
-      .eq('id', userId)
-      .single();
-
-    if (userError) throw userError;
-
-    const { data: legacyAccount, error: accountError } = await this.supabase.db
-      .from('tce_accounts')
-      .select('id')
-      .ilike('name', `USER:${user.email}`)
-      .maybeSingle();
-
-    if (accountError) throw accountError;
-    if (!legacyAccount?.id) throw new NotFoundException('TCE account is not configured for this user');
-    return legacyAccount.id;
-  }
-
-  private async getPool(accountId: string) {
-    const { data, error } = await this.supabase.db
-      .from('tce_pool_entries')
-      .select('id,symbol,rank,status,score,cashout_score,liquidity_score,catalyst_score,recovery_score,risk_score,entry_low,entry_high,target_price,invalidation_price,expected_cashout,expected_return_pct,expected_hold_days,rationale,observed_at,expires_at,created_at,updated_at')
-      .eq('account_id', accountId)
-      .order('rank', { ascending: true })
-      .limit(50);
-
+  async createPosition(userId: string, input: Record<string, unknown>) {
+    const symbol = String(input.symbol ?? '').trim().toUpperCase();
+    const quantity = Number(input.quantity ?? 0);
+    const avgCost = Number(input.avg_cost ?? 0);
+    if (!symbol || !Number.isFinite(quantity) || quantity <= 0 || !Number.isFinite(avgCost) || avgCost < 0) throw new Error('symbol, quantity and avg_cost are required');
+    const costBasis = this.numberOr(input.cost_basis, quantity * avgCost);
+    const marketPrice = this.nullableNumber(input.market_price);
+    const marketValue = this.nullableNumber(input.market_value) ?? (marketPrice == null ? null : quantity * marketPrice);
+    const unrealizedPnl = this.nullableNumber(input.unrealized_pnl) ?? (marketValue == null ? null : marketValue - costBasis);
+    const cycleNo = Math.trunc(Number(input.cycle_no ?? 0));
+    const { data, error } = await this.supabase.db.from('tce_positions').upsert({ account_id: userId, symbol, quantity: Math.trunc(quantity), avg_cost: avgCost, cost_basis: costBasis, market_price: marketPrice, market_value: marketValue, unrealized_pnl: unrealizedPnl, status: String(input.status ?? 'OPEN').trim().toUpperCase(), cycle_no: Number.isFinite(cycleNo) ? cycleNo : 0, updated_at: new Date().toISOString() }, { onConflict: 'account_id,symbol' }).select('id,account_id,symbol,quantity,avg_cost,cost_basis,market_price,market_value,unrealized_pnl,status,cycle_no').single();
     if (error) throw error;
-    return data ?? [];
+    return data;
   }
 
-  private async getNextPositions(accountId: string) {
-    const { data, error } = await this.supabase.db
-      .from('tce_buy_candidates')
-      .select('id,symbol,rank,target_position,target_quantity,target_price,status,reason,score,pool_entry_id,promoted_at,created_at,updated_at')
-      .eq('account_id', accountId)
-      .in('status', ['queued', 'ready'])
-      .order('rank', { ascending: true })
-      .limit(5);
-
+  async createOrder(userId: string, input: Record<string, unknown>) {
+    const symbol = String(input.symbol ?? '').trim().toUpperCase();
+    const side = String(input.side ?? '').trim().toUpperCase();
+    const price = Number(input.price ?? 0);
+    const quantity = Math.trunc(Number(input.quantity ?? 0));
+    if (!symbol || !['BUY', 'SELL'].includes(side) || !Number.isFinite(price) || price < 0 || !Number.isInteger(quantity) || quantity <= 0) throw new Error('symbol, side, price and quantity are required');
+    const grossValue = this.numberOr(input.gross_value, price * quantity);
+    const feeTax = this.numberOr(input.fee_tax, 0);
+    const netCashflow = this.numberOr(input.net_cashflow, side === 'BUY' ? -(grossValue + feeTax) : grossValue - feeTax);
+    const cycleNo = Math.trunc(Number(input.cycle_no ?? 0));
+    const { data, error } = await this.supabase.db.from('tce_orders').insert({ account_id: userId, order_date: String(input.order_date ?? new Date().toISOString().slice(0, 10)), symbol, side, price, quantity, gross_value: grossValue, fee_tax: feeTax, net_cashflow: netCashflow, cycle_no: Number.isFinite(cycleNo) ? cycleNo : 0, status: String(input.status ?? 'EXECUTED').trim().toUpperCase(), note: input.note == null ? null : String(input.note) }).select('id,account_id,order_date,symbol,side,price,quantity,gross_value,fee_tax,net_cashflow,cycle_no,status,note,created_at').single();
     if (error) throw error;
-    return data ?? [];
+    return data;
   }
 
-  private async getOrders(accountId: string) {
-    const { data, error } = await this.supabase.db
-      .from('tce_orders')
-      .select('id,account_id,order_date,symbol,side,price,quantity,gross_value,fee_tax,net_cashflow,cycle_no,status,note,created_at')
-      .eq('account_id', accountId)
-      .order('created_at', { ascending: false })
-      .limit(20);
-
-    if (error) throw error;
-    return data ?? [];
-  }
+  private numberOr(value: unknown, fallback: number) { const n = Number(value); return Number.isFinite(n) ? n : fallback; }
+  private nullableNumber(value: unknown) { if (value === null || value === undefined || value === '') return null; const n = Number(value); return Number.isFinite(n) ? n : null; }
+  private async safeShared(table: string, columns: string) { const { data, error } = await this.supabase.db.from(table).select(columns).order('rank', { ascending: true }); return error ? [] : data ?? []; }
+  private async safeAccount(table: string, userId: string, columns: string) { const { data, error } = await this.supabase.db.from(table).select(columns).eq('account_id', userId).order('created_at', { ascending: false }).limit(20); return error ? [] : data ?? []; }
 }
