@@ -2,7 +2,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { setAccessToken } from './api';
-import { clearSession, getAccessToken, saveSession } from './session';
+import { clearSession } from './session';
 import { getCurrentUser, login, logout } from '../services/auth';
 
 const AuthContext = createContext(null);
@@ -17,7 +17,6 @@ export function AuthProvider({ children }) {
     const nextToken = token || '';
     setAccessToken(nextToken);
     setContextAccessToken(nextToken);
-    if (nextToken) saveSession({ accessToken: nextToken });
   }, []);
 
   const signIn = useCallback(async (email, password) => {
@@ -44,7 +43,6 @@ export function AuthProvider({ children }) {
     try {
       const currentUser = await getCurrentUser();
       setUser(currentUser);
-      setContextAccessToken(getAccessToken());
       return currentUser;
     } catch (error) {
       setUser(null);
@@ -53,7 +51,10 @@ export function AuthProvider({ children }) {
   }, []);
 
   useEffect(() => {
-    syncSession(getAccessToken());
+    // Access token is memory-only. A page reload authenticates through the
+    // HttpOnly refresh cookie via GET /auth/me -> 401 -> /auth/refresh.
+    clearSession();
+    syncSession('');
 
     const onRefreshed = (event) => {
       syncSession(event.detail?.accessToken);
