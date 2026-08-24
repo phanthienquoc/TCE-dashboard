@@ -2,8 +2,8 @@ FROM node:24-alpine AS deps
 WORKDIR /app
 
 # This is an npm monorepo without a workspace lockfile. Install the root
-dependency graph once; service/package.json duplicates runtime dependencies
-for local development but must not create a second node_modules tree in CI.
+# dependency graph once; service/package.json duplicates runtime dependencies
+# for local development but must not create a second node_modules tree in CI.
 COPY package.json ./
 RUN npm install --include=dev --no-audit --no-fund
 
