@@ -15,16 +15,11 @@ export async function hasSsiCredentials(environment = 'production') {
 }
 
 export async function saveSsiCredentials(environment, credentials) {
-  await api.post(`${credentialsPath}/ssi`, {
-    environment,
-    credentials,
-  });
+  await api.post(`${credentialsPath}/ssi`, { environment, credentials });
 }
 
-export async function requestSsiOtp(environment) {
-  const { data } = await api.post(`${credentialsPath}/ssi/request-otp`, {
-    environment,
-  });
+export async function requestSsiOtp(payload) {
+  const { data } = await api.post(`${credentialsPath}/ssi/request-otp`, payload);
   return data;
 }
 
