@@ -1,7 +1,14 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { api } from '../../lib/api';
+import {
+  getCurrentSsiInfo,
+  hasSsiCredentials,
+  requestSsiOtp,
+  saveSsiCredentials,
+  syncSsiPortfolio,
+  testSsiConnection,
+} from '../../services/platform';
 import styles from './PlatformsPanel.module.css';
 
 const emptySsi = { clientId: '', apiKey: '', apiSecret: '', privateKey: '', accountNo: '' };
@@ -17,9 +24,7 @@ export default function PlatformsPanel() {
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    api.get('/platform/credentials').then(({ data }) => {
-      setSaved(Array.isArray(data) && data.some((item) => item.provider === 'ssi'));
-    }).catch(() => {});
+    hasSsiCredentials().then(setSaved).catch(() => {});
   }, []);
 
   const authBody = () => ({ environment, otp: otp || undefined, transactionId: transactionId || undefined });
@@ -29,7 +34,7 @@ export default function PlatformsPanel() {
     setBusy(true); setStatus('');
     try {
       if (!ssi.apiKey || !ssi.apiSecret || !ssi.accountNo) throw new Error('API Key, API Secret and Account No. are required.');
-      await api.post('/platform/credentials/ssi', { environment, credentials: ssi });
+      await saveSsiCredentials(environment, ssi);
       setSaved(true); setSsi({ ...emptySsi }); setStatus('SSI SDK v3 credentials saved securely.');
     } catch (error) { setStatus(message(error, 'Save failed.')); }
     finally { setBusy(false); }
@@ -38,7 +43,7 @@ export default function PlatformsPanel() {
   async function requestOtp() {
     setBusy(true); setStatus('Requesting SSI OTP / Mobile Approval…');
     try {
-      const { data } = await api.post('/platform/credentials/ssi/request-otp', { environment });
+      const data = await requestSsiOtp(environment);
       const id = data?.data?.transactionId || data?.transactionId || '';
       if (id) setTransactionId(id);
       setStatus(id ? 'Approval requested. Approve in SSI/iBoard, then test connection.' : 'OTP / approval requested.');
@@ -49,8 +54,7 @@ export default function PlatformsPanel() {
   async function test() {
     setBusy(true); setStatus('Testing SSI SDK v3 connection…');
     try {
-      const { data } = await api.post('/platform/credentials/ssi/test', authBody());
-      const result = data?.data || data;
+      const result = await testSsiConnection(authBody());
       setStatus(`Connected • API v${result.apiVersion || '3'} • market data OK • ${(result.accounts || []).length} account(s).`); setOtp('');
     } catch (error) { setStatus(message(error, 'Connection test failed.')); }
     finally { setBusy(false); }
@@ -59,8 +63,8 @@ export default function PlatformsPanel() {
   async function loadCurrent() {
     setBusy(true); setStatus('Loading current SSI account information…');
     try {
-      const { data } = await api.post('/platform/credentials/ssi/current', authBody());
-      setCurrent(data?.data || data); setStatus('Current SSI information loaded.');
+      const result = await getCurrentSsiInfo(authBody());
+      setCurrent(result); setStatus('Current SSI information loaded.');
     } catch (error) { setStatus(message(error, 'Unable to load current info.')); }
     finally { setBusy(false); }
   }
@@ -68,8 +72,8 @@ export default function PlatformsPanel() {
   async function sync() {
     setBusy(true); setStatus('Syncing SSI portfolio…');
     try {
-      const { data } = await api.post('/platform/credentials/ssi/sync', authBody());
-      const result = data?.data || data; setStatus(`Synced • ${result.positionsSynced || 0} positions • ${result.ordersSynced || 0} orders.`);
+      const result = await syncSsiPortfolio(authBody());
+      setStatus(`Synced • ${result.positionsSynced || 0} positions • ${result.ordersSynced || 0} orders.`);
     } catch (error) { setStatus(message(error, 'Portfolio sync failed.')); }
     finally { setBusy(false); }
   }
