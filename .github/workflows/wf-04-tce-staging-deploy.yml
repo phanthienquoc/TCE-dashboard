@@ -116,23 +116,41 @@ jobs:
           MFA_ENCRYPTION_KEY: ${{ secrets.MFA_ENCRYPTION_KEY_STG }}
           IMAGE_TAG: ${{ steps.version.outputs.image_tag }}
           DEPLOY_SHA: ${{ github.sha }}
+          DEPLOY_DIR: "/tmp/tce-stg-${{ github.sha }}"
         run: |
           set -euo pipefail
           test -n "$SUPABASE_URL" && test -n "$SUPABASE_KEY" && test -n "$JWT_SECRET"
           test -n "$TCE_CREDENTIAL_ENCRYPTION_KEY" && test -n "$MFA_ENCRYPTION_KEY"
-          scp -i ~/.ssh/tce_vps_key -o IdentitiesOnly=yes -o StrictHostKeyChecking=no /tmp/tce-images/tce-frontend.tar.gz /tmp/tce-images/tce-service.tar.gz /tmp/tce-stg-manifests/service-stg.yaml /tmp/tce-stg-manifests/frontend-stg.yaml "$U@$H:/tmp/"
-          ssh -i ~/.ssh/tce_vps_key -o IdentitiesOnly=yes -o StrictHostKeyChecking=no "$U@$H" "SUPABASE_URL='$SUPABASE_URL' SUPABASE_KEY='$SUPABASE_KEY' JWT_SECRET='$JWT_SECRET' TCE_CREDENTIAL_ENCRYPTION_KEY='$TCE_CREDENTIAL_ENCRYPTION_KEY' MFA_ENCRYPTION_KEY='$MFA_ENCRYPTION_KEY' IMAGE_TAG='$IMAGE_TAG' DEPLOY_SHA='$DEPLOY_SHA' bash -s" <<'REMOTE'
+
+          # Use a unique per-deployment directory on the VPS. Never share /tmp
+          # filenames between concurrent/retried workflow runs.
+          ssh -i ~/.ssh/tce_vps_key -o IdentitiesOnly=yes -o StrictHostKeyChecking=no "$U@$H" "rm -rf '$DEPLOY_DIR' && mkdir -p '$DEPLOY_DIR'"
+          scp -i ~/.ssh/tce_vps_key -o IdentitiesOnly=yes -o StrictHostKeyChecking=no \
+            /tmp/tce-images/tce-frontend.tar.gz \
+            /tmp/tce-images/tce-service.tar.gz \
+            /tmp/tce-stg-manifests/service-stg.yaml \
+            /tmp/tce-stg-manifests/frontend-stg.yaml \
+            "$U@$H:$DEPLOY_DIR/"
+
+          ssh -i ~/.ssh/tce_vps_key -o IdentitiesOnly=yes -o StrictHostKeyChecking=no "$U@$H" "SUPABASE_URL='$SUPABASE_URL' SUPABASE_KEY='$SUPABASE_KEY' JWT_SECRET='$JWT_SECRET' TCE_CREDENTIAL_ENCRYPTION_KEY='$TCE_CREDENTIAL_ENCRYPTION_KEY' MFA_ENCRYPTION_KEY='$MFA_ENCRYPTION_KEY' IMAGE_TAG='$IMAGE_TAG' DEPLOY_SHA='$DEPLOY_SHA' DEPLOY_DIR='$DEPLOY_DIR' bash -s" <<'REMOTE'
           set -euo pipefail
           NS="tce-stg"
           SERVICE_IMAGE="tce-service:${IMAGE_TAG}"
           FRONTEND_IMAGE="tce-frontend:${IMAGE_TAG}"
+
+          test -s "$DEPLOY_DIR/tce-service.tar.gz"
+          test -s "$DEPLOY_DIR/tce-frontend.tar.gz"
+          test -s "$DEPLOY_DIR/service-stg.yaml"
+          test -s "$DEPLOY_DIR/frontend-stg.yaml"
+          echo "=== DEPLOY ARTIFACTS ==="
+          ls -lh "$DEPLOY_DIR"/*
 
           import_fresh() {
             local image="$1" archive="$2"
             local qualified="docker.io/library/${image}"
             sudo k3s ctr images rm "$image" 2>/dev/null || true
             sudo k3s ctr images rm "$qualified" 2>/dev/null || true
-            sudo k3s ctr images import "/tmp/$archive"
+            sudo k3s ctr images import "$DEPLOY_DIR/$archive"
             sudo k3s ctr images list -q | grep -Fxq "$qualified"
           }
 
@@ -149,7 +167,7 @@ jobs:
             --from-literal=TCE_CREDENTIAL_ENCRYPTION_KEY="$TCE_CREDENTIAL_ENCRYPTION_KEY" \
             --dry-run=client -o yaml | sudo kubectl apply -f -
 
-          sudo kubectl apply -f /tmp/service-stg.yaml -f /tmp/frontend-stg.yaml
+          sudo kubectl apply -f "$DEPLOY_DIR/service-stg.yaml" -f "$DEPLOY_DIR/frontend-stg.yaml"
           sudo kubectl -n "$NS" annotate deployment/tce-service tce.github.com/source-sha="$DEPLOY_SHA" tce.github.com/image-tag="$IMAGE_TAG" --overwrite
           sudo kubectl -n "$NS" annotate deployment/tce-frontend tce.github.com/source-sha="$DEPLOY_SHA" tce.github.com/image-tag="$IMAGE_TAG" --overwrite
           sudo kubectl -n "$NS" rollout restart deployment/tce-service
@@ -171,7 +189,7 @@ jobs:
           echo "=== STG SERVICE LOGS ==="
           sudo kubectl -n "$NS" logs "$POD" --tail=200 --timestamps || true
 
-          rm -f /tmp/tce-frontend.tar.gz /tmp/tce-service.tar.gz /tmp/service-stg.yaml /tmp/frontend-stg.yaml
+          rm -rf "$DEPLOY_DIR"
           REMOTE
       - name: Cleanup
         if: always()
