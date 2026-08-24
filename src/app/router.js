@@ -12,8 +12,5 @@ export function navigate(to) {
 
 export function bindRouter() {
   window.addEventListener('popstate', () => window.__tceRender?.(window.__tceData, currentRoute()));
-  document.addEventListener('click', (event) => {
-    const element = event.target.closest('[data-route]');
-    if (element) navigate(element.dataset.route);
-  });
+  document.querySelectorAll('[data-route]').forEach((element) => element.addEventListener('click', () => navigate(element.dataset.route)));
 }
