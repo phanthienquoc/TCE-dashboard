@@ -32,20 +32,20 @@ export class PlatformCredentialsController {
   }
 
   @Post(':provider/request-otp')
-  requestOtp(@Headers('authorization') auth: string | undefined, @Param('provider') provider: string, @Body() body?: { environment?: string }) {
+  requestOtp(@Headers('authorization') auth: string | undefined, @Param('provider') provider: string, @Body() body?: { environment?: string; credentials?: Record<string, unknown> }) {
     if (provider !== 'ssi') throw new UnauthorizedException('OTP flow is only available for SSI');
-    return this.ssi.requestOtp(this.userId(auth), body?.environment ?? 'production');
+    return this.ssi.requestOtp(this.userId(auth), body?.environment ?? 'production', body?.credentials);
   }
 
   @Post(':provider/test')
   test(
     @Headers('authorization') auth: string | undefined,
     @Param('provider') provider: string,
-    @Body() body?: { environment?: string; otp?: string; transactionId?: string },
+    @Body() body?: { environment?: string; otp?: string; transactionId?: string; credentials?: Record<string, unknown> },
   ) {
     if (provider !== 'ssi') throw new UnauthorizedException('Connection test is not implemented for this provider yet');
     const input: SsiAuthInput = { otp: body?.otp, transactionId: body?.transactionId };
-    return this.ssi.test(this.userId(auth), body?.environment ?? 'production', input);
+    return this.ssi.test(this.userId(auth), body?.environment ?? 'production', input, body?.credentials);
   }
 
   @Post(':provider/current')
