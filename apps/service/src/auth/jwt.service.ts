@@ -18,11 +18,18 @@ export class JwtService {
   }
 
   verify(token: string): AccessClaims {
-    const [h, p, s] = token.split('.');
-    if (!h || !p || !s || !this.safeEqual(this.sign(`${h}.${p}`), s)) throw new UnauthorizedException('Invalid token');
-    const claims = JSON.parse(Buffer.from(p, 'base64url').toString()) as AccessClaims;
-    if (claims.typ !== 'access' || claims.exp <= Math.floor(Date.now() / 1000)) throw new UnauthorizedException('Expired token');
-    return claims;
+    try {
+      const [h, p, s] = token.split('.');
+      if (!h || !p || !s || !this.safeEqual(this.sign(`${h}.${p}`), s)) throw new UnauthorizedException('Invalid token');
+      const claims = JSON.parse(Buffer.from(p, 'base64url').toString()) as AccessClaims;
+      if (!claims.sub || claims.typ !== 'access' || !Number.isFinite(claims.exp) || claims.exp <= Math.floor(Date.now() / 1000)) {
+        throw new UnauthorizedException('Expired token');
+      }
+      return claims;
+    } catch (error) {
+      if (error instanceof UnauthorizedException) throw error;
+      throw new UnauthorizedException('Invalid token');
+    }
   }
   private sign(value: string) { return createHmac('sha256', this.secret).update(value).digest('base64url'); }
   private b64(value: string) { return Buffer.from(value).toString('base64url'); }
