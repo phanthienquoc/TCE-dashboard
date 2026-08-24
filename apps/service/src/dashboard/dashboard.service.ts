@@ -1,5 +1,5 @@
 import { Injectable, NotFoundException, ServiceUnavailableException } from '@nestjs/common';
-import type { DashboardSnapshot } from '@tce/dashboard-data';
+import type { DashboardSnapshot, DashboardSourceResult } from '@tce/dashboard-data';
 import { SupabaseClientService } from '../db/supabase.client';
 import { DashboardSourcesService } from './dashboard-sources.service';
 
@@ -24,11 +24,12 @@ export class DashboardService {
   async getNextPositionsForUser(_userId: string) { return []; }
   async getOrdersForUser(_userId: string) { return []; }
 
-  async getSources(_userId: string) {
+  async getSources(_userId: string): Promise<DashboardSourceResult[]> {
+    const fetchedAt = new Date().toISOString();
     return [
-      { source: 'supabase', available: true, data: { role: 'primary', persisted: true }, fetchedAt: new Date().toISOString(), error: null },
-      { source: 'ssi', available: false, data: { role: 'account', configured: false, environment: 'production' }, fetchedAt: new Date().toISOString(), error: null },
-      { source: 'fastapi', available: false, data: { role: 'market-signal', configured: false, config: null }, fetchedAt: new Date().toISOString(), error: null },
+      { source: 'supabase', available: true, data: { role: 'primary', persisted: true }, fetchedAt, error: null },
+      { source: 'ssi', available: false, data: { role: 'account', configured: false, environment: 'production' }, fetchedAt, error: null },
+      { source: 'fastapi', available: false, data: { role: 'market-signal', configured: false, config: null }, fetchedAt, error: null },
     ];
   }
 
