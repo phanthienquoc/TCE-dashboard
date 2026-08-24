@@ -12,6 +12,7 @@ name: "WF-04 TCE Staging Deploy"
       SUPABASE_SERVICE_ROLE_KEY_STG: { required: true }
       JWT_SECRET_STG: { required: true }
       TCE_CREDENTIAL_ENCRYPTION_KEY_STG: { required: true }
+      MFA_ENCRYPTION_KEY_STG: { required: true }
   workflow_dispatch:
     inputs:
       host: { description: "VPS IP/hostname", required: true, default: "132.226.175.206", type: string }
@@ -122,6 +123,7 @@ jobs:
           SUPABASE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY_STG }}
           JWT_SECRET: ${{ secrets.JWT_SECRET_STG }}
           TCE_CREDENTIAL_ENCRYPTION_KEY: ${{ secrets.TCE_CREDENTIAL_ENCRYPTION_KEY_STG }}
+          MFA_ENCRYPTION_KEY: ${{ secrets.MFA_ENCRYPTION_KEY_STG }}
           IMAGE_TAG: ${{ steps.version.outputs.image_tag }}
         run: |
           set -euo pipefail
@@ -129,10 +131,11 @@ jobs:
           test -n "$SUPABASE_KEY"
           test -n "$JWT_SECRET"
           test -n "$TCE_CREDENTIAL_ENCRYPTION_KEY"
+          test -n "$MFA_ENCRYPTION_KEY"
           scp -i ~/.ssh/tce_vps_key -o IdentitiesOnly=yes -o StrictHostKeyChecking=no /tmp/tce-images/tce-frontend.tar.gz "$U@$H:/tmp/tce-frontend.tar.gz"
           scp -i ~/.ssh/tce_vps_key -o IdentitiesOnly=yes -o StrictHostKeyChecking=no /tmp/tce-images/tce-service.tar.gz "$U@$H:/tmp/tce-service.tar.gz"
           scp -i ~/.ssh/tce_vps_key -o IdentitiesOnly=yes -o StrictHostKeyChecking=no /tmp/tce-stg-manifests/service-stg.yaml /tmp/tce-stg-manifests/frontend-stg.yaml "$U@$H:/tmp/"
-          ssh -i ~/.ssh/tce_vps_key -o IdentitiesOnly=yes -o StrictHostKeyChecking=no "$U@$H" "SUPABASE_URL='$SUPABASE_URL' SUPABASE_KEY='$SUPABASE_KEY' JWT_SECRET='$JWT_SECRET' TCE_CREDENTIAL_ENCRYPTION_KEY='$TCE_CREDENTIAL_ENCRYPTION_KEY' IMAGE_TAG='$IMAGE_TAG' bash -s" <<'REMOTE'
+          ssh -i ~/.ssh/tce_vps_key -o IdentitiesOnly=yes -o StrictHostKeyChecking=no "$U@$H" "SUPABASE_URL='$SUPABASE_URL' SUPABASE_KEY='$SUPABASE_KEY' JWT_SECRET='$JWT_SECRET' TCE_CREDENTIAL_ENCRYPTION_KEY='$TCE_CREDENTIAL_ENCRYPTION_KEY' MFA_ENCRYPTION_KEY='$MFA_ENCRYPTION_KEY' IMAGE_TAG='$IMAGE_TAG' bash -s" <<'REMOTE'
           set -euo pipefail
           NS="tce-stg"
           SERVICE_IMAGE="tce-service:${IMAGE_TAG}"
@@ -159,12 +162,6 @@ jobs:
             --from-literal=JWT_SECRET="$JWT_SECRET" \
             --dry-run=client -o yaml | sudo kubectl apply -f -
 
-          # Preserve the existing MFA encryption key. Updating tce-auth with
-          # only the new credential key would otherwise replace the Secret data
-          # and remove MFA_ENCRYPTION_KEY, causing CreateContainerConfigError.
-          MFA_ENCRYPTION_KEY_B64="$(sudo kubectl -n "$NS" get secret tce-auth -o jsonpath='{.data.MFA_ENCRYPTION_KEY}')"
-          test -n "$MFA_ENCRYPTION_KEY_B64"
-          MFA_ENCRYPTION_KEY="$(printf '%s' "$MFA_ENCRYPTION_KEY_B64" | base64 -d)"
           sudo kubectl -n "$NS" create secret generic tce-auth \
             --from-literal=MFA_ENCRYPTION_KEY="$MFA_ENCRYPTION_KEY" \
             --from-literal=TCE_CREDENTIAL_ENCRYPTION_KEY="$TCE_CREDENTIAL_ENCRYPTION_KEY" \
