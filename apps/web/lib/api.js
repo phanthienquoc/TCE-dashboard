@@ -1,21 +1,17 @@
 'use client';
 
 import axios from 'axios';
-import { clearSession, getAccessToken, getRefreshToken, saveSession } from './session';
+import { clearSession, getAccessToken } from './session';
 
-let authTokenProvider = null;
-let authSessionListener = null;
+let accessToken = '';
+let refreshPromise = null;
 
-export function setAuthTokenProvider(provider) {
-  authTokenProvider = provider;
-}
-
-export function setAuthSessionListener(listener) {
-  authSessionListener = listener;
+export function setAccessToken(token) {
+  accessToken = token || '';
 }
 
 function currentAccessToken() {
-  return authTokenProvider?.() || getAccessToken();
+  return accessToken || getAccessToken();
 }
 
 export const api = axios.create({
@@ -24,8 +20,6 @@ export const api = axios.create({
   headers: { Accept: 'application/json' },
   timeout: 15000,
 });
-
-let refreshPromise = null;
 
 function attachAccessToken(config, token = currentAccessToken()) {
   if (!token) return config;
@@ -49,44 +43,27 @@ export function notifyApiError(error, fallback = 'API request failed.') {
   }));
 }
 
+function notifyAuthExpired() {
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('tce:auth-expired'));
+  }
+}
+
 api.interceptors.request.use((config) => attachAccessToken(config));
 
 async function refreshAccessToken() {
-  const refreshToken = getRefreshToken();
-  const refreshUrl = `${api.defaults.baseURL || '/api'}/auth/refresh`;
+  const { data } = await axios.post('/api/auth/refresh', null, {
+    withCredentials: true,
+    headers: { Accept: 'application/json' },
+    timeout: 15000,
+  });
 
-  if (!refreshToken) {
-    throw new Error('Session expired');
+  if (!data?.accessToken) {
+    throw new Error('Refresh response missing access token');
   }
 
-  try {
-    const { data } = await axios.post(refreshUrl, { refreshToken }, {
-      withCredentials: true,
-      headers: {
-        Accept: 'application/json',
-        'Content-Type': 'application/json',
-        'X-Refresh-Token': refreshToken,
-      },
-      timeout: 15000,
-    });
-
-    if (!data?.accessToken) {
-      throw new Error('Refresh token response missing access token');
-    }
-
-    saveSession(data);
-    authSessionListener?.(data);
-    return data.accessToken;
-  } catch (error) {
-    if (typeof window !== 'undefined') {
-      console.warn('[TCE_AUTH_REFRESH_FAILED]', {
-        status: error?.response?.status ?? 0,
-        message: error?.response?.data?.message || error?.message || 'refresh failed',
-        hasRefreshToken: Boolean(refreshToken),
-      });
-    }
-    throw error;
-  }
+  setAccessToken(data.accessToken);
+  return data.accessToken;
 }
 
 api.interceptors.response.use(
@@ -106,12 +83,13 @@ api.interceptors.response.use(
       refreshPromise ||= refreshAccessToken().finally(() => {
         refreshPromise = null;
       });
-      const accessToken = await refreshPromise;
-      attachAccessToken(original, accessToken);
+      const token = await refreshPromise;
+      attachAccessToken(original, token);
       return api(original);
     } catch (refreshError) {
+      setAccessToken('');
       clearSession();
-      authSessionListener?.(null);
+      notifyAuthExpired();
       if (original?._toastOnError !== false) {
         notifyApiError(refreshError, 'Session expired.');
       }
