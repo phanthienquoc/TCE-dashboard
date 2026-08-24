@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { login } from '../../lib/api';
+import { login, notifyApiError } from '../../lib/api';
 import { clearSession, saveSession } from '../../lib/session';
 
 export default function LoginPage() {
@@ -30,6 +30,7 @@ export default function LoginPage() {
       router.replace('/');
     } catch (err) {
       clearSession();
+      if (err.response || err.code) notifyApiError(err, 'Unable to sign in.');
       setError(err.response?.data?.message || err.message || 'Unable to sign in.');
     } finally {
       setLoading(false);
