@@ -24,8 +24,13 @@ export default function PlatformsPanel() {
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    hasSsiCredentials().then(setSaved).catch(() => {});
-  }, []);
+    let active = true;
+    setCurrent(null);
+    setTransactionId('');
+    setStatus('');
+    hasSsiCredentials(environment).then((value) => active && setSaved(value)).catch(() => active && setSaved(false));
+    return () => { active = false; };
+  }, [environment]);
 
   const authBody = () => ({ environment, otp: otp || undefined, transactionId: transactionId || undefined });
   const message = (error, fallback) => error.response?.data?.message || error.message || fallback;
