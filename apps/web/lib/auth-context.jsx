@@ -1,7 +1,7 @@
 'use client';
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
-import { setAuthTokenProvider } from './api';
+import { setAuthSessionListener, setAuthTokenProvider } from './api';
 import { clearSession, getAccessToken, getRefreshToken, saveSession } from './session';
 
 const AuthContext = createContext(null);
@@ -31,12 +31,27 @@ export function AuthProvider({ children }) {
     setRefreshToken('');
   }, []);
 
+  const onAuthSessionChanged = useCallback((session) => {
+    if (!session) {
+      setAccessToken('');
+      setRefreshToken('');
+      return;
+    }
+    setAccessToken(session.accessToken || getAccessToken());
+    setRefreshToken(session.refreshToken || getRefreshToken());
+  }, []);
+
   useEffect(() => {
     syncFromStorage();
     setAuthTokenProvider(() => getAccessToken());
+    setAuthSessionListener(onAuthSessionChanged);
     setReady(true);
-    return () => setAuthTokenProvider(null);
-  }, [syncFromStorage]);
+
+    return () => {
+      setAuthTokenProvider(null);
+      setAuthSessionListener(null);
+    };
+  }, [onAuthSessionChanged, syncFromStorage]);
 
   const value = useMemo(() => ({
     accessToken,
