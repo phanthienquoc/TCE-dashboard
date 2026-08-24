@@ -1,0 +1,1 @@
+Pool 5 is research state; buy_candidates is execution intent. Promotion requires a TRIGGERED pool row, an available position slot, and a positive score.

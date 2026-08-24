@@ -6,14 +6,8 @@ export interface UserRow { id: string; email: string; password_hash: string; rol
 @Injectable()
 export class AuthRepository {
   constructor(private readonly supabase: SupabaseClientService) {}
-  async checkDatabase(): Promise<void> { const { error } = await this.supabase.db.from('users').select('id').limit(1); if (error) throw error; }
   async findUserByEmail(email: string): Promise<UserRow|null> { const { data, error } = await this.supabase.db.from('users').select('*').eq('email', email.toLowerCase()).maybeSingle(); if (error) throw error; return data as UserRow|null; }
   async findUserById(id: string): Promise<UserRow|null> { const { data, error } = await this.supabase.db.from('users').select('*').eq('id', id).maybeSingle(); if (error) throw error; return data as UserRow|null; }
-  async createUser(email: string, passwordHash: string): Promise<Pick<UserRow, 'id'|'email'|'role'|'mfa_enabled'>> {
-    const { data, error } = await this.supabase.db.from('users').insert({ email: email.toLowerCase(), password_hash: passwordHash, role: 'USER', mfa_enabled: false }).select('id,email,role,mfa_enabled').single();
-    if (error) throw error;
-    return data as Pick<UserRow, 'id'|'email'|'role'|'mfa_enabled'>;
-  }
   async createRefreshSession(userId: string, tokenHash: string, familyId: string, expiresAt: Date, ip?: string, userAgent?: string) {
     const { data, error } = await this.supabase.db.from('refresh_sessions').insert({ user_id:userId, token_hash:tokenHash, family_id:familyId, expires_at:expiresAt.toISOString(), ip:ip ?? null, user_agent:userAgent ?? null }).select('id').single();
     if (error) throw error; return data.id as string;

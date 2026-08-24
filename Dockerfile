@@ -1,12 +1,10 @@
-FROM node:24-alpine AS build
+FROM node:22-alpine AS build
 WORKDIR /app
 COPY package.json package-lock.json* ./
 RUN npm install
-COPY index.html .
-COPY vite.config.* .
-COPY tsconfig*.json .
+COPY index.html vite.config.* tsconfig*.json ./
 COPY src ./src
-RUN npm run build:web
+RUN npm run build
 
 FROM nginx:1.27-alpine
 COPY infra/nginx/tce-spa.conf /etc/nginx/conf.d/default.conf

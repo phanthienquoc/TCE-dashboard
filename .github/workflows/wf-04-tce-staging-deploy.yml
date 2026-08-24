@@ -11,8 +11,6 @@ name: "WF-04 TCE Staging Deploy"
       SUPABASE_URL_STG: { required: true }
       SUPABASE_SERVICE_ROLE_KEY_STG: { required: true }
       JWT_SECRET_STG: { required: true }
-      TCE_CREDENTIAL_ENCRYPTION_KEY_STG: { required: true }
-      MFA_ENCRYPTION_KEY_STG: { required: true }
   workflow_dispatch:
     inputs:
       host: { description: "VPS IP/hostname", required: true, default: "132.226.175.206", type: string }
@@ -72,7 +70,7 @@ jobs:
           IMAGE_TAG: ${{ steps.version.outputs.image_tag }}
         run: |
           set -euo pipefail
-          docker buildx build --platform "$TARGET_PLATFORM" --cache-from type=gha,scope=tce-be-stg --cache-to type=gha,mode=max,scope=tce-be-stg -t "tce-service:$IMAGE_TAG" -f apps/service/Dockerfile . --output type=docker,dest=/tmp/tce-service.tar
+          docker buildx build --platform "$TARGET_PLATFORM" --cache-from type=gha,scope=tce-be-stg --cache-to type=gha,mode=max,scope=tce-be-stg -t "tce-service:$IMAGE_TAG" -f apps/service/Dockerfile apps/service --output type=docker,dest=/tmp/tce-service.tar
           gzip -f /tmp/tce-service.tar
       - uses: actions/upload-artifact@v4
         with: { name: tce-stg-be-image, path: /tmp/tce-service.tar.gz, retention-days: 1 }
@@ -122,20 +120,16 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL_STG }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY_STG }}
           JWT_SECRET: ${{ secrets.JWT_SECRET_STG }}
-          TCE_CREDENTIAL_ENCRYPTION_KEY: ${{ secrets.TCE_CREDENTIAL_ENCRYPTION_KEY_STG }}
-          MFA_ENCRYPTION_KEY: ${{ secrets.MFA_ENCRYPTION_KEY_STG }}
           IMAGE_TAG: ${{ steps.version.outputs.image_tag }}
         run: |
           set -euo pipefail
           test -n "$SUPABASE_URL"
           test -n "$SUPABASE_KEY"
           test -n "$JWT_SECRET"
-          test -n "$TCE_CREDENTIAL_ENCRYPTION_KEY"
-          test -n "$MFA_ENCRYPTION_KEY"
           scp -i ~/.ssh/tce_vps_key -o IdentitiesOnly=yes -o StrictHostKeyChecking=no /tmp/tce-images/tce-frontend.tar.gz "$U@$H:/tmp/tce-frontend.tar.gz"
           scp -i ~/.ssh/tce_vps_key -o IdentitiesOnly=yes -o StrictHostKeyChecking=no /tmp/tce-images/tce-service.tar.gz "$U@$H:/tmp/tce-service.tar.gz"
           scp -i ~/.ssh/tce_vps_key -o IdentitiesOnly=yes -o StrictHostKeyChecking=no /tmp/tce-stg-manifests/service-stg.yaml /tmp/tce-stg-manifests/frontend-stg.yaml "$U@$H:/tmp/"
-          ssh -i ~/.ssh/tce_vps_key -o IdentitiesOnly=yes -o StrictHostKeyChecking=no "$U@$H" "SUPABASE_URL='$SUPABASE_URL' SUPABASE_KEY='$SUPABASE_KEY' JWT_SECRET='$JWT_SECRET' TCE_CREDENTIAL_ENCRYPTION_KEY='$TCE_CREDENTIAL_ENCRYPTION_KEY' MFA_ENCRYPTION_KEY='$MFA_ENCRYPTION_KEY' IMAGE_TAG='$IMAGE_TAG' bash -s" <<'REMOTE'
+          ssh -i ~/.ssh/tce_vps_key -o IdentitiesOnly=yes -o StrictHostKeyChecking=no "$U@$H" "SUPABASE_URL='$SUPABASE_URL' SUPABASE_KEY='$SUPABASE_KEY' JWT_SECRET='$JWT_SECRET' IMAGE_TAG='$IMAGE_TAG' bash -s" <<'REMOTE'
           set -euo pipefail
           NS="tce-stg"
           SERVICE_IMAGE="tce-service:${IMAGE_TAG}"
@@ -162,50 +156,24 @@ jobs:
             --from-literal=JWT_SECRET="$JWT_SECRET" \
             --dry-run=client -o yaml | sudo kubectl apply -f -
 
-          sudo kubectl -n "$NS" create secret generic tce-auth \
-            --from-literal=MFA_ENCRYPTION_KEY="$MFA_ENCRYPTION_KEY" \
-            --from-literal=TCE_CREDENTIAL_ENCRYPTION_KEY="$TCE_CREDENTIAL_ENCRYPTION_KEY" \
-            --dry-run=client -o yaml | sudo kubectl apply -f -
-
           sudo kubectl apply -f /tmp/service-stg.yaml -f /tmp/frontend-stg.yaml
-
-          dump_pod_diagnostics() {
-            local selector="$1"
-            local label="$2"
-            echo "=== $label PODS ==="
-            sudo kubectl -n "$NS" get pods -l "$selector" -o wide || true
-
-            local pods
-            pods="$(sudo kubectl -n "$NS" get pods -l "$selector" -o jsonpath='{range .items[*]}{.metadata.name}{"\n"}{end}' 2>/dev/null || true)"
-            if [ -z "$pods" ]; then
-              echo "No pods found for selector: $selector"
-              return 0
-            fi
-
-            while IFS= read -r pod; do
-              [ -z "$pod" ] && continue
-              echo "===== $label POD: $pod ====="
-              sudo kubectl -n "$NS" get pod "$pod" -o jsonpath='{.metadata.creationTimestamp}{"\n"}' || true
-              sudo kubectl -n "$NS" get pod "$pod" -o jsonpath='{range .status.containerStatuses[*]}container={.name} ready={.ready} restartCount={.restartCount} state={.state} lastState={.lastState}{"\n"}{end}' || true
-              echo "--- DESCRIBE ---"
-              sudo kubectl -n "$NS" describe pod "$pod" || true
-              echo "--- CURRENT LOG ---"
-              sudo kubectl -n "$NS" logs "$pod" --all-containers=true --tail=300 || true
-              echo "--- PREVIOUS LOG ---"
-              sudo kubectl -n "$NS" logs "$pod" --all-containers=true --previous --tail=300 || true
-            done <<< "$pods"
-          }
 
           if ! sudo kubectl -n "$NS" rollout status deployment/tce-service --timeout=180s; then
             echo "=== SERVICE DIAGNOSTICS ==="
-            dump_pod_diagnostics "app=tce-service" "SERVICE"
+            sudo kubectl -n "$NS" get pods -o wide || true
+            sudo kubectl -n "$NS" describe pods || true
+            sudo kubectl -n "$NS" logs deployment/tce-service --all-containers=true --tail=200 || true
+            sudo kubectl -n "$NS" logs deployment/tce-service --all-containers=true --previous --tail=200 || true
             sudo kubectl -n "$NS" get events --sort-by='.lastTimestamp' | tail -100 || true
             exit 1
           fi
 
           if ! sudo kubectl -n "$NS" rollout status deployment/tce-frontend --timeout=180s; then
             echo "=== FRONTEND DIAGNOSTICS ==="
-            dump_pod_diagnostics "app=tce-frontend" "FRONTEND"
+            sudo kubectl -n "$NS" get pods -o wide || true
+            sudo kubectl -n "$NS" describe pods || true
+            sudo kubectl -n "$NS" logs deployment/tce-frontend --all-containers=true --tail=200 || true
+            sudo kubectl -n "$NS" logs deployment/tce-frontend --all-containers=true --previous --tail=200 || true
             sudo kubectl -n "$NS" get events --sort-by='.lastTimestamp' | tail -100 || true
             exit 1
           fi

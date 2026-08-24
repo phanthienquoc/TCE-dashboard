@@ -1,7 +1,7 @@
 import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import { SupabaseClientService } from '../db/supabase.client';
 
-const DEFAULT_TZ = 'Asia/Ho_Chi_Minh';
+const TZ = 'Asia/Ho_Chi_Minh';
 const INTERVAL_MS = 60 * 60 * 1000;
 
 type Position = {
@@ -47,29 +47,22 @@ export class TceMonitorService implements OnModuleInit, OnModuleDestroy {
     const result = { skipped: false, monitored: 0, signals: [] as string[] };
 
     try {
-      const { data: configs, error: configError } = await this.supabase.db
+      const { data: accounts, error: accountError } = await this.supabase.db
         .from('tce_strategy_config')
         .select('account_id,max_positions,pool_size,monitor_interval_minutes,market_open,market_close,timezone');
-      if (configError) throw configError;
+      if (accountError) throw accountError;
 
-      for (const config of configs ?? []) {
-        const timezone = this.safeTimezone(config.timezone);
-        const inSession = this.isMarketSession(timezone);
-
-        const { count: activeCount, error: countError } = await this.supabase.db
+      for (const config of accounts ?? []) {
+        const inSession = this.isMarketSession(config.timezone ?? TZ);
+        const { count } = await this.supabase.db
           .from('tce_positions')
           .select('symbol', { count: 'exact', head: true })
           .eq('account_id', config.account_id)
           .neq('status', 'CLOSED');
-        if (countError) throw countError;
+        const activeCount = count ?? 0;
 
         if (!inSession) {
-          await this.audit(config.account_id, 'POSITION_MONITOR', started, {
-            market_session: false,
-            active_position_count: activeCount ?? 0,
-            skipped: true,
-            skip_reason: 'outside_market_session',
-          });
+          await this.audit(config.account_id, 'POSITION_MONITOR', started, { market_session: false, active_position_count: activeCount, skipped: true, skip_reason: 'outside_market_session' });
           continue;
         }
 
@@ -81,9 +74,6 @@ export class TceMonitorService implements OnModuleInit, OnModuleDestroy {
           .order('symbol');
         if (positionError) throw positionError;
 
-        let accountSignals = 0;
-        let accountMonitored = 0;
-
         for (const position of (positions ?? []) as Position[]) {
           const snapshot = this.buildSnapshot(position, true);
           const { data: inserted, error: snapshotError } = await this.supabase.db
@@ -92,16 +82,11 @@ export class TceMonitorService implements OnModuleInit, OnModuleDestroy {
             .select('id')
             .single();
           if (snapshotError) throw snapshotError;
-
-          accountMonitored += 1;
           result.monitored += 1;
-          if (snapshot.signal !== 'HOLD') {
-            accountSignals += 1;
-            result.signals.push(`${position.symbol}:${snapshot.signal}`);
-          }
+          if (snapshot.signal !== 'HOLD') result.signals.push(`${position.symbol}:${snapshot.signal}`);
 
           if (snapshot.signal === 'CASHOUT' && inserted?.id) {
-            const { error: cashoutError } = await this.supabase.db.from('tce_cashout_events').insert({
+            await this.supabase.db.from('tce_cashout_events').insert({
               account_id: config.account_id,
               symbol: position.symbol,
               position_snapshot_id: inserted.id,
@@ -113,29 +98,28 @@ export class TceMonitorService implements OnModuleInit, OnModuleDestroy {
               realized_pnl: snapshot.unrealized_pnl ?? 0,
               notes: { source: 'tce-position-monitor', t_plus: snapshot.t_plus },
             });
-            if (cashoutError) throw cashoutError;
           }
         }
 
-        const active = activeCount ?? 0;
-        if (active >= (config.max_positions ?? 2)) {
+        // Never hunt new names while the two-position capacity is full.
+        if (activeCount >= (config.max_positions ?? 2)) {
           await this.audit(config.account_id, 'POSITION_MONITOR', started, {
             market_session: true,
-            active_position_count: active,
-            positions_monitored: accountMonitored,
-            signals_found: accountSignals,
+            active_position_count: activeCount,
+            positions_monitored: positions?.length ?? 0,
+            signals_found: result.signals.length,
             skipped: false,
             metadata: { pool_scan: 'blocked_by_position_capacity', max_positions: config.max_positions ?? 2 },
           });
         } else {
           await this.audit(config.account_id, 'POOL_SCAN', started, {
             market_session: true,
-            active_position_count: active,
-            positions_monitored: accountMonitored,
-            signals_found: accountSignals,
+            active_position_count: activeCount,
+            positions_monitored: positions?.length ?? 0,
+            signals_found: result.signals.length,
             skipped: true,
             skip_reason: 'candidate_feed_not_configured',
-            metadata: { open_slots: (config.max_positions ?? 2) - active, pool_size: config.pool_size ?? 5 },
+            metadata: { open_slots: (config.max_positions ?? 2) - activeCount, pool_size: config.pool_size ?? 5 },
           });
         }
       }
@@ -151,61 +135,46 @@ export class TceMonitorService implements OnModuleInit, OnModuleDestroy {
   }
 
   private buildSnapshot(position: Position, marketHours: boolean) {
-    const price = position.market_price == null ? null : Number(position.market_price);
+    const price = Number(position.market_price ?? position.avg_cost ?? 0);
     const quantity = Number(position.quantity ?? 0);
     const avg = Number(position.avg_cost ?? 0);
     const cost = Number(position.cost_basis ?? avg * quantity);
-    const value = price == null ? null : Number(position.market_value ?? price * quantity);
-    const pnl = value == null ? null : Number(position.unrealized_pnl ?? value - cost);
-    const pnlPct = pnl == null || cost <= 0 ? null : (pnl / cost) * 100;
+    const value = Number(position.market_value ?? price * quantity);
+    const pnl = Number(position.unrealized_pnl ?? value - cost);
+    const pnlPct = cost > 0 ? (pnl / cost) * 100 : 0;
 
-    let signal = 'WATCH';
-    if (pnlPct == null) signal = 'WATCH';
+    let signal = 'HOLD';
+    if (price <= 0) signal = 'WATCH';
     else if (pnlPct >= 8) signal = 'CASHOUT';
     else if (pnlPct >= 5) signal = 'TAKE_PROFIT';
     else if (pnlPct <= -5) signal = 'CUT';
-    else signal = 'HOLD';
-
-    const score = pnlPct == null ? 0 : Math.min(100, Math.max(0, 50 + pnlPct * 5));
 
     return {
       account_id: position.account_id,
       symbol: position.symbol,
-      market_price: price,
+      market_price: price || null,
       quantity,
       avg_cost: avg,
-      market_value: value == null ? null : Math.round(value),
+      market_value: Math.round(value),
       cost_basis: Math.round(cost),
-      unrealized_pnl: pnl == null ? null : Math.round(pnl),
-      unrealized_pnl_pct: pnlPct == null ? null : Number(pnlPct.toFixed(4)),
+      unrealized_pnl: Math.round(pnl),
+      unrealized_pnl_pct: Number(pnlPct.toFixed(4)),
       signal,
-      signal_score: Number(score.toFixed(3)),
-      signal_reason: { pnl_pct: pnlPct == null ? null : Number(pnlPct.toFixed(2)), thresholds: { take_profit: 5, cashout: 8, cut: -5 }, price_source: 'tce_positions.market_price' },
+      signal_score: Number(Math.min(100, Math.max(0, 50 + pnlPct * 5)).toFixed(3)),
+      signal_reason: { pnl_pct: Number(pnlPct.toFixed(2)), thresholds: { take_profit: 5, cashout: 8, cut: -5 }, price_source: 'tce_positions.market_price' },
       t_plus: 2,
       is_market_hours: marketHours,
     };
   }
 
   private async audit(accountId: string, runType: string, startedAt: string, values: Record<string, unknown>) {
-    const { error } = await this.supabase.db.from('tce_monitor_runs').insert({
+    await this.supabase.db.from('tce_monitor_runs').insert({
       account_id: accountId,
       run_type: runType,
       started_at: startedAt,
       finished_at: new Date().toISOString(),
       ...values,
     });
-    if (error) throw error;
-  }
-
-  private safeTimezone(timezone: string | null | undefined) {
-    if (!timezone) return DEFAULT_TZ;
-    try {
-      new Intl.DateTimeFormat('en-US', { timeZone: timezone }).format();
-      return timezone;
-    } catch {
-      this.logger.warn(`Invalid timezone ${timezone}; falling back to ${DEFAULT_TZ}`);
-      return DEFAULT_TZ;
-    }
   }
 
   private isMarketSession(timezone: string): boolean {
