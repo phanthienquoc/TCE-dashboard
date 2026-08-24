@@ -1,33 +1,29 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { login } from '../../services/auth';
 import { notifyApiError } from '../../lib/api';
 import { clearSession } from '../../lib/session';
 import { useAuth } from '../../lib/auth-context';
 
 export default function LoginPage() {
   const router = useRouter();
-  const { setSession } = useAuth();
+  const { signIn } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-
-  useEffect(() => { clearSession(); }, []);
 
   async function submit() {
     if (loading) return;
     setLoading(true);
     setError('');
     try {
-      const data = await login(email.trim(), password);
+      const data = await signIn(email.trim(), password);
       if (data.mfaRequired) {
         localStorage.setItem('tce_mfa_user_id', data.userId);
         throw new Error('MFA verification is required.');
       }
-      setSession(data);
       router.replace('/');
     } catch (err) {
       clearSession();
