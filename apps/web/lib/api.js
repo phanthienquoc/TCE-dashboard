@@ -71,8 +71,18 @@ api.interceptors.response.use(
   },
 );
 
+// Login is intentionally sent through a clean Axios instance. It must never
+// inherit a stale access token or trigger the response interceptor/refresh
+// flow. This guarantees that the first click on Sign in always reaches POST.
 export async function login(email, password) {
-  const { data } = await api.post('/auth/login', { email, password });
+  const { data } = await axios.post('/api/auth/login', { email, password }, {
+    withCredentials: true,
+    headers: {
+      Accept: 'application/json',
+      'Content-Type': 'application/json',
+    },
+    timeout: 15000,
+  });
   return data;
 }
 
