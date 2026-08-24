@@ -2,7 +2,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { setAccessToken } from './api';
-import { clearSession } from './session';
+import { clearSession, getAccessToken, saveSession } from './session';
 import { getCurrentUser, login, logout } from '../services/auth';
 
 const AuthContext = createContext(null);
@@ -21,7 +21,10 @@ export function AuthProvider({ children }) {
 
   const signIn = useCallback(async (email, password) => {
     const session = await login(email, password);
-    if (session?.accessToken) syncSession(session.accessToken);
+    if (session?.accessToken) {
+      saveSession(session);
+      syncSession(session.accessToken);
+    }
     if (!session?.mfaRequired) {
       const currentUser = await getCurrentUser();
       setUser(currentUser);
@@ -51,13 +54,14 @@ export function AuthProvider({ children }) {
   }, []);
 
   useEffect(() => {
-    // Access token is memory-only. A page reload authenticates through the
-    // HttpOnly refresh cookie via GET /auth/me -> 401 -> /auth/refresh.
-    clearSession();
-    syncSession('');
+    // Keep the access token across reloads. If it has expired, the Axios
+    // interceptor will transparently use the HttpOnly refresh cookie.
+    syncSession(getAccessToken());
 
     const onRefreshed = (event) => {
-      syncSession(event.detail?.accessToken);
+      const token = event.detail?.accessToken || '';
+      if (token) saveSession({ accessToken: token });
+      syncSession(token);
     };
     const onExpired = () => {
       syncSession('');
