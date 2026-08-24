@@ -19,6 +19,9 @@ COPY libs ./libs
 # are reported at the actual dependency boundary.
 RUN node -e "for (const p of ['@nestjs/common','@nestjs/core','@supabase/supabase-js','@ssi.developer/ssi-sdk','nx','typescript']) require.resolve(p)"
 RUN ./node_modules/.bin/nx build service
+RUN test -f /app/dist/apps/service/src/main.js
+RUN test -f /app/dist/apps/service/src/app.module.js
+RUN node --check /app/dist/apps/service/src/main.js
 RUN npm prune --omit=dev
 
 FROM node:24-alpine
@@ -30,5 +33,5 @@ COPY --from=build /app/package.json ./package.json
 COPY --from=build /app/dist/apps/service ./dist
 EXPOSE 8210
 USER node
-HEALTHCHECK --interval=15s --timeout=3s --start-period=10s CMD wget -q -O /dev/null http://127.0.0.1:8210/auth/status || exit 1
+HEALTHCHECK --interval=15s --timeout=3s --start-period=10s CMD wget -q -O /dev/null http://127.0.0.1:8210/api/health || exit 1
 CMD ["node","dist/src/main.js"]
