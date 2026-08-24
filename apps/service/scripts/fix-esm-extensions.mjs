@@ -14,7 +14,7 @@ function walk(dir) {
 
 walk(root);
 
-const specifier = /((?:from\\s+|import\\s*\\(\\s*|export\\s+[^;]*?from\\s+)["'])(\\.{1,2}\\/[^"']+)(["'])/g;
+const specifier = /((?:from\s+|import\s*\(\s*|export\s+[^;]*?from\s+)["'])(\.{1,2}\/[^"']+)(["'])/g;
 
 for (const file of jsFiles) {
   let source = fs.readFileSync(file, 'utf8');
