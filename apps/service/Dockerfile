@@ -1,19 +1,23 @@
 FROM node:24-alpine AS deps
 WORKDIR /app
-COPY package.json package-lock.json* ./
-COPY apps/service/package.json ./apps/service/package.json
-RUN npm install
-RUN npm install --prefix apps/service
+
+# This is an npm monorepo without a workspace lockfile. Install the root
+# dependency graph once; service/package.json duplicates runtime dependencies
+# for local development but must not create a second node_modules tree in CI.
+COPY package.json ./
+RUN npm install --include=dev --no-audit --no-fund
 
 FROM node:24-alpine AS build
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
-COPY --from=deps /app/apps/service/node_modules ./apps/service/node_modules
-COPY --from=deps /app/package.json ./package.json
-COPY --from=deps /app/apps/service/package.json ./apps/service/package.json
+COPY package.json ./package.json
 COPY tsconfig.base.json nx.json ./
 COPY apps/service ./apps/service
 COPY libs ./libs
+
+# Verify the dependency graph before TypeScript so module-resolution failures
+# are reported at the actual dependency boundary.
+RUN node -e "for (const p of ['@nestjs/common','@nestjs/core','@supabase/supabase-js','@ssi.developer/ssi-sdk','nx','typescript']) require.resolve(p)"
 RUN ./node_modules/.bin/nx build service
 RUN npm prune --omit=dev
 
@@ -22,7 +26,6 @@ WORKDIR /app
 ENV NODE_ENV=production
 ENV PORT=8210
 COPY --from=build /app/node_modules ./node_modules
-COPY --from=build /app/apps/service/node_modules ./apps/service/node_modules
 COPY --from=build /app/package.json ./package.json
 COPY --from=build /app/dist/apps/service ./dist
 EXPOSE 8210
