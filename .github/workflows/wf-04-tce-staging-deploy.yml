@@ -24,6 +24,11 @@ env:
   NAMESPACE: tce-stg
   TARGET_PLATFORM: linux/arm64
 
+env:
+  ENV_NAME: stg
+  NAMESPACE: tce-stg
+  TARGET_PLATFORM: linux/arm64
+
 jobs:
   build-fe:
     name: Build FE image (native ARM64)
@@ -52,7 +57,7 @@ jobs:
         with: { name: tce-stg-fe-image, path: /tmp/tce-frontend.tar.gz, retention-days: 1 }
 
   build-be:
-    name: Build BE image (native ARM64)
+    name: Build BE image (native ARM64, no stale cache)
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 20
     steps:
@@ -67,12 +72,13 @@ jobs:
           echo "image_tag=stg-v${VERSION}-${SHA}" >> "$GITHUB_OUTPUT"
           echo "TCE version: v$VERSION"
           echo "Git SHA: $SHA"
-      - name: Build ARM64 BE image
+      - name: Build ARM64 BE image from current checkout
         env:
           IMAGE_TAG: ${{ steps.version.outputs.image_tag }}
         run: |
           set -euo pipefail
-          docker buildx build --platform "$TARGET_PLATFORM" --cache-from type=gha,scope=tce-be-stg --cache-to type=gha,mode=max,scope=tce-be-stg -t "tce-service:$IMAGE_TAG" -f apps/service/Dockerfile . --output type=docker,dest=/tmp/tce-service.tar
+          echo "Building backend from commit $GITHUB_SHA"
+          docker buildx build --no-cache --pull --platform "$TARGET_PLATFORM" -t "tce-service:$IMAGE_TAG" -f apps/service/Dockerfile . --output type=docker,dest=/tmp/tce-service.tar
           gzip -f /tmp/tce-service.tar
       - uses: actions/upload-artifact@v4
         with: { name: tce-stg-be-image, path: /tmp/tce-service.tar.gz, retention-days: 1 }
@@ -105,7 +111,7 @@ jobs:
           mkdir -p /tmp/tce-stg-manifests
           sed "s#tce-service:stg#tce-service:$IMAGE_TAG#g" infra/k3s/service-stg.yaml > /tmp/tce-stg-manifests/service-stg.yaml
           sed "s#tce-frontend:stg#tce-frontend:$IMAGE_TAG#g" infra/k3s/frontend-stg.yaml > /tmp/tce-stg-manifests/frontend-stg.yaml
-          grep -E 'image:|path:' /tmp/tce-stg-manifests/*.yaml
+          grep -E 'image:|imagePullPolicy:|path:' /tmp/tce-stg-manifests/*.yaml
       - name: Configure SSH
         env:
           KEY: ${{ secrets.VPS_SSH_PRIVATE_KEY }}
@@ -125,6 +131,7 @@ jobs:
           TCE_CREDENTIAL_ENCRYPTION_KEY: ${{ secrets.TCE_CREDENTIAL_ENCRYPTION_KEY_STG }}
           MFA_ENCRYPTION_KEY: ${{ secrets.MFA_ENCRYPTION_KEY_STG }}
           IMAGE_TAG: ${{ steps.version.outputs.image_tag }}
+          DEPLOY_SHA: ${{ github.sha }}
         run: |
           set -euo pipefail
           test -n "$SUPABASE_URL"
@@ -135,26 +142,26 @@ jobs:
           scp -i ~/.ssh/tce_vps_key -o IdentitiesOnly=yes -o StrictHostKeyChecking=no /tmp/tce-images/tce-frontend.tar.gz "$U@$H:/tmp/tce-frontend.tar.gz"
           scp -i ~/.ssh/tce_vps_key -o IdentitiesOnly=yes -o StrictHostKeyChecking=no /tmp/tce-images/tce-service.tar.gz "$U@$H:/tmp/tce-service.tar.gz"
           scp -i ~/.ssh/tce_vps_key -o IdentitiesOnly=yes -o StrictHostKeyChecking=no /tmp/tce-stg-manifests/service-stg.yaml /tmp/tce-stg-manifests/frontend-stg.yaml "$U@$H:/tmp/"
-          ssh -i ~/.ssh/tce_vps_key -o IdentitiesOnly=yes -o StrictHostKeyChecking=no "$U@$H" "SUPABASE_URL='$SUPABASE_URL' SUPABASE_KEY='$SUPABASE_KEY' JWT_SECRET='$JWT_SECRET' TCE_CREDENTIAL_ENCRYPTION_KEY='$TCE_CREDENTIAL_ENCRYPTION_KEY' MFA_ENCRYPTION_KEY='$MFA_ENCRYPTION_KEY' IMAGE_TAG='$IMAGE_TAG' bash -s" <<'REMOTE'
+          ssh -i ~/.ssh/tce_vps_key -o IdentitiesOnly=yes -o StrictHostKeyChecking=no "$U@$H" "SUPABASE_URL='$SUPABASE_URL' SUPABASE_KEY='$SUPABASE_KEY' JWT_SECRET='$JWT_SECRET' TCE_CREDENTIAL_ENCRYPTION_KEY='$TCE_CREDENTIAL_ENCRYPTION_KEY' MFA_ENCRYPTION_KEY='$MFA_ENCRYPTION_KEY' IMAGE_TAG='$IMAGE_TAG' DEPLOY_SHA='$DEPLOY_SHA' bash -s" <<'REMOTE'
           set -euo pipefail
           NS="tce-stg"
           SERVICE_IMAGE="tce-service:${IMAGE_TAG}"
           FRONTEND_IMAGE="tce-frontend:${IMAGE_TAG}"
 
-          import_if_missing() {
+          import_fresh() {
             local image="$1"
             local archive="$2"
-            if sudo k3s ctr images list | awk '{print $1}' | grep -Fxq "$image"; then
-              echo "Image already present: $image"
-            else
-              echo "Image missing: $image"
-              echo "Importing $archive..."
-              sudo k3s ctr images import "/tmp/$archive"
-            fi
+            echo "Removing any stale local image: $image"
+            sudo k3s ctr images rm "$image" 2>/dev/null || true
+            echo "Importing fresh image: $image"
+            sudo k3s ctr images import "/tmp/$archive"
+            echo "Imported image metadata:"
+            sudo k3s ctr images inspect "$image" | head -80 || true
+            sudo k3s ctr images list | awk '{print $1}' | grep -Fxq "$image"
           }
 
-          import_if_missing "$SERVICE_IMAGE" "tce-service.tar.gz"
-          import_if_missing "$FRONTEND_IMAGE" "tce-frontend.tar.gz"
+          import_fresh "$SERVICE_IMAGE" "tce-service.tar.gz"
+          import_fresh "$FRONTEND_IMAGE" "tce-frontend.tar.gz"
 
           sudo kubectl -n "$NS" create secret generic tce-app-secrets \
             --from-literal=SUPABASE_URL="$SUPABASE_URL" \
@@ -168,6 +175,19 @@ jobs:
             --dry-run=client -o yaml | sudo kubectl apply -f -
 
           sudo kubectl apply -f /tmp/service-stg.yaml -f /tmp/frontend-stg.yaml
+
+          # Make the deployment revision explicit even when a manifest is unchanged.
+          sudo kubectl -n "$NS" annotate deployment/tce-service \
+            tce.github.com/source-sha="$DEPLOY_SHA" \
+            tce.github.com/image-tag="$IMAGE_TAG" \
+            --overwrite
+          sudo kubectl -n "$NS" annotate deployment/tce-frontend \
+            tce.github.com/source-sha="$DEPLOY_SHA" \
+            tce.github.com/image-tag="$IMAGE_TAG" \
+            --overwrite
+
+          sudo kubectl -n "$NS" rollout restart deployment/tce-service
+          sudo kubectl -n "$NS" rollout restart deployment/tce-frontend
 
           dump_pod_diagnostics() {
             local selector="$1"
@@ -210,6 +230,10 @@ jobs:
             exit 1
           fi
 
+          echo "=== FINAL STG DEPLOYMENT PROVENANCE ==="
+          sudo kubectl -n "$NS" get deployment/tce-service -o jsonpath='{.metadata.annotations.tce\.github\.com/source-sha}{" "}{.metadata.annotations.tce\.github\.com/image-tag}{"\n"}'
+          sudo kubectl -n "$NS" get deployment/tce-service -o jsonpath='{range .spec.template.spec.containers[*]}{.name}{"="}{.image}{"\n"}{end}'
+          sudo kubectl -n "$NS" get pods -l app=tce-service -o wide
           sudo kubectl -n "$NS" get pods,svc,ingress
           rm -f /tmp/tce-frontend.tar.gz /tmp/tce-service.tar.gz /tmp/service-stg.yaml /tmp/frontend-stg.yaml
           REMOTE
