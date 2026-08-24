@@ -52,7 +52,7 @@ export default function LoginPage() {
           <h1>Sign in</h1>
           <p>Access your trading workspace securely.</p>
         </div>
-        <form method="post" action="/login" onSubmit={handleSubmit}>
+        <form method="post" action="/api/auth/login" onSubmit={handleSubmit}>
           <label>
             Email
             <input
