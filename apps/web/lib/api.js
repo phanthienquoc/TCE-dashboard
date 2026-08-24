@@ -12,6 +12,10 @@ export const api = axios.create({
 
 let refreshPromise = null;
 
+function authHeaders(token = getAccessToken()) {
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
 function attachAccessToken(config, token = getAccessToken()) {
   if (!token) return config;
   config.headers = config.headers || {};
@@ -73,21 +77,33 @@ export async function login(email, password) {
 }
 
 export async function getDashboard() {
-  const { data } = await api.get('/dashboard', { params: { _: Date.now() } });
+  const token = getAccessToken();
+  const { data } = await api.get('/dashboard', {
+    params: { _: Date.now() },
+    headers: authHeaders(token),
+  });
   return data;
 }
 
 export async function getBackendStatus() {
-  const { data } = await api.get('/auth/status', { params: { _: Date.now() } });
+  const token = getAccessToken();
+  const { data } = await api.get('/auth/status', {
+    params: { _: Date.now() },
+    headers: authHeaders(token),
+  });
   return data;
 }
 
 export async function createPosition(payload) {
-  const { data } = await api.post('/dashboard/positions', payload);
+  const { data } = await api.post('/dashboard/positions', payload, {
+    headers: authHeaders(),
+  });
   return data;
 }
 
 export async function createOrder(payload) {
-  const { data } = await api.post('/dashboard/orders', payload);
+  const { data } = await api.post('/dashboard/orders', payload, {
+    headers: authHeaders(),
+  });
   return data;
 }
