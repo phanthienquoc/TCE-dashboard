@@ -6,7 +6,22 @@ export interface UserRow { id: string; email: string; password_hash: string; rol
 @Injectable()
 export class AuthRepository {
   constructor(private readonly supabase: SupabaseClientService) {}
-  async checkDatabase(): Promise<void> { const { error } = await this.supabase.db.from('users').select('id').limit(1); if (error) throw error; }
+  async checkDatabase(): Promise<void> {
+    const requiredTables = [
+      'users',
+      'tce_accounts',
+      'tce_positions',
+      'tce_strategy_config',
+      'tce_pool_entries',
+      'tce_buy_candidates',
+      'tce_orders',
+    ];
+    const checks = await Promise.all(
+      requiredTables.map((table) => this.supabase.db.from(table).select('*', { head: true, count: 'exact' }).limit(1)),
+    );
+    const failed = checks.find((result) => result.error);
+    if (failed?.error) throw failed.error;
+  }
   async findUserByEmail(email: string): Promise<UserRow|null> { const { data, error } = await this.supabase.db.from('users').select('*').eq('email', email.toLowerCase()).maybeSingle(); if (error) throw error; return data as UserRow|null; }
   async findUserById(id: string): Promise<UserRow|null> { const { data, error } = await this.supabase.db.from('users').select('*').eq('id', id).maybeSingle(); if (error) throw error; return data as UserRow|null; }
   async createUser(email: string, passwordHash: string): Promise<Pick<UserRow, 'id'|'email'|'role'|'mfa_enabled'>> {

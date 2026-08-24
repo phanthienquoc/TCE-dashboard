@@ -1,9 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { login } from '../../lib/api';
-import { saveSession } from '../../lib/session';
+import { clearSession, saveSession } from '../../lib/session';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -11,6 +11,12 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    // A login page is a clean auth boundary. Never let an expired token or
+    // refresh token interfere with the first credential POST.
+    clearSession();
+  }, []);
 
   async function submit() {
     if (loading) return;
@@ -25,6 +31,7 @@ export default function LoginPage() {
       saveSession(data);
       router.replace('/');
     } catch (err) {
+      clearSession();
       setError(err.response?.data?.message || err.message || 'Unable to sign in.');
     } finally {
       setLoading(false);
@@ -52,7 +59,7 @@ export default function LoginPage() {
           <h1>Sign in</h1>
           <p>Access your trading workspace securely.</p>
         </div>
-        <form method="post" action="/api/auth/login" onSubmit={handleSubmit}>
+        <form onSubmit={handleSubmit}>
           <label>
             Email
             <input
