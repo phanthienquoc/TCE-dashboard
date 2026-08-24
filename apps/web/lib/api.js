@@ -24,6 +24,17 @@ function attachAccessToken(config, token = getAccessToken()) {
   return config;
 }
 
+export function notifyApiError(error, fallback = 'API request failed.') {
+  if (typeof window === 'undefined') return;
+  const status = error?.response?.status;
+  const serverMessage = error?.response?.data?.message;
+  const message = serverMessage || error?.message || fallback;
+  const prefix = status ? `API ${status}` : 'API';
+  window.dispatchEvent(new CustomEvent('tce:toast', {
+    detail: { type: 'error', message: `${prefix}: ${message}` },
+  }));
+}
+
 api.interceptors.request.use((config) => attachAccessToken(config));
 
 async function refreshAccessToken() {
@@ -44,7 +55,11 @@ api.interceptors.response.use(
   async (error) => {
     const original = error.config;
     const isRefreshRequest = original?.url?.includes('/auth/refresh');
-    if (error.response?.status !== 401 || original?._retry || isRefreshRequest) throw error;
+    if (error.response?.status !== 401 || original?._retry || isRefreshRequest) {
+      if (original?._toastOnError !== false) notifyApiError(error);
+      throw error;
+    }
+
     original._retry = true;
     try {
       refreshPromise ||= refreshAccessToken().finally(() => { refreshPromise = null; });
@@ -53,6 +68,7 @@ api.interceptors.response.use(
       return api(original);
     } catch (refreshError) {
       clearSession();
+      if (original?._toastOnError !== false) notifyApiError(refreshError, 'Session expired.');
       throw refreshError;
     }
   },
@@ -85,7 +101,7 @@ export async function getDashboardData() {
   // The aggregate endpoint is the source of truth and avoids a Promise.all
   // failure where one optional table makes the whole dashboard appear broken.
   try {
-    const { data } = await api.get('/dashboard', { params, headers });
+    const { data } = await api.get('/dashboard', { params, headers, _toastOnError: false });
     return data;
   } catch (aggregateError) {
     if (aggregateError.response?.status === 401) throw aggregateError;
@@ -102,7 +118,7 @@ export async function getDashboardData() {
     ];
     const results = await Promise.all(entries.map(async ([key, url, fallback]) => {
       try {
-        const response = await api.get(url, { params, headers });
+        const response = await api.get(url, { params, headers, _toastOnError: false });
         return [key, response.data, null];
       } catch (error) {
         return [key, fallback, {
@@ -114,7 +130,10 @@ export async function getDashboardData() {
 
     const result = Object.fromEntries(results.map(([key, value]) => [key, value]));
     const errors = Object.fromEntries(results.filter(([, , error]) => error).map(([key, , error]) => [key, error]));
-    if (Object.keys(errors).length) result.errors = errors;
+    if (Object.keys(errors).length) {
+      result.errors = errors;
+      notifyApiError({ message: `${Object.keys(errors).length} dashboard API call(s) failed.` }, 'Dashboard data partially unavailable.');
+    }
     if (!result.account || result.account === null) throw aggregateError;
     return result;
   }
