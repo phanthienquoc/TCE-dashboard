@@ -1,7 +1,7 @@
 'use client';
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
-import { api, setAccessToken } from './api';
+import { setAccessToken } from './api';
 import { clearSession, getAccessToken, saveSession } from './session';
 import { getCurrentUser, login, logout } from '../services/auth';
 
@@ -9,12 +9,15 @@ const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
+  const [accessToken, setContextAccessToken] = useState('');
   const [ready, setReady] = useState(false);
   const [loading, setLoading] = useState(true);
 
   const syncSession = useCallback((token) => {
-    setAccessToken(token || '');
-    if (token) saveSession({ accessToken: token });
+    const nextToken = token || '';
+    setAccessToken(nextToken);
+    setContextAccessToken(nextToken);
+    if (nextToken) saveSession({ accessToken: nextToken });
   }, []);
 
   const signIn = useCallback(async (email, password) => {
@@ -31,18 +34,17 @@ export function AuthProvider({ children }) {
     try {
       await logout();
     } finally {
-      setAccessToken('');
+      syncSession('');
       clearSession();
       setUser(null);
     }
-  }, []);
+  }, [syncSession]);
 
   const refresh = useCallback(async () => {
     try {
       const currentUser = await getCurrentUser();
       setUser(currentUser);
-      const token = getAccessToken();
-      if (token) setAccessToken(token);
+      setContextAccessToken(getAccessToken());
       return currentUser;
     } catch (error) {
       setUser(null);
@@ -51,10 +53,10 @@ export function AuthProvider({ children }) {
   }, []);
 
   useEffect(() => {
-    setAccessToken(getAccessToken());
+    syncSession(getAccessToken());
 
     const onExpired = () => {
-      setAccessToken('');
+      syncSession('');
       clearSession();
       setUser(null);
     };
@@ -73,18 +75,18 @@ export function AuthProvider({ children }) {
     })();
 
     return () => window.removeEventListener('tce:auth-expired', onExpired);
-  }, [refresh]);
+  }, [refresh, syncSession]);
 
   const value = useMemo(() => ({
     user,
-    accessToken: getAccessToken(),
+    accessToken,
     isAuthenticated: Boolean(user),
     ready,
     loading,
     signIn,
     signOut,
     refresh,
-  }), [user, ready, loading, signIn, signOut, refresh]);
+  }), [user, accessToken, ready, loading, signIn, signOut, refresh]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
