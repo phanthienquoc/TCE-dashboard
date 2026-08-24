@@ -1,15 +1,32 @@
 FROM node:24-alpine AS build
 WORKDIR /app
-COPY package.json package-lock.json* ./
+
+COPY package.json ./
 RUN npm install
-COPY index.html .
-COPY vite.config.* .
-COPY tsconfig*.json .
+
+COPY nx.json tsconfig.base.json ./
+COPY apps ./apps
+COPY libs ./libs
+COPY packages ./packages
 COPY src ./src
+COPY index.html ./index.html
+
 RUN npm run build:web
 
-FROM nginx:1.27-alpine
-COPY infra/nginx/tce-spa.conf /etc/nginx/conf.d/default.conf
-COPY --from=build /app/dist /usr/share/nginx/html
+FROM node:24-alpine AS runner
+WORKDIR /app
+ENV NODE_ENV=production
+ENV PORT=80
+ENV HOSTNAME=0.0.0.0
+
+RUN addgroup --system --gid 1001 nodejs \
+  && adduser --system --uid 1001 nextjs
+
+COPY --from=build --chown=nextjs:nodejs /app/apps/web/.next/standalone ./
+COPY --from=build --chown=nextjs:nodejs /app/apps/web/.next/static ./apps/web/.next/static
+
+USER nextjs
 EXPOSE 80
-HEALTHCHECK --interval=15s --timeout=3s --start-period=5s CMD wget -q -O /dev/null http://127.0.0.1/ || exit 1
+HEALTHCHECK --interval=15s --timeout=3s --start-period=10s CMD wget -q -O /dev/null http://127.0.0.1:80/ || exit 1
+
+CMD ["node", "apps/web/server.js"]
