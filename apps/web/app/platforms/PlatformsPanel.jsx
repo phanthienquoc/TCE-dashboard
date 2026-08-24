@@ -5,7 +5,6 @@ import {
   getCurrentSsiInfo,
   hasSsiCredentials,
   requestSsiOtp,
-  saveSsiCredentials,
   syncSsiPortfolio,
   testSsiConnection,
 } from '../../services/platform';
@@ -33,22 +32,13 @@ export default function PlatformsPanel() {
   }, [environment]);
 
   const authBody = () => ({ environment, otp: otp || undefined, transactionId: transactionId || undefined });
+  const credentialBody = () => ({ ...ssi });
   const message = (error, fallback) => error.response?.data?.message || error.message || fallback;
-
-  async function save() {
-    setBusy(true); setStatus('');
-    try {
-      if (!ssi.apiKey || !ssi.apiSecret || !ssi.accountNo) throw new Error('API Key, API Secret and Account No. are required.');
-      await saveSsiCredentials(environment, ssi);
-      setSaved(true); setSsi({ ...emptySsi }); setStatus('SSI SDK v3 credentials saved securely.');
-    } catch (error) { setStatus(message(error, 'Save failed.')); }
-    finally { setBusy(false); }
-  }
 
   async function requestOtp() {
     setBusy(true); setStatus('Requesting SSI OTP / Mobile Approval…');
     try {
-      const data = await requestSsiOtp(environment);
+      const data = await requestSsiOtp({ environment, credentials: credentialBody() });
       const id = data?.data?.transactionId || data?.transactionId || '';
       if (id) setTransactionId(id);
       setStatus(id ? 'Approval requested. Approve in SSI/iBoard, then test connection.' : 'OTP / approval requested.');
@@ -59,8 +49,12 @@ export default function PlatformsPanel() {
   async function test() {
     setBusy(true); setStatus('Testing SSI SDK v3 connection…');
     try {
-      const result = await testSsiConnection(authBody());
-      setStatus(`Connected • API v${result.apiVersion || '3'} • market data OK • ${(result.accounts || []).length} account(s).`); setOtp('');
+      if (!ssi.apiKey || !ssi.apiSecret || !ssi.accountNo) throw new Error('API Key, API Secret and Account No. are required.');
+      const result = await testSsiConnection({ ...authBody(), credentials: credentialBody() });
+      setSaved(true);
+      setSsi({ ...emptySsi });
+      setStatus(`Connected and saved • API v${result.apiVersion || '3'} • market data OK • ${(result.accounts || []).length} account(s).`);
+      setOtp('');
     } catch (error) { setStatus(message(error, 'Connection test failed.')); }
     finally { setBusy(false); }
   }
@@ -97,7 +91,7 @@ export default function PlatformsPanel() {
       <label className={styles.field}>OTP<input className={styles.input} type="password" value={otp} onChange={(e) => setOtp(e.target.value)} placeholder="Optional SmartOTP" inputMode="numeric" autoComplete="one-time-code" /></label>
     </div>
     <label className={styles.field}>Private Key<textarea className={styles.textarea} value={ssi.privateKey} onChange={(e) => set('privateKey', e.target.value)} rows={4} placeholder="SSI SDK v3 private key" autoComplete="off" /></label>
-    <div className={styles.actions}>{button('Save credentials', save, true)}{button('Request OTP / Approval', requestOtp)}{button('Test connection', test)}{button('Get current info', loadCurrent)}{button('Sync portfolio', sync)}</div>
+    <div className={styles.actions}>{button('Request OTP / Approval', requestOtp)}{button('Test connection', test, true)}{button('Get current info', loadCurrent)}{button('Sync portfolio', sync)}</div>
     <div className={styles.note}><b>Auth state</b><span>{transactionId ? `Transaction: ${transactionId}` : 'No active approval transaction'}{status ? ` • ${status}` : ''}</span></div>
     {current && <div className={styles.stats}><div className={styles.stat}><b>Accounts</b><strong>{current.accounts?.length || 0}</strong></div><div className={styles.stat}><b>Positions</b><strong>{current.positions?.length || 0}</strong></div><div className={styles.stat}><b>Orders</b><strong>{current.orders?.length || 0}</strong></div><pre className={styles.output}>{JSON.stringify(current, null, 2)}</pre></div>}
   </section>;
