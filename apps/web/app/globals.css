@@ -1,0 +1,7 @@
+@import '../../../src/style.css';
+
+.loading-screen{min-height:100dvh;display:grid;place-items:center;color:#b77cff;background:#0b0b0f;font:600 14px -apple-system,BlinkMacSystemFont,'SF Pro Display','Segoe UI',sans-serif}
+.backend-status{position:sticky;top:0;z-index:40;height:43px;display:flex;align-items:center;padding:0 16px;font-size:13px;background:#151126;border-bottom:1px solid #272039;letter-spacing:.1px}
+.backend-status.up{color:#65e6a3}.backend-status.down{color:#ff7d87}
+.app-header{position:sticky;z-index:30;top:43px;margin:0 -16px 20px;padding:calc(12px + env(safe-area-inset-top)) 16px 12px;background:#0b0b0fe8;border-bottom:1px solid #27232b;backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px)}
+.error-banner{margin:10px 0;padding:12px 14px;border:1px solid #66363c;border-radius:12px;background:#241318;color:#ff9ca4;font-size:12px}
