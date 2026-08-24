@@ -3,7 +3,6 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { notifyApiError } from '../../lib/api';
-import { clearSession } from '../../lib/session';
 import { useAuth } from '../../lib/auth-context';
 
 export default function LoginPage() {
@@ -26,7 +25,6 @@ export default function LoginPage() {
       }
       router.replace('/');
     } catch (err) {
-      clearSession();
       if (err.response || err.code) notifyApiError(err, 'Unable to sign in.');
       setError(err.response?.data?.message || err.message || 'Unable to sign in.');
     } finally {
