@@ -1,5 +1,5 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
-import { createHmac, randomBytes } from 'node:crypto';
+import { createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
 
 export interface AccessClaims { sub: string; role: string; typ: 'access'; iat: number; exp: number; jti: string; }
 
@@ -26,5 +26,5 @@ export class JwtService {
   }
   private sign(value: string) { return createHmac('sha256', this.secret).update(value).digest('base64url'); }
   private b64(value: string) { return Buffer.from(value).toString('base64url'); }
-  private safeEqual(a: string, b: string) { const aa=Buffer.from(a); const bb=Buffer.from(b); return aa.length===bb.length && require('node:crypto').timingSafeEqual(aa,bb); }
+  private safeEqual(a: string, b: string) { const aa=Buffer.from(a); const bb=Buffer.from(b); return aa.length===bb.length && timingSafeEqual(aa,bb); }
 }
