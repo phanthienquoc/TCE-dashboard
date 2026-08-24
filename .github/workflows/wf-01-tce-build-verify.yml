@@ -10,6 +10,7 @@ name: "WF-01 TCE Build Verify"
       - 'package-lock.json'
       - 'vite.config.*'
       - 'Dockerfile'
+      - 'apps/web/**'
       - 'apps/service/**'
       - 'infra/k3s/**'
       - '.github/workflows/wf-01-tce-build-verify.yml'
