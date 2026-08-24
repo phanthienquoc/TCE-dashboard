@@ -16,7 +16,7 @@ on:
 
 jobs:
   bootstrap:
-    uses: ./.github/workflows/wf-10-k3s-bootstrap.yml
+    uses: ./.github/workflows/wf-10-tce-k3s-bootstrap.yml
     secrets: inherit
 
   deploy-stg:
