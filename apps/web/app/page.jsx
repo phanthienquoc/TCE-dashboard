@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { getBackendStatus, getDashboard } from '../lib/api';
+import { getBackendStatus, getDashboardData } from '../lib/api';
 import { clearSession, getAccessToken } from '../lib/session';
 
 const money = (value) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND', maximumFractionDigits: 0 }).format(Number(value || 0));
@@ -26,7 +26,7 @@ export default function DashboardPage() {
         const status = await getBackendStatus();
         if (!active) return;
         setBackend({ ...status, ok: status?.configured !== false });
-        const dashboard = await getDashboard();
+        const dashboard = await getDashboardData();
         if (active) setData(dashboard);
       } catch (err) {
         if (!active) return;
