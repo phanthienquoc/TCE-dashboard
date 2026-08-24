@@ -26,19 +26,12 @@ env:
 
 jobs:
   build-fe:
-    name: Build FE with Nx + package ARM64 image
+    name: Build FE image (native ARM64)
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 24
       - uses: docker/setup-buildx-action@v3
-      - name: Install dependencies
-        run: npm ci
-      - name: Build FE with Nx
-        run: npx nx build web
       - name: Resolve image version
         id: version
         run: |
@@ -48,12 +41,11 @@ jobs:
           echo "image_tag=stg-v${VERSION}-${SHA}" >> "$GITHUB_OUTPUT"
           echo "TCE version: v$VERSION"
           echo "Git SHA: $SHA"
-      - name: Build ARM64 FE runtime image
+      - name: Build ARM64 FE image
         env:
           IMAGE_TAG: ${{ steps.version.outputs.image_tag }}
         run: |
           set -euo pipefail
-          test -d dist
           docker buildx build --platform "$TARGET_PLATFORM" --cache-from type=gha,scope=tce-fe-stg --cache-to type=gha,mode=max,scope=tce-fe-stg -t "tce-frontend:$IMAGE_TAG" -f Dockerfile . --output type=docker,dest=/tmp/tce-frontend.tar
           gzip -f /tmp/tce-frontend.tar
       - uses: actions/upload-artifact@v4
@@ -182,12 +174,14 @@ jobs:
             local label="$2"
             echo "=== $label PODS ==="
             sudo kubectl -n "$NS" get pods -l "$selector" -o wide || true
+
             local pods
             pods="$(sudo kubectl -n "$NS" get pods -l "$selector" -o jsonpath='{range .items[*]}{.metadata.name}{"\n"}{end}' 2>/dev/null || true)"
             if [ -z "$pods" ]; then
               echo "No pods found for selector: $selector"
               return 0
             fi
+
             while IFS= read -r pod; do
               [ -z "$pod" ] && continue
               echo "===== $label POD: $pod ====="
