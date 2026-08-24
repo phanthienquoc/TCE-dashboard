@@ -3,19 +3,16 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "engines": {
-    "node": ">=24.0.0",
-    "npm": ">=10.0.0"
-  },
+  "engines": { "node": ">=24.0.0", "npm": ">=10.0.0" },
   "scripts": {
     "dev": "nx serve web",
     "build": "nx run-many -t build --projects=web,service",
-    "build:web": "vite build",
+    "build:web": "next build apps/web",
     "build:nx:web": "nx build web",
     "build:service": "nx build service",
-    "serve:web": "nx serve web",
+    "serve:web": "next dev apps/web",
     "serve:service": "nx serve service",
-    "preview": "vite preview"
+    "start:web": "next start apps/web -p 80"
   },
   "dependencies": {
     "@nestjs/common": "^11.1.6",
@@ -29,9 +26,11 @@
     "axios": "^1.11.0",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.2",
+    "next": "^15.5.2",
+    "react": "^19.1.1",
+    "react-dom": "^19.1.1",
     "reflect-metadata": "^0.2.2",
-    "rxjs": "^7.8.2",
-    "vite": "^7.1.3"
+    "rxjs": "^7.8.2"
   },
   "devDependencies": {
     "nx": "^21.4.1",
