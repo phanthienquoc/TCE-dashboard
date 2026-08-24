@@ -4,9 +4,14 @@ import axios from 'axios';
 import { clearSession, getAccessToken, getRefreshToken, saveSession } from './session';
 
 let authTokenProvider = null;
+let authSessionListener = null;
 
 export function setAuthTokenProvider(provider) {
   authTokenProvider = provider;
+}
+
+export function setAuthSessionListener(listener) {
+  authSessionListener = listener;
 }
 
 function currentAccessToken() {
@@ -64,6 +69,7 @@ async function refreshAccessToken() {
   }
 
   saveSession(data);
+  authSessionListener?.(data);
   return data.accessToken;
 }
 
@@ -89,6 +95,7 @@ api.interceptors.response.use(
       return api(original);
     } catch (refreshError) {
       clearSession();
+      authSessionListener?.(null);
       if (original?._toastOnError !== false) {
         notifyApiError(refreshError, 'Session expired.');
       }
