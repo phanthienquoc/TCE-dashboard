@@ -1,5 +1,6 @@
 import './globals.css';
 import ToastHost from './ToastHost';
+import { AuthProvider } from '../lib/auth-context';
 
 export const metadata = {
   title: 'TCE Dashboard',
@@ -19,7 +20,7 @@ export default function RootLayout({ children }) {
   return (
     <html lang="vi">
       <body>
-        {children}
+        <AuthProvider>{children}</AuthProvider>
         <ToastHost />
       </body>
     </html>
