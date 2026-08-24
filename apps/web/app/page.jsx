@@ -2,7 +2,8 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { getBackendStatus, getDashboardData } from '../lib/api';
+import { getBackendStatus } from '../services/auth';
+import { getDashboardData } from '../services/dashboard';
 import { useAuth } from '../lib/auth-context';
 import PlatformsPanel from './platforms/PlatformsPanel';
 
@@ -21,19 +22,26 @@ export default function DashboardPage() {
     let active = true;
     if (!ready) return () => { active = false; };
     if (!accessToken) { router.replace('/login'); return () => { active = false; }; }
+
     (async () => {
       try {
         const status = await getBackendStatus();
         if (!active) return;
-        setBackend({ ...status, ok: status?.configured !== false });
+        setBackend({ ...status, ok: status?.configured !== false, checking: false });
         const dashboard = await getDashboardData();
         if (active) setData(dashboard);
       } catch (err) {
         if (!active) return;
-        if (err.message === 'Session expired' || err.response?.status === 401) { signOut(); router.replace('/login'); return; }
+        if (err.message === 'Session expired' || err.response?.status === 401) {
+          signOut();
+          router.replace('/login');
+          return;
+        }
+        setBackend((current) => ({ ...current, checking: false }));
         setError(err.response?.data?.message || err.message || 'Unable to load dashboard');
       }
     })();
+
     return () => { active = false; };
   }, [accessToken, ready, router, signOut]);
 
