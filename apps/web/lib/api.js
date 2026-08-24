@@ -3,6 +3,10 @@
 import axios from 'axios';
 import { clearSession, getAccessToken, getRefreshToken, saveSession } from './session';
 
+let authTokenProvider = null;
+export function setAuthTokenProvider(provider) { authTokenProvider = provider; }
+function currentAccessToken() { return authTokenProvider?.() || getAccessToken(); }
+
 export const api = axios.create({
   baseURL: '/api',
   withCredentials: true,
@@ -12,11 +16,9 @@ export const api = axios.create({
 
 let refreshPromise = null;
 
-function authHeaders(token = getAccessToken()) {
-  return token ? { Authorization: `Bearer ${token}` } : {};
-}
+function authHeaders(token = currentAccessToken()) { return token ? { Authorization: `Bearer ${token}` } : {}; }
 
-function attachAccessToken(config, token = getAccessToken()) {
+function attachAccessToken(config, token = currentAccessToken()) {
   if (!token) return config;
   config.headers = config.headers || {};
   if (typeof config.headers.set === 'function') config.headers.set('Authorization', `Bearer ${token}`);
@@ -30,9 +32,7 @@ export function notifyApiError(error, fallback = 'API request failed.') {
   const serverMessage = error?.response?.data?.message;
   const message = serverMessage || error?.message || fallback;
   const prefix = status ? `API ${status}` : 'API';
-  window.dispatchEvent(new CustomEvent('tce:toast', {
-    detail: { type: 'error', message: `${prefix}: ${message}` },
-  }));
+  window.dispatchEvent(new CustomEvent('tce:toast', { detail: { type: 'error', message: `${prefix}: ${message}` } }));
 }
 
 api.interceptors.request.use((config) => attachAccessToken(config));
@@ -59,7 +59,6 @@ api.interceptors.response.use(
       if (original?._toastOnError !== false) notifyApiError(error);
       throw error;
     }
-
     original._retry = true;
     try {
       refreshPromise ||= refreshAccessToken().finally(() => { refreshPromise = null; });
@@ -74,8 +73,6 @@ api.interceptors.response.use(
   },
 );
 
-// Login intentionally uses a clean Axios instance so stale auth state cannot
-// interfere with the first Sign in request.
 export async function login(email, password) {
   const { data } = await axios.post('/api/auth/login', { email, password }, {
     withCredentials: true,
@@ -86,63 +83,38 @@ export async function login(email, password) {
 }
 
 export async function getDashboard() {
-  const { data } = await api.get('/dashboard', {
-    params: { _: Date.now() },
-    headers: authHeaders(),
-  });
+  const { data } = await api.get('/dashboard', { params: { _: Date.now() }, headers: authHeaders() });
   return data;
 }
 
 export async function getDashboardData() {
-  const token = getAccessToken();
+  const token = currentAccessToken();
   const headers = authHeaders(token);
   const params = { _: Date.now() };
-
-  // The aggregate endpoint is the source of truth and avoids a Promise.all
-  // failure where one optional table makes the whole dashboard appear broken.
   try {
     const { data } = await api.get('/dashboard', { params, headers, _toastOnError: false });
     return data;
   } catch (aggregateError) {
     if (aggregateError.response?.status === 401) throw aggregateError;
-
-    // Keep the dashboard usable while diagnosing an individual endpoint.
     const entries = [
-      ['account', '/dashboard/account', {}],
-      ['positions', '/dashboard/positions', []],
-      ['strategy', '/dashboard/strategy', null],
-      ['pools', '/dashboard/pools', []],
-      ['nextPositions', '/dashboard/next-positions', []],
-      ['orders', '/dashboard/orders', []],
+      ['account', '/dashboard/account', {}], ['positions', '/dashboard/positions', []],
+      ['strategy', '/dashboard/strategy', null], ['pools', '/dashboard/pools', []],
+      ['nextPositions', '/dashboard/next-positions', []], ['orders', '/dashboard/orders', []],
       ['sources', '/dashboard/sources', []],
     ];
     const results = await Promise.all(entries.map(async ([key, url, fallback]) => {
-      try {
-        const response = await api.get(url, { params, headers, _toastOnError: false });
-        return [key, response.data, null];
-      } catch (error) {
-        return [key, fallback, {
-          status: error.response?.status ?? 0,
-          message: error.response?.data?.message || error.message || 'request failed',
-        }];
-      }
+      try { const response = await api.get(url, { params, headers, _toastOnError: false }); return [key, response.data, null]; }
+      catch (error) { return [key, fallback, { status: error.response?.status ?? 0, message: error.response?.data?.message || error.message || 'request failed' }]; }
     }));
-
     const result = Object.fromEntries(results.map(([key, value]) => [key, value]));
     const errors = Object.fromEntries(results.filter(([, , error]) => error).map(([key, , error]) => [key, error]));
-    if (Object.keys(errors).length) {
-      result.errors = errors;
-      notifyApiError({ message: `${Object.keys(errors).length} dashboard API call(s) failed.` }, 'Dashboard data partially unavailable.');
-    }
+    if (Object.keys(errors).length) { result.errors = errors; notifyApiError({ message: `${Object.keys(errors).length} dashboard API call(s) failed.` }, 'Dashboard data partially unavailable.'); }
     if (!result.account || result.account === null) throw aggregateError;
     return result;
   }
 }
 
 export async function getBackendStatus() {
-  const { data } = await api.get('/auth/status', {
-    params: { _: Date.now() },
-    headers: authHeaders(),
-  });
+  const { data } = await api.get('/auth/status', { params: { _: Date.now() }, headers: authHeaders() });
   return data;
 }
