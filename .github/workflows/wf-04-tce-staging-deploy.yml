@@ -159,7 +159,14 @@ jobs:
             --from-literal=JWT_SECRET="$JWT_SECRET" \
             --dry-run=client -o yaml | sudo kubectl apply -f -
 
+          # Preserve the existing MFA encryption key. Updating tce-auth with
+          # only the new credential key would otherwise replace the Secret data
+          # and remove MFA_ENCRYPTION_KEY, causing CreateContainerConfigError.
+          MFA_ENCRYPTION_KEY_B64="$(sudo kubectl -n "$NS" get secret tce-auth -o jsonpath='{.data.MFA_ENCRYPTION_KEY}')"
+          test -n "$MFA_ENCRYPTION_KEY_B64"
+          MFA_ENCRYPTION_KEY="$(printf '%s' "$MFA_ENCRYPTION_KEY_B64" | base64 -d)"
           sudo kubectl -n "$NS" create secret generic tce-auth \
+            --from-literal=MFA_ENCRYPTION_KEY="$MFA_ENCRYPTION_KEY" \
             --from-literal=TCE_CREDENTIAL_ENCRYPTION_KEY="$TCE_CREDENTIAL_ENCRYPTION_KEY" \
             --dry-run=client -o yaml | sudo kubectl apply -f -
 
