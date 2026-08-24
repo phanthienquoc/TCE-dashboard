@@ -3,18 +3,18 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { login, notifyApiError } from '../../lib/api';
-import { clearSession, saveSession } from '../../lib/session';
+import { clearSession } from '../../lib/session';
+import { useAuth } from '../../lib/auth-context';
 
 export default function LoginPage() {
   const router = useRouter();
+  const { setSession } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
-    clearSession();
-  }, []);
+  useEffect(() => { clearSession(); }, []);
 
   async function submit() {
     if (loading) return;
@@ -26,7 +26,7 @@ export default function LoginPage() {
         localStorage.setItem('tce_mfa_user_id', data.userId);
         throw new Error('MFA verification is required.');
       }
-      saveSession(data);
+      setSession(data);
       router.replace('/');
     } catch (err) {
       clearSession();
@@ -40,62 +40,17 @@ export default function LoginPage() {
   return (
     <section className="auth-shell">
       <div className="auth-glow" />
-      <div className="auth-brand">
-        <div className="brand-mark">T</div>
-        <div>
-          <span className="eyebrow">TCE</span>
-          <b>Treasury Cash Extraction</b>
-        </div>
-      </div>
+      <div className="auth-brand"><div className="brand-mark">T</div><div><span className="eyebrow">TCE</span><b>Treasury Cash Extraction</b></div></div>
       <div className="auth-card">
-        <div className="auth-header">
-          <span className="auth-kicker">WELCOME BACK</span>
-          <h1>Sign in</h1>
-          <p>Access your trading workspace securely.</p>
-        </div>
-
+        <div className="auth-header"><span className="auth-kicker">WELCOME BACK</span><h1>Sign in</h1><p>Access your trading workspace securely.</p></div>
         <div className="auth-fields">
-          <label>
-            Email
-            <input
-              type="email"
-              autoComplete="username"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="you@example.com"
-            />
-          </label>
-          <label>
-            Password
-            <input
-              type="password"
-              autoComplete="current-password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="Enter your password"
-            />
-          </label>
+          <label>Email<input type="email" autoComplete="username" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" /></label>
+          <label>Password<input type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Enter your password" /></label>
         </div>
-
-        <div className="auth-options">
-          <span className="secure-badge">● Backend secured</span>
-        </div>
-
-        <button
-          className="auth-submit"
-          type="button"
-          disabled={loading}
-          onClick={submit}
-        >
-          <span>{loading ? 'Signing in…' : 'Sign in'}</span>
-          <span>→</span>
-        </button>
-
+        <div className="auth-options"><span className="secure-badge">● Backend secured</span></div>
+        <button className="auth-submit" type="button" disabled={loading} onClick={submit}><span>{loading ? 'Signing in…' : 'Sign in'}</span><span>→</span></button>
         <div className="auth-error" role="alert">{error}</div>
-
-        <div className="auth-footer">
-          <span>Next.js • Axios • JWT</span>
-        </div>
+        <div className="auth-footer"><span>Next.js • Axios • JWT</span></div>
       </div>
     </section>
   );
