@@ -162,6 +162,15 @@ jobs:
           sudo kubectl -n "$NS" get deployment/tce-service -o jsonpath='{range .spec.template.spec.containers[*]}{.name}{"="}{.image}{"\n"}{end}'
           sudo kubectl -n "$NS" get pods -l app=tce-service -o wide
           sudo kubectl -n "$NS" get pods,svc,ingress
+
+          echo "=== STG BACKEND SMOKE ==="
+          POD="$(sudo kubectl -n "$NS" get pod -l app=tce-service -o jsonpath='{.items[0].metadata.name}')"
+          sudo kubectl -n "$NS" exec "$POD" -- node -e "fetch('http://127.0.0.1:8210/api/health').then(async r=>{console.log('health',r.status,await r.text());process.exit(r.ok?0:1)}).catch(e=>{console.error(e);process.exit(1)})"
+          sudo kubectl -n "$NS" exec "$POD" -- node -e "fetch('http://127.0.0.1:8210/api/dashboard/account').then(async r=>{console.log('protected-dashboard',r.status,await r.text());process.exit(r.status===401?0:1)}).catch(e=>{console.error(e);process.exit(1)})"
+
+          echo "=== STG SERVICE LOGS ==="
+          sudo kubectl -n "$NS" logs "$POD" --tail=200 --timestamps || true
+
           rm -f /tmp/tce-frontend.tar.gz /tmp/tce-service.tar.gz /tmp/service-stg.yaml /tmp/frontend-stg.yaml
           REMOTE
       - name: Cleanup
