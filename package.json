@@ -26,6 +26,7 @@
     "@ssi.developer/ssi-sdk": "^3.2.0",
     "@supabase/supabase-js": "^2.105.0",
     "@types/node": "^24.3.0",
+    "axios": "^1.11.0",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.2",
     "reflect-metadata": "^0.2.2",

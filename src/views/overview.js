@@ -1,0 +1,11 @@
+import { money, pct } from '../lib/format.js';
+
+export function overviewView(data) {
+  const account = data.account;
+  const deployed = account.capital_deployed || 0;
+  const target = account.cashout_target || 30000000;
+  const recovered = account.cashout_realized || 0;
+  const candidates = data.nextPositions || data.candidates || [];
+
+  return `<section class="hero"><div><span>Account portfolio</span><strong>${money(deployed)}</strong><small>Your positions • P/L ${money(account.unrealized_pnl || 0)}</small></div><div class="ring" style="--p:${pct(recovered, target)}%"><b>${pct(recovered, target)}%</b></div></section><section class="grid"><article><span>Đang triển khai</span><b>${money(deployed)}</b></article><article><span>Unrealized P/L</span><b>${money(account.unrealized_pnl || 0)}</b></article><article><span>Open positions</span><b>${data.positions.length}</b></article><article><span>Max positions</span><b>${account.max_positions || 2}</b></article></section><section class="section"><div class="section-head"><h2>Manual TCE entry</h2><span>Current account</span></div><div class="quick-links"><button data-entry-open="position"><b>＋</b><span>Add current position</span></button><button data-entry-open="order"><b>＋</b><span>Add executed order</span></button></div></section><section class="section"><div class="section-head"><h2>Shared pools</h2><span>${(data.pools || []).length}</span></div><div class="quick-links">${(data.pools || []).slice(0, 4).map((pool) => `<button><b>${pool.symbol}</b><span>${pool.status || 'ACTIVE'}</span></button>`).join('') || '<div class="empty">Shared pool feed is empty</div>'}</div></section><section class="section"><div class="section-head"><h2>Next positions</h2><span>Shared</span></div>${candidates.length ? candidates.slice(0, 5).map((candidate) => `<div class="planned-row"><span class="slot">${candidate.rank}</span><div><b>${candidate.symbol}</b><small>${candidate.target_quantity ? `${candidate.target_quantity} cp` : ''}${candidate.target_price ? ` • target ${candidate.target_price}` : ''}${candidate.reason ? ` • ${candidate.reason}` : ''}</small></div><span class="planned-status">${candidate.status}</span></div>`).join('') : '<div class="empty">No shared candidates</div>'}</section>`;
+}
