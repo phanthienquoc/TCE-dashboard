@@ -4,9 +4,14 @@ import { api } from '../lib/api';
 
 const credentialsPath = '/platform/credentials';
 
-export async function hasSsiCredentials() {
+export async function listPlatformCredentials() {
   const { data } = await api.get(credentialsPath);
-  return Array.isArray(data) && data.some((item) => item.provider === 'ssi');
+  return Array.isArray(data) ? data : [];
+}
+
+export async function hasSsiCredentials(environment = 'production') {
+  const data = await listPlatformCredentials();
+  return data.some((item) => item.provider === 'ssi' && item.environment === environment && item.isActive !== false);
 }
 
 export async function saveSsiCredentials(environment, credentials) {
