@@ -6,7 +6,7 @@ export type DashboardSource<T = unknown> = {
   get(context: { userId: string }): Promise<T>;
 };
 
-export type DashboardSourceResult<T> = {
+export type DashboardSourceResult<T = unknown> = {
   source: DashboardSourceName;
   available: boolean;
   data: T;
