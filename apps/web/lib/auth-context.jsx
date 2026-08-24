@@ -55,12 +55,16 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     syncSession(getAccessToken());
 
+    const onRefreshed = (event) => {
+      syncSession(event.detail?.accessToken);
+    };
     const onExpired = () => {
       syncSession('');
       clearSession();
       setUser(null);
     };
 
+    window.addEventListener('tce:auth-refreshed', onRefreshed);
     window.addEventListener('tce:auth-expired', onExpired);
 
     (async () => {
@@ -74,7 +78,10 @@ export function AuthProvider({ children }) {
       }
     })();
 
-    return () => window.removeEventListener('tce:auth-expired', onExpired);
+    return () => {
+      window.removeEventListener('tce:auth-refreshed', onRefreshed);
+      window.removeEventListener('tce:auth-expired', onExpired);
+    };
   }, [refresh, syncSession]);
 
   const value = useMemo(() => ({
