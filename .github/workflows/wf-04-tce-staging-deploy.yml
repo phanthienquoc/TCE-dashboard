@@ -129,9 +129,11 @@ jobs:
 
           import_fresh() {
             local image="$1" archive="$2"
+            local qualified="docker.io/library/${image}"
             sudo k3s ctr images rm "$image" 2>/dev/null || true
+            sudo k3s ctr images rm "$qualified" 2>/dev/null || true
             sudo k3s ctr images import "/tmp/$archive"
-            sudo k3s ctr images list | awk '{print $1}' | grep -Fxq "$image"
+            sudo k3s ctr images list -q | grep -Fxq "$qualified"
           }
 
           import_fresh "$SERVICE_IMAGE" tce-service.tar.gz
