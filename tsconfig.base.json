@@ -9,8 +9,8 @@
     "moduleResolution": "node",
     "baseUrl": ".",
     "paths": {
-      "@tce/contracts": ["libs/contracts/src/index.ts"],
-      "@tce/contracts/*": ["libs/contracts/src/*"],
+      "@tce/contracts": ["packages/contracts/src/index.ts"],
+      "@tce/contracts/*": ["packages/contracts/src/*"],
       "@tce/shared": ["libs/shared/src/index.ts"],
       "@tce/tce": ["libs/tce/src/index.ts"],
       "@tce/ssi": ["libs/ssi/src/index.ts"],
