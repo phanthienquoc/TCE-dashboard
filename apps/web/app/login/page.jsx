@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { login, notifyApiError } from '../../lib/api';
+import { login } from '../../services/auth';
+import { notifyApiError } from '../../lib/api';
 import { clearSession } from '../../lib/session';
 import { useAuth } from '../../lib/auth-context';
 
