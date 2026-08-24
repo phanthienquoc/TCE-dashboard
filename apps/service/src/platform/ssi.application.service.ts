@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, ServiceUnavailableException } from '@nestjs/common';
 import { CONTRACT_TOKENS, OrderRepository, PlatformCredentialPort, PositionRepository, SsiAuthInput } from '@tce/contracts';
 import { Inject } from '@nestjs/common';
 import { SsiBrokerAdapter } from '@tce/ssi';
@@ -12,10 +12,33 @@ export class SsiApplicationService {
   ) {}
 
   private async adapter(userId: string, environment: string) {
-    const raw = await this.credentials.get(userId, 'ssi', environment);
+    let raw: Record<string, unknown>;
+    try {
+      raw = await this.credentials.get(userId, 'ssi', environment);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      if (message === 'Platform credentials not configured') {
+        throw new NotFoundException(`SSI credentials are not configured for environment: ${environment}`);
+      }
+      console.error('[SSI_CREDENTIALS_LOAD]', { userId, environment, message });
+      throw new ServiceUnavailableException('Unable to load SSI credentials');
+    }
+
     const apiKey = String(raw.apiKey ?? ''), apiSecret = String(raw.apiSecret ?? ''), accountNo = String(raw.accountNo ?? '');
-    if (!apiKey || !apiSecret || !accountNo) throw new NotFoundException('SSI API credentials and accountNo are required');
-    return { adapter: new SsiBrokerAdapter({ apiKey, apiSecret, clientId: raw.clientId ? String(raw.clientId) : undefined, privateKey: raw.privateKey ? String(raw.privateKey) : undefined, accountNo }), accountNo };
+    if (!apiKey || !apiSecret || !accountNo) {
+      throw new NotFoundException(`SSI credentials are incomplete for environment: ${environment}`);
+    }
+
+    return {
+      adapter: new SsiBrokerAdapter({
+        apiKey,
+        apiSecret,
+        clientId: raw.clientId ? String(raw.clientId) : undefined,
+        privateKey: raw.privateKey ? String(raw.privateKey) : undefined,
+        accountNo,
+      }),
+      accountNo,
+    };
   }
 
   async requestOtp(userId: string, environment: string) { const { adapter } = await this.adapter(userId, environment); return adapter.requestOtp(); }
