@@ -26,7 +26,14 @@ jobs:
           SHA="${GITHUB_SHA::7}"
           IMAGE_TAG="prod-v${VERSION}-${SHA}"
           echo "image_tag=$IMAGE_TAG" >> "$GITHUB_OUTPUT"
+          echo "$IMAGE_TAG" > /tmp/image-tag.txt
           echo "Image tag: $IMAGE_TAG"
+      - name: Upload immutable release metadata
+        uses: actions/upload-artifact@v4
+        with:
+          name: tce-release-metadata
+          path: /tmp/image-tag.txt
+          retention-days: 1
 
   build-frontend:
     name: Build frontend (native ARM64)
@@ -50,17 +57,17 @@ jobs:
           IMAGE_TAG: ${{ needs.detect.outputs.image_tag }}
         run: |
           set -euo pipefail
-          rm -f /tmp/tce-frontend.tar /tmp/tce-frontend.tar.gz /tmp/tce-frontend.sha256
+          rm -f /tmp/tce-frontend.tar /tmp/tce-frontend.sha256
           docker save "tce-frontend:$IMAGE_TAG" -o /tmp/tce-frontend.tar
-          gzip -n -c /tmp/tce-frontend.tar > /tmp/tce-frontend.tar.gz
-          gzip -t /tmp/tce-frontend.tar.gz
-          (cd /tmp && sha256sum tce-frontend.tar.gz > tce-frontend.sha256)
-          ls -lh /tmp/tce-frontend.tar.gz /tmp/tce-frontend.sha256
+          test -s /tmp/tce-frontend.tar
+          sha256sum /tmp/tce-frontend.tar > /tmp/tce-frontend.sha256
+          (cd /tmp && sha256sum -c tce-frontend.sha256)
+          ls -lh /tmp/tce-frontend.tar /tmp/tce-frontend.sha256
       - uses: actions/upload-artifact@v4
         with:
           name: tce-frontend-image
           path: |
-            /tmp/tce-frontend.tar.gz
+            /tmp/tce-frontend.tar
             /tmp/tce-frontend.sha256
           retention-days: 1
 
@@ -95,17 +102,17 @@ jobs:
           IMAGE_TAG: ${{ needs.detect.outputs.image_tag }}
         run: |
           set -euo pipefail
-          rm -f /tmp/tce-service.tar /tmp/tce-service.tar.gz /tmp/tce-service.sha256
+          rm -f /tmp/tce-service.tar /tmp/tce-service.sha256
           docker save "tce-service:$IMAGE_TAG" -o /tmp/tce-service.tar
-          gzip -n -c /tmp/tce-service.tar > /tmp/tce-service.tar.gz
-          gzip -t /tmp/tce-service.tar.gz
-          (cd /tmp && sha256sum tce-service.tar.gz > tce-service.sha256)
-          ls -lh /tmp/tce-service.tar.gz /tmp/tce-service.sha256
+          test -s /tmp/tce-service.tar
+          sha256sum /tmp/tce-service.tar > /tmp/tce-service.sha256
+          (cd /tmp && sha256sum -c tce-service.sha256)
+          ls -lh /tmp/tce-service.tar /tmp/tce-service.sha256
       - uses: actions/upload-artifact@v4
         with:
           name: tce-service-image
           path: |
-            /tmp/tce-service.tar.gz
+            /tmp/tce-service.tar
             /tmp/tce-service.sha256
           retention-days: 1
 
@@ -122,7 +129,6 @@ jobs:
       JWT_SECRET: ${{ secrets.JWT_SECRET }}
       MFA_ENCRYPTION_KEY: ${{ secrets.MFA_ENCRYPTION_KEY }}
       VPS_SSH_PRIVATE_KEY: ${{ secrets.VPS_SSH_PRIVATE_KEY }}
-      IMAGE_TAG: ${{ needs.detect.outputs.image_tag }}
     steps:
       - uses: actions/checkout@v4
       - name: Verify native architecture
@@ -138,6 +144,18 @@ jobs:
           done
       - uses: actions/download-artifact@v4
         with:
+          name: tce-release-metadata
+          path: /tmp/release
+      - name: Resolve image tag from release artifact
+        id: release
+        run: |
+          set -euo pipefail
+          IMAGE_TAG="$(cat /tmp/release/image-tag.txt)"
+          test -n "$IMAGE_TAG"
+          echo "image_tag=$IMAGE_TAG" >> "$GITHUB_OUTPUT"
+          echo "Deploying immutable release: $IMAGE_TAG"
+      - uses: actions/download-artifact@v4
+        with:
           name: tce-frontend-image
           path: /tmp/images
       - uses: actions/download-artifact@v4
@@ -149,12 +167,14 @@ jobs:
           set -euo pipefail
           cd /tmp/images
           for image in tce-frontend tce-service; do
-            test -s "$image.tar.gz"
+            test -s "$image.tar"
             test -s "$image.sha256"
-            gzip -t "$image.tar.gz"
             sha256sum -c "$image.sha256"
+            tar -tf "$image.tar" >/dev/null
           done
       - name: Render immutable production manifests
+        env:
+          IMAGE_TAG: ${{ steps.release.outputs.image_tag }}
         run: |
           set -euo pipefail
           sed "s#tce-frontend:prod#docker.io/library/tce-frontend:$IMAGE_TAG#g" infra/k3s/frontend-prod.yaml > /tmp/frontend-prod.yaml
@@ -172,11 +192,13 @@ jobs:
         run: |
           set -euo pipefail
           scp -i ~/.ssh/tce_vps_key -o IdentitiesOnly=yes -o StrictHostKeyChecking=no \
-            /tmp/images/tce-frontend.tar.gz /tmp/images/tce-frontend.sha256 \
-            /tmp/images/tce-service.tar.gz /tmp/images/tce-service.sha256 \
+            /tmp/images/tce-frontend.tar /tmp/images/tce-frontend.sha256 \
+            /tmp/images/tce-service.tar /tmp/images/tce-service.sha256 \
             /tmp/frontend-prod.yaml /tmp/service-prod.yaml \
             "$USERNAME@$HOST:/tmp/"
       - name: Deploy production to k3s
+        env:
+          IMAGE_TAG: ${{ steps.release.outputs.image_tag }}
         run: |
           set -euo pipefail
           ssh -i ~/.ssh/tce_vps_key -o IdentitiesOnly=yes -o StrictHostKeyChecking=no "$USERNAME@$HOST" \
@@ -186,17 +208,17 @@ jobs:
           sudo kubectl get namespace "$NS" >/dev/null 2>&1 || sudo kubectl create namespace "$NS"
 
           for image in tce-frontend tce-service; do
-            test -s "/tmp/$image.tar.gz"
+            test -s "/tmp/$image.tar"
             test -s "/tmp/$image.sha256"
-            echo "Validating $image archive on VPS"
-            gzip -t "/tmp/$image.tar.gz"
+            echo "Validating $image image archive on VPS"
             (cd /tmp && sha256sum -c "$image.sha256")
+            tar -tf "/tmp/$image.tar" >/dev/null
           done
 
-          echo "Importing frontend image"
-          sudo k3s ctr images import /tmp/tce-frontend.tar.gz
-          echo "Importing service image"
-          sudo k3s ctr images import /tmp/tce-service.tar.gz
+          echo "Importing frontend image: docker.io/library/tce-frontend:$IMAGE_TAG"
+          sudo k3s ctr images import /tmp/tce-frontend.tar
+          echo "Importing service image: docker.io/library/tce-service:$IMAGE_TAG"
+          sudo k3s ctr images import /tmp/tce-service.tar
 
           verify_image() {
             local image="$1"
@@ -261,8 +283,8 @@ jobs:
 
           sudo kubectl -n "$NS" get pods,svc,ingress
           sudo kubectl -n "$NS" get certificate,secret 2>/dev/null || true
-          rm -f /tmp/tce-frontend.tar.gz /tmp/tce-frontend.sha256 /tmp/tce-service.tar.gz /tmp/tce-service.sha256 /tmp/service-prod.yaml /tmp/frontend-prod.yaml
+          rm -f /tmp/tce-frontend.tar /tmp/tce-frontend.sha256 /tmp/tce-service.tar /tmp/tce-service.sha256 /tmp/service-prod.yaml /tmp/frontend-prod.yaml
           REMOTE
       - name: Cleanup
         if: always()
-        run: rm -rf ~/.ssh/tce_vps_key /tmp/images /tmp/*.yaml
+        run: rm -rf ~/.ssh/tce_vps_key /tmp/images /tmp/release /tmp/*.yaml
