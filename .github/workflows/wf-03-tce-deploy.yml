@@ -202,8 +202,18 @@ jobs:
             --from-literal=SUPABASE_SERVICE_ROLE_KEY="$SUPABASE_KEY" \
             --from-literal=JWT_SECRET="$JWT_SECRET" \
             --dry-run=client -o yaml | sudo kubectl apply -f -
+
+          CREDENTIAL_KEY="$(sudo kubectl -n "$NS" get secret tce-auth -o jsonpath='{.data.TCE_CREDENTIAL_ENCRYPTION_KEY}' 2>/dev/null | base64 -d || true)"
+          if [ -z "$CREDENTIAL_KEY" ]; then
+            CREDENTIAL_KEY="$(openssl rand -hex 32)"
+            echo "Generated persistent TCE credential encryption key for production."
+          else
+            echo "Reusing existing TCE credential encryption key."
+          fi
+
           sudo kubectl -n "$NS" create secret generic tce-auth \
             --from-literal=MFA_ENCRYPTION_KEY="$MFA_KEY" \
+            --from-literal=TCE_CREDENTIAL_ENCRYPTION_KEY="$CREDENTIAL_KEY" \
             --dry-run=client -o yaml | sudo kubectl apply -f -
 
           deploy_and_wait /tmp/service-prod.yaml tce-service "docker.io/library/tce-service:$IMAGE_TAG"
