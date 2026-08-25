@@ -1,0 +1,117 @@
+name: Codex CI Fix Request
+
+on:
+  workflow_run:
+    workflows:
+      - "TCE Backend Unit Tests"
+      - "WF-03 TCE Deploy Orchestrator"
+      - "WF-04 TCE Staging Deploy"
+    types: [completed]
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: write
+  actions: read
+
+concurrency:
+  group: codex-fix-request-${{ github.event.workflow_run.id }}
+  cancel-in-progress: false
+
+jobs:
+  request:
+    name: Report failed CI for Codex approval
+    if: >-
+      github.event.workflow_run.conclusion == 'failure' &&
+      github.event.workflow_run.head_repository.full_name == github.repository &&
+      github.event.workflow_run.head_branch != 'master' &&
+      github.event.workflow_run.head_branch != 'staging' &&
+      github.event.workflow_run.head_branch != 'development'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Collect failure summary
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ github.event.workflow_run.id }}
+        run: |
+          set -euo pipefail
+          mkdir -p .codex-ci
+          gh run view "$RUN_ID" --repo "$GITHUB_REPOSITORY" --log-failed > .codex-ci/failed.log || true
+          tail -n 400 .codex-ci/failed.log > .codex-ci/summary.log
+          {
+            echo "workflow=${{ github.event.workflow_run.name }}"
+            echo "run_id=$RUN_ID"
+            echo "branch=${{ github.event.workflow_run.head_branch }}"
+            echo "sha=${{ github.event.workflow_run.head_sha }}"
+            echo
+            cat .codex-ci/summary.log
+          } > .codex-ci/failure.txt
+
+      - name: Find related PR
+        id: pr
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          set -euo pipefail
+          PR_URL="$(gh api \
+            -H 'Accept: application/vnd.github+json' \
+            "/repos/$GITHUB_REPOSITORY/commits/$SHA/pulls" \
+            --jq '.[0].html_url // empty')"
+          echo "url=$PR_URL" >> "$GITHUB_OUTPUT"
+
+      - name: Create fix request issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          WORKFLOW: ${{ github.event.workflow_run.name }}
+          RUN_ID: ${{ github.event.workflow_run.id }}
+          BRANCH: ${{ github.event.workflow_run.head_branch }}
+          SHA: ${{ github.event.workflow_run.head_sha }}
+          PR_URL: ${{ steps.pr.outputs.url }}
+        run: |
+          set -euo pipefail
+          BODY=$(cat <<EOF
+          ## Codex fix request
+
+          CI failed and is ready for manual Codex handoff.
+
+          - Workflow: \`$WORKFLOW\`
+          - Run: [#$RUN_ID](https://github.com/$GITHUB_REPOSITORY/actions/runs/$RUN_ID)
+          - Branch: \`$BRANCH\`
+          - SHA: \`$SHA\`
+          - PR: ${PR_URL:-not-found}
+
+          ### Approval
+
+          **Do not run an autonomous API-based fixer.** ChatGPT/Codex should inspect this issue and the failed run when you explicitly ask it to fix the CI failure.
+
+          Recommended prompt in ChatGPT/Codex:
+
+          > Fix CI for run #$RUN_ID on branch \`$BRANCH\`. Inspect the failed logs, make the smallest safe fix, run the relevant tests, and push only to the existing PR branch. Do not modify or merge protected branches.
+
+          ### Failed log tail
+
+          \`\`\`text
+          $(cat .codex-ci/summary.log)
+          \`\`\`
+          EOF
+          )
+          gh issue create --repo "$GITHUB_REPOSITORY" \
+            --title "[Codex Fix Request] $WORKFLOW #$RUN_ID" \
+            --body "$BODY" \
+            --label "ci-failure" || \
+            gh issue create --repo "$GITHUB_REPOSITORY" \
+              --title "[Codex Fix Request] $WORKFLOW #$RUN_ID" \
+              --body "$BODY"
+
+      - name: Add PR handoff comment
+        if: steps.pr.outputs.url != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_URL: ${{ steps.pr.outputs.url }}
+          RUN_ID: ${{ github.event.workflow_run.id }}
+        run: |
+          set -euo pipefail
+          PR_NUMBER="${PR_URL##*/}"
+          gh pr comment "$PR_NUMBER" --repo "$GITHUB_REPOSITORY" --body "🤖 **Codex fix request:** CI run #$RUN_ID failed. No autonomous API fix was attempted. Ask ChatGPT/Codex to inspect the run and fix the existing PR branch after your approval."
