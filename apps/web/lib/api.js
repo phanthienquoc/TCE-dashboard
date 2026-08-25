@@ -1,8 +1,10 @@
 'use client';
 
 import axios from 'axios';
-import { clearSession, getAccessToken } from './session';
+import { clearSession } from './session';
 
+// Access tokens are deliberately memory-only. The refresh session lives in
+// the backend-issued HttpOnly cookie and is never readable by JavaScript.
 let accessToken = '';
 let refreshPromise = null;
 
@@ -11,8 +13,7 @@ export function setAccessToken(token) {
 }
 
 function currentAccessToken() {
-  if (accessToken) return accessToken;
-  return getAccessToken();
+  return accessToken;
 }
 
 export const api = axios.create({
@@ -60,12 +61,16 @@ function notifyAuthExpired() {
 
 api.interceptors.request.use((config) => attachAccessToken(config));
 
-// The refresh token is an HttpOnly cookie. This function is intentionally the
-// only path that establishes an access token after a full page reload.
+// The browser sends the HttpOnly refresh cookie automatically. This is the
+// only code path that creates an access token after a full page reload.
 export async function refreshAccessToken() {
   const { data } = await axios.post('/api/auth/refresh', null, {
     withCredentials: true,
-    headers: { Accept: 'application/json' },
+    credentials: 'include',
+    headers: {
+      Accept: 'application/json',
+      'Cache-Control': 'no-cache',
+    },
     timeout: 15000,
   });
 
