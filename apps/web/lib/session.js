@@ -1,22 +1,6 @@
 export const ACCESS_TOKEN = 'tce_access_token';
 export const REFRESH_TOKEN = 'tce_refresh_token';
 
-function readStorage(key) {
-  try {
-    return window.localStorage.getItem(key) || '';
-  } catch {
-    return '';
-  }
-}
-
-function writeStorage(key, value) {
-  try {
-    window.localStorage.setItem(key, value);
-  } catch {
-    throw new Error('Unable to access localStorage');
-  }
-}
-
 function removeStorage(key) {
   try {
     window.localStorage.removeItem(key);
@@ -25,24 +9,26 @@ function removeStorage(key) {
   }
 }
 
+// Access tokens intentionally live only in memory. The backend persists the
+// refresh session in an HttpOnly cookie, so a full page reload can establish a
+// fresh access token without exposing long-lived credentials to JavaScript.
 export function getAccessToken() {
-  if (typeof window === 'undefined') return '';
-  return readStorage(ACCESS_TOKEN);
+  return '';
 }
 
+// Kept for API compatibility. Refresh tokens are HttpOnly and never readable
+// from client-side JavaScript.
 export function getRefreshToken() {
-  if (typeof window === 'undefined') return '';
-  return readStorage(REFRESH_TOKEN);
+  return '';
 }
 
 export function saveSession(session) {
   if (!session?.accessToken) throw new Error('No access token returned');
-  writeStorage(ACCESS_TOKEN, session.accessToken);
-  if (session.refreshToken) writeStorage(REFRESH_TOKEN, session.refreshToken);
 }
 
 export function clearSession() {
   if (typeof window === 'undefined') return;
+  // Remove legacy client-side tokens from older builds during migration.
   removeStorage(ACCESS_TOKEN);
   removeStorage(REFRESH_TOKEN);
   removeStorage('tce_mfa_user_id');
