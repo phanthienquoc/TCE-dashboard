@@ -9,9 +9,58 @@ permissions:
   contents: read
 
 jobs:
-  deploy-production:
+  build-frontend:
+    name: Build frontend
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Validate frontend
+        run: test -f Dockerfile
+      - name: Build frontend image
+        run: docker build --pull -t tce-frontend:prod -f Dockerfile .
+      - name: Export frontend image
+        run: docker save tce-frontend:prod | gzip > /tmp/tce-frontend.tar.gz
+      - name: Upload frontend image
+        uses: actions/upload-artifact@v4
+        with:
+          name: tce-frontend-image
+          path: /tmp/tce-frontend.tar.gz
+          retention-days: 1
+
+  build-backend:
+    name: Build backend
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Validate backend
+        run: |
+          set -euo pipefail
+          test -f apps/service/Dockerfile
+          test -f tsconfig.base.json
+          test -f nx.json
+          test -d apps/service
+          test -d libs
+          test -d packages
+      - name: Build backend image
+        run: docker build --pull -t tce-service:prod -f apps/service/Dockerfile .
+      - name: Export backend image
+        run: docker save tce-service:prod | gzip > /tmp/tce-service.tar.gz
+      - name: Upload backend image
+        uses: actions/upload-artifact@v4
+        with:
+          name: tce-service-image
+          path: /tmp/tce-service.tar.gz
+          retention-days: 1
+
+  deploy-production:
+    name: Deploy production
+    needs: [build-frontend, build-backend]
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
     env:
       HOST: 132.226.175.206
       USERNAME: ubuntu
@@ -23,32 +72,33 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Validate repository configuration
+      - name: Validate production configuration
         run: |
           set -euo pipefail
-          test -f Dockerfile
-          test -f apps/service/Dockerfile
           test -f infra/k3s/frontend-prod.yaml
           test -f infra/k3s/service-prod.yaml
           for name in SUPABASE_URL SUPABASE_SERVICE_ROLE_KEY JWT_SECRET MFA_ENCRYPTION_KEY VPS_SSH_PRIVATE_KEY; do
-            test -n "${!name}" || { echo "Missing GitHub secret: $name"; exit 1; }
+            value="${!name:-}"
+            test -n "$value" || { echo "Missing GitHub secret: $name"; exit 1; }
           done
 
-      - name: Build frontend image
-        run: docker build --pull -t tce-frontend:prod -f Dockerfile .
+      - name: Download frontend image
+        uses: actions/download-artifact@v4
+        with:
+          name: tce-frontend-image
+          path: /tmp/images
 
-      - name: Build backend image
-        run: docker build --pull -t tce-service:prod -f apps/service/Dockerfile .
-
-      - name: Package images
-        run: docker save tce-frontend:prod tce-service:prod | gzip > /tmp/tce-prod-images.tar.gz
+      - name: Download backend image
+        uses: actions/download-artifact@v4
+        with:
+          name: tce-service-image
+          path: /tmp/images
 
       - name: Configure SSH
         env:
           KEY: ${{ secrets.VPS_SSH_PRIVATE_KEY }}
         run: |
           set -euo pipefail
-          test -n "$KEY"
           mkdir -p ~/.ssh
           printf '%s\n' "$KEY" | tr -d '\r' > ~/.ssh/tce_vps_key
           chmod 600 ~/.ssh/tce_vps_key
@@ -62,7 +112,8 @@ jobs:
         run: |
           set -euo pipefail
           scp -i ~/.ssh/tce_vps_key -o IdentitiesOnly=yes -o StrictHostKeyChecking=no \
-            /tmp/tce-prod-images.tar.gz \
+            /tmp/images/tce-frontend.tar.gz \
+            /tmp/images/tce-service.tar.gz \
             infra/k3s/frontend-prod.yaml \
             infra/k3s/service-prod.yaml \
             "$USERNAME@$HOST:/tmp/"
@@ -75,7 +126,8 @@ jobs:
           set -euo pipefail
 
           sudo kubectl get namespace tce-prod >/dev/null 2>&1 || sudo kubectl create namespace tce-prod
-          sudo k3s ctr images import /tmp/tce-prod-images.tar.gz
+          sudo k3s ctr images import /tmp/tce-frontend.tar.gz
+          sudo k3s ctr images import /tmp/tce-service.tar.gz
 
           sudo kubectl -n tce-prod create secret generic tce-app-secrets \
             --from-literal=SUPABASE_URL="$SUPABASE_URL" \
@@ -96,9 +148,9 @@ jobs:
           echo '===== CERTIFICATE ====='
           sudo kubectl -n tce-prod get certificate,secret 2>/dev/null || true
 
-          rm -f /tmp/tce-prod-images.tar.gz /tmp/service-prod.yaml /tmp/frontend-prod.yaml
+          rm -f /tmp/tce-frontend.tar.gz /tmp/tce-service.tar.gz /tmp/service-prod.yaml /tmp/frontend-prod.yaml
           REMOTE
 
       - name: Cleanup
         if: always()
-        run: rm -f ~/.ssh/tce_vps_key /tmp/tce-prod-images.tar.gz
+        run: rm -rf ~/.ssh/tce_vps_key /tmp/images
