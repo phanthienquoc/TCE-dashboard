@@ -5,7 +5,102 @@ on:
     branches: [master]
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
-  deploy-prod:
-    uses: ./.github/workflows/wf-05-tce-production-deploy.yml
-    secrets: inherit
+  deploy-production:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      HOST: 132.226.175.206
+      USERNAME: ubuntu
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      JWT_SECRET: ${{ secrets.JWT_SECRET }}
+      MFA_ENCRYPTION_KEY: ${{ secrets.MFA_ENCRYPTION_KEY }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate repository configuration
+        run: |
+          set -euo pipefail
+          test -f Dockerfile
+          test -f apps/service/Dockerfile
+          test -f infra/k3s/frontend-prod.yaml
+          test -f infra/k3s/service-prod.yaml
+          for name in SUPABASE_URL SUPABASE_SERVICE_ROLE_KEY JWT_SECRET MFA_ENCRYPTION_KEY; do
+            test -n "${!name}" || { echo "Missing GitHub secret: $name"; exit 1; }
+          done
+
+      - name: Build frontend image
+        run: docker build --pull -t tce-frontend:prod -f Dockerfile .
+
+      - name: Build backend image
+        run: docker build --pull -t tce-service:prod -f apps/service/Dockerfile apps/service
+
+      - name: Package images
+        run: docker save tce-frontend:prod tce-service:prod | gzip > /tmp/tce-prod-images.tar.gz
+
+      - name: Configure SSH
+        env:
+          KEY: ${{ secrets.VPS_SSH_PRIVATE_KEY }}
+        run: |
+          set -euo pipefail
+          test -n "$KEY"
+          mkdir -p ~/.ssh
+          printf '%s\n' "$KEY" | tr -d '\r' > ~/.ssh/tce_vps_key
+          chmod 600 ~/.ssh/tce_vps_key
+          ssh-keygen -y -f ~/.ssh/tce_vps_key >/dev/null
+
+      - name: Verify VPS access
+        run: |
+          ssh -i ~/.ssh/tce_vps_key -o IdentitiesOnly=yes -o StrictHostKeyChecking=no "$USERNAME@$HOST" 'sudo kubectl get nodes'
+
+      - name: Upload production bundle
+        run: |
+          set -euo pipefail
+          scp -i ~/.ssh/tce_vps_key -o IdentitiesOnly=yes -o StrictHostKeyChecking=no \
+            /tmp/tce-prod-images.tar.gz \
+            infra/k3s/frontend-prod.yaml \
+            infra/k3s/service-prod.yaml \
+            "$USERNAME@$HOST:/tmp/"
+
+      - name: Deploy production to k3s
+        run: |
+          set -euo pipefail
+          ssh -i ~/.ssh/tce_vps_key -o IdentitiesOnly=yes -o StrictHostKeyChecking=no "$USERNAME@$HOST" \
+            "SUPABASE_URL='$SUPABASE_URL' SUPABASE_KEY='$SUPABASE_SERVICE_ROLE_KEY' JWT_SECRET='$JWT_SECRET' MFA_KEY='$MFA_ENCRYPTION_KEY' bash -s" <<'REMOTE'
+          set -euo pipefail
+
+          sudo kubectl get namespace tce-prod >/dev/null 2>&1 || sudo kubectl create namespace tce-prod
+
+          sudo k3s ctr images import /tmp/tce-prod-images.tar.gz
+
+          sudo kubectl -n tce-prod create secret generic tce-app-secrets \
+            --from-literal=SUPABASE_URL="$SUPABASE_URL" \
+            --from-literal=SUPABASE_SERVICE_ROLE_KEY="$SUPABASE_KEY" \
+            --from-literal=JWT_SECRET="$JWT_SECRET" \
+            --dry-run=client -o yaml | sudo kubectl apply -f -
+
+          sudo kubectl -n tce-prod create secret generic tce-auth \
+            --from-literal=MFA_ENCRYPTION_KEY="$MFA_KEY" \
+            --dry-run=client -o yaml | sudo kubectl apply -f -
+
+          sudo kubectl apply -f /tmp/service-prod.yaml -f /tmp/frontend-prod.yaml
+
+          sudo kubectl -n tce-prod rollout status deployment/tce-service --timeout=180s
+          sudo kubectl -n tce-prod rollout status deployment/tce-frontend --timeout=180s
+
+          echo '===== PROD STATUS ====='
+          sudo kubectl -n tce-prod get pods,svc,ingress
+          echo '===== CERTIFICATE ====='
+          sudo kubectl -n tce-prod get certificate,secret 2>/dev/null || true
+
+          rm -f /tmp/tce-prod-images.tar.gz /tmp/service-prod.yaml /tmp/frontend-prod.yaml
+          REMOTE
+
+      - name: Cleanup
+        if: always()
+        run: rm -f ~/.ssh/tce_vps_key /tmp/tce-prod-images.tar.gz
