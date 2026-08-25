@@ -1,0 +1,116 @@
+name: WF-07 TCE Integration Check
+
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: Integration target
+        required: true
+        default: all
+        type: choice
+        options:
+          - all
+          - binance-testnet
+          - staging-api
+  schedule:
+    - cron: '17 */6 * * *'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tce-integration-check
+  cancel-in-progress: false
+
+env:
+  BINANCE_TESTNET_BASE_URL: https://testnet.binancefuture.com
+
+jobs:
+  binance-testnet:
+    name: Binance Testnet private API
+    if: ${{ github.event_name == 'schedule' || github.event.inputs.target == 'all' || github.event.inputs.target == 'binance-testnet' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check Binance Testnet public endpoint
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error --retry 2 \
+            "$BINANCE_TESTNET_BASE_URL/fapi/v1/ping" >/dev/null
+          echo "Binance Testnet public endpoint: OK"
+
+      - name: Check Binance Testnet private account endpoint
+        env:
+          BINANCE_API_KEY: ${{ secrets.BINANCE_TESTNET_API_KEY }}
+          BINANCE_API_SECRET: ${{ secrets.BINANCE_TESTNET_API_SECRET }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          test -n "$BINANCE_API_KEY" || { echo 'Missing BINANCE_TESTNET_API_KEY'; exit 1; }
+          test -n "$BINANCE_API_SECRET" || { echo 'Missing BINANCE_TESTNET_API_SECRET'; exit 1; }
+
+          timestamp="$(date +%s%3N)"
+          query="timestamp=${timestamp}&recvWindow=5000"
+          signature="$(printf '%s' "$query" | openssl dgst -sha256 -hmac "$BINANCE_API_SECRET" | awk '{print $NF}')"
+          url="$BINANCE_TESTNET_BASE_URL/fapi/v2/account?${query}&signature=${signature}"
+
+          response_file="$(mktemp)"
+          trap 'rm -f "$response_file"' EXIT
+
+          http_code="$(curl --silent --show-error --output "$response_file" --write-out '%{http_code}' \
+            --header "X-MBX-APIKEY: $BINANCE_API_KEY" \
+            "$url")"
+
+          if [ "$http_code" != '200' ]; then
+            echo "Binance Testnet private API failed with HTTP $http_code"
+            jq -c '{code, msg}' "$response_file" 2>/dev/null || true
+            exit 1
+          fi
+
+          jq -e 'has("accountAlias") and has("assets") and has("positions")' "$response_file" >/dev/null
+          can_trade="$(jq -r '.canTrade // false' "$response_file")"
+          echo "Binance Testnet private API: OK (canTrade=${can_trade})"
+
+  staging-api:
+    name: TCE staging → Binance Testnet integration
+    if: ${{ github.event_name == 'workflow_dispatch' && (github.event.inputs.target == 'all' || github.event.inputs.target == 'staging-api') && secrets.TCE_STG_URL != '' && secrets.TCE_STG_JWT != '' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check TCE staging Binance connection
+        env:
+          TCE_STG_URL: ${{ secrets.TCE_STG_URL }}
+          TCE_STG_JWT: ${{ secrets.TCE_STG_JWT }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          base_url="${TCE_STG_URL%/}"
+          response_file="$(mktemp)"
+          trap 'rm -f "$response_file"' EXIT
+
+          http_code="$(curl --silent --show-error --output "$response_file" --write-out '%{http_code}' \
+            --request POST \
+            --header 'Accept: application/json' \
+            --header 'Content-Type: application/json' \
+            --header "Authorization: Bearer $TCE_STG_JWT" \
+            --data '{"environment":"testnet"}' \
+            "$base_url/api/platform/credentials/binance/test")"
+
+          if [ "$http_code" != '200' ]; then
+            echo "TCE staging Binance integration failed with HTTP $http_code"
+            jq -c '{statusCode, message, error}' "$response_file" 2>/dev/null || true
+            exit 1
+          fi
+
+          jq -e '.ok == true and .data.connected == true and .data.environment == "testnet"' "$response_file" >/dev/null
+          echo 'TCE staging → Binance Testnet integration: OK'
+
+      - name: Explain skipped staging integration
+        if: ${{ secrets.TCE_STG_URL == '' || secrets.TCE_STG_JWT == '' }}
+        shell: bash
+        run: |
+          echo 'TCE_STG_URL/TCE_STG_JWT are not configured; staging integration was not executed.'
+          echo 'Binance Testnet preflight remains the required integration check.'
