@@ -161,7 +161,11 @@ jobs:
           verify_image() {
             local image="$1"
             echo "Checking k3s image: $image"
-            sudo k3s ctr images list | awk '{print $1}' | grep -Fxq "$image" || { echo "ERROR: image not found: $image"; sudo k3s ctr images list | grep 'tce-' || true; exit 1; }
+            sudo k3s ctr images inspect "$image" >/dev/null 2>&1 || {
+              echo "ERROR: image not found: $image"
+              sudo k3s ctr images list | grep 'tce-' || true
+              exit 1
+            }
           }
 
           diagnostics() {
