@@ -1,24 +1,20 @@
 'use client';
 
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect } from 'react';
 import { usePathname } from 'next/navigation';
 import { setAccessToken } from './api';
 import { clearSession, getAccessToken, saveSession } from './session';
+import { useAuthStore } from './auth-store';
 import { getCurrentUser, login, logout } from '../services/auth';
 
-const AuthContext = createContext(null);
-
+// Compatibility layer: existing components can keep using useAuth(), while
+// the actual auth state lives in the lightweight Zustand store.
 export function AuthProvider({ children }) {
   const pathname = usePathname();
-  const [user, setUser] = useState(null);
-  const [accessToken, setContextAccessToken] = useState('');
-  const [ready, setReady] = useState(false);
-  const [loading, setLoading] = useState(true);
-
   const syncSession = useCallback((token) => {
     const nextToken = token || '';
     setAccessToken(nextToken);
-    setContextAccessToken(nextToken);
+    useAuthStore.getState().setAccessToken(nextToken);
   }, []);
 
   const signIn = useCallback(async (email, password) => {
@@ -29,7 +25,7 @@ export function AuthProvider({ children }) {
     }
     if (!session?.mfaRequired) {
       const currentUser = await getCurrentUser();
-      setUser(currentUser);
+      useAuthStore.getState().setUser(currentUser);
     }
     return session;
   }, [syncSession]);
@@ -40,24 +36,22 @@ export function AuthProvider({ children }) {
     } finally {
       syncSession('');
       clearSession();
-      setUser(null);
+      useAuthStore.getState().clearAuth();
     }
   }, [syncSession]);
 
   const refresh = useCallback(async () => {
     try {
       const currentUser = await getCurrentUser();
-      setUser(currentUser);
+      useAuthStore.getState().setUser(currentUser);
       return currentUser;
     } catch (error) {
-      setUser(null);
+      useAuthStore.getState().setUser(null);
       throw error;
     }
   }, []);
 
   useEffect(() => {
-    // Keep the access token across reloads. If it has expired, the Axios
-    // interceptor will transparently use the HttpOnly refresh cookie.
     syncSession(getAccessToken());
 
     const onRefreshed = (event) => {
@@ -68,27 +62,24 @@ export function AuthProvider({ children }) {
     const onExpired = () => {
       syncSession('');
       clearSession();
-      setUser(null);
+      useAuthStore.getState().clearAuth();
     };
 
     window.addEventListener('tce:auth-refreshed', onRefreshed);
     window.addEventListener('tce:auth-expired', onExpired);
 
-    // Do not probe /auth/me while the login page is booting. That request can
-    // start the refresh flow before the user's credential POST and introduces
-    // a timing race that is especially visible on a cold browser load.
     if (pathname === '/login') {
-      setReady(true);
-      setLoading(false);
+      useAuthStore.getState().setReady(true);
+      useAuthStore.getState().setLoading(false);
     } else {
       (async () => {
         try {
           await refresh();
         } catch {
-          setUser(null);
+          useAuthStore.getState().setUser(null);
         } finally {
-          setReady(true);
-          setLoading(false);
+          useAuthStore.getState().setReady(true);
+          useAuthStore.getState().setLoading(false);
         }
       })();
     }
@@ -99,7 +90,41 @@ export function AuthProvider({ children }) {
     };
   }, [pathname, refresh, syncSession]);
 
-  const value = useMemo(() => ({
+  return children;
+}
+
+export function useAuth() {
+  const user = useAuthStore((state) => state.user);
+  const accessToken = useAuthStore((state) => state.accessToken);
+  const ready = useAuthStore((state) => state.ready);
+  const loading = useAuthStore((state) => state.loading);
+  const signIn = useCallback((email, password) => {
+    return login(email, password).then(async (session) => {
+      if (session?.accessToken) {
+        saveSession(session);
+        setAccessToken(session.accessToken);
+        useAuthStore.getState().setAccessToken(session.accessToken);
+      }
+      if (!session?.mfaRequired) {
+        useAuthStore.getState().setUser(await getCurrentUser());
+      }
+      return session;
+    });
+  }, []);
+  const signOut = useCallback(async () => {
+    try { await logout(); } finally {
+      setAccessToken('');
+      clearSession();
+      useAuthStore.getState().clearAuth();
+    }
+  }, []);
+  const refresh = useCallback(async () => {
+    const currentUser = await getCurrentUser();
+    useAuthStore.getState().setUser(currentUser);
+    return currentUser;
+  }, []);
+
+  return {
     user,
     accessToken,
     isAuthenticated: Boolean(user),
@@ -108,13 +133,5 @@ export function AuthProvider({ children }) {
     signIn,
     signOut,
     refresh,
-  }), [user, accessToken, ready, loading, signIn, signOut, refresh]);
-
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
-}
-
-export function useAuth() {
-  const context = useContext(AuthContext);
-  if (!context) throw new Error('useAuth must be used inside AuthProvider');
-  return context;
+  };
 }
