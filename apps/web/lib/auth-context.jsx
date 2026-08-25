@@ -1,6 +1,7 @@
 'use client';
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { usePathname } from 'next/navigation';
 import { setAccessToken } from './api';
 import { clearSession, getAccessToken, saveSession } from './session';
 import { getCurrentUser, login, logout } from '../services/auth';
@@ -8,6 +9,7 @@ import { getCurrentUser, login, logout } from '../services/auth';
 const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
+  const pathname = usePathname();
   const [user, setUser] = useState(null);
   const [accessToken, setContextAccessToken] = useState('');
   const [ready, setReady] = useState(false);
@@ -72,22 +74,30 @@ export function AuthProvider({ children }) {
     window.addEventListener('tce:auth-refreshed', onRefreshed);
     window.addEventListener('tce:auth-expired', onExpired);
 
-    (async () => {
-      try {
-        await refresh();
-      } catch {
-        setUser(null);
-      } finally {
-        setReady(true);
-        setLoading(false);
-      }
-    })();
+    // Do not probe /auth/me while the login page is booting. That request can
+    // start the refresh flow before the user's credential POST and introduces
+    // a timing race that is especially visible on a cold browser load.
+    if (pathname === '/login') {
+      setReady(true);
+      setLoading(false);
+    } else {
+      (async () => {
+        try {
+          await refresh();
+        } catch {
+          setUser(null);
+        } finally {
+          setReady(true);
+          setLoading(false);
+        }
+      })();
+    }
 
     return () => {
       window.removeEventListener('tce:auth-refreshed', onRefreshed);
       window.removeEventListener('tce:auth-expired', onExpired);
     };
-  }, [refresh, syncSession]);
+  }, [pathname, refresh, syncSession]);
 
   const value = useMemo(() => ({
     user,
