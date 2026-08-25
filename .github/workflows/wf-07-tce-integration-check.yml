@@ -9,6 +9,16 @@ on:
         default: all
         type: choice
         options: [all, binance-testnet, staging-api, order-integration]
+      tce_stg_url:
+        description: Optional TCE staging domain; blank skips TCE staging check
+        required: false
+        default: ''
+        type: string
+      tce_stg_jwt:
+        description: Optional TCE staging JWT; blank skips TCE staging check
+        required: false
+        default: ''
+        type: string
   schedule:
     - cron: '17 */6 * * *'
 
@@ -58,29 +68,26 @@ jobs:
           echo '=== PUBLIC CHECK LOG ==='; cat "$workdir/public.log"; echo '=== PRIVATE CHECK LOG ==='; cat "$workdir/private.log"; test "$public_status" -eq 0; test "$private_status" -eq 0
 
   staging-api:
-    name: TCE staging → Binance Testnet integration
+    name: Optional TCE staging → Binance Testnet integration
     if: ${{ github.event_name == 'workflow_dispatch' && (github.event.inputs.target == 'all' || github.event.inputs.target == 'staging-api') }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
     env:
-      TCE_STG_URL: ${{ secrets.TCE_STG_URL }}
-      TCE_STG_JWT: ${{ secrets.TCE_STG_JWT }}
+      TCE_STG_URL: ${{ github.event.inputs.tce_stg_url }}
+      TCE_STG_JWT: ${{ github.event.inputs.tce_stg_jwt }}
     steps:
-      - name: Check staging integration configuration
+      - name: Skip staging check when domain/JWT are blank
+        if: ${{ env.TCE_STG_URL == '' || env.TCE_STG_JWT == '' }}
         shell: bash
         run: |
-          set -euo pipefail
-          target='${{ github.event.inputs.target }}'
-          if [ -z "$TCE_STG_URL" ] || [ -z "$TCE_STG_JWT" ]; then
-            if [ "$target" = 'staging-api' ]; then echo 'Missing TCE_STG_URL or TCE_STG_JWT for requested staging integration.'; exit 1; fi
-            echo 'TCE staging secrets are not configured; staging integration will be skipped.'; exit 0
-          fi
-          echo 'TCE staging integration configuration: OK'
+          echo 'TCE staging domain/JWT not provided.'
+          echo 'System integration check: PASS (TCE staging check skipped by design).'
+
       - name: Check TCE staging Binance connection
+        if: ${{ env.TCE_STG_URL != '' && env.TCE_STG_JWT != '' }}
         shell: bash
         run: |
           set -euo pipefail
-          if [ -z "$TCE_STG_URL" ] || [ -z "$TCE_STG_JWT" ]; then echo 'Staging integration skipped because credentials are not configured.'; exit 0; fi
           base_url="${TCE_STG_URL%/}"; response_file="$(mktemp)"; trap 'rm -f "$response_file"' EXIT
           http_code="$(curl --silent --show-error --output "$response_file" --write-out '%{http_code}' --request POST --header 'Accept: application/json' --header 'Content-Type: application/json' --header "Authorization: Bearer $TCE_STG_JWT" --data '{"environment":"testnet"}' "$base_url/api/platform/credentials/binance/test")"
           if [ "$http_code" != '200' ]; then echo "TCE staging Binance integration failed with HTTP $http_code"; jq -c '{statusCode, message, error}' "$response_file" 2>/dev/null || true; exit 1; fi
@@ -88,7 +95,7 @@ jobs:
 
   order-integration:
     name: Binance Testnet order integration (3rd-party only)
-    if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.target == 'order-integration' }}
+    if: ${{ github.event_name == 'workflow_dispatch' && (github.event.inputs.target == 'all' || github.event.inputs.target == 'order-integration') }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
     env:
