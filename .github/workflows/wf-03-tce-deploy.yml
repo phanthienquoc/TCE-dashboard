@@ -1,34 +1,18 @@
-name: "WF-03 TCE Deploy Orchestrator"
+name: "WF-03 TCE Production Deploy"
 
 on:
+  push:
+    branches: [master]
   workflow_dispatch:
     inputs:
-      environment:
-        description: "Deployment environment"
-        required: true
-        type: choice
-        options: [stg, prod]
-        default: stg
       confirm:
-        description: "For prod type DEPLOY-TCE-PROD; leave blank for stg"
-        required: false
+        description: "Type DEPLOY-TCE-PROD to confirm a manual production deploy"
+        required: true
         default: ""
+        type: string
 
 jobs:
-  bootstrap:
-    uses: ./.github/workflows/wf-10-tce-k3s-bootstrap.yml
-    secrets: inherit
-
-  deploy-stg:
-    if: ${{ inputs.environment == 'stg' }}
-    needs: bootstrap
-    uses: ./.github/workflows/wf-04-tce-staging-deploy.yml
-    with:
-      deploy: true
-    secrets: inherit
-
   deploy-prod:
-    if: ${{ inputs.environment == 'prod' && inputs.confirm == 'DEPLOY-TCE-PROD' }}
-    needs: bootstrap
+    if: ${{ github.event_name == 'push' || inputs.confirm == 'DEPLOY-TCE-PROD' }}
     uses: ./.github/workflows/wf-05-tce-production-deploy.yml
     secrets: inherit
