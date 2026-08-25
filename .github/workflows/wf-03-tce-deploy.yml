@@ -8,17 +8,20 @@ on:
 permissions:
   contents: read
 
+env:
+  TARGET_PLATFORM: linux/arm64
+
 jobs:
   build-frontend:
     name: Build frontend
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
       - name: Validate frontend
         run: test -f Dockerfile
       - name: Build frontend image
-        run: docker build --pull -t tce-frontend:prod -f Dockerfile .
+        run: docker buildx build --pull --platform "$TARGET_PLATFORM" -t tce-frontend:prod -f Dockerfile --load .
       - name: Export frontend image
         run: docker save tce-frontend:prod | gzip > /tmp/tce-frontend.tar.gz
       - name: Upload frontend image
@@ -31,7 +34,7 @@ jobs:
   build-backend:
     name: Build backend
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
       - name: Validate backend
@@ -44,7 +47,7 @@ jobs:
           test -d libs
           test -d packages
       - name: Build backend image
-        run: docker build --pull -t tce-service:prod -f apps/service/Dockerfile .
+        run: docker buildx build --pull --platform "$TARGET_PLATFORM" -t tce-service:prod -f apps/service/Dockerfile --load .
       - name: Export backend image
         run: docker save tce-service:prod | gzip > /tmp/tce-service.tar.gz
       - name: Upload backend image
