@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { CONTRACT_TOKENS } from '@tce/contracts';
 import { SupabaseCredentialAdapter, SupabaseOrderAdapter, SupabasePositionAdapter } from '@tce/db';
 import { SsiApplicationService } from './ssi.application.service';
+import { BinanceFuturesService } from './binance-futures.service';
 import { PlatformCredentialsController } from './platform-credentials.controller';
 import { DbModule } from '../db/db.module';
 import { AuthModule } from '../auth/auth.module';
@@ -15,7 +16,8 @@ import { SupabaseClientService } from '../db/supabase.client';
     { provide: CONTRACT_TOKENS.positionRepository, inject: [SupabaseClientService], useFactory: (db: SupabaseClientService) => new SupabasePositionAdapter(db.db) },
     { provide: CONTRACT_TOKENS.orderRepository, inject: [SupabaseClientService], useFactory: (db: SupabaseClientService) => new SupabaseOrderAdapter(db.db) },
     SsiApplicationService,
+    BinanceFuturesService,
   ],
-  exports: [CONTRACT_TOKENS.credentials, CONTRACT_TOKENS.positionRepository, CONTRACT_TOKENS.orderRepository, SsiApplicationService],
+  exports: [CONTRACT_TOKENS.credentials, CONTRACT_TOKENS.positionRepository, CONTRACT_TOKENS.orderRepository, SsiApplicationService, BinanceFuturesService],
 })
 export class PlatformCredentialsModule {}
