@@ -129,8 +129,8 @@ jobs:
       - name: Render immutable production manifests
         run: |
           set -euo pipefail
-          sed "s#tce-frontend:prod#tce-frontend:$IMAGE_TAG#g" infra/k3s/frontend-prod.yaml > /tmp/frontend-prod.yaml
-          sed "s#tce-service:prod#tce-service:$IMAGE_TAG#g" infra/k3s/service-prod.yaml > /tmp/service-prod.yaml
+          sed "s#tce-frontend:prod#docker.io/library/tce-frontend:$IMAGE_TAG#g" infra/k3s/frontend-prod.yaml > /tmp/frontend-prod.yaml
+          sed "s#tce-service:prod#docker.io/library/tce-service:$IMAGE_TAG#g" infra/k3s/service-prod.yaml > /tmp/service-prod.yaml
       - name: Configure SSH
         run: |
           set -euo pipefail
@@ -201,8 +201,8 @@ jobs:
             --from-literal=MFA_ENCRYPTION_KEY="$MFA_KEY" \
             --dry-run=client -o yaml | sudo kubectl apply -f -
 
-          deploy_and_wait /tmp/service-prod.yaml tce-service "tce-service:$IMAGE_TAG"
-          deploy_and_wait /tmp/frontend-prod.yaml tce-frontend "tce-frontend:$IMAGE_TAG"
+          deploy_and_wait /tmp/service-prod.yaml tce-service "docker.io/library/tce-service:$IMAGE_TAG"
+          deploy_and_wait /tmp/frontend-prod.yaml tce-frontend "docker.io/library/tce-frontend:$IMAGE_TAG"
 
           sudo kubectl -n "$NS" get pods,svc,ingress
           sudo kubectl -n "$NS" get certificate,secret 2>/dev/null || true
