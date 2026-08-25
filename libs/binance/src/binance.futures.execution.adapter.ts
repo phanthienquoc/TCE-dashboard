@@ -37,8 +37,42 @@ export class BinanceFuturesExecutionAdapter implements FuturesExecutionPort {
   private result<T>(data: T): ContractResult<T> { return { ok: true, data }; }
 
   private fail(error: unknown): ContractResult<never> {
-    const message = error instanceof Error ? error.message : String(error);
-    return { ok: false, error: { code: 'PROVIDER_ERROR', message, retryable: false, provider: 'binance' } };
+    const candidate = (error && typeof error === 'object') ? error as Record<string, unknown> : undefined;
+    const response = candidate?.response && typeof candidate.response === 'object'
+      ? candidate.response as Record<string, unknown>
+      : undefined;
+    const payload = response?.data && typeof response.data === 'object'
+      ? response.data as Record<string, unknown>
+      : candidate?.data && typeof candidate.data === 'object'
+        ? candidate.data as Record<string, unknown>
+        : candidate?.body && typeof candidate.body === 'object'
+          ? candidate.body as Record<string, unknown>
+          : candidate;
+
+    const message = typeof payload?.msg === 'string' ? payload.msg
+      : typeof payload?.message === 'string' ? payload.message
+        : typeof candidate?.message === 'string' ? candidate.message
+          : error instanceof Error ? error.message
+            : (() => {
+                try { return JSON.stringify(error); } catch { return String(error); }
+              })();
+
+    const details: Record<string, unknown> = {};
+    const providerCode = payload?.code;
+    const httpStatus = response?.status ?? candidate?.status;
+    if (typeof providerCode === 'number' || typeof providerCode === 'string') details.providerCode = providerCode;
+    if (typeof httpStatus === 'number') details.httpStatus = httpStatus;
+
+    return {
+      ok: false,
+      error: {
+        code: 'PROVIDER_ERROR',
+        message: message || 'Binance provider request failed',
+        retryable: false,
+        provider: 'binance',
+        ...(Object.keys(details).length ? { details } : {}),
+      },
+    };
   }
 
   async testConnection(): Promise<ContractResult<{ connected: boolean; environment: BinanceFuturesEnvironment; balances: unknown[] }>> {
