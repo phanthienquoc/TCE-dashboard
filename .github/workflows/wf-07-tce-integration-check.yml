@@ -8,7 +8,7 @@ on:
         required: true
         default: all
         type: choice
-        options: [all, binance-testnet, staging-api]
+        options: [all, binance-testnet, staging-api, order-integration]
   schedule:
     - cron: '17 */6 * * *'
 
@@ -60,8 +60,6 @@ jobs:
               jq -c '{code, msg}' "$workdir/private.body" 2>/dev/null || cat "$workdir/private.body"
               return 1
             fi
-            # A successful signed USER_DATA request is the integration signal.
-            # Testnet can return an empty object, so do not require production account fields.
             jq -e 'type == "object" and (has("code") | not)' "$workdir/private.body" >/dev/null
             echo "Binance Testnet private API: OK (canTrade=$(jq -r '.canTrade // "unknown"' "$workdir/private.body"))"
           }
@@ -107,3 +105,83 @@ jobs:
           if [ "$http_code" != '200' ]; then echo "TCE staging Binance integration failed with HTTP $http_code"; jq -c '{statusCode, message, error}' "$response_file" 2>/dev/null || true; exit 1; fi
           jq -e '.ok == true and .data.connected == true and .data.environment == "testnet"' "$response_file" >/dev/null
           echo 'TCE staging → Binance Testnet integration: OK'
+
+  order-integration:
+    name: TCE staging → Binance Testnet order integration
+    if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.target == 'order-integration' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      TCE_STG_URL: ${{ secrets.TCE_STG_URL }}
+      TCE_STG_JWT: ${{ secrets.TCE_STG_JWT }}
+      TEST_SYMBOL: BTCUSDT
+      TEST_QUANTITY: '0.002'
+    steps:
+      - name: Validate order-test configuration
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$TCE_STG_URL" || { echo 'Missing TCE_STG_URL'; exit 1; }
+          test -n "$TCE_STG_JWT" || { echo 'Missing TCE_STG_JWT'; exit 1; }
+          echo "Order integration target: Binance Testnet / $TEST_SYMBOL / quantity=$TEST_QUANTITY"
+          echo 'Safety: this job is manual-only and never runs from the scheduled/all target.'
+
+      - name: Place testnet market entry order
+        id: entry
+        shell: bash
+        run: |
+          set -euo pipefail
+          base_url="${TCE_STG_URL%/}"
+          response_file="$(mktemp)"
+          trap 'rm -f "$response_file"' EXIT
+          client_order_id="tce_wf07_${GITHUB_RUN_ID}_${GITHUB_RUN_ATTEMPT}_entry"
+          payload="$(jq -nc --arg symbol "$TEST_SYMBOL" --arg side BUY --arg positionSide BOTH --arg clientOrderId "$client_order_id" --argjson quantity "$TEST_QUANTITY" '{environment:"testnet",symbol:$symbol,side:$side,positionSide:$positionSide,quantity:$quantity,reduceOnly:false,clientOrderId:$clientOrderId}')"
+
+          http_code="$(curl --silent --show-error --output "$response_file" --write-out '%{http_code}' \
+            --request POST \
+            --header 'Accept: application/json' \
+            --header 'Content-Type: application/json' \
+            --header "Authorization: Bearer $TCE_STG_JWT" \
+            --data "$payload" \
+            "$base_url/api/platform/credentials/binance/order")"
+
+          echo "Entry HTTP $http_code"
+          cat "$response_file"
+          test "$http_code" = '200'
+          jq -e '.ok == true and (.data.orderId | tostring | length > 0) and .data.symbol == "BTCUSDT" and .data.side == "BUY" and .data.source == "binance"' "$response_file" >/dev/null
+          order_id="$(jq -r '.data.orderId' "$response_file")"
+          status="$(jq -r '.data.status' "$response_file")"
+          echo "entry_order_id=$order_id" >> "$GITHUB_OUTPUT"
+          echo "Entry order accepted: orderId=$order_id status=$status"
+
+      - name: Close testnet position with reduce-only market order
+        if: ${{ success() }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          base_url="${TCE_STG_URL%/}"
+          response_file="$(mktemp)"
+          trap 'rm -f "$response_file"' EXIT
+          client_order_id="tce_wf07_${GITHUB_RUN_ID}_${GITHUB_RUN_ATTEMPT}_close"
+          payload="$(jq -nc --arg symbol "$TEST_SYMBOL" --arg side SELL --arg positionSide BOTH --arg clientOrderId "$client_order_id" --argjson quantity "$TEST_QUANTITY" '{environment:"testnet",symbol:$symbol,side:$side,positionSide:$positionSide,quantity:$quantity,reduceOnly:true,clientOrderId:$clientOrderId}')"
+
+          http_code="$(curl --silent --show-error --output "$response_file" --write-out '%{http_code}' \
+            --request POST \
+            --header 'Accept: application/json' \
+            --header 'Content-Type: application/json' \
+            --header "Authorization: Bearer $TCE_STG_JWT" \
+            --data "$payload" \
+            "$base_url/api/platform/credentials/binance/order")"
+
+          echo "Close HTTP $http_code"
+          cat "$response_file"
+          test "$http_code" = '200'
+          jq -e '.ok == true and (.data.orderId | tostring | length > 0) and .data.symbol == "BTCUSDT" and .data.side == "SELL" and .data.source == "binance"' "$response_file" >/dev/null
+          echo "Testnet position close accepted: orderId=$(jq -r '.data.orderId' "$response_file") status=$(jq -r '.data.status' "$response_file")"
+
+      - name: Report order integration result
+        if: ${{ always() }}
+        shell: bash
+        run: |
+          echo 'WF-07 order integration flow completed.'
+          echo 'Flow: TCE staging JWT → /binance/order → Binance Testnet entry → reduce-only close.'
