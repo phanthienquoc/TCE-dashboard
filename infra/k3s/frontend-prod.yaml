@@ -12,6 +12,8 @@ spec:
           image: tce-frontend:prod
           imagePullPolicy: IfNotPresent
           ports: [{ name: http, containerPort: 80 }]
+          env:
+            - { name: TCE_API_INTERNAL_URL, value: "http://tce-service:8210" }
           readinessProbe: { httpGet: { path: /, port: http }, initialDelaySeconds: 5, periodSeconds: 10 }
           livenessProbe: { httpGet: { path: /, port: http }, initialDelaySeconds: 15, periodSeconds: 20 }
           resources: { requests: { cpu: 50m, memory: 64Mi }, limits: { cpu: 250m, memory: 256Mi } }
