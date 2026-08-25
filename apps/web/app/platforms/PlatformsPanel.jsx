@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { BINANCE_FUTURES_URLS } from '@tce/binance';
+import { BINANCE_FUTURES_URLS } from '@tce/binance/constants';
 import { getCurrentSsiInfo, hasBinanceCredentials, hasSsiCredentials, placeBinanceOrder, placeBinanceSl, placeBinanceTp, requestSsiOtp, saveBinanceCredentials, saveSsiCredentials, syncSsiPortfolio, testBinanceConnection, testSsiConnection } from '../../services/platform';
 import styles from './PlatformsPanel.module.css';
 
