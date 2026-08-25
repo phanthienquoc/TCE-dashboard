@@ -144,8 +144,13 @@ jobs:
           sudo kubectl -n tce-prod create secret generic tce-app-secrets --from-literal=SUPABASE_URL="$SUPABASE_URL" --from-literal=SUPABASE_SERVICE_ROLE_KEY="$SUPABASE_KEY" --from-literal=JWT_SECRET="$JWT_SECRET" --dry-run=client -o yaml | sudo kubectl apply -f -
           sudo kubectl -n tce-prod create secret generic tce-auth --from-literal=MFA_ENCRYPTION_KEY="$MFA_KEY" --dry-run=client -o yaml | sudo kubectl apply -f -
           sudo kubectl apply -f /tmp/service-prod.yaml -f /tmp/frontend-prod.yaml
+
+          # Manifests keep stable image tags for the air-gapped/local-image k3s node.
+          # Force new pods so the freshly imported ARM64 images are actually used.
+          sudo kubectl -n tce-prod rollout restart deployment/tce-service deployment/tce-frontend
           sudo kubectl -n tce-prod rollout status deployment/tce-service --timeout=180s
           sudo kubectl -n tce-prod rollout status deployment/tce-frontend --timeout=180s
+
           sudo kubectl -n tce-prod get pods,svc,ingress
           sudo kubectl -n tce-prod get certificate,secret 2>/dev/null || true
           rm -f /tmp/tce-frontend.tar.gz /tmp/tce-service.tar.gz /tmp/service-prod.yaml /tmp/frontend-prod.yaml
