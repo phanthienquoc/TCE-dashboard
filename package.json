@@ -11,13 +11,14 @@
     "build:web": "next build apps/web",
     "build:nx:web": "nx build web",
     "build:service": "nx build service",
-    "serve:web": "next dev apps/web",
+    "serve:web": "nx serve web",
     "serve:service": "nx serve service",
     "start:web": "next start apps/web -p 80"
   },
   "dependencies": {
     "@nestjs/common": "^11.1.6",
     "@nestjs/core": "^11.1.6",
+    "@nestjs/platform-express": "^11.1.6",
     "@simplewebauthn/browser": "^13.3.0",
     "@simplewebauthn/server": "^13.3.2",
     "@ssi.developer/ssi-sdk": "^3.2.0",
