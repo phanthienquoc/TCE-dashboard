@@ -7,92 +7,76 @@ import { clearSession, getAccessToken, saveSession } from './session';
 import { useAuthStore } from './auth-store';
 import { getCurrentUser, login, logout } from '../services/auth';
 
-// Compatibility layer: existing components can keep using useAuth(), while
-// the actual auth state lives in the lightweight Zustand store.
+// Client-only auth coordinator. Authentication state is intentionally kept
+// out of SSR: localStorage/JWT are browser concerns and do not need a
+// hydration gate before the protected pages can start their own client load.
 export function AuthProvider({ children }) {
   const pathname = usePathname();
 
-  const syncSession = useCallback((token) => {
-    const nextToken = token || '';
-    setAccessToken(nextToken);
-    useAuthStore.getState().setAccessToken(nextToken);
-  }, []);
-
-  const signIn = useCallback(async (email, password) => {
-    const session = await login(email, password);
-    if (session?.accessToken) {
-      saveSession(session);
-      syncSession(session.accessToken);
-    }
-    if (!session?.mfaRequired) {
-      useAuthStore.getState().setUser(await getCurrentUser());
-    }
-    return session;
-  }, [syncSession]);
-
-  const signOut = useCallback(async () => {
-    try {
-      await logout();
-    } finally {
-      syncSession('');
-      clearSession();
-      useAuthStore.getState().clearAuth();
-    }
-  }, [syncSession]);
-
-  const refresh = useCallback(async () => {
-    try {
-      const currentUser = await getCurrentUser();
-      useAuthStore.getState().setUser(currentUser);
-      return currentUser;
-    } catch (error) {
-      useAuthStore.getState().setUser(null);
-      throw error;
-    }
-  }, []);
-
   useEffect(() => {
-    // Explicit client hydration boundary. The initial Zustand state is
-    // deterministic on SSR and is marked hydrated only after the browser
-    // mounts, preventing SSR/client state races.
-    useAuthStore.getState().setHydrated(true);
-    syncSession(getAccessToken());
+    const token = getAccessToken();
+    setAccessToken(token);
+    useAuthStore.getState().setAccessToken(token);
+    useAuthStore.getState().setReady(true);
+    useAuthStore.getState().setLoading(false);
 
     const onRefreshed = (event) => {
-      const token = event.detail?.accessToken || '';
-      if (token) saveSession({ accessToken: token });
-      syncSession(token);
+      const nextToken = event.detail?.accessToken || '';
+      setAccessToken(nextToken);
+      useAuthStore.getState().setAccessToken(nextToken);
     };
     const onExpired = () => {
-      syncSession('');
+      setAccessToken('');
       clearSession();
       useAuthStore.getState().clearAuth();
     };
 
     window.addEventListener('tce:auth-refreshed', onRefreshed);
     window.addEventListener('tce:auth-expired', onExpired);
-
-    if (pathname === '/login') {
-      useAuthStore.getState().setReady(true);
-      useAuthStore.getState().setLoading(false);
-    } else {
-      (async () => {
-        try {
-          await refresh();
-        } catch {
-          useAuthStore.getState().setUser(null);
-        } finally {
-          useAuthStore.getState().setReady(true);
-          useAuthStore.getState().setLoading(false);
-        }
-      })();
-    }
-
     return () => {
       window.removeEventListener('tce:auth-refreshed', onRefreshed);
       window.removeEventListener('tce:auth-expired', onExpired);
     };
-  }, [pathname, refresh, syncSession]);
+  }, []);
+
+  // Populate user information in the background. This never blocks the
+  // client-side route or API calls and therefore cannot create the old
+  // reload/background-resume race.
+  useEffect(() => {
+    if (pathname === '/login' || !getAccessToken()) return;
+    getCurrentUser()
+      .then((user) => useAuthStore.getState().setUser(user))
+      .catch(() => useAuthStore.getState().setUser(null));
+  }, [pathname]);
+
+  const signIn = useCallback(async (email, password) => {
+    const session = await login(email, password);
+    if (session?.accessToken) {
+      saveSession(session);
+      setAccessToken(session.accessToken);
+      useAuthStore.getState().setAccessToken(session.accessToken);
+    }
+    if (!session?.mfaRequired) {
+      useAuthStore.getState().setUser(await getCurrentUser());
+    }
+    return session;
+  }, []);
+
+  const signOut = useCallback(async () => {
+    try {
+      await logout();
+    } finally {
+      setAccessToken('');
+      clearSession();
+      useAuthStore.getState().clearAuth();
+    }
+  }, []);
+
+  const refresh = useCallback(async () => {
+    const currentUser = await getCurrentUser();
+    useAuthStore.getState().setUser(currentUser);
+    return currentUser;
+  }, []);
 
   return children;
 }
@@ -102,18 +86,17 @@ export function useAuth() {
   const accessToken = useAuthStore((state) => state.accessToken);
   const ready = useAuthStore((state) => state.ready);
   const loading = useAuthStore((state) => state.loading);
-  const signIn = useCallback((email, password) => {
-    return login(email, password).then(async (session) => {
-      if (session?.accessToken) {
-        saveSession(session);
-        setAccessToken(session.accessToken);
-        useAuthStore.getState().setAccessToken(session.accessToken);
-      }
-      if (!session?.mfaRequired) {
-        useAuthStore.getState().setUser(await getCurrentUser());
-      }
-      return session;
-    });
+  const signIn = useCallback(async (email, password) => {
+    const session = await login(email, password);
+    if (session?.accessToken) {
+      saveSession(session);
+      setAccessToken(session.accessToken);
+      useAuthStore.getState().setAccessToken(session.accessToken);
+    }
+    if (!session?.mfaRequired) {
+      useAuthStore.getState().setUser(await getCurrentUser());
+    }
+    return session;
   }, []);
   const signOut = useCallback(async () => {
     try { await logout(); } finally {
