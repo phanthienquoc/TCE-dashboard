@@ -25,9 +25,17 @@ spec:
 ---
 apiVersion: networking.k8s.io/v1
 kind: Ingress
-metadata: { name: tce, namespace: tce-prod }
+metadata:
+  name: tce
+  namespace: tce-prod
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
 spec:
   ingressClassName: traefik
+  tls:
+    - hosts:
+        - tce.mrcute.space
+      secretName: tce-mrcute-tls
   rules:
     - host: tce.mrcute.space
       http:
