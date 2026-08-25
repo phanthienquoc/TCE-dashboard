@@ -83,6 +83,28 @@ test('entry order maps market payload correctly and never calls a real Binance A
   });
 });
 
+test('normalizes Binance object errors instead of returning [object Object]', async () => {
+  USDMClient.prototype.submitNewOrder = async function () {
+    throw { code: -2015, msg: 'Invalid API-key, IP, or permissions for action.' };
+  };
+
+  const result = await new BinanceFuturesExecutionAdapter({
+    apiKey: 'test-key',
+    apiSecret: 'test-secret',
+  }).placeEntry({
+    symbol: 'BTCUSDT', side: 'BUY', quantity: 0.001,
+  });
+
+  assert.equal(result.ok, false);
+  if (!result.ok) {
+    assert.equal(result.error.code, 'PROVIDER_ERROR');
+    assert.equal(result.error.message, 'Invalid API-key, IP, or permissions for action.');
+    assert.equal(result.error.provider, 'binance');
+    assert.deepEqual(result.error.details, { providerCode: -2015 });
+    assert.notEqual(result.error.message, '[object Object]');
+  }
+});
+
 test('entry order maps limit and stop trigger fields', async () => {
   const calls: Record<string, unknown>[] = [];
   USDMClient.prototype.submitNewOrder = async function (params) {
