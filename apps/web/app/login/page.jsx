@@ -5,9 +5,6 @@ import { useRouter } from 'next/navigation';
 import { notifyApiError } from '../../lib/api';
 import { useAuth } from '../../lib/auth-context';
 
-export const dynamic = 'force-dynamic';
-export const revalidate = 0;
-
 const DEFAULT_LOGIN_EMAIL = 'phanthienquoc@outlook.com';
 
 export default function LoginPage() {
