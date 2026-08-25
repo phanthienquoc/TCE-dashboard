@@ -1,24 +1,14 @@
-name: WF-07 TCE Integration Check
+name: WF-07 TCE 3rd-Party Integration Check
 
 on:
   workflow_dispatch:
     inputs:
       target:
-        description: Integration target
+        description: 3rd-party integration target
         required: true
         default: all
         type: choice
-        options: [all, binance-testnet, staging-api, order-integration]
-      tce_stg_url:
-        description: Optional TCE staging domain; blank skips TCE staging check
-        required: false
-        default: ''
-        type: string
-      tce_stg_jwt:
-        description: Optional TCE staging JWT; blank skips TCE staging check
-        required: false
-        default: ''
-        type: string
+        options: [all, binance-testnet, order-integration]
   schedule:
     - cron: '17 */6 * * *'
 
@@ -26,7 +16,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: tce-integration-check
+  group: tce-3rd-party-integration-check
   cancel-in-progress: false
 
 env:
@@ -67,32 +57,6 @@ jobs:
           public_status=0; private_status=0; wait "$public_pid" || public_status=$?; wait "$private_pid" || private_status=$?
           echo '=== PUBLIC CHECK LOG ==='; cat "$workdir/public.log"; echo '=== PRIVATE CHECK LOG ==='; cat "$workdir/private.log"; test "$public_status" -eq 0; test "$private_status" -eq 0
 
-  staging-api:
-    name: Optional TCE staging → Binance Testnet integration
-    if: ${{ github.event_name == 'workflow_dispatch' && (github.event.inputs.target == 'all' || github.event.inputs.target == 'staging-api') }}
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    env:
-      TCE_STG_URL: ${{ github.event.inputs.tce_stg_url }}
-      TCE_STG_JWT: ${{ github.event.inputs.tce_stg_jwt }}
-    steps:
-      - name: Skip staging check when domain/JWT are blank
-        if: ${{ env.TCE_STG_URL == '' || env.TCE_STG_JWT == '' }}
-        shell: bash
-        run: |
-          echo 'TCE staging domain/JWT not provided.'
-          echo 'System integration check: PASS (TCE staging check skipped by design).'
-
-      - name: Check TCE staging Binance connection
-        if: ${{ env.TCE_STG_URL != '' && env.TCE_STG_JWT != '' }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          base_url="${TCE_STG_URL%/}"; response_file="$(mktemp)"; trap 'rm -f "$response_file"' EXIT
-          http_code="$(curl --silent --show-error --output "$response_file" --write-out '%{http_code}' --request POST --header 'Accept: application/json' --header 'Content-Type: application/json' --header "Authorization: Bearer $TCE_STG_JWT" --data '{"environment":"testnet"}' "$base_url/api/platform/credentials/binance/test")"
-          if [ "$http_code" != '200' ]; then echo "TCE staging Binance integration failed with HTTP $http_code"; jq -c '{statusCode, message, error}' "$response_file" 2>/dev/null || true; exit 1; fi
-          jq -e '.ok == true and .data.connected == true and .data.environment == "testnet"' "$response_file" >/dev/null; echo 'TCE staging → Binance Testnet integration: OK'
-
   order-integration:
     name: Binance Testnet order integration (3rd-party only)
     if: ${{ github.event_name == 'workflow_dispatch' && (github.event.inputs.target == 'all' || github.event.inputs.target == 'order-integration') }}
@@ -111,7 +75,7 @@ jobs:
           test -n "$BINANCE_API_KEY" || { echo 'Missing BINANCE_TESTNET_API_KEY'; exit 1; }
           test -n "$BINANCE_API_SECRET" || { echo 'Missing BINANCE_TESTNET_API_SECRET'; exit 1; }
           echo "Direct 3rd-party test: Binance Futures Testnet / $TEST_SYMBOL / quantity=$TEST_QUANTITY"
-          echo 'Safety: manual-only; this target never runs from schedule or all.'
+          echo 'Safety: manual-only; this target never runs from schedule.'
 
       - name: Read Binance Testnet server time
         id: time
@@ -123,7 +87,6 @@ jobs:
           echo "timestamp=$timestamp" >> "$GITHUB_OUTPUT"
 
       - name: Place Binance Testnet market entry
-        id: entry
         shell: bash
         run: |
           set -euo pipefail
@@ -132,7 +95,6 @@ jobs:
           echo "Entry HTTP $http_code"; jq -c '{orderId, symbol, side, status, executedQty, code, msg}' "$response_file" 2>/dev/null || cat "$response_file"
           test "$http_code" = '200' || test "$http_code" = '201'
           jq -e '.orderId != null and .symbol == "BTCUSDT" and .side == "BUY"' "$response_file" >/dev/null
-          echo "entry_order_id=$(jq -r '.orderId' "$response_file")" >> "$GITHUB_OUTPUT"
 
       - name: Close Binance Testnet position with reduce-only market order
         if: ${{ success() }}
