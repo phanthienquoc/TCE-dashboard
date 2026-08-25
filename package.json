@@ -37,6 +37,7 @@
     "@tailwindcss/postcss": "^4.1.0",
     "nx": "^21.4.1",
     "tailwindcss": "^4.1.0",
+    "tsx": "^4.20.3",
     "typescript": "^5.9.2"
   }
 }
