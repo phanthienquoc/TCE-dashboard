@@ -21,5 +21,15 @@
 .stat b { display:block; color:#99939f; font-size:9px; }
 .stat strong { display:block; margin-top:5px; font-size:18px; }
 .output { grid-column:1/-1; max-height:360px; overflow:auto; margin:0; padding:12px; border:1px solid #292830; border-radius:12px; background:#0a0a0d; color:#bfb7cc; font:9px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace; white-space:pre-wrap; word-break:break-word; }
-@media (max-width:640px) { .fields{grid-template-columns:1fr;} .actions .button{flex:1 1 calc(50% - 8px);} .head{align-items:flex-start;} }
-@media (max-width:420px) { .actions .button{flex-basis:100%;} }
+.collapseHeader { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-top:14px; padding:12px 13px; border:1px solid #2b2932; border-radius:13px; background:#111116; }
+.collapseHeader > div { min-width:0; display:grid; gap:4px; }
+.collapseHeader b { color:#e8e3ee; font-size:11px; }
+.collapseHeader span { color:#88838f; font-size:9px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.collapseButton { border:1px solid #393640; border-radius:9px; padding:7px 9px; background:#19181f; color:#dcd7e3; font-size:9px; font-weight:800; cursor:pointer; white-space:nowrap; }
+.collapseBody { padding:12px 0 2px; }
+.executionHeader { margin-top:18px; }
+.orderBanner { display:flex; flex-direction:column; gap:3px; margin-bottom:12px; padding:12px; border:1px solid #34313e; border-radius:12px; background:#0f0f14; }
+.orderBanner strong { font-size:16px; letter-spacing:-.02em; }
+.orderBanner small { color:#77727d; font:9px/1.4 ui-monospace,SFMono-Regular,Menlo,monospace; overflow-wrap:anywhere; }
+@media (max-width:640px) { .fields{grid-template-columns:1fr;} .actions .button{flex:1 1 calc(50% - 8px);} .head{align-items:flex-start;} .collapseHeader{align-items:flex-start;} }
+@media (max-width:420px) { .actions .button{flex-basis:100%;} .collapseHeader{flex-direction:column;} .collapseButton{width:100%;} }
