@@ -7,11 +7,9 @@ export const useAuthStore = create((set) => ({
   accessToken: '',
   ready: false,
   loading: true,
-  hydrated: false,
   setUser: (user) => set({ user }),
   setAccessToken: (accessToken) => set({ accessToken: accessToken || '' }),
   setReady: (ready) => set({ ready }),
   setLoading: (loading) => set({ loading }),
-  setHydrated: (hydrated) => set({ hydrated }),
   clearAuth: () => set({ user: null, accessToken: '' }),
 }));
