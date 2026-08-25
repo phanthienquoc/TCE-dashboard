@@ -161,11 +161,12 @@ jobs:
           verify_image() {
             local image="$1"
             echo "Checking k3s image: $image"
-            sudo k3s ctr images inspect "$image" >/dev/null 2>&1 || {
-              echo "ERROR: image not found: $image"
+            if ! sudo k3s ctr images inspect "$image" >/dev/null 2>&1; then
+              echo "ERROR: image not found after import: $image"
+              echo "=== IMPORTED TCE IMAGES ==="
               sudo k3s ctr images list | grep 'tce-' || true
               exit 1
-            }
+            fi
           }
 
           diagnostics() {
