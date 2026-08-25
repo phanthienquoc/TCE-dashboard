@@ -78,7 +78,7 @@ test('entry order maps market payload correctly and never calls a real Binance A
     quantity: 0.001,
     price: undefined,
     stopPrice: undefined,
-    reduceOnly: false,
+    reduceOnly: 'false',
     newClientOrderId: undefined,
     timeInForce: undefined,
   });
@@ -129,7 +129,7 @@ test('take profit defaults to reduceOnly and uses TAKE_PROFIT_MARKET', async () 
 
   assert.equal(received?.type, 'TAKE_PROFIT_MARKET');
   assert.equal(received?.stopPrice, 4000);
-  assert.equal(received?.reduceOnly, true);
+  assert.equal(received?.reduceOnly, 'true');
   assert.equal(received?.quantity, undefined);
 });
 
@@ -153,6 +153,6 @@ test('stop loss defaults to reduceOnly and uses STOP_MARKET', async () => {
 
   assert.equal(received?.type, 'STOP_MARKET');
   assert.equal(received?.stopPrice, 3500);
-  assert.equal(received?.reduceOnly, true);
+  assert.equal(received?.reduceOnly, 'true');
   assert.equal(received?.quantity, undefined);
 });
