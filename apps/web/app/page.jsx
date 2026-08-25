@@ -4,8 +4,6 @@ import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { getBackendStatus } from '../services/auth';
 import { getDashboardData } from '../services/dashboard';
-import { getAccessToken } from '../lib/session';
-import { setAccessToken } from '../lib/api';
 import { useAuth } from '../lib/auth-context';
 import PlatformsPanel from './platforms/PlatformsPanel';
 
@@ -14,45 +12,38 @@ const num = (value) => Number(value || 0).toLocaleString('vi-VN');
 
 export default function DashboardPage() {
   const router = useRouter();
-  const { signOut } = useAuth();
-  const [clientReady, setClientReady] = useState(false);
+  const { status, signOut } = useAuth();
   const [data, setData] = useState(null);
   const [backend, setBackend] = useState({ ok: false, checking: true });
   const [error, setError] = useState('');
   const [tab, setTab] = useState('overview');
 
   useEffect(() => {
-    // This page is deliberately client-driven. Read the token directly from
-    // browser storage before the first protected API request; do not wait for
-    // SSR/Zustand hydration or an /auth/me request to become ready.
-    const token = getAccessToken();
-    if (!token) {
-      router.replace('/login');
-      return;
-    }
-    setAccessToken(token);
-    setClientReady(true);
-  }, [router]);
+    if (status === 'anonymous') router.replace('/login');
+  }, [status, router]);
 
   useEffect(() => {
     let active = true;
-    if (!clientReady) return () => { active = false; };
+    if (status !== 'authenticated') return () => { active = false; };
 
     const load = async () => {
       try {
-        const status = await getBackendStatus();
+        setError('');
+        const [statusData, dashboard] = await Promise.all([
+          getBackendStatus(),
+          getDashboardData(),
+        ]);
         if (!active) return;
-        setBackend({ ...status, ok: status?.configured !== false, checking: false });
-        const dashboard = await getDashboardData();
-        if (active) setData(dashboard);
+        setBackend({ ...statusData, ok: statusData?.configured !== false, checking: false });
+        setData(dashboard);
       } catch (err) {
         if (!active) return;
-        if (err.message === 'Session expired' || err.response?.status === 401) {
+        setBackend((current) => ({ ...current, checking: false }));
+        if (err.response?.status === 401 || err.message === 'Session expired') {
           await signOut();
           router.replace('/login');
           return;
         }
-        setBackend((current) => ({ ...current, checking: false }));
         setError(err.response?.data?.message || err.message || 'Unable to load dashboard');
       }
     };
@@ -60,7 +51,7 @@ export default function DashboardPage() {
     void load();
     const timer = window.setInterval(load, 30000);
     return () => { active = false; window.clearInterval(timer); };
-  }, [clientReady, router, signOut]);
+  }, [status, router, signOut]);
 
   const account = data?.account || {};
   const positions = data?.positions || [];
@@ -72,11 +63,13 @@ export default function DashboardPage() {
   const recoveryPct = target ? Math.round(recovered / target * 100) : 0;
   const title = useMemo(() => ({ overview: 'Dashboard', positions: 'Positions', orders: 'Recent orders', platforms: 'Trading Platforms', security: 'Security' }[tab] || 'Dashboard'), [tab]);
 
-  if (!clientReady || (!data && !error)) return <div className="loading-screen">Loading TCE…</div>;
+  if (status === 'loading') return <div className="loading-screen">Checking session…</div>;
+  if (status !== 'authenticated') return <div className="loading-screen">Redirecting to sign in…</div>;
+  if (!data && !error) return <div className="loading-screen">Loading TCE…</div>;
 
   return <main>
     <div className={`backend-status ${backend.ok ? 'up' : 'down'}`}>● {backend.checking ? 'Checking backend…' : backend.ok ? 'Backend online' : 'Backend unavailable'}</div>
-    <header className="app-header"><div><span className="eyebrow">TCE • TREASURY CASH EXTRACTION</span><h1>{title}</h1></div><button className="live" onClick={() => { signOut(); router.replace('/login'); }}>Sign out</button></header>
+    <header className="app-header"><div><span className="eyebrow">TCE • TREASURY CASH EXTRACTION</span><h1>{title}</h1></div><button className="live" onClick={async () => { await signOut(); router.replace('/login'); }}>Sign out</button></header>
     {error && <div className="error-banner">{error}</div>}
     {tab === 'overview' && <>
       <section className="hero"><div><span>Investigate value / total</span><strong>{money(deployed)}</strong><small>Your positions • P/L {money(account.unrealized_pnl)}</small></div><div className="ring" style={{ '--p': `${recoveryPct}%` }}><b>{recoveryPct}%</b></div></section>
