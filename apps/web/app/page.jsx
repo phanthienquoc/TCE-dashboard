@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { getBackendStatus } from '../services/auth';
 import { getDashboardData } from '../services/dashboard';
+import { useAuthStore } from '../lib/auth-store';
 import { useAuth } from '../lib/auth-context';
 import PlatformsPanel from './platforms/PlatformsPanel';
 
@@ -12,6 +13,7 @@ const num = (value) => Number(value || 0).toLocaleString('vi-VN');
 
 export default function DashboardPage() {
   const router = useRouter();
+  const hydrated = useAuthStore((state) => state.hydrated);
   const { accessToken, ready, signOut } = useAuth();
   const [data, setData] = useState(null);
   const [backend, setBackend] = useState({ ok: false, checking: true });
@@ -20,7 +22,7 @@ export default function DashboardPage() {
 
   useEffect(() => {
     let active = true;
-    if (!ready) return () => { active = false; };
+    if (!hydrated || !ready) return () => { active = false; };
     if (!accessToken) { router.replace('/login'); return () => { active = false; }; }
 
     const load = async () => {
@@ -45,7 +47,7 @@ export default function DashboardPage() {
     void load();
     const timer = window.setInterval(load, 30000);
     return () => { active = false; window.clearInterval(timer); };
-  }, [accessToken, ready, router, signOut]);
+  }, [accessToken, hydrated, ready, router, signOut]);
 
   const account = data?.account || {};
   const positions = data?.positions || [];
@@ -57,7 +59,7 @@ export default function DashboardPage() {
   const recoveryPct = target ? Math.round(recovered / target * 100) : 0;
   const title = useMemo(() => ({ overview: 'Dashboard', positions: 'Positions', orders: 'Recent orders', platforms: 'Trading Platforms', security: 'Security' }[tab] || 'Dashboard'), [tab]);
 
-  if (!ready || (!data && !error)) return <div className="loading-screen">Loading TCE…</div>;
+  if (!hydrated || !ready || (!data && !error)) return <div className="loading-screen">Loading TCE…</div>;
 
   return <main>
     <div className={`backend-status ${backend.ok ? 'up' : 'down'}`}>● {backend.checking ? 'Checking backend…' : backend.ok ? 'Backend online' : 'Backend unavailable'}</div>
