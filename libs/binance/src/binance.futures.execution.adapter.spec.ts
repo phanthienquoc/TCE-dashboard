@@ -33,8 +33,7 @@ test('testConnection uses Binance private API and identifies testnet', async () 
   const result = await new BinanceFuturesExecutionAdapter({
     apiKey: 'test-key',
     apiSecret: 'test-secret',
-    baseUrl: 'https://testnet.binancefuture.com',
-  }).testConnection();
+  }, 'testnet').testConnection();
 
   assert.equal(result.ok, true);
   if (result.ok) {
@@ -42,6 +41,17 @@ test('testConnection uses Binance private API and identifies testnet', async () 
     assert.equal(result.data.environment, 'testnet');
     assert.equal(result.data.balances.length, 1);
   }
+});
+
+test('production is the default Binance environment', async () => {
+  USDMClient.prototype.getBalance = async function () { return []; };
+  const result = await new BinanceFuturesExecutionAdapter({ apiKey: 'k', apiSecret: 's' }).testConnection();
+  assert.equal(result.ok, true);
+  if (result.ok) assert.equal(result.data.environment, 'production');
+});
+
+test('rejects unsupported Binance environment before making provider calls', () => {
+  assert.throws(() => new BinanceFuturesExecutionAdapter({ apiKey: 'k', apiSecret: 's' }, 'sandbox' as never), /Unsupported Binance environment/);
 });
 
 test('entry order maps market payload correctly and never calls a real Binance API', async () => {
@@ -63,24 +73,13 @@ test('entry order maps market payload correctly and never calls a real Binance A
     apiKey: 'test-key',
     apiSecret: 'test-secret',
   }).placeEntry({
-    symbol: 'btcusdt',
-    side: 'BUY',
-    quantity: 0.001,
-    positionSide: 'LONG',
+    symbol: 'btcusdt', side: 'BUY', quantity: 0.001, positionSide: 'LONG',
   });
 
   assert.equal(result.ok, true);
   assert.deepEqual(received, {
-    symbol: 'BTCUSDT',
-    side: 'BUY',
-    positionSide: 'LONG',
-    type: 'MARKET',
-    quantity: 0.001,
-    price: undefined,
-    stopPrice: undefined,
-    reduceOnly: 'false',
-    newClientOrderId: undefined,
-    timeInForce: undefined,
+    symbol: 'BTCUSDT', side: 'BUY', positionSide: 'LONG', type: 'MARKET', quantity: 0.001,
+    price: undefined, stopPrice: undefined, reduceOnly: 'false', newClientOrderId: undefined, timeInForce: undefined,
   });
 });
 
@@ -88,16 +87,7 @@ test('entry order maps limit and stop trigger fields', async () => {
   const calls: Record<string, unknown>[] = [];
   USDMClient.prototype.submitNewOrder = async function (params) {
     calls.push(params as Record<string, unknown>);
-    return {
-      orderId: calls.length,
-      symbol: 'BTCUSDT',
-      status: 'NEW',
-      side: 'SELL',
-      type: 'STOP',
-      origQty: '0.01',
-      price: '100000',
-      stopPrice: '101000',
-    };
+    return { orderId: calls.length, symbol: 'BTCUSDT', status: 'NEW', side: 'SELL', type: 'STOP', origQty: '0.01', price: '100000', stopPrice: '101000' };
   };
 
   const adapter = new BinanceFuturesExecutionAdapter({ apiKey: 'k', apiSecret: 's' });
@@ -113,14 +103,7 @@ test('take profit defaults to reduceOnly and uses TAKE_PROFIT_MARKET', async () 
   let received: Record<string, unknown> | undefined;
   USDMClient.prototype.submitNewOrder = async function (params) {
     received = params as Record<string, unknown>;
-    return {
-      orderId: 456,
-      symbol: 'ETHUSDT',
-      status: 'NEW',
-      side: 'SELL',
-      type: 'TAKE_PROFIT_MARKET',
-      stopPrice: '4000',
-    };
+    return { orderId: 456, symbol: 'ETHUSDT', status: 'NEW', side: 'SELL', type: 'TAKE_PROFIT_MARKET', stopPrice: '4000' };
   };
 
   await new BinanceFuturesExecutionAdapter({ apiKey: 'k', apiSecret: 's' }).placeTakeProfit({
@@ -137,14 +120,7 @@ test('stop loss defaults to reduceOnly and uses STOP_MARKET', async () => {
   let received: Record<string, unknown> | undefined;
   USDMClient.prototype.submitNewOrder = async function (params) {
     received = params as Record<string, unknown>;
-    return {
-      orderId: 789,
-      symbol: 'ETHUSDT',
-      status: 'NEW',
-      side: 'SELL',
-      type: 'STOP_MARKET',
-      stopPrice: '3500',
-    };
+    return { orderId: 789, symbol: 'ETHUSDT', status: 'NEW', side: 'SELL', type: 'STOP_MARKET', stopPrice: '3500' };
   };
 
   await new BinanceFuturesExecutionAdapter({ apiKey: 'k', apiSecret: 's' }).placeStopLoss({

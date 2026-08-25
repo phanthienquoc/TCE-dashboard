@@ -1,7 +1,8 @@
 import { USDMClient } from 'binance';
 import { ContractResult, FuturesEntryOrderInput, FuturesExecutionPort, FuturesOrderResult, FuturesTpSlInput } from '@tce/contracts';
+import { getBinanceFuturesUrl, BinanceFuturesEnvironment } from './binance.constants';
 
-type BinanceCredentials = { apiKey?: string; apiSecret?: string; baseUrl?: string };
+type BinanceCredentials = { apiKey?: string; apiSecret?: string };
 type BinanceOrderResponse = {
   orderId: number;
   clientOrderId?: string;
@@ -20,12 +21,16 @@ const boolString = (value: boolean | undefined) => value === undefined ? undefin
 export class BinanceFuturesExecutionAdapter implements FuturesExecutionPort {
   readonly provider = 'binance' as const;
   private readonly client: USDMClient;
+  private readonly environment: BinanceFuturesEnvironment;
 
-  constructor(private readonly credentials: BinanceCredentials) {
+  constructor(private readonly credentials: BinanceCredentials, environment: BinanceFuturesEnvironment = 'production') {
+    this.environment = environment;
+    // Endpoint selection is deterministic and server-side. The SDK uses testnet=true for the testnet endpoint.
+    getBinanceFuturesUrl(environment);
     this.client = new USDMClient({
       api_key: credentials.apiKey,
       api_secret: credentials.apiSecret,
-      testnet: credentials.baseUrl?.includes('testnet') ?? false,
+      testnet: environment === 'testnet',
     });
   }
 
@@ -36,13 +41,13 @@ export class BinanceFuturesExecutionAdapter implements FuturesExecutionPort {
     return { ok: false, error: { code: 'PROVIDER_ERROR', message, retryable: false, provider: 'binance' } };
   }
 
-  async testConnection(): Promise<ContractResult<{ connected: boolean; environment: 'testnet' | 'production'; balances: unknown[] }>> {
+  async testConnection(): Promise<ContractResult<{ connected: boolean; environment: BinanceFuturesEnvironment; balances: unknown[] }>> {
     try {
       if (!this.credentials.apiKey || !this.credentials.apiSecret) {
         return { ok: false, error: { code: 'UNAUTHORIZED', message: 'Binance API credentials are not configured', retryable: false, provider: 'binance' } };
       }
       const balances = await this.client.getBalance() as unknown[];
-      return this.result({ connected: true, environment: this.credentials.baseUrl?.includes('testnet') ? 'testnet' : 'production', balances });
+      return this.result({ connected: true, environment: this.environment, balances });
     } catch (error) { return this.fail(error); }
   }
 
