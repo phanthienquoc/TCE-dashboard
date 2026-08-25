@@ -1,7 +1,7 @@
 'use client';
 
 import axios from 'axios';
-import { clearSession } from './session';
+import { clearSession, getAccessToken, saveSession } from './session';
 
 let accessToken = '';
 let refreshPromise = null;
@@ -11,7 +11,12 @@ export function setAccessToken(token) {
 }
 
 function currentAccessToken() {
-  return accessToken;
+  if (accessToken) return accessToken;
+  try {
+    return getAccessToken();
+  } catch {
+    return '';
+  }
 }
 
 export const api = axios.create({
@@ -57,7 +62,12 @@ function notifyAuthExpired() {
   }
 }
 
-api.interceptors.request.use((config) => attachAccessToken(config));
+api.interceptors.request.use((config) => {
+  // Read localStorage at request time as well as module memory. This closes
+  // the iOS/Safari reload/background-resume race where /auth/me can fire
+  // before AuthProvider has hydrated the in-memory token.
+  return attachAccessToken(config);
+});
 
 async function refreshAccessToken() {
   const { data } = await axios.post('/api/auth/refresh', null, {
@@ -70,6 +80,7 @@ async function refreshAccessToken() {
     throw new Error('Refresh response missing access token');
   }
 
+  saveSession({ accessToken: data.accessToken });
   setAccessToken(data.accessToken);
   notifyAuthRefreshed(data.accessToken);
   return data.accessToken;
