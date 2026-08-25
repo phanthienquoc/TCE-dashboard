@@ -30,7 +30,7 @@ jobs:
           test -f apps/service/Dockerfile
           test -f infra/k3s/frontend-prod.yaml
           test -f infra/k3s/service-prod.yaml
-          for name in SUPABASE_URL SUPABASE_SERVICE_ROLE_KEY JWT_SECRET MFA_ENCRYPTION_KEY; do
+          for name in SUPABASE_URL SUPABASE_SERVICE_ROLE_KEY JWT_SECRET MFA_ENCRYPTION_KEY VPS_SSH_PRIVATE_KEY; do
             test -n "${!name}" || { echo "Missing GitHub secret: $name"; exit 1; }
           done
 
@@ -38,7 +38,7 @@ jobs:
         run: docker build --pull -t tce-frontend:prod -f Dockerfile .
 
       - name: Build backend image
-        run: docker build --pull -t tce-service:prod -f apps/service/Dockerfile apps/service
+        run: docker build --pull -t tce-service:prod -f apps/service/Dockerfile .
 
       - name: Package images
         run: docker save tce-frontend:prod tce-service:prod | gzip > /tmp/tce-prod-images.tar.gz
@@ -75,7 +75,6 @@ jobs:
           set -euo pipefail
 
           sudo kubectl get namespace tce-prod >/dev/null 2>&1 || sudo kubectl create namespace tce-prod
-
           sudo k3s ctr images import /tmp/tce-prod-images.tar.gz
 
           sudo kubectl -n tce-prod create secret generic tce-app-secrets \
@@ -89,7 +88,6 @@ jobs:
             --dry-run=client -o yaml | sudo kubectl apply -f -
 
           sudo kubectl apply -f /tmp/service-prod.yaml -f /tmp/frontend-prod.yaml
-
           sudo kubectl -n tce-prod rollout status deployment/tce-service --timeout=180s
           sudo kubectl -n tce-prod rollout status deployment/tce-frontend --timeout=180s
 
