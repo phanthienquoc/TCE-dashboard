@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 
-const RELOAD_KEY = 'tce:chunk-recovery';
+const RELOAD_PARAM = '_tce_reload';
 const RELOAD_GUARD_MS = 10_000;
 
 function recoverFromStaleChunk(error) {
@@ -15,11 +15,11 @@ function recoverFromStaleChunk(error) {
   // A rolling deployment replaces the Next.js build and can invalidate chunks
   // that an already-open tab still references. Reload once with a cache-busting
   // query so the browser obtains fresh HTML/build metadata instead of looping.
-  if (window.sessionStorage.getItem(RELOAD_KEY) === '1') return;
-  window.sessionStorage.setItem(RELOAD_KEY, '1');
-  const url = new URL(window.location.href);
-  url.searchParams.set('_tce_reload', String(Date.now()));
-  window.location.replace(url.toString());
+  const currentUrl = new URL(window.location.href);
+  if (currentUrl.searchParams.has(RELOAD_PARAM)) return;
+
+  currentUrl.searchParams.set(RELOAD_PARAM, String(Date.now()));
+  window.location.replace(currentUrl.toString());
 }
 
 export default function ClientOnly({ children }) {
@@ -31,11 +31,14 @@ export default function ClientOnly({ children }) {
     const onError = (event) => recoverFromStaleChunk(event);
     window.addEventListener('error', onError, true);
 
-    // Keep the guard briefly after boot. If the fresh build also fails to load,
-    // do not enter an infinite reload loop; after a healthy boot future deploys
-    // can use the recovery path again.
+    // Remove the recovery marker after a healthy boot so a future deployment
+    // can recover again without leaving a cache-busting URL behind.
     const timer = window.setTimeout(() => {
-      window.sessionStorage.removeItem(RELOAD_KEY);
+      const url = new URL(window.location.href);
+      if (url.searchParams.has(RELOAD_PARAM)) {
+        url.searchParams.delete(RELOAD_PARAM);
+        window.history.replaceState(window.history.state, '', url.toString());
+      }
     }, RELOAD_GUARD_MS);
 
     return () => {
