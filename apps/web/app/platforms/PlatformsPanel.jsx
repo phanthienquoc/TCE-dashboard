@@ -1,122 +1,45 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import {
-  getCurrentSsiInfo,
-  hasSsiCredentials,
-  requestSsiOtp,
-  saveSsiCredentials,
-  syncSsiPortfolio,
-  testSsiConnection,
-} from '../../services/platform';
+import { getCurrentSsiInfo, hasBinanceCredentials, hasSsiCredentials, placeBinanceOrder, placeBinanceSl, placeBinanceTp, requestSsiOtp, saveBinanceCredentials, saveSsiCredentials, syncSsiPortfolio, testBinanceConnection, testSsiConnection } from '../../services/platform';
 import styles from './PlatformsPanel.module.css';
 
 const emptySsi = { clientId: '', apiKey: '', apiSecret: '', privateKey: '', accountNo: '' };
+const emptyBinance = { apiKey: '', apiSecret: '', baseUrl: '' };
+const emptyOrder = { symbol: 'BTCUSDT', side: 'BUY', type: 'MARKET', quantity: '', price: '', triggerPrice: '', positionSide: 'BOTH', timeInForce: 'GTC' };
 
 export default function PlatformsPanel() {
-  const [saved, setSaved] = useState(false);
-  const [ssi, setSsi] = useState(emptySsi);
-  const [environment, setEnvironment] = useState('production');
-  const [otp, setOtp] = useState('');
-  const [transactionId, setTransactionId] = useState('');
-  const [status, setStatus] = useState('');
-  const [current, setCurrent] = useState(null);
-  const [busy, setBusy] = useState(false);
-  const [busyAction, setBusyAction] = useState('');
+  const [saved, setSaved] = useState(false); const [binanceSaved, setBinanceSaved] = useState(false); const [ssi, setSsi] = useState(emptySsi); const [binance, setBinance] = useState(emptyBinance);
+  const [environment, setEnvironment] = useState('production'); const [otp, setOtp] = useState(''); const [transactionId, setTransactionId] = useState(''); const [status, setStatus] = useState(''); const [current, setCurrent] = useState(null); const [busy, setBusy] = useState(false); const [busyAction, setBusyAction] = useState('');
+  const [order, setOrder] = useState(emptyOrder); const [tp, setTp] = useState(''); const [sl, setSl] = useState(''); const [orderResult, setOrderResult] = useState(null); const [confirmReal, setConfirmReal] = useState(false);
 
-  useEffect(() => {
-    let active = true;
-    setCurrent(null);
-    setTransactionId('');
-    setStatus('');
-    hasSsiCredentials(environment).then((value) => active && setSaved(value)).catch(() => active && setSaved(false));
-    return () => { active = false; };
-  }, [environment]);
-
+  useEffect(() => { let active = true; setCurrent(null); setTransactionId(''); setStatus(''); Promise.all([hasSsiCredentials(environment), hasBinanceCredentials(environment)]).then(([a,b]) => active && (setSaved(a), setBinanceSaved(b))).catch(() => active && setBinanceSaved(false)); return () => { active = false; }; }, [environment]);
+  const message = (e, fallback) => e.response?.data?.message || e.message || fallback;
   const authBody = () => ({ environment, otp: otp || undefined, transactionId: transactionId || undefined });
-  const credentialBody = () => ({ ...ssi });
-  const message = (error, fallback) => error.response?.data?.message || error.message || fallback;
+  const button = (label, action, primary = false, name = '') => <button className={`${styles.button} ${primary ? styles.primary : ''}`} onClick={action} disabled={busy}>{busy && busyAction === name ? 'Working…' : label}</button>;
+  const run = async (name, fn, done) => { setBusy(true); setBusyAction(name); setStatus('Working…'); try { done(await fn()); } catch (e) { setStatus(message(e, 'Request failed.')); } finally { setBusy(false); setBusyAction(''); } };
+  const setS = (k,v) => setSsi((x) => ({...x,[k]:v})); const setB = (k,v) => setBinance((x) => ({...x,[k]:v})); const setO = (k,v) => setOrder((x) => ({...x,[k]:v}));
 
-  async function save() {
-    setBusy(true); setBusyAction('save'); setStatus('Saving SSI credentials…');
-    try {
-      if (!ssi.apiKey || !ssi.apiSecret || !ssi.accountNo) {
-        throw new Error('API Key, API Secret and Account No. are required.');
-      }
-      await saveSsiCredentials(environment, credentialBody());
-      setSaved(true);
-      setStatus('Credentials saved successfully.');
-    } catch (error) { setStatus(message(error, 'Unable to save credentials.')); }
-    finally { setBusy(false); setBusyAction(''); }
-  }
+  const saveSsi = () => run('ssi-save', async () => { if (!ssi.apiKey || !ssi.apiSecret || !ssi.accountNo) throw new Error('SSI API Key, API Secret and Account No. are required.'); await saveSsiCredentials(environment, ssi); return true; }, () => { setSaved(true); setStatus('SSI credentials saved.'); });
+  const saveB = () => run('binance-save', async () => { if (!binance.apiKey || !binance.apiSecret) throw new Error('Binance API Key and API Secret are required.'); await saveBinanceCredentials(environment, {...binance, baseUrl: binance.baseUrl || undefined}); return true; }, () => { setBinanceSaved(true); setStatus('Binance credentials saved securely.'); });
+  const testB = () => run('binance-test', () => testBinanceConnection(environment), (r) => setStatus(`Binance connected • ${r?.environment || environment} • ${r?.balances?.length || 0} balance rows.`));
+  const testSsi = () => run('ssi-test', () => testSsiConnection({...authBody(), credentials:ssi}), (r) => setStatus(`SSI connected • API v${r?.apiVersion || '3'} • ${(r?.accounts || []).length} account(s).`));
+  const requestOtp = () => run('otp', async () => { const r = await requestSsiOtp({environment, credentials:ssi}); const id = r?.data?.transactionId || r?.transactionId || ''; if (id) setTransactionId(id); return id; }, (id) => setStatus(id ? `SSI approval requested • ${id}` : 'SSI OTP / approval requested.'));
+  const loadCurrent = () => run('current', () => getCurrentSsiInfo(authBody()), (r) => { setCurrent(r); setStatus('SSI current info loaded.'); });
+  const sync = () => run('sync', () => syncSsiPortfolio(authBody()), (r) => setStatus(`Synced • ${r?.positionsSynced || 0} positions • ${r?.ordersSynced || 0} orders.`));
 
-  async function requestOtp() {
-    setBusy(true); setBusyAction('otp'); setStatus('Requesting SSI OTP / Mobile Approval…');
-    try {
-      const data = await requestSsiOtp({ environment, credentials: credentialBody() });
-      const id = data?.data?.transactionId || data?.transactionId || '';
-      if (id) setTransactionId(id);
-      setStatus(id ? 'Approval requested. Approve in SSI/iBoard, then test connection.' : 'OTP / approval requested.');
-    } catch (error) { setStatus(message(error, 'OTP request failed.')); }
-    finally { setBusy(false); setBusyAction(''); }
-  }
+  const payload = () => ({...order, environment, quantity:Number(order.quantity), price:order.price ? Number(order.price):undefined, triggerPrice:order.triggerPrice ? Number(order.triggerPrice):undefined});
+  const sendOrder = () => run('order', () => { if (!confirmReal) throw new Error('Confirm the real-order checkbox first.'); if (!order.quantity || Number(order.quantity)<=0) throw new Error('Quantity must be greater than 0.'); if (order.type==='LIMIT' && !order.price) throw new Error('Limit price is required.'); return placeBinanceOrder(payload()); }, (r) => {setOrderResult(r); setStatus(`Order ${r?.status || 'submitted'} • ${r?.orderId || ''}`);});
+  const exitPayload = (triggerPrice) => ({environment, symbol:order.symbol, side:order.side==='BUY'?'SELL':'BUY', positionSide:order.positionSide, quantity:Number(order.quantity), triggerPrice:Number(triggerPrice), reduceOnly:true});
+  const sendTp = () => run('tp', () => { if (!confirmReal) throw new Error('Confirm the real-order checkbox first.'); if (!tp) throw new Error('TP trigger price is required.'); return placeBinanceTp(exitPayload(tp)); }, (r) => {setOrderResult(r); setStatus(`TP ${r?.status || 'submitted'} • ${r?.orderId || ''}`);});
+  const sendSl = () => run('sl', () => { if (!confirmReal) throw new Error('Confirm the real-order checkbox first.'); if (!sl) throw new Error('SL trigger price is required.'); return placeBinanceSl(exitPayload(sl)); }, (r) => {setOrderResult(r); setStatus(`SL ${r?.status || 'submitted'} • ${r?.orderId || ''}`);});
 
-  async function test() {
-    setBusy(true); setBusyAction('test'); setStatus('Testing SSI SDK v3 connection…');
-    try {
-      if (!ssi.apiKey || !ssi.apiSecret || !ssi.accountNo) {
-        throw new Error('API Key, API Secret and Account No. are required.');
-      }
-      const result = await testSsiConnection({ ...authBody(), credentials: credentialBody() });
-      setStatus(`Connection successful • API v${result.apiVersion || '3'} • market data OK • ${(result.accounts || []).length} account(s).`);
-    } catch (error) { setStatus(message(error, 'Connection test failed.')); }
-    finally { setBusy(false); setBusyAction(''); }
-  }
-
-  async function loadCurrent() {
-    setBusy(true); setBusyAction('current'); setStatus('Loading current SSI account information…');
-    try {
-      const result = await getCurrentSsiInfo(authBody());
-      setCurrent(result); setStatus('Current SSI information loaded.');
-    } catch (error) { setStatus(message(error, 'Unable to load current info.')); }
-    finally { setBusy(false); setBusyAction(''); }
-  }
-
-  async function sync() {
-    setBusy(true); setBusyAction('sync'); setStatus('Syncing SSI portfolio…');
-    try {
-      const result = await syncSsiPortfolio(authBody());
-      setStatus(`Synced • ${result.positionsSynced || 0} positions • ${result.ordersSynced || 0} orders.`);
-    } catch (error) { setStatus(message(error, 'Portfolio sync failed.')); }
-    finally { setBusy(false); setBusyAction(''); }
-  }
-
-  const set = (key, value) => setSsi((valueState) => ({ ...valueState, [key]: value }));
-  const button = (label, action, primary = false, actionName = '') => (
-    <button className={`${styles.button} ${primary ? styles.primary : ''}`} onClick={action} disabled={busy}>
-      {busy && busyAction === actionName ? 'Working…' : label}
-    </button>
-  );
-
-  return <section className={`section page-section ${styles.page}`}>
-    <div className={styles.head}><div><span className="eyebrow">PLATFORM CONFIG</span><h2>SSI FastConnect</h2><small>SSI SDK v3 • credentials stay server-side and are never returned.</small></div><span className={`${styles.status} ${saved ? styles.statusOk : ''}`}>{saved ? '● CONFIGURED' : '○ NOT CONFIGURED'}</span></div>
-    <div className={styles.fields}>
-      <label className={styles.field}>Environment<select className={styles.select} value={environment} onChange={(e) => setEnvironment(e.target.value)}><option value="production">Production</option><option value="sandbox">Sandbox</option></select></label>
-      <label className={styles.field}>Client ID<input className={styles.input} value={ssi.clientId} onChange={(e) => set('clientId', e.target.value)} placeholder="SSI Client ID" autoComplete="off" /></label>
-      <label className={styles.field}>API Key<input className={styles.input} type="password" value={ssi.apiKey} onChange={(e) => set('apiKey', e.target.value)} placeholder="SSI API Key" autoComplete="off" /></label>
-      <label className={styles.field}>API Secret<input className={styles.input} type="password" value={ssi.apiSecret} onChange={(e) => set('apiSecret', e.target.value)} placeholder="SSI API Secret" autoComplete="off" /></label>
-      <label className={styles.field}>Account No.<input className={styles.input} value={ssi.accountNo} onChange={(e) => set('accountNo', e.target.value)} placeholder="SSI account number" inputMode="numeric" /></label>
-      <label className={styles.field}>OTP<input className={styles.input} type="password" value={otp} onChange={(e) => setOtp(e.target.value)} placeholder="Optional SmartOTP" inputMode="numeric" autoComplete="one-time-code" /></label>
-    </div>
-    <label className={styles.field}>Private Key<textarea className={styles.textarea} value={ssi.privateKey} onChange={(e) => set('privateKey', e.target.value)} rows={4} placeholder="SSI SDK v3 private key" autoComplete="off" /></label>
-    <div className={styles.actions}>
-      {button('Save', save, true, 'save')}
-      {button('Test connection', test, false, 'test')}
-      {button('Request OTP / Approval', requestOtp, false, 'otp')}
-      {button('Get current info', loadCurrent, false, 'current')}
-      {button('Sync portfolio', sync, false, 'sync')}
-    </div>
-    <div className={styles.note}><b>Auth state</b><span>{transactionId ? `Transaction: ${transactionId}` : 'No active approval transaction'}{status ? ` • ${status}` : ''}</span></div>
-    {current && <div className={styles.stats}><div className={styles.stat}><b>Accounts</b><strong>{current.accounts?.length || 0}</strong></div><div className={styles.stat}><b>Positions</b><strong>{current.positions?.length || 0}</strong></div><div className={styles.stat}><b>Orders</b><strong>{current.orders?.length || 0}</strong></div><pre className={styles.output}>{JSON.stringify(current, null, 2)}</pre></div>}
-  </section>;
+  return <>
+    <section className={`section page-section ${styles.page}`}><div className={styles.head}><div><span className="eyebrow">PLATFORM CONFIG</span><h2>SSI FastConnect</h2><small>Credentials stay server-side and are never returned.</small></div><span className={`${styles.status} ${saved?styles.statusOk:''}`}>{saved?'● CONFIGURED':'○ NOT CONFIGURED'}</span></div>
+      <div className={styles.fields}><label className={styles.field}>Environment<select className={styles.select} value={environment} onChange={e=>setEnvironment(e.target.value)}><option value="production">Production</option><option value="sandbox">Sandbox</option></select></label><label className={styles.field}>Client ID<input className={styles.input} value={ssi.clientId} onChange={e=>setS('clientId',e.target.value)}/></label><label className={styles.field}>API Key<input className={styles.input} type="password" value={ssi.apiKey} onChange={e=>setS('apiKey',e.target.value)}/></label><label className={styles.field}>API Secret<input className={styles.input} type="password" value={ssi.apiSecret} onChange={e=>setS('apiSecret',e.target.value)}/></label><label className={styles.field}>Account No.<input className={styles.input} value={ssi.accountNo} onChange={e=>setS('accountNo',e.target.value)}/></label><label className={styles.field}>OTP<input className={styles.input} type="password" value={otp} onChange={e=>setOtp(e.target.value)}/></label></div>
+      <label className={styles.field}>Private Key<textarea className={styles.textarea} value={ssi.privateKey} onChange={e=>setS('privateKey',e.target.value)} rows={4}/></label><div className={styles.actions}>{button('Save SSI',saveSsi,true,'ssi-save')}{button('Test connection',testSsi,false,'ssi-test')}{button('Request OTP / Approval',requestOtp,false,'otp')}{button('Get current info',loadCurrent,false,'current')}{button('Sync portfolio',sync,false,'sync')}</div><div className={styles.note}><b>Auth state</b><span>{transactionId?`Transaction: ${transactionId} • `:''}{status||'Ready.'}</span></div>{current&&<pre className={styles.output}>{JSON.stringify(current,null,2)}</pre>}
+    </section>
+    <section className={`section page-section ${styles.page}`}><div className={styles.head}><div><span className="eyebrow">BINANCE FUTURES</span><h2>API Credentials</h2><small>USD-M Futures • encrypted server-side • use Testnet first.</small></div><span className={`${styles.status} ${binanceSaved?styles.statusOk:''}`}>{binanceSaved?'● CONFIGURED':'○ NOT CONFIGURED'}</span></div><div className={styles.fields}><label className={styles.field}>Environment<select className={styles.select} value={environment} onChange={e=>setEnvironment(e.target.value)}><option value="production">Production</option><option value="sandbox">Testnet</option></select></label><label className={styles.field}>API Key<input className={styles.input} type="password" value={binance.apiKey} onChange={e=>setB('apiKey',e.target.value)}/></label><label className={styles.field}>API Secret<input className={styles.input} type="password" value={binance.apiSecret} onChange={e=>setB('apiSecret',e.target.value)}/></label><label className={styles.field}>Base URL<input className={styles.input} value={binance.baseUrl} onChange={e=>setB('baseUrl',e.target.value)} placeholder="Optional; testnet URL"/></label></div><div className={styles.actions}>{button('Save Binance',saveB,true,'binance-save')}{button('Test Binance connection',testB,false,'binance-test')}</div></section>
+    <section className={`section page-section ${styles.page}`}><div className={styles.head}><div><span className="eyebrow">MANUAL EXECUTION</span><h2>Binance Futures Test Order</h2><small>Manual order form. Testnet is recommended before production.</small></div><span className={styles.status}>⚠ ORDER</span></div><div className={styles.fields}><label className={styles.field}>Symbol<input className={styles.input} value={order.symbol} onChange={e=>setO('symbol',e.target.value.toUpperCase())}/></label><label className={styles.field}>Side<select className={styles.select} value={order.side} onChange={e=>setO('side',e.target.value)}><option>BUY</option><option>SELL</option></select></label><label className={styles.field}>Order Type<select className={styles.select} value={order.type} onChange={e=>setO('type',e.target.value)}><option>MARKET</option><option>LIMIT</option><option>STOP</option><option>STOP_MARKET</option></select></label><label className={styles.field}>Quantity<input className={styles.input} type="number" min="0" step="any" value={order.quantity} onChange={e=>setO('quantity',e.target.value)}/></label>{(order.type==='LIMIT'||order.type==='STOP')&&<label className={styles.field}>Price<input className={styles.input} type="number" step="any" value={order.price} onChange={e=>setO('price',e.target.value)}/></label>}{(order.type==='STOP'||order.type==='STOP_MARKET')&&<label className={styles.field}>Trigger Price<input className={styles.input} type="number" step="any" value={order.triggerPrice} onChange={e=>setO('triggerPrice',e.target.value)}/></label>}<label className={styles.field}>Position Side<select className={styles.select} value={order.positionSide} onChange={e=>setO('positionSide',e.target.value)}><option>BOTH</option><option>LONG</option><option>SHORT</option></select></label>{order.type==='LIMIT'&&<label className={styles.field}>Time in Force<select className={styles.select} value={order.timeInForce} onChange={e=>setO('timeInForce',e.target.value)}><option>GTC</option><option>IOC</option><option>FOK</option></select></label>}<label className={styles.field}>Take Profit<input className={styles.input} type="number" step="any" value={tp} onChange={e=>setTp(e.target.value)} placeholder="Trigger price"/></label><label className={styles.field}>Stop Loss<input className={styles.input} type="number" step="any" value={sl} onChange={e=>setSl(e.target.value)} placeholder="Trigger price"/></label></div><label className={styles.note}><input type="checkbox" checked={confirmReal} onChange={e=>setConfirmReal(e.target.checked)}/> <b>I understand this submits a REAL Binance Futures order.</b><span>Use Testnet credentials when testing.</span></label><div className={styles.actions}>{button('Place entry order',sendOrder,true,'order')}{button('Place TP',sendTp,false,'tp')}{button('Place SL',sendSl,false,'sl')}</div>{orderResult&&<pre className={styles.output}>{JSON.stringify(orderResult,null,2)}</pre>}</section>
+  </>;
 }
