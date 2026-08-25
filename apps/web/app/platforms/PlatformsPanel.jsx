@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { BINANCE_FUTURES_URLS } from '@tce/binance/constants';
+import { BINANCE_FUTURES_URLS } from './binance.constants';
 import { getCurrentSsiInfo, hasBinanceCredentials, hasSsiCredentials, placeBinanceOrder, placeBinanceSl, placeBinanceTp, requestSsiOtp, saveBinanceCredentials, saveSsiCredentials, syncSsiPortfolio, testBinanceConnection, testSsiConnection } from '../../services/platform';
 import styles from './PlatformsPanel.module.css';
 
@@ -14,7 +14,7 @@ export default function PlatformsPanel() {
   const [environment, setEnvironment] = useState('production'); const [binanceEnvironment, setBinanceEnvironment] = useState('production'); const [otp, setOtp] = useState(''); const [transactionId, setTransactionId] = useState(''); const [status, setStatus] = useState(''); const [current, setCurrent] = useState(null); const [busy, setBusy] = useState(false); const [busyAction, setBusyAction] = useState('');
   const [order, setOrder] = useState(emptyOrder); const [tp, setTp] = useState(''); const [sl, setSl] = useState(''); const [orderResult, setOrderResult] = useState(null); const [confirmReal, setConfirmReal] = useState(false);
   useEffect(() => { let active = true; setCurrent(null); setTransactionId(''); setStatus(''); hasSsiCredentials(environment).then((a) => active && setSaved(a)).catch(() => active && setSaved(false)); return () => { active = false; }; }, [environment]);
-  useEffect(() => { let active = true; setBinance((x) => ({ ...x, baseUrl: BINANCE_FUTURES_URLS[binanceEnvironment] })); hasBinanceCredentials(binanceEnvironment).then((a) => active && setBinanceSaved(a)).catch(() => active && setBinanceSaved(false)); return () => { active = false; }; }, [binanceEnvironment]);
+  useEffect(() => { let active = true; const baseUrl = BINANCE_FUTURES_URLS[binanceEnvironment]; setBinance((x) => ({ ...x, baseUrl })); hasBinanceCredentials(binanceEnvironment).then((a) => active && setBinanceSaved(a)).catch(() => active && setBinanceSaved(false)); return () => { active = false; }; }, [binanceEnvironment]);
   const message = (e, fallback) => e.response?.data?.message || e.message || fallback; const authBody = () => ({ environment, otp: otp || undefined, transactionId: transactionId || undefined });
   const button = (label, action, primary = false, name = '') => <button className={`${styles.button} ${primary ? styles.primary : ''}`} onClick={action} disabled={busy}>{busy && busyAction === name ? 'Working…' : label}</button>;
   const run = async (name, fn, done) => { setBusy(true); setBusyAction(name); setStatus('Working…'); try { done(await fn()); } catch (e) { setStatus(message(e, 'Request failed.')); } finally { setBusy(false); setBusyAction(''); } };
