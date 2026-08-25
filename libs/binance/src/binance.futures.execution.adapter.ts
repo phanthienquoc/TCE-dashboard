@@ -15,6 +15,8 @@ type BinanceOrderResponse = {
   positionSide?: 'BOTH' | 'LONG' | 'SHORT';
 };
 
+const boolString = (value: boolean | undefined) => value === undefined ? undefined : value ? 'true' : 'false';
+
 export class BinanceFuturesExecutionAdapter implements FuturesExecutionPort {
   readonly provider = 'binance' as const;
   private readonly client: USDMClient;
@@ -63,7 +65,7 @@ export class BinanceFuturesExecutionAdapter implements FuturesExecutionPort {
   placeEntry(input: FuturesEntryOrderInput) {
     const type = input.triggerPrice !== undefined ? (input.price !== undefined ? 'STOP' : 'STOP_MARKET') : (input.price !== undefined ? 'LIMIT' : 'MARKET');
     return this.order({ symbol: input.symbol.toUpperCase(), side: input.side, positionSide: input.positionSide, type,
-      quantity: input.quantity, price: input.price, stopPrice: input.triggerPrice, reduceOnly: input.reduceOnly ?? false,
+      quantity: input.quantity, price: input.price, stopPrice: input.triggerPrice, reduceOnly: boolString(input.reduceOnly ?? false),
       newClientOrderId: input.clientOrderId, timeInForce: input.price !== undefined ? (input.timeInForce ?? 'GTC') : undefined });
   }
 
@@ -71,13 +73,13 @@ export class BinanceFuturesExecutionAdapter implements FuturesExecutionPort {
     const type = input.limitPrice !== undefined ? 'TAKE_PROFIT' : 'TAKE_PROFIT_MARKET';
     return this.order({ symbol: input.symbol.toUpperCase(), side: input.side, positionSide: input.positionSide, type,
       quantity: type === 'TAKE_PROFIT' ? input.quantity : undefined, price: input.limitPrice, stopPrice: input.triggerPrice,
-      reduceOnly: input.reduceOnly ?? true, newClientOrderId: input.clientOrderId, timeInForce: input.limitPrice !== undefined ? 'GTC' : undefined });
+      reduceOnly: boolString(input.reduceOnly ?? true), newClientOrderId: input.clientOrderId, timeInForce: input.limitPrice !== undefined ? 'GTC' : undefined });
   }
 
   placeStopLoss(input: FuturesTpSlInput) {
     const type = input.limitPrice !== undefined ? 'STOP' : 'STOP_MARKET';
     return this.order({ symbol: input.symbol.toUpperCase(), side: input.side, positionSide: input.positionSide, type,
       quantity: type === 'STOP' ? input.quantity : undefined, price: input.limitPrice, stopPrice: input.triggerPrice,
-      reduceOnly: input.reduceOnly ?? true, newClientOrderId: input.clientOrderId, timeInForce: input.limitPrice !== undefined ? 'GTC' : undefined });
+      reduceOnly: boolString(input.reduceOnly ?? true), newClientOrderId: input.clientOrderId, timeInForce: input.limitPrice !== undefined ? 'GTC' : undefined });
   }
 }
