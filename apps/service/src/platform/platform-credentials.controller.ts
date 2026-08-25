@@ -18,36 +18,51 @@ export class PlatformCredentialsController {
     return this.jwt.verify(auth.slice(7)).sub;
   }
 
+  private binanceEnvironment(value?: string): 'production' | 'testnet' {
+    const environment = value ?? 'production';
+    if (environment !== 'production' && environment !== 'testnet') {
+      throw new UnauthorizedException(`Unsupported Binance environment: ${environment}`);
+    }
+    return environment;
+  }
+
   @Get()
   list(@Headers('authorization') auth?: string) { return this.credentials.list(this.userId(auth)); }
 
   @Post(':provider')
   save(@Headers('authorization') auth: string | undefined, @Param('provider') provider: 'ssi' | 'binance' | 'fastapi', @Body() body: { environment?: string; credentials: Record<string, unknown> }) {
     if (!body?.credentials || typeof body.credentials !== 'object') throw new UnauthorizedException('Credentials are required');
-    return this.credentials.save(this.userId(auth), provider, body.environment ?? 'production', body.credentials);
+    const environment = provider === 'binance' ? this.binanceEnvironment(body.environment) : body.environment ?? 'production';
+    const credentials = provider === 'binance'
+      ? { apiKey: body.credentials.apiKey, apiSecret: body.credentials.apiSecret }
+      : body.credentials;
+    if (provider === 'binance' && (typeof credentials.apiKey !== 'string' || typeof credentials.apiSecret !== 'string' || !credentials.apiKey || !credentials.apiSecret)) {
+      throw new UnauthorizedException('Binance API Key and API Secret are required');
+    }
+    return this.credentials.save(this.userId(auth), provider, environment, credentials);
   }
 
   @Post('binance/test')
   testBinance(@Headers('authorization') auth: string | undefined, @Body() body?: { environment?: string }) {
-    return this.binance.testConnection(this.userId(auth), body?.environment ?? 'production');
+    return this.binance.testConnection(this.userId(auth), this.binanceEnvironment(body?.environment));
   }
 
   @Post('binance/order')
   orderBinance(@Headers('authorization') auth: string | undefined, @Body() body: FuturesEntryOrderInput & { environment?: string }) {
     const { environment, ...input } = body;
-    return this.binance.entry(this.userId(auth), input, environment ?? 'production');
+    return this.binance.entry(this.userId(auth), input, this.binanceEnvironment(environment));
   }
 
   @Post('binance/tp')
   takeProfitBinance(@Headers('authorization') auth: string | undefined, @Body() body: FuturesTpSlInput & { environment?: string }) {
     const { environment, ...input } = body;
-    return this.binance.takeProfit(this.userId(auth), input, environment ?? 'production');
+    return this.binance.takeProfit(this.userId(auth), input, this.binanceEnvironment(environment));
   }
 
   @Post('binance/sl')
   stopLossBinance(@Headers('authorization') auth: string | undefined, @Body() body: FuturesTpSlInput & { environment?: string }) {
     const { environment, ...input } = body;
-    return this.binance.stopLoss(this.userId(auth), input, environment ?? 'production');
+    return this.binance.stopLoss(this.userId(auth), input, this.binanceEnvironment(environment));
   }
 
   @Post(':provider/request-otp')
@@ -77,6 +92,7 @@ export class PlatformCredentialsController {
 
   @Delete(':provider')
   remove(@Headers('authorization') auth: string | undefined, @Param('provider') provider: 'ssi' | 'binance' | 'fastapi', @Body() body?: { environment?: string }) {
-    return this.credentials.remove(this.userId(auth), provider, body?.environment ?? 'production');
+    const environment = provider === 'binance' ? this.binanceEnvironment(body?.environment) : body?.environment ?? 'production';
+    return this.credentials.remove(this.userId(auth), provider, environment);
   }
 }
