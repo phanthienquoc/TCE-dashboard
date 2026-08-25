@@ -34,6 +34,16 @@ export class BinanceFuturesExecutionAdapter implements FuturesExecutionPort {
     return { ok: false, error: { code: 'PROVIDER_ERROR', message, retryable: false, provider: 'binance' } };
   }
 
+  async testConnection(): Promise<ContractResult<{ connected: boolean; environment: 'testnet' | 'production'; balances: unknown[] }>> {
+    try {
+      if (!this.credentials.apiKey || !this.credentials.apiSecret) {
+        return { ok: false, error: { code: 'UNAUTHORIZED', message: 'Binance API credentials are not configured', retryable: false, provider: 'binance' } };
+      }
+      const balances = await this.client.getBalance() as unknown[];
+      return this.result({ connected: true, environment: this.credentials.baseUrl?.includes('testnet') ? 'testnet' : 'production', balances });
+    } catch (error) { return this.fail(error); }
+  }
+
   private async order(params: Parameters<USDMClient['submitNewOrder']>[0]): Promise<ContractResult<FuturesOrderResult>> {
     try {
       if (!this.credentials.apiKey || !this.credentials.apiSecret) {
@@ -41,66 +51,33 @@ export class BinanceFuturesExecutionAdapter implements FuturesExecutionPort {
       }
       const data = await this.client.submitNewOrder(params) as BinanceOrderResponse;
       return this.result({
-        orderId: String(data.orderId),
-        clientOrderId: data.clientOrderId,
-        symbol: data.symbol,
-        status: data.status,
-        side: data.side,
-        type: data.type,
-        quantity: Number(data.origQty ?? 0),
+        orderId: String(data.orderId), clientOrderId: data.clientOrderId, symbol: data.symbol, status: data.status,
+        side: data.side, type: data.type, quantity: Number(data.origQty ?? 0),
         price: data.price !== undefined ? Number(data.price) : undefined,
         triggerPrice: data.stopPrice !== undefined ? Number(data.stopPrice) : undefined,
-        positionSide: data.positionSide,
-        source: 'binance',
+        positionSide: data.positionSide, source: 'binance',
       });
     } catch (error) { return this.fail(error); }
   }
 
   placeEntry(input: FuturesEntryOrderInput) {
     const type = input.triggerPrice !== undefined ? (input.price !== undefined ? 'STOP' : 'STOP_MARKET') : (input.price !== undefined ? 'LIMIT' : 'MARKET');
-    return this.order({
-      symbol: input.symbol.toUpperCase(),
-      side: input.side,
-      positionSide: input.positionSide,
-      type,
-      quantity: input.quantity,
-      price: input.price,
-      stopPrice: input.triggerPrice,
-      reduceOnly: input.reduceOnly ?? false,
-      newClientOrderId: input.clientOrderId,
-      timeInForce: input.price !== undefined ? (input.timeInForce ?? 'GTC') : undefined,
-    });
+    return this.order({ symbol: input.symbol.toUpperCase(), side: input.side, positionSide: input.positionSide, type,
+      quantity: input.quantity, price: input.price, stopPrice: input.triggerPrice, reduceOnly: input.reduceOnly ?? false,
+      newClientOrderId: input.clientOrderId, timeInForce: input.price !== undefined ? (input.timeInForce ?? 'GTC') : undefined });
   }
 
   placeTakeProfit(input: FuturesTpSlInput) {
     const type = input.limitPrice !== undefined ? 'TAKE_PROFIT' : 'TAKE_PROFIT_MARKET';
-    return this.order({
-      symbol: input.symbol.toUpperCase(),
-      side: input.side,
-      positionSide: input.positionSide,
-      type,
-      quantity: type === 'TAKE_PROFIT' ? input.quantity : undefined,
-      price: input.limitPrice,
-      stopPrice: input.triggerPrice,
-      reduceOnly: input.reduceOnly ?? true,
-      newClientOrderId: input.clientOrderId,
-      timeInForce: input.limitPrice !== undefined ? 'GTC' : undefined,
-    });
+    return this.order({ symbol: input.symbol.toUpperCase(), side: input.side, positionSide: input.positionSide, type,
+      quantity: type === 'TAKE_PROFIT' ? input.quantity : undefined, price: input.limitPrice, stopPrice: input.triggerPrice,
+      reduceOnly: input.reduceOnly ?? true, newClientOrderId: input.clientOrderId, timeInForce: input.limitPrice !== undefined ? 'GTC' : undefined });
   }
 
   placeStopLoss(input: FuturesTpSlInput) {
     const type = input.limitPrice !== undefined ? 'STOP' : 'STOP_MARKET';
-    return this.order({
-      symbol: input.symbol.toUpperCase(),
-      side: input.side,
-      positionSide: input.positionSide,
-      type,
-      quantity: type === 'STOP' ? input.quantity : undefined,
-      price: input.limitPrice,
-      stopPrice: input.triggerPrice,
-      reduceOnly: input.reduceOnly ?? true,
-      newClientOrderId: input.clientOrderId,
-      timeInForce: input.limitPrice !== undefined ? 'GTC' : undefined,
-    });
+    return this.order({ symbol: input.symbol.toUpperCase(), side: input.side, positionSide: input.positionSide, type,
+      quantity: type === 'STOP' ? input.quantity : undefined, price: input.limitPrice, stopPrice: input.triggerPrice,
+      reduceOnly: input.reduceOnly ?? true, newClientOrderId: input.clientOrderId, timeInForce: input.limitPrice !== undefined ? 'GTC' : undefined });
   }
 }
