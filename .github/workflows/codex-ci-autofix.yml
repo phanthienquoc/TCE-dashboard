@@ -1,4 +1,4 @@
-name: Codex CI Auto-Fix
+name: Codex CI Fix Request
 
 on:
   workflow_run:
@@ -9,17 +9,18 @@ on:
     types: [completed]
 
 permissions:
-  contents: write
+  contents: read
+  issues: write
   pull-requests: write
   actions: read
 
 concurrency:
-  group: codex-autofix-${{ github.event.workflow_run.id }}
+  group: codex-fix-request-${{ github.event.workflow_run.id }}
   cancel-in-progress: false
 
 jobs:
-  autofix:
-    name: Diagnose and fix failed CI
+  request:
+    name: Report failed CI for Codex approval
     if: >-
       github.event.workflow_run.conclusion == 'failure' &&
       github.event.workflow_run.head_repository.full_name == github.repository &&
@@ -27,29 +28,9 @@ jobs:
       github.event.workflow_run.head_branch != 'staging' &&
       github.event.workflow_run.head_branch != 'development'
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 10
     steps:
-      - name: Checkout failed branch
-        uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.workflow_run.head_branch }}
-          fetch-depth: 20
-          persist-credentials: true
-
-      - name: Guard auto-fix attempts
-        id: guard
-        run: |
-          set -euo pipefail
-          COUNT="$(git log --format=%s -20 | grep -c '\[codex-auto-fix [12]/2\]' || true)"
-          echo "existing_attempts=$COUNT"
-          if [ "$COUNT" -ge 2 ]; then
-            echo "allowed=false" >> "$GITHUB_OUTPUT"
-          else
-            echo "allowed=true" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Download failed workflow logs
-        if: steps.guard.outputs.allowed == 'true'
+      - name: Collect failure summary
         env:
           GH_TOKEN: ${{ github.token }}
           RUN_ID: ${{ github.event.workflow_run.id }}
@@ -57,69 +38,80 @@ jobs:
           set -euo pipefail
           mkdir -p .codex-ci
           gh run view "$RUN_ID" --repo "$GITHUB_REPOSITORY" --log-failed > .codex-ci/failed.log || true
-          tail -n 12000 .codex-ci/failed.log > .codex-ci/context.log
+          tail -n 400 .codex-ci/failed.log > .codex-ci/summary.log
           {
             echo "workflow=${{ github.event.workflow_run.name }}"
             echo "run_id=$RUN_ID"
-            echo "head_branch=${{ github.event.workflow_run.head_branch }}"
-            echo "head_sha=${{ github.event.workflow_run.head_sha }}"
+            echo "branch=${{ github.event.workflow_run.head_branch }}"
+            echo "sha=${{ github.event.workflow_run.head_sha }}"
             echo
-            cat .codex-ci/context.log
+            cat .codex-ci/summary.log
           } > .codex-ci/failure.txt
 
-      - name: Run Codex auto-fix
-        if: steps.guard.outputs.allowed == 'true'
-        id: codex
-        uses: openai/codex-action@v1
-        with:
-          openai-api-key: ${{ secrets.OPENAI_API_KEY }}
-          model: gpt-5.3-codex
-          effort: high
-          sandbox: workspace-write
-          safety-strategy: drop-sudo
-          prompt: |
-            You are the TCE CI auto-fix agent.
-
-            Diagnose the failed GitHub Actions workflow using .codex-ci/failure.txt and inspect the repository.
-
-            HARD RULES:
-            - Fix only the failure shown by this workflow run.
-            - Work only on the current branch. Never modify master, staging, or development.
-            - Never access, print, or modify production credentials, secrets, SSH keys, Binance/SSI credentials, or .env secret values.
-            - Never change deployment targets, VPS credentials, Kubernetes secrets, or production release gates merely to make CI green.
-            - For WF-03/WF-04 failures caused by infrastructure, network, missing GitHub secrets, VPS availability, rollout timeouts, or credentials, make NO code change.
-            - Prefer the smallest correct source/workflow fix.
-            - Run the most relevant unit tests, typecheck, or build after the change.
-            - Do not weaken, delete, or skip tests to make the workflow pass.
-            - Do not change assertions merely to match a broken implementation.
-            - If no safe code fix exists, leave the working tree unchanged.
-
-            Only modify the working tree when a safe fix is required and validation passes. Do not merge or create another PR; the workflow commits validated changes to the existing branch.
-
-            Failed workflow: ${{ github.event.workflow_run.name }}
-            Failed run: ${{ github.event.workflow_run.id }}
-
-      - name: Commit validated fix
-        if: steps.guard.outputs.allowed == 'true'
+      - name: Find related PR
+        id: pr
         env:
-          HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
+          GH_TOKEN: ${{ github.token }}
+          SHA: ${{ github.event.workflow_run.head_sha }}
         run: |
           set -euo pipefail
-          rm -rf .codex-ci
-          if git diff --quiet && git diff --cached --quiet; then
-            echo "Codex made no changes; no commit needed."
-            exit 0
-          fi
-          git config user.name "codex-ci[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -A
-          ATTEMPT="$(git log --format=%s -20 | grep -c '\[codex-auto-fix [12]/2\]' || true)"
-          NEXT=$((ATTEMPT + 1))
-          if [ "$NEXT" -gt 2 ]; then NEXT=2; fi
-          git commit -m "fix: auto-fix CI failure [codex-auto-fix ${NEXT}/2]"
-          git push origin "HEAD:${HEAD_BRANCH}"
+          PR_URL="$(gh api \
+            -H 'Accept: application/vnd.github+json' \
+            "/repos/$GITHUB_REPOSITORY/commits/$SHA/pulls" \
+            --jq '.[0].html_url // empty')"
+          echo "url=$PR_URL" >> "$GITHUB_OUTPUT"
 
-      - name: Report result
-        if: always()
+      - name: Create fix request issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          WORKFLOW: ${{ github.event.workflow_run.name }}
+          RUN_ID: ${{ github.event.workflow_run.id }}
+          BRANCH: ${{ github.event.workflow_run.head_branch }}
+          SHA: ${{ github.event.workflow_run.head_sha }}
+          PR_URL: ${{ steps.pr.outputs.url }}
         run: |
-          echo "Codex CI auto-fix completed for ${{ github.event.workflow_run.name }} run ${{ github.event.workflow_run.id }}"
+          set -euo pipefail
+          BODY=$(cat <<EOF
+          ## Codex fix request
+
+          CI failed and is ready for manual Codex handoff.
+
+          - Workflow: \`$WORKFLOW\`
+          - Run: [#$RUN_ID](https://github.com/$GITHUB_REPOSITORY/actions/runs/$RUN_ID)
+          - Branch: \`$BRANCH\`
+          - SHA: \`$SHA\`
+          - PR: ${PR_URL:-not-found}
+
+          ### Approval
+
+          **Do not run an autonomous API-based fixer.** ChatGPT/Codex should inspect this issue and the failed run when you explicitly ask it to fix the CI failure.
+
+          Recommended prompt in ChatGPT/Codex:
+
+          > Fix CI for run #$RUN_ID on branch \`$BRANCH\`. Inspect the failed logs, make the smallest safe fix, run the relevant tests, and push only to the existing PR branch. Do not modify or merge protected branches.
+
+          ### Failed log tail
+
+          \`\`\`text
+          $(cat .codex-ci/summary.log)
+          \`\`\`
+          EOF
+          )
+          gh issue create --repo "$GITHUB_REPOSITORY" \
+            --title "[Codex Fix Request] $WORKFLOW #$RUN_ID" \
+            --body "$BODY" \
+            --label "ci-failure" || \
+            gh issue create --repo "$GITHUB_REPOSITORY" \
+              --title "[Codex Fix Request] $WORKFLOW #$RUN_ID" \
+              --body "$BODY"
+
+      - name: Add PR handoff comment
+        if: steps.pr.outputs.url != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_URL: ${{ steps.pr.outputs.url }}
+          RUN_ID: ${{ github.event.workflow_run.id }}
+        run: |
+          set -euo pipefail
+          PR_NUMBER="${PR_URL##*/}"
+          gh pr comment "$PR_NUMBER" --repo "$GITHUB_REPOSITORY" --body "🤖 **Codex fix request:** CI run #$RUN_ID failed. No autonomous API fix was attempted. Ask ChatGPT/Codex to inspect the run and fix the existing PR branch after your approval."
