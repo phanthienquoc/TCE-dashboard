@@ -61,18 +61,64 @@ function notifyAuthExpired() {
 
 api.interceptors.request.use((config) => attachAccessToken(config));
 
-// The browser sends the HttpOnly refresh cookie automatically. This is the
-// only code path that creates an access token after a full page reload.
-export async function refreshAccessToken() {
-  const { data } = await axios.post('/api/auth/refresh', null, {
-    withCredentials: true,
+async function postRefresh(url) {
+  const response = await fetch(url, {
+    method: 'POST',
     credentials: 'include',
+    redirect: 'manual',
+    cache: 'no-store',
     headers: {
       Accept: 'application/json',
       'Cache-Control': 'no-cache',
     },
-    timeout: 15000,
+    body: null,
   });
+
+  // Some outer reverse proxies incorrectly answer POST requests with a
+  // 301/302/303. Browsers then transparently replay the Location as GET,
+  // producing the exact "Cannot GET /api/auth/refresh" 404 seen in Safari.
+  // Follow the redirect explicitly while keeping the method POST.
+  if (response.status >= 300 && response.status < 400) {
+    const location = response.headers.get('location');
+    if (!location) throw new Error(`Refresh redirect missing Location (${response.status})`);
+
+    const target = new URL(location, window.location.origin).toString();
+    const redirected = await fetch(target, {
+      method: 'POST',
+      credentials: 'include',
+      redirect: 'manual',
+      cache: 'no-store',
+      headers: {
+        Accept: 'application/json',
+        'Cache-Control': 'no-cache',
+      },
+      body: null,
+    });
+
+    if (redirected.status >= 300 && redirected.status < 400) {
+      throw new Error(`Refresh endpoint redirected repeatedly (${redirected.status})`);
+    }
+
+    if (!redirected.ok) {
+      const message = await redirected.text().catch(() => '');
+      throw new Error(message || `Refresh failed with HTTP ${redirected.status}`);
+    }
+
+    return redirected.json();
+  }
+
+  if (!response.ok) {
+    const message = await response.text().catch(() => '');
+    throw new Error(message || `Refresh failed with HTTP ${response.status}`);
+  }
+
+  return response.json();
+}
+
+// The browser sends the HttpOnly refresh cookie automatically. This is the
+// only code path that creates an access token after a full page reload.
+export async function refreshAccessToken() {
+  const data = await postRefresh('/api/auth/refresh');
 
   if (!data?.accessToken) {
     throw new Error('Refresh response missing access token');
