@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { BINANCE_FUTURES_URLS } from './binance.constants';
 import {
-  getCurrentSsiInfo, hasBinanceCredentials, hasSsiCredentials,
+  getCurrentSsiInfo, hasBinanceCredentials, hasSsiCredentials, listPlatformCredentials,
   placeBinanceOrder, placeBinanceSl, placeBinanceTp,
   requestSsiOtp, saveBinanceCredentials, saveSsiCredentials,
   syncSsiPortfolio, testBinanceConnection, testSsiConnection,
@@ -21,6 +21,8 @@ export default function PlatformsPanel() {
   const [binance, setBinance] = useState(emptyBinance);
   const [environment, setEnvironment] = useState('production');
   const [binanceEnvironment, setBinanceEnvironment] = useState('production');
+  const [binanceConfigOpen, setBinanceConfigOpen] = useState(true);
+  const [executionOpen, setExecutionOpen] = useState(true);
   const [otp, setOtp] = useState('');
   const [transactionId, setTransactionId] = useState('');
   const [status, setStatus] = useState('');
@@ -39,6 +41,24 @@ export default function PlatformsPanel() {
     hasSsiCredentials(environment).then((v) => active && setSaved(v)).catch(() => active && setSaved(false));
     return () => { active = false; };
   }, [environment]);
+
+  useEffect(() => {
+    let active = true;
+    listPlatformCredentials().then((items) => {
+      if (!active) return;
+      const configured = items.filter((item) => item.provider === 'binance' && item.isActive !== false).map((item) => item.environment);
+      const preferred = configured.includes('production') ? 'production' : configured.includes('testnet') ? 'testnet' : 'production';
+      setBinanceEnvironment(preferred);
+      setBinanceSaved(configured.includes(preferred));
+      setBinanceConfigOpen(!configured.length);
+    }).catch(() => {
+      if (active) {
+        setBinanceSaved(false);
+        setBinanceConfigOpen(true);
+      }
+    });
+    return () => { active = false; };
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -71,7 +91,7 @@ export default function PlatformsPanel() {
     if (!binance.apiKey || !binance.apiSecret) throw new Error('Binance API Key and API Secret are required.');
     await saveBinanceCredentials(binanceEnvironment, { ...binance, baseUrl: BINANCE_FUTURES_URLS[binanceEnvironment] });
     return true;
-  }, () => { setBinanceSaved(true); setStatus(`Binance ${binanceEnvironment === 'testnet' ? 'Testnet' : 'Production'} credentials saved securely.`); });
+  }, () => { setBinanceSaved(true); setBinanceConfigOpen(false); setStatus(`Binance ${binanceEnvironment === 'testnet' ? 'Testnet' : 'Production'} credentials saved securely.`); });
 
   const testB = () => run('binance-test', () => testBinanceConnection(binanceEnvironment), (r) =>
     setStatus(`Binance connected • ${r?.environment || binanceEnvironment} • ${(r?.balances || []).length} balance rows.`));
@@ -143,41 +163,46 @@ export default function PlatformsPanel() {
 
     <section className={`section page-section ${styles.page}`}>
       <div className={styles.head}>
-        <div><span className="eyebrow">BINANCE FUTURES</span><h2>Binance Futures</h2><small>Credentials, connection and manual execution use the same environment.</small></div>
-        <span className={`${styles.status} ${binanceSaved ? styles.statusOk : ''}`}>{binanceSaved ? '● CONFIGURED' : '○ NOT CONFIGURED'}</span>
+        <div><span className="eyebrow">BINANCE FUTURES</span><h2>Binance Futures</h2><small>One selected environment drives save, test and every manual order.</small></div>
+        <span className={`${styles.status} ${binanceSaved ? styles.statusOk : ''}`}>{binanceSaved ? `● ${envLabel.toUpperCase()} CONFIGURED` : '○ NOT CONFIGURED'}</span>
       </div>
 
-      <div className={styles.fields}>
-        <label className={styles.field}>Environment
-          <select className={styles.select} value={binanceEnvironment} onChange={e => { setBinanceEnvironment(e.target.value); setConfirmReal(false); setOrderResult(null); }}>
-            <option value="production">Production</option><option value="testnet">Testnet</option>
-          </select>
-        </label>
-        <label className={styles.field}>API Key<input className={styles.input} type="password" value={binance.apiKey} onChange={e => setB('apiKey', e.target.value)} /></label>
-        <label className={styles.field}>API Secret<input className={styles.input} type="password" value={binance.apiSecret} onChange={e => setB('apiSecret', e.target.value)} /></label>
-        <label className={styles.field}>Base URL<input className={styles.input} value={BINANCE_FUTURES_URLS[binanceEnvironment]} readOnly /></label>
+      <div className={styles.collapseHeader}>
+        <div><b>Credentials & Environment</b><span>{envLabel} • {BINANCE_FUTURES_URLS[binanceEnvironment]}</span></div>
+        <button type="button" className={styles.collapseButton} onClick={() => setBinanceConfigOpen(v => !v)}>{binanceConfigOpen ? 'Collapse' : 'Expand'} <span>{binanceConfigOpen ? '⌃' : '⌄'}</span></button>
       </div>
-      <div className={styles.actions}>{button(`Save Binance ${envLabel}`, saveB, true, 'binance-save')}{button(`Test ${envLabel} connection`, testB, false, 'binance-test')}</div>
+      {binanceConfigOpen && <div className={styles.collapseBody}>
+        <div className={styles.fields}>
+          <label className={styles.field}>Environment<select className={styles.select} value={binanceEnvironment} onChange={e => { setBinanceEnvironment(e.target.value); setConfirmReal(false); setOrderResult(null); }}><option value="production">Production</option><option value="testnet">Testnet</option></select></label>
+          <label className={styles.field}>API Key<input className={styles.input} type="password" value={binance.apiKey} onChange={e => setB('apiKey', e.target.value)} /></label>
+          <label className={styles.field}>API Secret<input className={styles.input} type="password" value={binance.apiSecret} onChange={e => setB('apiSecret', e.target.value)} /></label>
+          <label className={styles.field}>Base URL<input className={styles.input} value={BINANCE_FUTURES_URLS[binanceEnvironment]} readOnly /></label>
+        </div>
+        <div className={styles.actions}>{button(`Save Binance ${envLabel}`, saveB, true, 'binance-save')}{button(`Test ${envLabel} connection`, testB, false, 'binance-test')}</div>
+      </div>}
 
-      <div className={styles.head} style={{ marginTop: '2rem' }}>
-        <div><span className="eyebrow">MANUAL EXECUTION</span><h2>Futures Order</h2><small>Environment: {envLabel}. The selected environment above is used for every order action.</small></div>
-        <span className={styles.status}>{isTestnet ? 'TESTNET ORDER' : '⚠ REAL ORDER'}</span>
+      <div className={`${styles.collapseHeader} ${styles.executionHeader}`}>
+        <div><b>Manual Execution</b><span>{envLabel} • entry / TP / SL use the same selected environment</span></div>
+        <button type="button" className={styles.collapseButton} onClick={() => setExecutionOpen(v => !v)}>{executionOpen ? 'Collapse' : 'Expand'} <span>{executionOpen ? '⌃' : '⌄'}</span></button>
       </div>
-      <div className={styles.fields}>
-        <label className={styles.field}>Symbol<input className={styles.input} value={order.symbol} onChange={e => setO('symbol', e.target.value.toUpperCase())} /></label>
-        <label className={styles.field}>Side<select className={styles.select} value={order.side} onChange={e => setO('side', e.target.value)}><option>BUY</option><option>SELL</option></select></label>
-        <label className={styles.field}>Order Type<select className={styles.select} value={order.type} onChange={e => setO('type', e.target.value)}><option>MARKET</option><option>LIMIT</option><option>STOP</option><option>STOP_MARKET</option></select></label>
-        <label className={styles.field}>Quantity<input className={styles.input} type="number" min="0" step="any" value={order.quantity} onChange={e => setO('quantity', e.target.value)} /></label>
-        {(order.type === 'LIMIT' || order.type === 'STOP') && <label className={styles.field}>Price<input className={styles.input} type="number" step="any" value={order.price} onChange={e => setO('price', e.target.value)} /></label>}
-        {(order.type === 'STOP' || order.type === 'STOP_MARKET') && <label className={styles.field}>Trigger Price<input className={styles.input} type="number" step="any" value={order.triggerPrice} onChange={e => setO('triggerPrice', e.target.value)} /></label>}
-        <label className={styles.field}>Position Side<select className={styles.select} value={order.positionSide} onChange={e => setO('positionSide', e.target.value)}><option>BOTH</option><option>LONG</option><option>SHORT</option></select></label>
-        {order.type === 'LIMIT' && <label className={styles.field}>Time in Force<select className={styles.select} value={order.timeInForce} onChange={e => setO('timeInForce', e.target.value)}><option>GTC</option><option>IOC</option><option>FOK</option></select></label>}
-        <label className={styles.field}>Take Profit<input className={styles.input} type="number" step="any" value={tp} onChange={e => setTp(e.target.value)} placeholder="Trigger price" /></label>
-        <label className={styles.field}>Stop Loss<input className={styles.input} type="number" step="any" value={sl} onChange={e => setSl(e.target.value)} placeholder="Trigger price" /></label>
-      </div>
-      <label className={styles.note}><input type="checkbox" checked={confirmReal} onChange={e => setConfirmReal(e.target.checked)} /> <b>I understand this submits a {isTestnet ? 'Testnet' : 'REAL'} Binance Futures order.</b><span>{isTestnet ? 'Testnet only — no real funds.' : 'Production credentials submit real orders.'}</span></label>
-      <div className={styles.actions}>{button(`Place ${envLabel} entry order`, sendOrder, true, 'order')}{button(`Place ${envLabel} TP`, sendTp, false, 'tp')}{button(`Place ${envLabel} SL`, sendSl, false, 'sl')}</div>
-      {orderResult && <pre className={styles.output}>{JSON.stringify(orderResult, null, 2)}</pre>}
+      {executionOpen && <div className={styles.collapseBody}>
+        <div className={styles.orderBanner}><span className="eyebrow">ACTIVE ORDER ENVIRONMENT</span><strong>{envLabel}</strong><small>{BINANCE_FUTURES_URLS[binanceEnvironment]}</small></div>
+        <div className={styles.fields}>
+          <label className={styles.field}>Symbol<input className={styles.input} value={order.symbol} onChange={e => setO('symbol', e.target.value.toUpperCase())} /></label>
+          <label className={styles.field}>Side<select className={styles.select} value={order.side} onChange={e => setO('side', e.target.value)}><option>BUY</option><option>SELL</option></select></label>
+          <label className={styles.field}>Order Type<select className={styles.select} value={order.type} onChange={e => setO('type', e.target.value)}><option>MARKET</option><option>LIMIT</option><option>STOP</option><option>STOP_MARKET</option></select></label>
+          <label className={styles.field}>Quantity<input className={styles.input} type="number" min="0" step="any" value={order.quantity} onChange={e => setO('quantity', e.target.value)} /></label>
+          {(order.type === 'LIMIT' || order.type === 'STOP') && <label className={styles.field}>Price<input className={styles.input} type="number" step="any" value={order.price} onChange={e => setO('price', e.target.value)} /></label>}
+          {(order.type === 'STOP' || order.type === 'STOP_MARKET') && <label className={styles.field}>Trigger Price<input className={styles.input} type="number" step="any" value={order.triggerPrice} onChange={e => setO('triggerPrice', e.target.value)} /></label>}
+          <label className={styles.field}>Position Side<select className={styles.select} value={order.positionSide} onChange={e => setO('positionSide', e.target.value)}><option>BOTH</option><option>LONG</option><option>SHORT</option></select></label>
+          {order.type === 'LIMIT' && <label className={styles.field}>Time in Force<select className={styles.select} value={order.timeInForce} onChange={e => setO('timeInForce', e.target.value)}><option>GTC</option><option>IOC</option><option>FOK</option></select></label>}
+          <label className={styles.field}>Take Profit<input className={styles.input} type="number" step="any" value={tp} onChange={e => setTp(e.target.value)} placeholder="Trigger price" /></label>
+          <label className={styles.field}>Stop Loss<input className={styles.input} type="number" step="any" value={sl} onChange={e => setSl(e.target.value)} placeholder="Trigger price" /></label>
+        </div>
+        <label className={styles.note}><input type="checkbox" checked={confirmReal} onChange={e => setConfirmReal(e.target.checked)} /> <b>I understand this submits a {isTestnet ? 'Testnet' : 'REAL'} Binance Futures order.</b><span>{isTestnet ? 'Testnet only — no real funds.' : 'Production credentials submit real orders.'}</span></label>
+        <div className={styles.actions}>{button(`Place ${envLabel} entry order`, sendOrder, true, 'order')}{button(`Place ${envLabel} TP`, sendTp, false, 'tp')}{button(`Place ${envLabel} SL`, sendSl, false, 'sl')}</div>
+        {orderResult && <pre className={styles.output}>{JSON.stringify(orderResult, null, 2)}</pre>}
+      </div>}
     </section>
   </>;
 }
