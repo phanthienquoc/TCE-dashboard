@@ -5,10 +5,12 @@ import { useRouter } from 'next/navigation';
 import { notifyApiError } from '../../lib/api';
 import { useAuth } from '../../lib/auth-context';
 
+const DEFAULT_LOGIN_EMAIL = 'phanthienquoc@outlook.com';
+
 export default function LoginPage() {
   const router = useRouter();
   const { signIn } = useAuth();
-  const [email, setEmail] = useState('');
+  const [email, setEmail] = useState(DEFAULT_LOGIN_EMAIL);
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -39,8 +41,8 @@ export default function LoginPage() {
       <div className="auth-card">
         <div className="auth-header"><span className="auth-kicker">WELCOME BACK</span><h1>Sign in</h1><p>Access your trading workspace securely.</p></div>
         <div className="auth-fields">
-          <label>Email<input type="email" autoComplete="username" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" /></label>
-          <label>Password<input type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Enter your password" /></label>
+          <label>Email<input type="email" name="email" autoComplete="username" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" /></label>
+          <label>Password<input type="password" name="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Enter your password" /></label>
         </div>
         <div className="auth-options"><span className="secure-badge">● Backend secured</span></div>
         <button className="auth-submit" type="button" disabled={loading} onClick={submit}><span>{loading ? 'Signing in…' : 'Sign in'}</span><span>→</span></button>
