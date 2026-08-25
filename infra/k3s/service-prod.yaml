@@ -23,8 +23,8 @@ spec:
             - { name: JWT_REFRESH_TTL_SECONDS, value: "2592000" }
             - { name: MFA_ENCRYPTION_KEY, valueFrom: { secretKeyRef: { name: tce-auth, key: MFA_ENCRYPTION_KEY } } }
             - { name: TCE_CREDENTIAL_ENCRYPTION_KEY, valueFrom: { secretKeyRef: { name: tce-auth, key: TCE_CREDENTIAL_ENCRYPTION_KEY } } }
-          readinessProbe: { httpGet: { path: /auth/status, port: http }, initialDelaySeconds: 5, periodSeconds: 10 }
-          livenessProbe: { httpGet: { path: /auth/status, port: http }, initialDelaySeconds: 15, periodSeconds: 20 }
+          readinessProbe: { httpGet: { path: /api/health, port: http }, initialDelaySeconds: 5, timeoutSeconds: 2, periodSeconds: 10, failureThreshold: 3 }
+          livenessProbe: { httpGet: { path: /api/health, port: http }, initialDelaySeconds: 15, timeoutSeconds: 2, periodSeconds: 20, failureThreshold: 3 }
           resources: { requests: { cpu: 50m, memory: 128Mi }, limits: { cpu: 500m, memory: 512Mi } }
 ---
 apiVersion: v1
