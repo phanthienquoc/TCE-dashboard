@@ -45,14 +45,23 @@ jobs:
         env:
           IMAGE_TAG: ${{ needs.detect.outputs.image_tag }}
         run: test "$(docker image inspect "tce-frontend:$IMAGE_TAG" --format '{{.Architecture}}')" = "arm64"
-      - name: Export frontend image
+      - name: Export and validate frontend image
         env:
           IMAGE_TAG: ${{ needs.detect.outputs.image_tag }}
-        run: docker save "tce-frontend:$IMAGE_TAG" | gzip > /tmp/tce-frontend.tar.gz
+        run: |
+          set -euo pipefail
+          rm -f /tmp/tce-frontend.tar /tmp/tce-frontend.tar.gz /tmp/tce-frontend.sha256
+          docker save "tce-frontend:$IMAGE_TAG" -o /tmp/tce-frontend.tar
+          gzip -n -c /tmp/tce-frontend.tar > /tmp/tce-frontend.tar.gz
+          gzip -t /tmp/tce-frontend.tar.gz
+          sha256sum /tmp/tce-frontend.tar.gz > /tmp/tce-frontend.sha256
+          ls -lh /tmp/tce-frontend.tar.gz /tmp/tce-frontend.sha256
       - uses: actions/upload-artifact@v4
         with:
           name: tce-frontend-image
-          path: /tmp/tce-frontend.tar.gz
+          path: |
+            /tmp/tce-frontend.tar.gz
+            /tmp/tce-frontend.sha256
           retention-days: 1
 
   build-backend:
@@ -81,14 +90,23 @@ jobs:
         env:
           IMAGE_TAG: ${{ needs.detect.outputs.image_tag }}
         run: test "$(docker image inspect "tce-service:$IMAGE_TAG" --format '{{.Architecture}}')" = "arm64"
-      - name: Export backend image
+      - name: Export and validate backend image
         env:
           IMAGE_TAG: ${{ needs.detect.outputs.image_tag }}
-        run: docker save "tce-service:$IMAGE_TAG" | gzip > /tmp/tce-service.tar.gz
+        run: |
+          set -euo pipefail
+          rm -f /tmp/tce-service.tar /tmp/tce-service.tar.gz /tmp/tce-service.sha256
+          docker save "tce-service:$IMAGE_TAG" -o /tmp/tce-service.tar
+          gzip -n -c /tmp/tce-service.tar > /tmp/tce-service.tar.gz
+          gzip -t /tmp/tce-service.tar.gz
+          sha256sum /tmp/tce-service.tar.gz > /tmp/tce-service.sha256
+          ls -lh /tmp/tce-service.tar.gz /tmp/tce-service.sha256
       - uses: actions/upload-artifact@v4
         with:
           name: tce-service-image
-          path: /tmp/tce-service.tar.gz
+          path: |
+            /tmp/tce-service.tar.gz
+            /tmp/tce-service.sha256
           retention-days: 1
 
   deploy-production:
@@ -126,6 +144,16 @@ jobs:
         with:
           name: tce-service-image
           path: /tmp/images
+      - name: Verify downloaded image archives
+        run: |
+          set -euo pipefail
+          cd /tmp/images
+          for image in tce-frontend tce-service; do
+            test -s "$image.tar.gz"
+            test -s "$image.sha256"
+            gzip -t "$image.tar.gz"
+            sha256sum -c "$image.sha256"
+          done
       - name: Render immutable production manifests
         run: |
           set -euo pipefail
@@ -144,7 +172,8 @@ jobs:
         run: |
           set -euo pipefail
           scp -i ~/.ssh/tce_vps_key -o IdentitiesOnly=yes -o StrictHostKeyChecking=no \
-            /tmp/images/tce-frontend.tar.gz /tmp/images/tce-service.tar.gz \
+            /tmp/images/tce-frontend.tar.gz /tmp/images/tce-frontend.sha256 \
+            /tmp/images/tce-service.tar.gz /tmp/images/tce-service.sha256 \
             /tmp/frontend-prod.yaml /tmp/service-prod.yaml \
             "$USERNAME@$HOST:/tmp/"
       - name: Deploy production to k3s
@@ -155,7 +184,18 @@ jobs:
           set -euo pipefail
           NS=tce-prod
           sudo kubectl get namespace "$NS" >/dev/null 2>&1 || sudo kubectl create namespace "$NS"
+
+          for image in tce-frontend tce-service; do
+            test -s "/tmp/$image.tar.gz"
+            test -s "/tmp/$image.sha256"
+            echo "Validating $image archive on VPS"
+            gzip -t "/tmp/$image.tar.gz"
+            (cd /tmp && sha256sum -c "$image.sha256")
+          done
+
+          echo "Importing frontend image"
           sudo k3s ctr images import /tmp/tce-frontend.tar.gz
+          echo "Importing service image"
           sudo k3s ctr images import /tmp/tce-service.tar.gz
 
           verify_image() {
@@ -221,7 +261,7 @@ jobs:
 
           sudo kubectl -n "$NS" get pods,svc,ingress
           sudo kubectl -n "$NS" get certificate,secret 2>/dev/null || true
-          rm -f /tmp/tce-frontend.tar.gz /tmp/tce-service.tar.gz /tmp/service-prod.yaml /tmp/frontend-prod.yaml
+          rm -f /tmp/tce-frontend.tar.gz /tmp/tce-frontend.sha256 /tmp/tce-service.tar.gz /tmp/tce-service.sha256 /tmp/service-prod.yaml /tmp/frontend-prod.yaml
           REMOTE
       - name: Cleanup
         if: always()
