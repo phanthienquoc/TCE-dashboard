@@ -1,15 +1,14 @@
 'use client';
 
 import { useCallback, useEffect } from 'react';
-import { setAccessToken } from './api';
-import { clearSession, getAccessToken, saveSession } from './session';
+import { refreshAccessToken, setAccessToken } from './api';
+import { clearSession } from './session';
 import { useAuthStore } from './auth-store';
 import { getCurrentUser, login, logout } from '../services/auth';
 
 async function signIn(email, password) {
   const session = await login(email.trim(), password);
   if (session?.mfaRequired) return session;
-  saveSession(session);
   setAccessToken(session.accessToken);
   const user = await getCurrentUser();
   useAuthStore.getState().setAuthenticated(user, session.accessToken);
@@ -27,9 +26,8 @@ async function signOut() {
 }
 
 async function refresh() {
+  const token = await refreshAccessToken();
   const user = await getCurrentUser();
-  const token = getAccessToken();
-  setAccessToken(token);
   useAuthStore.getState().setAuthenticated(user, token);
   return user;
 }
@@ -37,20 +35,18 @@ async function refresh() {
 export function AuthProvider({ children }) {
   useEffect(() => {
     let active = true;
+
     const bootstrap = async () => {
-      const token = getAccessToken();
-      setAccessToken(token);
       useAuthStore.getState().setLoading();
-      if (!token) {
-        if (active) useAuthStore.getState().setAnonymous();
-        return;
-      }
       try {
+        // Rehydrate the short-lived access token from the backend's HttpOnly
+        // refresh cookie before any authenticated page starts fetching data.
+        const token = await refreshAccessToken();
         const user = await getCurrentUser();
-        if (active) useAuthStore.getState().setAuthenticated(user, getAccessToken());
+        if (active) useAuthStore.getState().setAuthenticated(user, token);
       } catch {
-        clearSession();
         setAccessToken('');
+        clearSession();
         if (active) useAuthStore.getState().setAnonymous();
       }
     };
