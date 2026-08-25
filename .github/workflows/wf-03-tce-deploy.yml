@@ -13,15 +13,22 @@ env:
 
 jobs:
   build-frontend:
-    name: Build frontend
-    runs-on: ubuntu-latest
+    name: Build frontend (native ARM64)
+    runs-on: ubuntu-24.04-arm
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
+      - name: Verify native architecture
+        run: |
+          set -euo pipefail
+          test "$(uname -m)" = "aarch64"
+          docker version
       - name: Validate frontend
         run: test -f Dockerfile
       - name: Build frontend image
-        run: docker buildx build --pull --platform "$TARGET_PLATFORM" -t tce-frontend:prod -f Dockerfile --load .
+        run: docker build --pull -t tce-frontend:prod -f Dockerfile .
+      - name: Verify image architecture
+        run: test "$(docker image inspect tce-frontend:prod --format '{{.Architecture}}')" = "arm64"
       - name: Export frontend image
         run: docker save tce-frontend:prod | gzip > /tmp/tce-frontend.tar.gz
       - name: Upload frontend image
@@ -32,11 +39,16 @@ jobs:
           retention-days: 1
 
   build-backend:
-    name: Build backend
-    runs-on: ubuntu-latest
+    name: Build backend (native ARM64)
+    runs-on: ubuntu-24.04-arm
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
+      - name: Verify native architecture
+        run: |
+          set -euo pipefail
+          test "$(uname -m)" = "aarch64"
+          docker version
       - name: Validate backend
         run: |
           set -euo pipefail
@@ -47,7 +59,9 @@ jobs:
           test -d libs
           test -d packages
       - name: Build backend image
-        run: docker buildx build --pull --platform "$TARGET_PLATFORM" -t tce-service:prod -f apps/service/Dockerfile --load .
+        run: docker build --pull -t tce-service:prod -f apps/service/Dockerfile .
+      - name: Verify image architecture
+        run: test "$(docker image inspect tce-service:prod --format '{{.Architecture}}')" = "arm64"
       - name: Export backend image
         run: docker save tce-service:prod | gzip > /tmp/tce-service.tar.gz
       - name: Upload backend image
@@ -60,7 +74,7 @@ jobs:
   deploy-production:
     name: Deploy production
     needs: [build-frontend, build-backend]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04-arm
     timeout-minutes: 25
     env:
       HOST: 132.226.175.206
@@ -72,6 +86,8 @@ jobs:
       VPS_SSH_PRIVATE_KEY: ${{ secrets.VPS_SSH_PRIVATE_KEY }}
     steps:
       - uses: actions/checkout@v4
+      - name: Verify native architecture
+        run: test "$(uname -m)" = "aarch64"
 
       - name: Validate production configuration
         run: |
