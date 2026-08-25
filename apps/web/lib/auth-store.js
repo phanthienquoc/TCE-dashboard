@@ -2,14 +2,24 @@
 
 import { create } from 'zustand';
 
-export const useAuthStore = create((set) => ({
+const initialState = {
+  status: 'loading',
   user: null,
   accessToken: '',
-  ready: false,
-  loading: true,
-  setUser: (user) => set({ user }),
-  setAccessToken: (accessToken) => set({ accessToken: accessToken || '' }),
-  setReady: (ready) => set({ ready }),
-  setLoading: (loading) => set({ loading }),
-  clearAuth: () => set({ user: null, accessToken: '' }),
+};
+
+export const useAuthStore = create((set) => ({
+  ...initialState,
+  setLoading: () => set({ status: 'loading' }),
+  setAuthenticated: (user, accessToken) => set({
+    status: 'authenticated',
+    user,
+    accessToken: accessToken || '',
+  }),
+  setAnonymous: () => set({
+    status: 'anonymous',
+    user: null,
+    accessToken: '',
+  }),
+  setToken: (accessToken) => set({ accessToken: accessToken || '' }),
 }));
