@@ -4,7 +4,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { getBackendStatus } from '../services/auth';
 import { getDashboardData } from '../services/dashboard';
-import { useAuthStore } from '../lib/auth-store';
+import { getAccessToken } from '../lib/session';
+import { setAccessToken } from '../lib/api';
 import { useAuth } from '../lib/auth-context';
 import PlatformsPanel from './platforms/PlatformsPanel';
 
@@ -13,17 +14,29 @@ const num = (value) => Number(value || 0).toLocaleString('vi-VN');
 
 export default function DashboardPage() {
   const router = useRouter();
-  const hydrated = useAuthStore((state) => state.hydrated);
-  const { accessToken, ready, signOut } = useAuth();
+  const { signOut } = useAuth();
+  const [clientReady, setClientReady] = useState(false);
   const [data, setData] = useState(null);
   const [backend, setBackend] = useState({ ok: false, checking: true });
   const [error, setError] = useState('');
   const [tab, setTab] = useState('overview');
 
   useEffect(() => {
+    // This page is deliberately client-driven. Read the token directly from
+    // browser storage before the first protected API request; do not wait for
+    // SSR/Zustand hydration or an /auth/me request to become ready.
+    const token = getAccessToken();
+    if (!token) {
+      router.replace('/login');
+      return;
+    }
+    setAccessToken(token);
+    setClientReady(true);
+  }, [router]);
+
+  useEffect(() => {
     let active = true;
-    if (!hydrated || !ready) return () => { active = false; };
-    if (!accessToken) { router.replace('/login'); return () => { active = false; }; }
+    if (!clientReady) return () => { active = false; };
 
     const load = async () => {
       try {
@@ -35,7 +48,7 @@ export default function DashboardPage() {
       } catch (err) {
         if (!active) return;
         if (err.message === 'Session expired' || err.response?.status === 401) {
-          signOut();
+          await signOut();
           router.replace('/login');
           return;
         }
@@ -47,7 +60,7 @@ export default function DashboardPage() {
     void load();
     const timer = window.setInterval(load, 30000);
     return () => { active = false; window.clearInterval(timer); };
-  }, [accessToken, hydrated, ready, router, signOut]);
+  }, [clientReady, router, signOut]);
 
   const account = data?.account || {};
   const positions = data?.positions || [];
@@ -59,7 +72,7 @@ export default function DashboardPage() {
   const recoveryPct = target ? Math.round(recovered / target * 100) : 0;
   const title = useMemo(() => ({ overview: 'Dashboard', positions: 'Positions', orders: 'Recent orders', platforms: 'Trading Platforms', security: 'Security' }[tab] || 'Dashboard'), [tab]);
 
-  if (!hydrated || !ready || (!data && !error)) return <div className="loading-screen">Loading TCE…</div>;
+  if (!clientReady || (!data && !error)) return <div className="loading-screen">Loading TCE…</div>;
 
   return <main>
     <div className={`backend-status ${backend.ok ? 'up' : 'down'}`}>● {backend.checking ? 'Checking backend…' : backend.ok ? 'Backend online' : 'Backend unavailable'}</div>
