@@ -24,11 +24,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Verify required PROD repository secrets
+      - name: Verify required repository secrets
         env:
-          SUPABASE_URL_PROD: ${{ secrets.SUPABASE_URL_PROD }}
-          SUPABASE_SERVICE_ROLE_KEY_PROD: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY_PROD }}
-          JWT_SECRET_PROD: ${{ secrets.JWT_SECRET_PROD }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          JWT_SECRET: ${{ secrets.JWT_SECRET }}
+          MFA_ENCRYPTION_KEY: ${{ secrets.MFA_ENCRYPTION_KEY }}
           VPS_SSH_PRIVATE_KEY: ${{ secrets.VPS_SSH_PRIVATE_KEY }}
         run: |
           set -euo pipefail
@@ -38,7 +39,7 @@ jobs:
           test -f apps/service/package.json
           test -f infra/k3s/frontend-prod.yaml
           test -f infra/k3s/service-prod.yaml
-          for name in SUPABASE_URL_PROD SUPABASE_SERVICE_ROLE_KEY_PROD JWT_SECRET_PROD VPS_SSH_PRIVATE_KEY; do
+          for name in SUPABASE_URL SUPABASE_SERVICE_ROLE_KEY JWT_SECRET MFA_ENCRYPTION_KEY VPS_SSH_PRIVATE_KEY; do
             test -n "${!name}" || { echo "Missing required GitHub secret: $name"; exit 1; }
             echo "Secret present: $name"
           done
