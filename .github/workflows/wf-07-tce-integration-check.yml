@@ -75,17 +75,37 @@ jobs:
 
   staging-api:
     name: TCE staging → Binance Testnet integration
-    if: ${{ github.event_name == 'workflow_dispatch' && (github.event.inputs.target == 'all' || github.event.inputs.target == 'staging-api') && secrets.TCE_STG_URL != '' && secrets.TCE_STG_JWT != '' }}
+    if: ${{ github.event_name == 'workflow_dispatch' && (github.event.inputs.target == 'all' || github.event.inputs.target == 'staging-api') }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    env:
+      TCE_STG_URL: ${{ secrets.TCE_STG_URL }}
+      TCE_STG_JWT: ${{ secrets.TCE_STG_JWT }}
     steps:
-      - name: Check TCE staging Binance connection
-        env:
-          TCE_STG_URL: ${{ secrets.TCE_STG_URL }}
-          TCE_STG_JWT: ${{ secrets.TCE_STG_JWT }}
+      - name: Check staging integration configuration
         shell: bash
         run: |
           set -euo pipefail
+          target='${{ github.event.inputs.target }}'
+          if [ -z "$TCE_STG_URL" ] || [ -z "$TCE_STG_JWT" ]; then
+            if [ "$target" = 'staging-api' ]; then
+              echo 'Missing TCE_STG_URL or TCE_STG_JWT for requested staging integration.'
+              exit 1
+            fi
+            echo 'TCE staging secrets are not configured; staging integration will be skipped.'
+            exit 0
+          fi
+          echo 'TCE staging integration configuration: OK'
+
+      - name: Check TCE staging Binance connection
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [ -z "$TCE_STG_URL" ] || [ -z "$TCE_STG_JWT" ]; then
+            echo 'Staging integration skipped because credentials are not configured.'
+            exit 0
+          fi
 
           base_url="${TCE_STG_URL%/}"
           response_file="$(mktemp)"
@@ -107,10 +127,3 @@ jobs:
 
           jq -e '.ok == true and .data.connected == true and .data.environment == "testnet"' "$response_file" >/dev/null
           echo 'TCE staging → Binance Testnet integration: OK'
-
-      - name: Explain skipped staging integration
-        if: ${{ secrets.TCE_STG_URL == '' || secrets.TCE_STG_JWT == '' }}
-        shell: bash
-        run: |
-          echo 'TCE_STG_URL/TCE_STG_JWT are not configured; staging integration was not executed.'
-          echo 'Binance Testnet preflight remains the required integration check.'
