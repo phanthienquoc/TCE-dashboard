@@ -15,6 +15,10 @@ export class BinanceFuturesService {
     });
   }
 
+  async testConnection(userId: string, environment = 'production') {
+    return (await this.adapter(userId, environment)).testConnection();
+  }
+
   async entry(userId: string, input: FuturesEntryOrderInput, environment = 'production') {
     return (await this.adapter(userId, environment)).placeEntry(input);
   }
