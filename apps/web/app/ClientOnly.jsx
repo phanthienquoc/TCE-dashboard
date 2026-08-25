@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 
 const RELOAD_KEY = 'tce:chunk-recovery';
+const RELOAD_GUARD_MS = 10_000;
 
 function recoverFromStaleChunk(error) {
   if (typeof window === 'undefined') return;
@@ -13,7 +14,7 @@ function recoverFromStaleChunk(error) {
 
   // A rolling deployment replaces the Next.js build and can invalidate chunks
   // that an already-open tab still references. Reload once with a cache-busting
-  // query so the browser obtains a fresh HTML/build manifest instead of looping.
+  // query so the browser obtains fresh HTML/build metadata instead of looping.
   if (window.sessionStorage.getItem(RELOAD_KEY) === '1') return;
   window.sessionStorage.setItem(RELOAD_KEY, '1');
   const url = new URL(window.location.href);
@@ -30,11 +31,17 @@ export default function ClientOnly({ children }) {
     const onError = (event) => recoverFromStaleChunk(event);
     window.addEventListener('error', onError, true);
 
-    // Clear the one-shot guard after a successful mount so a future deployment
-    // can recover again without requiring the user to clear site data.
-    window.sessionStorage.removeItem(RELOAD_KEY);
+    // Keep the guard briefly after boot. If the fresh build also fails to load,
+    // do not enter an infinite reload loop; after a healthy boot future deploys
+    // can use the recovery path again.
+    const timer = window.setTimeout(() => {
+      window.sessionStorage.removeItem(RELOAD_KEY);
+    }, RELOAD_GUARD_MS);
 
-    return () => window.removeEventListener('error', onError, true);
+    return () => {
+      window.clearTimeout(timer);
+      window.removeEventListener('error', onError, true);
+    };
   }, []);
 
   if (!mounted) return <div className="loading-screen">Loading TCE…</div>;
