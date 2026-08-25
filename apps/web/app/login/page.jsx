@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { notifyApiError } from '../../lib/api';
 import { useAuth } from '../../lib/auth-context';
@@ -14,6 +14,10 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (status === 'authenticated') router.replace('/');
+  }, [status, router]);
 
   async function submit(event) {
     event.preventDefault();
@@ -38,7 +42,6 @@ export default function LoginPage() {
   }
 
   if (status === 'authenticated') {
-    router.replace('/');
     return <div className="loading-screen">Opening TCE…</div>;
   }
 
