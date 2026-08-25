@@ -1,6 +1,6 @@
 import { USDMClient } from 'binance';
 import { ContractResult, FuturesEntryOrderInput, FuturesExecutionPort, FuturesOrderResult, FuturesTpSlInput } from '@tce/contracts';
-import { getBinanceFuturesUrl, BinanceFuturesEnvironment } from './binance.futures.constants';
+import { getBinanceFuturesUrl, BinanceFuturesEnvironment } from './binance.constants';
 
 type BinanceCredentials = { apiKey?: string; apiSecret?: string };
 type BinanceOrderResponse = {
@@ -25,8 +25,7 @@ export class BinanceFuturesExecutionAdapter implements FuturesExecutionPort {
 
   constructor(private readonly credentials: BinanceCredentials, environment: BinanceFuturesEnvironment = 'production') {
     this.environment = environment;
-    // The node Binance SDK selects the correct Futures endpoint from testnet.
-    // Keep URL selection server-side and deterministic; never infer it from saved credentials.
+    // Endpoint selection is deterministic and server-side. The SDK uses testnet=true for the testnet endpoint.
     getBinanceFuturesUrl(environment);
     this.client = new USDMClient({
       api_key: credentials.apiKey,
