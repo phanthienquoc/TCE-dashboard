@@ -15,6 +15,7 @@
       "@tce/tce": ["libs/tce/src/index.ts"],
       "@tce/ssi": ["libs/ssi/src/index.ts"],
       "@tce/binance": ["libs/binance/src/index.ts"],
+      "@tce/binance/constants": ["libs/binance/src/binance.constants.ts"],
       "@tce/db": ["libs/db/src/index.ts"],
       "@tce/auth": ["libs/auth/src/index.ts"],
       "@tce/dashboard-data": ["libs/dashboard-data/src/index.ts"]

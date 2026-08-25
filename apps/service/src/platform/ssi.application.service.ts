@@ -1,10 +1,12 @@
 import { Injectable, NotFoundException, ServiceUnavailableException } from '@nestjs/common';
 import { CONTRACT_TOKENS, OrderRepository, PlatformCredentialPort, PositionRepository, SsiAuthInput } from '@tce/contracts';
 import { Inject } from '@nestjs/common';
-import { SsiBrokerAdapter } from '@tce/ssi';
+import { SsiBrokerAdapter, SsiOrderStatusEvent } from '@tce/ssi';
 
 @Injectable()
 export class SsiApplicationService {
+  private readonly sessions = new Map<string, { adapter: SsiBrokerAdapter; accountNo: string }>();
+
   constructor(
     @Inject(CONTRACT_TOKENS.credentials) private readonly credentials: PlatformCredentialPort,
     @Inject(CONTRACT_TOKENS.positionRepository) private readonly positions: PositionRepository,
@@ -18,6 +20,9 @@ export class SsiApplicationService {
   }
 
   private async adapter(userId: string, environment: string) {
+    const key = `${userId}:ssi:${environment}`;
+    const cached = this.sessions.get(key);
+    if (cached) return cached;
     let raw: Record<string, unknown>;
     try { raw = await this.credentials.get(userId, 'ssi', environment); }
     catch (error) {
@@ -26,7 +31,42 @@ export class SsiApplicationService {
       console.error('[SSI_CREDENTIALS_LOAD]', { userId, environment, message });
       throw new ServiceUnavailableException('Unable to load SSI credentials');
     }
-    return this.fromRaw(raw, environment);
+    const session = this.fromRaw(raw, environment);
+    this.sessions.set(key, session);
+    return session;
+  }
+
+  private async handleOrderEvent(userId: string, session: { adapter: SsiBrokerAdapter; accountNo: string }, event: SsiOrderStatusEvent) {
+    if (!event.orderId || !event.symbol) return;
+    await this.orders.upsert({
+      externalId: String(event.orderId),
+      symbol: String(event.symbol).toUpperCase(),
+      side: String(event.side).toUpperCase() === 'S' ? 'SELL' : 'BUY',
+      quantity: Number(event.filledQuantity ?? event.quantity ?? 0),
+      price: Number(event.price ?? 0),
+      status: String(event.status ?? 'UNKNOWN'),
+      createdAt: event.inputTime,
+      source: 'ssi',
+      accountId: userId,
+    });
+
+    // A fill changes the position. Refresh only the affected account; this keeps the dashboard authoritative.
+    if (event.status === 'FF' || event.status === 'PF' || event.status === 'FFPC') {
+      const positions = await session.adapter.positions(session.accountNo);
+      if (positions.ok) {
+        for (const position of positions.data) await this.positions.upsert({ ...position, accountId: userId });
+      }
+    }
+  }
+
+  private async startOrderStream(userId: string, session: { adapter: SsiBrokerAdapter; accountNo: string }) {
+    try {
+      await session.adapter.startOrderStatusStream(session.accountNo, (event) => {
+        void this.handleOrderEvent(userId, session, event).catch((error) => console.error('[SSI_ORDER_EVENT]', error));
+      });
+    } catch (error) {
+      console.error('[SSI_ORDER_STREAM_START]', error);
+    }
   }
 
   async requestOtp(userId: string, environment: string, credentials?: Record<string, unknown>) {
@@ -35,21 +75,29 @@ export class SsiApplicationService {
   }
 
   async test(userId: string, environment: string, input: SsiAuthInput, credentials?: Record<string, unknown>) {
-    const result = await (credentials ? this.fromRaw(credentials, environment).adapter.test(input) : (await this.adapter(userId, environment)).adapter.test(input));
-    if (result.ok && credentials) await this.credentials.save(userId, 'ssi', environment, credentials);
+    const session = credentials ? this.fromRaw(credentials, environment) : await this.adapter(userId, environment);
+    const result = await session.adapter.test(input);
+    if (result.ok) {
+      if (credentials) {
+        await this.credentials.save(userId, 'ssi', environment, credentials);
+        this.sessions.set(`${userId}:ssi:${environment}`, session);
+      }
+      void this.startOrderStream(userId, session);
+    }
     return result;
   }
 
   async current(userId: string, environment: string, input: SsiAuthInput) { const { adapter, accountNo } = await this.adapter(userId, environment); return adapter.current(accountNo, input); }
 
   async sync(userId: string, environment: string, input: SsiAuthInput) {
-    const { adapter, accountNo } = await this.adapter(userId, environment);
-    const snapshot = await adapter.syncPortfolio(accountNo, input);
+    const session = await this.adapter(userId, environment);
+    const snapshot = await session.adapter.syncPortfolio(session.accountNo, input);
     if (!snapshot.ok) return snapshot;
     let positionsSynced = 0;
     for (const position of snapshot.data.positions) { await this.positions.upsert({ ...position, accountId: userId }); positionsSynced += 1; }
     let ordersSynced = 0;
     for (const order of snapshot.data.orders) { await this.orders.upsert({ ...order, accountId: userId }); ordersSynced += 1; }
+    void this.startOrderStream(userId, session);
     return { ok: true as const, data: { positionsSynced, ordersSynced, balance: snapshot.data.balance } };
   }
 }

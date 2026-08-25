@@ -7,7 +7,7 @@
   "scripts": {
     "dev": "nx serve web",
     "build": "nx run-many -t build --projects=web,service",
-    "test": "tsx --test libs/binance/src/binance.futures.execution.adapter.spec.ts",
+    "test": "tsx --test libs/binance/src/*.spec.ts libs/ssi/src/*.spec.ts",
     "build:web": "next build apps/web",
     "build:nx:web": "nx build web",
     "build:service": "nx build service",
