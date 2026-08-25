@@ -4,15 +4,8 @@ on:
   push:
     branches: [master]
   workflow_dispatch:
-    inputs:
-      confirm:
-        description: "Type DEPLOY-TCE-PROD to confirm a manual production deploy"
-        required: true
-        default: ""
-        type: string
 
 jobs:
   deploy-prod:
-    if: ${{ github.event_name == 'push' || inputs.confirm == 'DEPLOY-TCE-PROD' }}
     uses: ./.github/workflows/wf-05-tce-production-deploy.yml
     secrets: inherit
