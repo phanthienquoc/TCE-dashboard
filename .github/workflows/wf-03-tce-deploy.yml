@@ -54,7 +54,7 @@ jobs:
           docker save "tce-frontend:$IMAGE_TAG" -o /tmp/tce-frontend.tar
           gzip -n -c /tmp/tce-frontend.tar > /tmp/tce-frontend.tar.gz
           gzip -t /tmp/tce-frontend.tar.gz
-          sha256sum /tmp/tce-frontend.tar.gz > /tmp/tce-frontend.sha256
+          (cd /tmp && sha256sum tce-frontend.tar.gz > tce-frontend.sha256)
           ls -lh /tmp/tce-frontend.tar.gz /tmp/tce-frontend.sha256
       - uses: actions/upload-artifact@v4
         with:
@@ -99,7 +99,7 @@ jobs:
           docker save "tce-service:$IMAGE_TAG" -o /tmp/tce-service.tar
           gzip -n -c /tmp/tce-service.tar > /tmp/tce-service.tar.gz
           gzip -t /tmp/tce-service.tar.gz
-          sha256sum /tmp/tce-service.tar.gz > /tmp/tce-service.sha256
+          (cd /tmp && sha256sum tce-service.tar.gz > tce-service.sha256)
           ls -lh /tmp/tce-service.tar.gz /tmp/tce-service.sha256
       - uses: actions/upload-artifact@v4
         with:
