@@ -11,6 +11,7 @@ import { getCurrentUser, login, logout } from '../services/auth';
 // the actual auth state lives in the lightweight Zustand store.
 export function AuthProvider({ children }) {
   const pathname = usePathname();
+
   const syncSession = useCallback((token) => {
     const nextToken = token || '';
     setAccessToken(nextToken);
@@ -24,8 +25,7 @@ export function AuthProvider({ children }) {
       syncSession(session.accessToken);
     }
     if (!session?.mfaRequired) {
-      const currentUser = await getCurrentUser();
-      useAuthStore.getState().setUser(currentUser);
+      useAuthStore.getState().setUser(await getCurrentUser());
     }
     return session;
   }, [syncSession]);
@@ -52,6 +52,10 @@ export function AuthProvider({ children }) {
   }, []);
 
   useEffect(() => {
+    // Explicit client hydration boundary. The initial Zustand state is
+    // deterministic on SSR and is marked hydrated only after the browser
+    // mounts, preventing SSR/client state races.
+    useAuthStore.getState().setHydrated(true);
     syncSession(getAccessToken());
 
     const onRefreshed = (event) => {
