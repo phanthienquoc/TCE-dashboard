@@ -32,15 +32,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - name: Check Binance Testnet public endpoint
-        shell: bash
-        run: |
-          set -euo pipefail
-          curl --fail --silent --show-error --retry 2 \
-            "$BINANCE_TESTNET_BASE_URL/fapi/v1/ping" >/dev/null
-          echo "Binance Testnet public endpoint: OK"
-
-      - name: Check Binance Testnet private account endpoint
+      - name: Run Binance public and private checks in parallel
         env:
           BINANCE_API_KEY: ${{ secrets.BINANCE_TESTNET_API_KEY }}
           BINANCE_API_SECRET: ${{ secrets.BINANCE_TESTNET_API_SECRET }}
@@ -51,27 +43,69 @@ jobs:
           test -n "$BINANCE_API_KEY" || { echo 'Missing BINANCE_TESTNET_API_KEY'; exit 1; }
           test -n "$BINANCE_API_SECRET" || { echo 'Missing BINANCE_TESTNET_API_SECRET'; exit 1; }
 
-          timestamp="$(date +%s%3N)"
-          query="timestamp=${timestamp}&recvWindow=5000"
-          signature="$(printf '%s' "$query" | openssl dgst -sha256 -hmac "$BINANCE_API_SECRET" | awk '{print $NF}')"
-          url="$BINANCE_TESTNET_BASE_URL/fapi/v2/account?${query}&signature=${signature}"
+          workdir="$(mktemp -d)"
+          trap 'rm -rf "$workdir"' EXIT
 
-          response_file="$(mktemp)"
-          trap 'rm -f "$response_file"' EXIT
+          public_check() {
+            echo '=== Binance Testnet public check ==='
+            code="$(curl --silent --show-error --output "$workdir/public.body" --write-out '%{http_code}' \
+              --connect-timeout 10 --max-time 20 --retry 2 \
+              "$BINANCE_TESTNET_BASE_URL/fapi/v1/ping")" || {
+                echo 'Binance Testnet public curl failed'; exit 1;
+              }
+            echo "public HTTP $code"
+            test "$code" = '200'
+            cat "$workdir/public.body"
+          }
 
-          http_code="$(curl --silent --show-error --output "$response_file" --write-out '%{http_code}' \
-            --header "X-MBX-APIKEY: $BINANCE_API_KEY" \
-            "$url")"
+          private_check() {
+            echo '=== Binance Testnet private check ==='
 
-          if [ "$http_code" != '200' ]; then
-            echo "Binance Testnet private API failed with HTTP $http_code"
-            jq -c '{code, msg}' "$response_file" 2>/dev/null || true
-            exit 1
-          fi
+            # Get Binance server time first so runner clock skew does not cause -1021.
+            time_json="$(curl --silent --show-error --connect-timeout 10 --max-time 20 --retry 2 \
+              "$BINANCE_TESTNET_BASE_URL/fapi/v1/time")" || {
+                echo 'Binance server-time curl failed'; exit 1;
+              }
+            timestamp="$(printf '%s' "$time_json" | jq -er '.serverTime')"
+            query="timestamp=${timestamp}&recvWindow=5000"
+            signature="$(printf '%s' "$query" | openssl dgst -sha256 -hmac "$BINANCE_API_SECRET" | awk '{print $NF}')"
+            url="$BINANCE_TESTNET_BASE_URL/fapi/v2/account?${query}&signature=${signature}"
 
-          jq -e 'has("accountAlias") and has("assets") and has("positions")' "$response_file" >/dev/null
-          can_trade="$(jq -r '.canTrade // false' "$response_file")"
-          echo "Binance Testnet private API: OK (canTrade=${can_trade})"
+            http_code="$(curl --silent --show-error --output "$workdir/private.body" --write-out '%{http_code}' \
+              --connect-timeout 10 --max-time 30 \
+              --header "X-MBX-APIKEY: $BINANCE_API_KEY" \
+              "$url")" || {
+                echo 'Binance Testnet private curl failed'; exit 1;
+              }
+
+            echo "private HTTP $http_code"
+            if [ "$http_code" != '200' ]; then
+              jq -c '{code, msg}' "$workdir/private.body" 2>/dev/null || cat "$workdir/private.body"
+              exit 1
+            fi
+
+            jq -e 'has("accountAlias") and has("assets") and has("positions")' "$workdir/private.body" >/dev/null
+            can_trade="$(jq -r '.canTrade // false' "$workdir/private.body")"
+            echo "Binance Testnet private API: OK (canTrade=${can_trade})"
+          }
+
+          public_check >"$workdir/public.log" 2>&1 &
+          public_pid=$!
+          private_check >"$workdir/private.log" 2>&1 &
+          private_pid=$!
+
+          public_status=0
+          private_status=0
+          wait "$public_pid" || public_status=$?
+          wait "$private_pid" || private_status=$?
+
+          echo '=== PUBLIC CHECK LOG ==='
+          cat "$workdir/public.log"
+          echo '=== PRIVATE CHECK LOG ==='
+          cat "$workdir/private.log"
+
+          test "$public_status" -eq 0
+          test "$private_status" -eq 0
 
   staging-api:
     name: TCE staging → Binance Testnet integration
@@ -101,7 +135,6 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-
           if [ -z "$TCE_STG_URL" ] || [ -z "$TCE_STG_JWT" ]; then
             echo 'Staging integration skipped because credentials are not configured.'
             exit 0
