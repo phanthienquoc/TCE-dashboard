@@ -24,6 +24,7 @@
     "@supabase/supabase-js": "^2.105.0",
     "@types/node": "^24.3.0",
     "axios": "^1.11.0",
+    "binance": "^3.6.1",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.2",
     "next": "^16.3.0",

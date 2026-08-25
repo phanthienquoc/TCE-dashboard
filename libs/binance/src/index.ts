@@ -5,3 +5,5 @@ export type BinanceMarketSnapshot = {
   price: number;
   timestamp: number;
 };
+
+export { BinanceFuturesExecutionAdapter } from './binance.futures.execution.adapter';

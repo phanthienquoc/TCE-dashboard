@@ -1,5 +1,6 @@
 import { ContractResult } from './errors.contract';
 import { AccountBalance, AccountOrder, AccountPosition, ConnectInput, MarketQuote, PlatformHealth } from './platform.contract';
+import { FuturesEntryOrderInput, FuturesOrderResult, FuturesTpSlInput } from './execution';
 
 export interface BrokerPort {
   readonly provider: string;
@@ -15,6 +16,13 @@ export interface MarketProviderPort {
   readonly provider: string;
   health(input: ConnectInput): Promise<ContractResult<PlatformHealth>>;
   quote(symbol: string): Promise<ContractResult<MarketQuote>>;
+}
+
+export interface FuturesExecutionPort {
+  readonly provider: 'binance';
+  placeEntry(input: FuturesEntryOrderInput): Promise<ContractResult<FuturesOrderResult>>;
+  placeTakeProfit(input: FuturesTpSlInput): Promise<ContractResult<FuturesOrderResult>>;
+  placeStopLoss(input: FuturesTpSlInput): Promise<ContractResult<FuturesOrderResult>>;
 }
 
 export interface DashboardSourcePort {
