@@ -85,6 +85,22 @@ jobs:
           scp -i ~/.ssh/tce_vps_key -o IdentitiesOnly=yes -o StrictHostKeyChecking=no infra/k3s/service-prod.yaml infra/k3s/frontend-prod.yaml "$U@$H:/tmp/"
           ssh -i ~/.ssh/tce_vps_key -o IdentitiesOnly=yes -o StrictHostKeyChecking=no "$U@$H" "SUPABASE_URL='$SUPABASE_URL' SUPABASE_KEY='$SUPABASE_KEY' JWT_SECRET='$JWT_SECRET' MFA_KEY='$MFA_KEY' bash -s" <<'REMOTE'
           set -euo pipefail
+
+          echo "=== REMOVE LEGACY TCE NGINX ROUTING ==="
+          for DOMAIN in tce.mrcute.space tce-stg.mrcute.space; do
+            sudo rm -f "/etc/nginx/sites-enabled/${DOMAIN}" "/etc/nginx/sites-available/${DOMAIN}"
+          done
+          sudo rm -rf /var/backups/tce-nginx /var/www/tce-acme
+          if command -v certbot >/dev/null 2>&1; then
+            for DOMAIN in tce.mrcute.space tce-stg.mrcute.space; do
+              sudo certbot delete --cert-name "$DOMAIN" --non-interactive 2>/dev/null || true
+            done
+          fi
+          if systemctl is-active --quiet nginx; then
+            sudo nginx -t
+            sudo systemctl disable --now nginx
+          fi
+
           sudo k3s ctr images import /tmp/tce-prod-images.tar.gz
           sudo kubectl get namespace tce-prod >/dev/null 2>&1 || sudo kubectl create namespace tce-prod
           sudo kubectl -n tce-prod create secret generic tce-app-secrets --from-literal=SUPABASE_URL="$SUPABASE_URL" --from-literal=SUPABASE_SERVICE_ROLE_KEY="$SUPABASE_KEY" --from-literal=JWT_SECRET="$JWT_SECRET" --dry-run=client -o yaml | sudo kubectl apply -f -
