@@ -3,7 +3,7 @@
 import { ChevronRight, Power, Settings2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Card } from '../components/ui/card';
+import { Card } from '../../components/ui/card';
 import { ENGINE_REGISTRY, EngineId } from './engine-registry';
 
 const STORAGE_KEY = 'tce-engine-enabled';
