@@ -189,11 +189,16 @@ jobs:
           chmod 600 ~/.ssh/tce_vps_key
           ssh-keygen -y -f ~/.ssh/tce_vps_key >/dev/null
       - name: Verify VPS access
-        run: ssh -i ~/.ssh/tce_vps_key -o IdentitiesOnly=yes -o StrictHostKeyChecking=no "$USERNAME@$HOST" 'sudo kubectl get nodes'
+        run: |
+          set -euo pipefail
+          SSH_OPTS=(-i ~/.ssh/tce_vps_key -o IdentitiesOnly=yes -o StrictHostKeyChecking=no -o BatchMode=yes -o ConnectTimeout=15 -o ServerAliveInterval=15 -o ServerAliveCountMax=3)
+          echo "=== SSH PREFLIGHT ==="
+          ssh "${SSH_OPTS[@]}" "$USERNAME@$HOST" 'set -euo pipefail; echo "SSH_OK"; hostname; uname -m; whoami; sudo -n true; sudo kubectl get nodes'
       - name: Upload production bundle
         run: |
           set -euo pipefail
-          scp -i ~/.ssh/tce_vps_key -o IdentitiesOnly=yes -o StrictHostKeyChecking=no \
+          SSH_OPTS=(-i ~/.ssh/tce_vps_key -o IdentitiesOnly=yes -o StrictHostKeyChecking=no -o BatchMode=yes -o ConnectTimeout=15 -o ServerAliveInterval=15 -o ServerAliveCountMax=3)
+          scp "${SSH_OPTS[@]}" \
             /tmp/images/tce-frontend.tar /tmp/images/tce-frontend.sha256 \
             /tmp/images/tce-service.tar /tmp/images/tce-service.sha256 \
             /tmp/frontend-prod.yaml /tmp/service-prod.yaml \
@@ -203,12 +208,52 @@ jobs:
           IMAGE_TAG: ${{ steps.release.outputs.image_tag }}
         run: |
           set -euo pipefail
-          ssh -i ~/.ssh/tce_vps_key -o IdentitiesOnly=yes -o StrictHostKeyChecking=no "$USERNAME@$HOST" \
-            "SUPABASE_URL='$SUPABASE_URL' SUPABASE_KEY='$SUPABASE_SERVICE_ROLE_KEY' JWT_SECRET='$JWT_SECRET' MFA_KEY='$MFA_ENCRYPTION_KEY' IMAGE_TAG='$IMAGE_TAG' bash -s" <<'REMOTE'
+
+          # Never interpolate raw secrets into a shell command. Base64 makes the
+          # transport shell-safe even when a secret contains quotes/newlines.
+          SUPABASE_URL_B64="$(printf '%s' "$SUPABASE_URL" | base64 -w0)"
+          SUPABASE_KEY_B64="$(printf '%s' "$SUPABASE_SERVICE_ROLE_KEY" | base64 -w0)"
+          JWT_SECRET_B64="$(printf '%s' "$JWT_SECRET" | base64 -w0)"
+          MFA_KEY_B64="$(printf '%s' "$MFA_ENCRYPTION_KEY" | base64 -w0)"
+
+          SSH_OPTS=(-i ~/.ssh/tce_vps_key -o IdentitiesOnly=yes -o StrictHostKeyChecking=no -o BatchMode=yes -o ConnectTimeout=15 -o ServerAliveInterval=15 -o ServerAliveCountMax=3)
+
+          ssh "${SSH_OPTS[@]}" "$USERNAME@$HOST" \
+            "SUPABASE_URL_B64='$SUPABASE_URL_B64' SUPABASE_KEY_B64='$SUPABASE_KEY_B64' JWT_SECRET_B64='$JWT_SECRET_B64' MFA_KEY_B64='$MFA_KEY_B64' IMAGE_TAG='$IMAGE_TAG' bash -s" <<'REMOTE'
           set -euo pipefail
+
+          decode_secret() { printf '%s' "$1" | base64 -d; }
+          SUPABASE_URL="$(decode_secret "$SUPABASE_URL_B64")"
+          SUPABASE_KEY="$(decode_secret "$SUPABASE_KEY_B64")"
+          JWT_SECRET="$(decode_secret "$JWT_SECRET_B64")"
+          MFA_KEY="$(decode_secret "$MFA_KEY_B64")"
+
+          cleanup() {
+            rm -f /tmp/tce-frontend.tar /tmp/tce-frontend.sha256 /tmp/tce-service.tar /tmp/tce-service.sha256 /tmp/service-prod.yaml /tmp/frontend-prod.yaml
+          }
+          diagnostics() {
+            echo "=== DEPLOY DIAGNOSTICS ==="
+            sudo kubectl -n "$NS" get deployments,pods,svc,ingress -o wide || true
+            sudo kubectl -n "$NS" get events --sort-by='.lastTimestamp' | tail -100 || true
+            for deployment in tce-service tce-frontend; do
+              echo "=== $deployment ==="
+              sudo kubectl -n "$NS" describe deployment "$deployment" || true
+              sudo kubectl -n "$NS" logs "deployment/$deployment" --all-containers=true --tail=200 || true
+              sudo kubectl -n "$NS" logs "deployment/$deployment" --all-containers=true --previous --tail=200 || true
+            done
+          }
+          trap 'status=$?; if [ "$status" -ne 0 ]; then diagnostics; fi; cleanup; exit "$status"' EXIT
+
           NS=tce-prod
+          echo "=== REMOTE PREFLIGHT ==="
+          hostname
+          uname -m
+          whoami
+          sudo -n true
+          sudo kubectl get nodes
           sudo kubectl get namespace "$NS" >/dev/null 2>&1 || sudo kubectl create namespace "$NS"
 
+          echo "=== VERIFY REMOTE ARTIFACTS ==="
           for image in tce-frontend tce-service; do
             test -s "/tmp/$image.tar"
             test -s "/tmp/$image.sha256"
@@ -216,7 +261,10 @@ jobs:
             (cd /tmp && sha256sum -c "$image.sha256")
             tar -tf "/tmp/$image.tar" >/dev/null
           done
+          test -s /tmp/frontend-prod.yaml
+          test -s /tmp/service-prod.yaml
 
+          echo "=== IMPORT IMAGES ==="
           echo "Importing frontend image: docker.io/library/tce-frontend:$IMAGE_TAG"
           sudo k3s ctr images import /tmp/tce-frontend.tar
           echo "Importing service image: docker.io/library/tce-service:$IMAGE_TAG"
@@ -227,40 +275,12 @@ jobs:
             echo "Checking k3s image: $image"
             if ! sudo k3s ctr images inspect "$image" >/dev/null 2>&1; then
               echo "ERROR: image not found after import: $image"
-              echo "=== IMPORTED TCE IMAGES ==="
               sudo k3s ctr images list | grep 'tce-' || true
               exit 1
             fi
           }
 
-          diagnostics() {
-            local deployment="$1"
-            echo "=== DIAGNOSTICS: $deployment ==="
-            sudo kubectl -n "$NS" get deployment "$deployment" -o wide || true
-            sudo kubectl -n "$NS" get pods -o wide || true
-            sudo kubectl -n "$NS" describe deployment "$deployment" || true
-            sudo kubectl -n "$NS" get pods -l "app=$deployment" -o name | while read -r pod; do
-              echo "=== POD: $pod ==="
-              sudo kubectl -n "$NS" describe "$pod" || true
-              sudo kubectl -n "$NS" logs "$pod" --all-containers=true --tail=200 || true
-              sudo kubectl -n "$NS" logs "$pod" --all-containers=true --previous --tail=200 || true
-            done
-            echo "=== EVENTS ==="
-            sudo kubectl -n "$NS" get events --sort-by='.lastTimestamp' | tail -100 || true
-          }
-
-          deploy_and_wait() {
-            local manifest="$1"
-            local deployment="$2"
-            local image="$3"
-            verify_image "$image"
-            sudo kubectl apply -f "$manifest"
-            if ! sudo kubectl -n "$NS" rollout status "deployment/$deployment" --timeout=180s; then
-              diagnostics "$deployment"
-              exit 1
-            fi
-          }
-
+          echo "=== UPDATE SECRETS ==="
           sudo kubectl -n "$NS" create secret generic tce-app-secrets \
             --from-literal=SUPABASE_URL="$SUPABASE_URL" \
             --from-literal=SUPABASE_SERVICE_ROLE_KEY="$SUPABASE_KEY" \
@@ -280,12 +300,28 @@ jobs:
             --from-literal=TCE_CREDENTIAL_ENCRYPTION_KEY="$CREDENTIAL_KEY" \
             --dry-run=client -o yaml | sudo kubectl apply -f -
 
+          deploy_and_wait() {
+            local manifest="$1"
+            local deployment="$2"
+            local image="$3"
+            verify_image "$image"
+            sudo kubectl apply -f "$manifest"
+            if ! sudo kubectl -n "$NS" rollout status "deployment/$deployment" --timeout=180s; then
+              diagnostics
+              exit 1
+            fi
+          }
+
+          echo "=== DEPLOY SERVICE ==="
           deploy_and_wait /tmp/service-prod.yaml tce-service "docker.io/library/tce-service:$IMAGE_TAG"
+          echo "=== DEPLOY FRONTEND ==="
           deploy_and_wait /tmp/frontend-prod.yaml tce-frontend "docker.io/library/tce-frontend:$IMAGE_TAG"
 
+          echo "=== PRODUCTION STATUS ==="
           sudo kubectl -n "$NS" get pods,svc,ingress
           sudo kubectl -n "$NS" get certificate,secret 2>/dev/null || true
-          rm -f /tmp/tce-frontend.tar /tmp/tce-frontend.sha256 /tmp/tce-service.tar /tmp/tce-service.sha256 /tmp/service-prod.yaml /tmp/frontend-prod.yaml
+          cleanup
+          trap - EXIT
           REMOTE
       - name: Cleanup
         if: always()
