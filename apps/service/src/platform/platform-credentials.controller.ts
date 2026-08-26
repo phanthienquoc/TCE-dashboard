@@ -78,6 +78,14 @@ export class PlatformCredentialsController {
     return this.ssi.test(this.userId(auth), body?.environment ?? 'production', input, body?.credentials);
   }
 
+  @Post(':provider/save-tested')
+  saveTested(@Headers('authorization') auth: string | undefined, @Param('provider') provider: string, @Body() body?: { environment?: string; otp?: string; transactionId?: string; credentials?: Record<string, unknown> }) {
+    if (provider !== 'ssi') throw new UnauthorizedException('Save-tested flow is not implemented for this provider yet');
+    if (!body?.credentials || typeof body.credentials !== 'object') throw new UnauthorizedException('Credentials are required');
+    const input: SsiAuthInput = { otp: body?.otp, transactionId: body?.transactionId };
+    return this.ssi.saveTested(this.userId(auth), body?.environment ?? 'production', body.credentials, input);
+  }
+
   @Post(':provider/current')
   current(@Headers('authorization') auth: string | undefined, @Param('provider') provider: string, @Body() body?: { environment?: string; otp?: string; transactionId?: string }) {
     if (provider !== 'ssi') throw new UnauthorizedException('Current account info is only available for SSI');
