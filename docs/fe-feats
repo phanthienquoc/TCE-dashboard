@@ -146,15 +146,151 @@ The Platforms tab currently contains configuration and manual execution controls
 - Dashboard data is fetched through the dashboard service rather than embedding backend logic in UI components.
 - Authentication/session lifecycle is centralized through the auth context/API layer.
 
-## 8. Explicitly NOT Assumed as Implemented
+## 8. FE API Inventory & Usage
+
+> Backend global prefix is `/api`. Authenticated endpoints require `Authorization: Bearer <accessToken>` unless stated otherwise. The FE API layer is responsible for attaching JWTs and refreshing an expired access token once. The endpoint inventory below is based on the controllers currently exposed by `apps/service`.
+
+### 8.1 Authentication — `/api/auth`
+
+| Method | Endpoint | Auth | FE usage |
+|---|---|---|---|
+| GET | `/api/auth/status` | No | Backend/auth configuration health check. |
+| POST | `/api/auth/signup` | No | Create an account with `{ email, password }`. |
+| POST | `/api/auth/login` | No | Sign in with `{ email, password }`; returns access token or `{ mfaRequired, userId }`. Refresh token is issued as HttpOnly cookie. |
+| GET | `/api/auth/me` | Bearer | Load current user identity/role/MFA state. |
+| POST | `/api/auth/refresh` | Refresh cookie/body/header | Rotate refresh session and obtain a new access token. Normally called automatically by the FE API layer. |
+| POST | `/api/auth/mfa/login` | No | Complete MFA login with `{ userId, code }`. |
+| POST | `/api/auth/mfa/recovery` | No | Complete login using `{ userId, code }` recovery code. |
+| POST | `/api/auth/logout` | No | Clear refresh-session cookie; used by sign-out. |
+| POST | `/api/auth/passkey/register/options` | Bearer | Start passkey registration. |
+| POST | `/api/auth/passkey/register/verify` | Bearer | Verify passkey registration response. |
+| POST | `/api/auth/passkey/login/options` | No | Start passkey authentication. |
+| POST | `/api/auth/passkey/login/verify` | No | Verify passkey authentication and establish session. |
+| GET | `/api/auth/passkeys` | Bearer | List the user's registered passkeys. |
+| PATCH | `/api/auth/passkeys/:id` | Bearer | Rename a registered passkey with `{ friendlyName }`. |
+| DELETE | `/api/auth/passkeys/:id` | Bearer | Remove a registered passkey. |
+
+**Typical login flow:**
+
+1. `POST /api/auth/login` with email/password.
+2. If response contains `mfaRequired`, call `POST /api/auth/mfa/login` with the returned `userId` and MFA code.
+3. Otherwise store/use returned access token through the centralized auth context/API layer; refresh token remains server-managed in an HttpOnly cookie.
+4. Call protected endpoints with the access token.
+5. On expiry, call `/api/auth/refresh`; if refresh fails, clear session and redirect to `/login`.
+
+### 8.2 Dashboard data — `/api/dashboard`
+
+| Method | Endpoint | Auth | FE usage |
+|---|---|---|---|
+| GET | `/api/dashboard` | Bearer | Main dashboard aggregate: account, positions, orders, pools, next positions/candidates and related data. Used by Overview. |
+| GET | `/api/dashboard/account` | Bearer | Account/capital/recovery information. |
+| GET | `/api/dashboard/positions` | Bearer | Current user's positions. |
+| GET | `/api/dashboard/strategy` | Bearer | Strategy data available to the FE/service layer. |
+| GET | `/api/dashboard/pools` | Bearer | Pools visible to the current user. |
+| GET | `/api/dashboard/next-positions` | Bearer | Ranked next-position candidates visible to the current user. |
+| GET | `/api/dashboard/orders` | Bearer | Recent orders for the current user. |
+| GET | `/api/dashboard/sources` | Bearer | Data-source/status metadata for the dashboard. |
+
+**Overview usage:** the FE currently calls the aggregate `/api/dashboard` plus `/api/auth/status` on initial load and repeats the dashboard/backend-status check every 30 seconds while authenticated. Dedicated dashboard endpoints are available for narrower consumers and future FE separation.
+
+### 8.3 Platform credentials & trading — `/api/platform/credentials`
+
+| Method | Endpoint | Auth | FE usage |
+|---|---|---|---|
+| GET | `/api/platform/credentials` | Bearer | List configured platform credentials for the current user; secrets are not returned to the FE. |
+| POST | `/api/platform/credentials/:provider` | Bearer | Save credentials for `ssi`, `binance`, or `fastapi`. Binance accepts `{ environment, credentials: { apiKey, apiSecret } }`; SSI/other providers pass their credential object. |
+| DELETE | `/api/platform/credentials/:provider` | Bearer | Remove provider credentials for the selected environment. |
+| POST | `/api/platform/credentials/binance/test` | Bearer | Test Binance Futures connection for `production` or `testnet`. Body: `{ environment }`. |
+| POST | `/api/platform/credentials/binance/order` | Bearer | Submit Binance Futures entry order. Body includes `environment` plus entry-order fields. |
+| POST | `/api/platform/credentials/binance/tp` | Bearer | Submit Binance reduce-only take-profit order. Body includes `environment`, symbol/side/position/quantity/trigger price. |
+| POST | `/api/platform/credentials/binance/sl` | Bearer | Submit Binance reduce-only stop-loss order. Body includes `environment`, symbol/side/position/quantity/trigger price. |
+| POST | `/api/platform/credentials/ssi/request-otp` | Bearer | Start SSI OTP/approval flow. Body can include `{ environment, credentials }`; response may provide a transaction id. |
+| POST | `/api/platform/credentials/ssi/test` | Bearer | Test SSI connection. Body can include `{ environment, otp, transactionId, credentials }`. |
+| POST | `/api/platform/credentials/ssi/current` | Bearer | Load current SSI account information. Body can include `{ environment, otp, transactionId }`. |
+| POST | `/api/platform/credentials/ssi/sync` | Bearer | Sync SSI portfolio/positions/orders. Body can include `{ environment, otp, transactionId }`. |
+
+**Provider/environment rules:**
+
+- Binance environments are only `production` and `testnet`.
+- SSI FE currently exposes `production` and `sandbox`.
+- The selected Binance environment is shared by credential save, connection test, entry order, TP and SL.
+- Do not put real API secrets/private keys/tokens in documentation, source control, or client-side persistence.
+
+**Binance entry example:**
+
+```json
+{
+  "environment": "testnet",
+  "symbol": "BTCUSDT",
+  "side": "BUY",
+  "type": "MARKET",
+  "quantity": 0.001,
+  "positionSide": "BOTH"
+}
+```
+
+For `LIMIT`, include `price`. For `STOP` / `STOP_MARKET`, include the required `triggerPrice` according to the order type. The FE validates required fields and requires explicit confirmation before submission.
+
+### 8.4 FastAPI configuration — `/api/platform/config`
+
+| Method | Endpoint | Auth | FE usage |
+|---|---|---|---|
+| GET | `/api/platform/config/fastapi` | Bearer | Read the current user's FastAPI base URL/health-path configuration. |
+| POST | `/api/platform/config/fastapi` | Bearer | Save `{ baseUrl, healthPath? }` for the current user's FastAPI integration. Defaults `healthPath` to `/health`. |
+
+This is configuration metadata, not a place to store FastAPI secrets.
+
+### 8.5 TCE monitor — `/api/monitor`
+
+| Method | Endpoint | Auth | FE usage |
+|---|---|---|---|
+| GET | `/api/monitor/run` | `x-tce-monitor-secret` | Manual monitor execution endpoint. Not a normal user-session endpoint; disabled unless `TCE_MONITOR_RUN_SECRET` is configured. |
+
+The monitor endpoint intentionally uses a dedicated secret header and should not be exposed as a normal dashboard action without an explicit security decision.
+
+### 8.6 API usage conventions
+
+- Base path: `/api`.
+- Protected user APIs: `Authorization: Bearer <accessToken>`.
+- Use the centralized FE API service instead of calling `fetch`/Axios directly from UI components.
+- Treat `401` / expired-session responses as an auth lifecycle event: attempt one refresh, then sign out and redirect if refresh fails.
+- For platform actions, surface backend validation/errors in the existing status/error UI.
+- Credential save/test/order actions are asynchronous and should expose a busy state to prevent duplicate submissions.
+- Never log or render API Secret, Private Key, refresh token, access token, OTP or other credential material.
+
+## 9. Security Tab
+
+- Explains the current client-side session behavior:
+  - JWT is attached centrally by Axios.
+  - Expired access token is refreshed once.
+  - Failed refresh clears the local session.
+
+## 10. Navigation / UX
+
+- Bottom navigation switches between Overview, Positions, Orders, Platforms and Security without a full page navigation.
+- Header title changes according to the selected tab.
+- Backend status remains visible at the top of the dashboard.
+- Shared loading screens cover session checking, redirecting, and initial dashboard loading.
+- Shared empty/error/status states are implemented for major data sections.
+- Async actions expose a `Working…` state to prevent duplicate requests.
+
+## 11. Current FE ↔ Backend Responsibilities
+
+- FE owns presentation, local form state, tab state, validation, loading/error states, and user confirmation before execution.
+- Platform credentials and trading operations are delegated to backend service endpoints.
+- Dashboard data is fetched through the dashboard service rather than embedding backend logic in UI components.
+- Authentication/session lifecycle is centralized through the auth context/API layer.
+
+## 12. Explicitly NOT Assumed as Implemented
 
 This document intentionally records only functionality visible in the current FE implementation. Backend capabilities, scheduled jobs, database behavior, or API endpoints are not considered FE features unless the current UI exposes them.
 
-## 9. Maintenance Rule
+## 13. Maintenance Rule
 
 When changing FE behavior:
 
 1. Update the relevant section in this document.
 2. Keep feature names aligned with the UI labels.
 3. Record environment-specific behavior explicitly when it affects save/test/order execution.
-4. Do not store real credentials, API secrets, private keys, tokens, or OTP values in this document.
+4. Keep the API inventory synchronized with controller changes.
+5. Do not store real credentials, API secrets, private keys, tokens, or OTP values in this document.
