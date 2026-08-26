@@ -1,7 +1,24 @@
 import { Auth, Board, Config, Data, Stream, Trading } from '@ssi.developer/ssi-sdk';
 import { AccountBalance, AccountOrder, AccountPosition, BrokerPort, ConnectInput, ContractResult, PlatformHealth, SsiAccount, SsiAuthInput, SsiConnectionPort, SsiConnectionTest, SsiCurrentInfo } from '@tce/contracts';
 
-export type SsiConfig = { apiKey: string; apiSecret: string; clientId?: string; privateKey?: string; accountNo?: string };
+export type SsiTokenSnapshot = {
+  accessToken: string;
+  tokenType: string;
+  expiresAt: number;
+  refreshToken: string;
+  refreshTokenExpiresAt: number;
+};
+
+export type SsiConfig = {
+  apiKey: string;
+  apiSecret: string;
+  clientId?: string;
+  privateKey?: string;
+  accountNo?: string;
+  token?: Partial<SsiTokenSnapshot>;
+  onTokenUpdated?: (token: SsiTokenSnapshot) => Promise<void>;
+};
+
 export type SsiOrderStatusEvent = { type?: string; accountNo?: string; clientRequestId?: string; orderId?: string; symbol?: string; side?: string; orderType?: string; price?: number; quantity?: number; osQuantity?: number; filledQuantity?: number; cancelQuantity?: number; status?: string; inputTime?: string; modifyTime?: string; message?: string };
 
 export class SsiBrokerAdapter implements BrokerPort, SsiConnectionPort {
@@ -13,15 +30,70 @@ export class SsiBrokerAdapter implements BrokerPort, SsiConnectionPort {
   constructor(private readonly config: SsiConfig) {}
 
   private result<T>(fn: () => Promise<T>): Promise<ContractResult<T>> { return fn().then((data) => ({ ok: true, data }) as const).catch((error) => ({ ok: false, error: { code: 'PROVIDER_ERROR', message: error instanceof Error ? error.message : String(error), retryable: false, provider: this.provider } }) as const); }
-  private createAuth(includePrivateKey = true) { return new Auth(new Config({ clientId: this.config.clientId ?? '', apiKey: this.config.apiKey, apiSecret: this.config.apiSecret, privateKey: includePrivateKey ? this.config.privateKey ?? '' : '', apiUrl: 'https://api.ssi.com.vn', streamingUrl: 'wss://stream.ssi.com.vn/ws/v3', timeout: 60000, maxRetries: 5, retryDelay: 2000, rateLimitPerSecond: 10 })); }
-  private async authenticate(input: SsiAuthInput = {}) { this.auth ??= this.createAuth(true); if (this.auth.getToken()) { this.tradingClient ??= new Trading(this.auth); return this.auth.getToken(); } const token = input.transactionId ? await this.auth.authenticate(undefined, input.transactionId) : await this.auth.authenticate(input.otp); this.tradingClient = new Trading(this.auth); return token; }
-  private async authenticateMarketData() { if (this.auth?.getToken()) return this.auth; this.marketAuth ??= this.createAuth(false); const tokenManager = (this.marketAuth as Auth & { tokenManager?: { isTokenExpired?: () => boolean } }).tokenManager; const token = this.marketAuth.getToken(); const expired = tokenManager?.isTokenExpired?.() ?? false; if (!token || expired) await this.marketAuth.authenticate(); return this.marketAuth; }
+
+  private createAuth(includePrivateKey = true) {
+    const auth = new Auth(new Config({ clientId: this.config.clientId ?? '', apiKey: this.config.apiKey, apiSecret: this.config.apiSecret, privateKey: includePrivateKey ? this.config.privateKey ?? '' : '', apiUrl: 'https://api.ssi.com.vn', streamingUrl: 'wss://stream.ssi.com.vn/ws/v3', timeout: 60000, maxRetries: 5, retryDelay: 2000, rateLimitPerSecond: 10 }));
+    const token = this.config.token;
+    if (includePrivateKey && token?.accessToken && token.refreshToken) {
+      auth.tokenManager.setToken({ accessToken: token.accessToken, tokenType: token.tokenType ?? 'Bearer', expiresAt: Number(token.expiresAt ?? 0), refreshToken: token.refreshToken, refreshTokenExpiresAt: Number(token.refreshTokenExpiresAt ?? 0) });
+    }
+    return auth;
+  }
+
+  private tokenSnapshot(): SsiTokenSnapshot | undefined {
+    const token = this.auth?.getToken();
+    if (!token?.accessToken || !token.refreshToken) return undefined;
+    return { accessToken: String(token.accessToken), tokenType: String(token.tokenType ?? 'Bearer'), expiresAt: Number(token.expiresAt ?? 0), refreshToken: String(token.refreshToken), refreshTokenExpiresAt: Number(token.refreshTokenExpiresAt ?? 0) };
+  }
+
+  private async persistToken() {
+    const token = this.tokenSnapshot();
+    if (token && this.config.onTokenUpdated) await this.config.onTokenUpdated(token);
+    return token;
+  }
+
+  private async authenticate(input: SsiAuthInput = {}) {
+    this.auth ??= this.createAuth(true);
+    const tokenManager = this.auth.tokenManager;
+    const current = this.auth.getToken();
+
+    if (current && !tokenManager.isTokenExpired()) {
+      this.tradingClient ??= new Trading(this.auth);
+      return current;
+    }
+
+    if (current && tokenManager.hasRefreshToken() && !tokenManager.isRefreshTokenExpired()) {
+      const refreshed = await this.auth.refresh();
+      this.tradingClient = new Trading(this.auth);
+      await this.persistToken();
+      return refreshed;
+    }
+
+    if (!input.otp && !input.transactionId) throw new Error('SSI_REAUTH_REQUIRED');
+    const token = input.transactionId ? await this.auth.authenticate(undefined, input.transactionId) : await this.auth.authenticate(input.otp);
+    this.tradingClient = new Trading(this.auth);
+    await this.persistToken();
+    return token;
+  }
+
+  private async authenticateMarketData() {
+    if (this.auth?.getToken() && !this.auth.tokenManager.isTokenExpired()) return this.auth;
+    if (this.auth?.getToken() && this.auth.tokenManager.hasRefreshToken() && !this.auth.tokenManager.isRefreshTokenExpired()) {
+      await this.auth.refresh();
+      await this.persistToken();
+      return this.auth;
+    }
+    this.marketAuth ??= this.createAuth(false);
+    const tokenManager = this.marketAuth.tokenManager;
+    if (!this.marketAuth.getToken() || tokenManager.isTokenExpired()) await this.marketAuth.authenticate();
+    return this.marketAuth;
+  }
 
   async requestOtp() { return this.result(async () => { const auth = this.createAuth(true); const result = await auth.requestOtp(); const data = (result?.data ?? {}) as Record<string, unknown>; return { message: String(data.message ?? 'SSI approval/OTP request sent'), transactionId: typeof data.transactionId === 'string' ? data.transactionId : undefined }; }); }
   async connect(input: ConnectInput) { return this.result(async () => { await this.authenticate(input as SsiAuthInput); }); }
-  async health(input: ConnectInput): Promise<ContractResult<PlatformHealth>> { const started = Date.now(); return this.result(async () => { if (!this.auth?.getToken()) await this.connect(input); return { provider: 'ssi', available: true, latencyMs: Date.now() - started, fetchedAt: new Date().toISOString() }; }); }
+  async health(input: ConnectInput): Promise<ContractResult<PlatformHealth>> { const started = Date.now(); return this.result(async () => { if (!this.auth?.getToken() || this.auth.tokenManager.isTokenExpired()) await this.connect(input); return { provider: 'ssi', available: true, latencyMs: Date.now() - started, fetchedAt: new Date().toISOString() }; }); }
   private async accountInfo(): Promise<SsiAccount[]> { const accounts = await this.trading().account.getAccountInfo(); return (accounts ?? []).map((account) => ({ accountNo: String(account.accountNo), accountType: String(account.accountType) })); }
-  async test(input: SsiAuthInput): Promise<ContractResult<SsiConnectionTest>> { return this.result(async () => { const token = await this.authenticate(input); const data = new Data(this.auth!); const securities = await data.marketData.getSecuritiesInfoByBoard(Board.HOSE); const accounts = input.otp || input.transactionId ? await this.accountInfo() : []; return { provider: 'ssi', apiVersion: 'v3', authentication: 'ok', marketData: 'ok', securities: securities.length, accounts, tokenExpiresAt: token?.expiresAt }; }); }
+  async test(input: SsiAuthInput): Promise<ContractResult<SsiConnectionTest>> { return this.result(async () => { const token = await this.authenticate(input); const data = new Data(this.auth!); const securities = await data.marketData.getSecuritiesInfoByBoard(Board.HOSE); const accounts = this.auth?.getToken() ? await this.accountInfo() : []; return { provider: 'ssi', apiVersion: 'v3', authentication: 'ok', marketData: 'ok', securities: securities.length, accounts, tokenExpiresAt: token?.expiresAt }; }); }
   async current(accountNo: string, input: SsiAuthInput): Promise<ContractResult<SsiCurrentInfo>> { return this.result(async () => { await this.authenticate(input); const [accounts, balance, positions, orders] = await Promise.all([this.accountInfo(), this.balance(accountNo), this.positions(accountNo), this.orders(accountNo)]); if (!balance.ok) throw new Error(balance.error.message); if (!positions.ok) throw new Error(positions.error.message); if (!orders.ok) throw new Error(orders.error.message); return { accounts, balance: balance.data, positions: positions.data, orders: orders.data, fetchedAt: new Date().toISOString() }; }); }
   private trading() { if (!this.auth) throw new Error('SSI is not connected'); return this.tradingClient!; }
   private marketData(auth: Auth) { return new Data(auth); }
