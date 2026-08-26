@@ -63,8 +63,8 @@ export class SsiBrokerAdapter implements BrokerPort, SsiConnectionPort {
     return auth;
   }
 
-  private tokenSnapshot(): SsiTokenSnapshot | undefined {
-    const token = this.auth?.getToken();
+  private tokenSnapshot(auth: Auth = this.auth!): SsiTokenSnapshot | undefined {
+    const token = auth?.getToken();
     if (!token?.accessToken || !token.refreshToken) return undefined;
     return {
       accessToken: String(token.accessToken),
@@ -77,8 +77,8 @@ export class SsiBrokerAdapter implements BrokerPort, SsiConnectionPort {
 
   getTokenSnapshot() { return this.tokenSnapshot(); }
 
-  private async persistToken() {
-    const token = this.tokenSnapshot();
+  private async persistToken(auth: Auth = this.auth!) {
+    const token = this.tokenSnapshot(auth);
     if (token && this.config.onTokenUpdated) await this.config.onTokenUpdated(token);
     return token;
   }
@@ -100,7 +100,7 @@ export class SsiBrokerAdapter implements BrokerPort, SsiConnectionPort {
         try {
           const refreshed = await this.auth.refresh();
           this.tradingClient = new Trading(this.auth);
-          await this.persistToken();
+          await this.persistToken(this.auth);
           return refreshed;
         } catch (error) {
           if (!input.otp && !input.transactionId) {
@@ -114,7 +114,7 @@ export class SsiBrokerAdapter implements BrokerPort, SsiConnectionPort {
         ? await this.auth.authenticate(undefined, input.transactionId)
         : await this.auth.authenticate(input.otp);
       this.tradingClient = new Trading(this.auth);
-      await this.persistToken();
+      await this.persistToken(this.auth);
       return token;
     })();
 
@@ -123,8 +123,22 @@ export class SsiBrokerAdapter implements BrokerPort, SsiConnectionPort {
   }
 
   private async authenticateMarketData() {
-    await this.authenticate();
-    return this.auth!;
+    try {
+      await this.authenticate();
+      return this.auth!;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      if (!message.startsWith('SSI_REAUTH_REQUIRED')) throw error;
+
+      // Market-data authentication is supported with apiKey/apiSecret only.
+      // If the persisted refresh token is expired/revoked, obtain a fresh
+      // market-data token before any market API request, so no stale bearer
+      // token reaches the SSI data endpoint and causes a 401.
+      const marketAuth = this.createAuth(false);
+      await marketAuth.authenticate();
+      await this.persistToken(marketAuth);
+      return marketAuth;
+    }
   }
 
   async requestOtp() {
