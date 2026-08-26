@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { Activity, ArrowLeftRight, BarChart3, ChevronRight, Cpu, Home, Layers3, LogOut, RefreshCw, Settings, ShoppingCart, TrendingUp, WalletCards } from 'lucide-react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '../../components/ui/button';
 import { Card, CardContent } from '../../components/ui/card';
 import PlatformConfigTab from '../../components/config/PlatformConfigTab';
@@ -16,11 +16,16 @@ const navigation: NavItem[] = [
 
 export default function DashboardPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { user, loading: authLoading, initialized, init, logout } = useAuthStore();
   const { data, loading, error, load } = useDashboardStore();
   const [tab, setTab] = useState<Tab>('overview');
   useEffect(() => { void init(); }, [init]);
   useEffect(() => { if (initialized && !user) router.replace('/login'); }, [initialized, user, router]);
+  useEffect(() => {
+    const requested = searchParams.get('tab');
+    if (requested === 'overview' || requested === 'positions' || requested === 'orders' || requested === 'settings') setTab(requested);
+  }, [searchParams]);
   useEffect(() => { if (user) void load(); }, [user, load]);
   if (authLoading || !initialized || !user) return <main className="app-shell"><Loading /></main>;
 
@@ -34,7 +39,7 @@ export default function DashboardPage() {
   const portfolioValue = account.totalValue ?? account.portfolioValue ?? account.equity;
   const visibleAccounts = Array.isArray(accounts) && accounts.length ? accounts : inferAccounts(positions);
 
-  const selectNavigation = (id: NavItem['id']) => { if (id === 'engine') { router.push('/engines'); return; } setTab(id); };
+  const selectNavigation = (id: NavItem['id']) => { if (id === 'engine') { router.push('/engines'); return; } setTab(id); router.replace(`/dashboard?tab=${id}`, { scroll: false }); };
 
   return (
     <main className="app-shell">
