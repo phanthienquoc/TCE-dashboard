@@ -1,4 +1,4 @@
-import { Controller, Get, Headers, UnauthorizedException } from '@nestjs/common';
+import { Body, Controller, Get, Headers, Param, Patch, Query, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '../auth/jwt.service';
 import { DashboardService } from './dashboard.service';
 
@@ -12,8 +12,8 @@ export class DashboardController {
   }
 
   @Get()
-  get(@Headers('authorization') auth?: string) {
-    return this.dashboard.get(this.userId(auth));
+  get(@Headers('authorization') auth?: string, @Query('status') status?: string) {
+    return this.dashboard.get(this.userId(auth), status);
   }
 
   @Get('account')
@@ -32,8 +32,8 @@ export class DashboardController {
   }
 
   @Get('pools')
-  getPools(@Headers('authorization') auth?: string) {
-    return this.dashboard.getPoolsForUser(this.userId(auth));
+  getPools(@Headers('authorization') auth?: string, @Query('status') status?: string) {
+    return this.dashboard.getPoolsForUser(this.userId(auth), status);
   }
 
   @Get('next-positions')
@@ -49,5 +49,19 @@ export class DashboardController {
   @Get('sources')
   getSources(@Headers('authorization') auth?: string) {
     return this.dashboard.getSources(this.userId(auth));
+  }
+
+  @Get('engines')
+  getEngines(@Headers('authorization') auth?: string) {
+    return this.dashboard.getEngines(this.userId(auth));
+  }
+
+  @Patch('engines/:engineId/status')
+  setEngineStatus(
+    @Headers('authorization') auth?: string,
+    @Param('engineId') engineId?: string,
+    @Body() body?: { status?: string },
+  ) {
+    return this.dashboard.setEngineStatus(this.userId(auth), engineId ?? '', body?.status ?? '');
   }
 }
