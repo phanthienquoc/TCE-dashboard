@@ -1,16 +1,23 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Activity, ChevronRight, Layers3, LogOut, RefreshCw, Settings2, ShoppingCart, TrendingUp, WalletCards, Cpu } from 'lucide-react';
+import { Activity, ArrowLeftRight, BarChart3, ChevronRight, Cpu, Home, Layers3, LogOut, RefreshCw, Settings, ShoppingCart, TrendingUp, WalletCards } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Button } from '../../components/ui/button';
 import { Card, CardContent } from '../../components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs';
 import PlatformConfigTab from '../../components/config/PlatformConfigTab';
 import { useAuthStore, useDashboardStore } from '../../lib/store';
 
-type Tab = 'overview' | 'positions' | 'orders' | 'config';
+type Tab = 'overview' | 'positions' | 'orders' | 'settings';
+
+const navigation = [
+  { id: 'overview' as const, label: 'Overview', icon: Home },
+  { id: 'positions' as const, label: 'Positions', icon: BarChart3 },
+  { id: 'orders' as const, label: 'Orders', icon: ArrowLeftRight },
+  { id: 'engine' as const, label: 'Engine', icon: Cpu },
+  { id: 'settings' as const, label: 'Settings', icon: Settings },
+];
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -30,30 +37,47 @@ export default function DashboardPage() {
   const next = data?.nextPositions ?? data?.candidates ?? [];
   const orders = data?.orders ?? data?.recentOrders ?? [];
 
-  return <main className="min-h-svh overflow-x-clip bg-[#090510] text-[#f4effa]">
+  const selectNavigation = (id: typeof navigation[number]['id']) => {
+    if (id === 'engine') {
+      router.push('/engines');
+      return;
+    }
+    setTab(id);
+  };
+
+  return <main className="min-h-svh overflow-x-clip bg-[#090510] pb-[calc(5.5rem+env(safe-area-inset-bottom))] text-[#f4effa]">
     <header className="sticky top-0 z-40 border-b border-violet-200/[0.08] bg-[#0b0611]/95 backdrop-blur-xl">
       <div className="mx-auto max-w-6xl px-4 py-3 sm:px-6 sm:py-4">
         <div className="flex items-center justify-between gap-3">
           <div className="flex min-w-0 items-center gap-3"><div className="grid size-9 shrink-0 place-items-center rounded-full bg-gradient-to-br from-[#d69cff] to-[#7d37c9]"><Activity className="size-4" /></div><div className="min-w-0"><p className="text-[10px] uppercase tracking-[.14em] text-[#9d8fa8]">TCE account</p><p className="truncate text-sm font-semibold">{user.email}</p></div></div>
-          <div className="flex items-center gap-2"><Link href="/engines" className="inline-flex h-9 items-center gap-1.5 rounded-md border border-violet-200/[0.12] px-3 text-xs font-medium text-[#c9bdce] hover:bg-white/[0.04] hover:text-white"><Cpu className="size-4" /> Engines</Link><Button variant="outline" size="sm" onClick={async () => { await logout(); router.replace('/login'); }}><LogOut className="size-4" /><span className="hidden sm:inline">Sign out</span></Button></div>
+          <Button variant="outline" size="sm" onClick={async () => { await logout(); router.replace('/login'); }}><LogOut className="size-4" /><span className="hidden sm:inline">Sign out</span></Button>
         </div>
-        <Tabs value={tab} onValueChange={v=>setTab(v as Tab)} className="mt-4">
-          <TabsList className="w-full justify-start overflow-x-auto"><TabsTrigger value="overview">Overview</TabsTrigger><TabsTrigger value="positions">Positions</TabsTrigger><TabsTrigger value="orders">Orders</TabsTrigger><TabsTrigger value="config"><Settings2 className="mr-1.5 size-4"/>Config</TabsTrigger></TabsList>
-        </Tabs>
       </div>
     </header>
 
-    <div className="mx-auto max-w-6xl px-4 pb-12 pt-5 sm:px-6 sm:pt-7">
-      {tab !== 'config' && <section className="mb-5 flex items-end justify-between gap-3"><div><p className="text-[11px] font-semibold uppercase tracking-[.16em] text-[#887b91]">Portfolio</p><h1 className="mt-1 text-[24px] font-semibold tracking-[-.035em] sm:text-3xl">Investigate value / total</h1></div><Button variant="outline" size="icon" onClick={() => void load()} disabled={loading} aria-label="Refresh dashboard"><RefreshCw className={`size-4 ${loading ? 'animate-spin' : ''}`} /></Button></section>}
+    <div className="mx-auto max-w-6xl px-4 pb-6 pt-5 sm:px-6 sm:pt-7">
+      {tab !== 'settings' && <section className="mb-5 flex items-end justify-between gap-3"><div><p className="text-[11px] font-semibold uppercase tracking-[.16em] text-[#887b91]">Portfolio</p><h1 className="mt-1 text-[24px] font-semibold tracking-[-.035em] sm:text-3xl">Investigate value / total</h1></div><Button variant="outline" size="icon" onClick={() => void load()} disabled={loading} aria-label="Refresh dashboard"><RefreshCw className={`size-4 ${loading ? 'animate-spin' : ''}`} /></Button></section>}
 
-      {tab !== 'config' && <Card className="mb-5"><CardContent className="p-5"><p className="text-xs text-[#8e8197]">Total portfolio value</p><p className="mt-2 text-3xl font-semibold tracking-tight">{money(account.totalValue ?? account.portfolioValue ?? account.equity)}</p><p className="mt-2 text-sm text-zinc-500">Investigate deployed capital and recovery state from the live account.</p></CardContent></Card>}
+      {tab !== 'settings' && <Card className="mb-5"><CardContent className="p-5"><p className="text-xs text-[#8e8197]">Total portfolio value</p><p className="mt-2 text-3xl font-semibold tracking-tight">{money(account.totalValue ?? account.portfolioValue ?? account.equity)}</p><p className="mt-2 text-sm text-zinc-500">Investigate deployed capital and recovery state from the live account.</p></CardContent></Card>}
 
       {tab === 'overview' && <div className="grid gap-4 lg:grid-cols-2"><Panel title="Current Positions" icon={WalletCards}><List rows={positions} /></Panel><Panel title="Shared Pools" icon={Layers3}><List rows={pools} /></Panel><Panel title="Next Positions" icon={TrendingUp}><List rows={next} /></Panel><Panel title="Recent Orders" icon={ShoppingCart}><List rows={orders} /></Panel></div>}
       {tab === 'positions' && <DataTable rows={positions} columns={['symbol', 'quantity', 'avgBuyCost', 'marketPrice', 'unrealizedPnl']} />}
       {tab === 'orders' && <DataTable rows={orders} columns={['side', 'symbol', 'quantity', 'price', 'status', 'fee', 'tax']} />}
-      {tab === 'config' && <PlatformConfigTab />}
+      {tab === 'settings' && <PlatformConfigTab />}
       {error && <div className="mt-4 rounded-xl border border-red-300/15 bg-red-300/[0.06] px-4 py-3 text-sm text-red-200">{error}</div>}
     </div>
+
+    <nav aria-label="Dashboard navigation" className="fixed inset-x-0 bottom-0 z-50 px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2">
+      <div className="mx-auto flex max-w-2xl items-stretch rounded-[28px] border border-violet-200/[0.12] bg-[#111016]/95 p-1.5 shadow-2xl shadow-black/40 backdrop-blur-2xl">
+        {navigation.map(({ id, label, icon: Icon }) => {
+          const active = id === 'engine' ? false : tab === id;
+          return <button key={id} type="button" onClick={() => selectNavigation(id)} aria-current={active ? 'page' : undefined} className={`flex min-h-14 flex-1 flex-col items-center justify-center gap-1 rounded-[22px] px-1 py-1.5 text-[11px] font-medium transition sm:text-xs ${active ? 'bg-[#7d4fc2]/30 text-white shadow-inner' : 'text-[#81748a] hover:bg-white/[0.04] hover:text-[#c9bdce]'}`}>
+            <span className={`grid size-7 place-items-center rounded-xl ${active ? 'bg-[#9b6be5]/20 text-[#d8bbff]' : 'text-current'}`}><Icon className="size-[18px]" strokeWidth={active ? 2.2 : 1.9} /></span>
+            <span>{label}</span>
+          </button>;
+        })}
+      </div>
+    </nav>
   </main>;
 }
 
