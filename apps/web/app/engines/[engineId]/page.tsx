@@ -49,14 +49,34 @@ export default function EngineDetailPage() {
     setSyncResult(null);
     try {
       const response = await platformApi.ssiMarketPriceSync();
-      const data = response.data;
+      const data = response.data as {
+        ok?: boolean;
+        error?: { message?: string };
+        data?: {
+          usersProcessed?: number;
+          usersSynced?: number;
+          symbolsRequested?: number;
+          symbolsSynced?: number;
+          failedSymbols?: string[];
+          partial?: boolean;
+        };
+      };
+      const result = data?.data;
       if (!data?.ok) {
-        setSyncResult({ ok: false, message: data?.error?.message ?? 'SSI market sync failed' });
+        const failed = result?.failedSymbols?.length ? ` Failed: ${result.failedSymbols.join(', ')}.` : '';
+        setSyncResult({ ok: false, message: `${data?.error?.message ?? 'SSI market sync failed'}.${failed}` });
         return;
       }
-      const usersSynced = Number(data?.data?.usersSynced ?? 0);
-      const symbolsSynced = Number(data?.data?.symbolsSynced ?? 0);
-      setSyncResult({ ok: true, message: `Synced ${symbolsSynced} symbols across ${usersSynced} account(s).` });
+      const symbolsSynced = Number(result?.symbolsSynced ?? 0);
+      const symbolsRequested = Number(result?.symbolsRequested ?? symbolsSynced);
+      const usersSynced = Number(result?.usersSynced ?? 0);
+      const failed = result?.failedSymbols?.length ? ` Failed: ${result.failedSymbols.join(', ')}.` : '';
+      setSyncResult({
+        ok: !result?.partial,
+        message: result?.partial
+          ? `Partial sync: ${symbolsSynced}/${symbolsRequested} symbols across ${usersSynced} account(s).${failed}`
+          : `Synced ${symbolsSynced}/${symbolsRequested} symbols across ${usersSynced} account(s).`,
+      });
     } catch (error) {
       const value = error as { response?: { data?: { message?: string; error?: { message?: string } } }; message?: string };
       setSyncResult({ ok: false, message: value?.response?.data?.error?.message ?? value?.response?.data?.message ?? value?.message ?? 'SSI market sync failed' });
