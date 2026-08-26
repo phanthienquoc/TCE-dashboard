@@ -21,7 +21,25 @@ export class SsiBrokerAdapter implements BrokerPort, SsiConnectionPort {
   async connect(input: ConnectInput) { return this.result(async () => { await this.authenticate(input as SsiAuthInput); }); }
   async health(input: ConnectInput): Promise<ContractResult<PlatformHealth>> { const started = Date.now(); return this.result(async () => { if (!this.auth?.getToken()) await this.connect(input); return { provider: 'ssi', available: true, latencyMs: Date.now() - started, fetchedAt: new Date().toISOString() }; }); }
   private async accountInfo(): Promise<SsiAccount[]> { const accounts = await this.trading().account.getAccountInfo(); return (accounts ?? []).map((account) => ({ accountNo: String(account.accountNo), accountType: String(account.accountType) })); }
-  async test(input: SsiAuthInput): Promise<ContractResult<SsiConnectionTest>> { return this.result(async () => { const token = await this.authenticate(input); const data = new Data(this.auth!); const securities = await data.marketData.getSecuritiesInfoByBoard(Board.HOSE); const accounts = await this.accountInfo(); return { provider: 'ssi', apiVersion: 'v3', authentication: 'ok', marketData: 'ok', securities: securities.length, accounts, tokenExpiresAt: token?.expiresAt }; }); }
+  async test(input: SsiAuthInput): Promise<ContractResult<SsiConnectionTest>> {
+    return this.result(async () => {
+      const token = await this.authenticate(input);
+      const data = new Data(this.auth!);
+      const securities = await data.marketData.getSecuritiesInfoByBoard(Board.HOSE);
+      const hasTradingAuth = Boolean(input.otp || input.transactionId || token?.expiresAt && this.tradingClient);
+      let accounts: SsiAccount[] = [];
+      if (input.otp || input.transactionId) accounts = await this.accountInfo();
+      return {
+        provider: 'ssi',
+        apiVersion: 'v3',
+        authentication: hasTradingAuth ? 'ok' : 'ok',
+        marketData: 'ok',
+        securities: securities.length,
+        accounts,
+        tokenExpiresAt: token?.expiresAt,
+      };
+    });
+  }
   async current(accountNo: string, input: SsiAuthInput): Promise<ContractResult<SsiCurrentInfo>> { return this.result(async () => { await this.authenticate(input); const [accounts, balance, positions, orders] = await Promise.all([this.accountInfo(), this.balance(accountNo), this.positions(accountNo), this.orders(accountNo)]); if (!balance.ok) throw new Error(balance.error.message); if (!positions.ok) throw new Error(positions.error.message); if (!orders.ok) throw new Error(orders.error.message); return { accounts, balance: balance.data, positions: positions.data, orders: orders.data, fetchedAt: new Date().toISOString() }; }); }
   private trading() { if (!this.tradingClient) throw new Error('SSI is not connected'); return this.tradingClient; }
   async balance(accountNo: string) { return this.result(async () => { const balance = await this.trading().portfolio.getEquityBalance(accountNo); return { cash: Number(balance?.accountBalance ?? 0), equity: Number(balance?.accountBalance ?? 0), withdrawable: Number(balance?.withdrawable ?? 0), source: 'ssi' } as AccountBalance; }); }
