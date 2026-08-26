@@ -60,12 +60,18 @@ export class SsiBrokerAdapter implements BrokerPort, SsiConnectionPort {
   }
 
   /**
-   * Market data has a different authentication requirement from trading:
-   * API key + API secret are sufficient and must not depend on an OTP-backed
-   * trading session. Keeping a dedicated Auth instance also makes market sync
-   * recover automatically after a service restart or trading token expiry.
+   * Market data does not require OTP. When a trading session is already
+   * authenticated, reuse its Bearer token because that token is also valid
+   * for market-data queries. This avoids a second token request during the
+   * manual sync flow and, importantly, avoids an unnecessary 401 when the
+   * user has just completed SSI authentication.
+   *
+   * After a service restart there is no trading token, so market data falls
+   * back to its own API-key/API-secret-only Auth session.
    */
   private async authenticateMarketData() {
+    if (this.auth?.getToken()) return this.auth;
+
     this.marketAuth ??= this.createAuth(false);
     const tokenManager = (this.marketAuth as Auth & { tokenManager?: { isTokenExpired?: () => boolean } }).tokenManager;
     const token = this.marketAuth.getToken();
@@ -125,7 +131,7 @@ export class SsiBrokerAdapter implements BrokerPort, SsiConnectionPort {
   }
 
   private trading() { if (!this.auth) throw new Error('SSI is not connected'); return this.tradingClient!; }
-  private marketData() { if (!this.marketAuth) throw new Error('SSI market-data session is not authenticated'); return new Data(this.marketAuth); }
+  private marketData(auth: Auth) { return new Data(auth); }
 
   async balance(accountNo: string) {
     return this.result(async () => {
@@ -159,8 +165,8 @@ export class SsiBrokerAdapter implements BrokerPort, SsiConnectionPort {
 
   async marketPrices(symbols: string[]): Promise<ContractResult<Array<{ symbol: string; price: number; tradingDate: string }>>> {
     return this.result(async () => {
-      await this.authenticateMarketData();
-      const data = this.marketData();
+      const auth = await this.authenticateMarketData();
+      const data = this.marketData(auth);
       const results: Array<{ symbol: string; price: number; tradingDate: string }> = [];
       for (const rawSymbol of symbols) {
         const symbol = String(rawSymbol).trim().toUpperCase();
@@ -177,8 +183,8 @@ export class SsiBrokerAdapter implements BrokerPort, SsiConnectionPort {
 
   async dailyCloses(symbols: string[], tradingDate: string): Promise<ContractResult<Array<{ symbol: string; closePrice: number }>>> {
     return this.result(async () => {
-      await this.authenticateMarketData();
-      const data = this.marketData();
+      const auth = await this.authenticateMarketData();
+      const data = this.marketData(auth);
       const from = `${tradingDate.replaceAll('-', '/')} 00:00:00`;
       const to = `${tradingDate.replaceAll('-', '/')} 23:59:59`;
       const results: Array<{ symbol: string; closePrice: number }> = [];
