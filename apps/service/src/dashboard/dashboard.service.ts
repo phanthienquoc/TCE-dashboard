@@ -5,7 +5,6 @@ import { DashboardSourcesService } from './dashboard-sources.service';
 
 const ENGINE_IDS = ['tce-decision', 'ssi-execution', 'binance-market'] as const;
 type EngineId = (typeof ENGINE_IDS)[number];
-type EngineStatus = 'ACTIVE' | 'INACTIVE';
 
 @Injectable()
 export class DashboardService {
