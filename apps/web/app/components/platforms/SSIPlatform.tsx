@@ -4,142 +4,28 @@ import { useRef, useState } from 'react';
 import { CheckCircle2, ChevronDown, FileJson, KeyRound, Loader2, ShieldCheck, Upload, XCircle } from 'lucide-react';
 import { platformApi } from '../../../lib/api';
 
-type Credentials = { clientId: string; apiKey: string; apiSecret: string; accountNo: string; privateKey: string };
+type Credentials = { clientId: string; apiKey: string; apiSecret: string; privateKey: string };
 type Props = { onMessage?: (message: string) => void };
 type ResultState = { ok: boolean; message: string } | null;
-const initialCredentials: Credentials = { clientId: '', apiKey: '', apiSecret: '', accountNo: '', privateKey: '' };
-
-const pick = (source: Record<string, unknown>, ...keys: string[]) => {
-  for (const key of keys) {
-    const value = source[key];
-    if (typeof value === 'string' && value.trim()) return value;
-  }
-  return '';
-};
-
+const initialCredentials: Credentials = { clientId: '', apiKey: '', apiSecret: '', privateKey: '' };
+const pick = (source: Record<string, unknown>, ...keys: string[]) => { for (const key of keys) { const value = source[key]; if (typeof value === 'string' && value.trim()) return value; } return ''; };
 function credentialsFromJson(value: unknown): Credentials {
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('JSON root must be an object');
   const root = value as Record<string, unknown>;
   const nested = root.credentials && typeof root.credentials === 'object' && !Array.isArray(root.credentials) ? root.credentials as Record<string, unknown> : {};
   const source = { ...root, ...nested };
-  return {
-    clientId: pick(source, 'clientId', 'client_id', 'clientID'),
-    apiKey: pick(source, 'apiKey', 'api_key', 'apiKEY'),
-    apiSecret: pick(source, 'apiSecret', 'api_secret', 'apiSECRET'),
-    accountNo: pick(source, 'accountNo', 'account_no', 'accountNumber', 'account_number'),
-    privateKey: pick(source, 'privateKey', 'private_key', 'privateKEY'),
-  };
+  return { clientId: pick(source, 'clientId', 'client_id', 'clientID'), apiKey: pick(source, 'apiKey', 'api_key', 'apiKEY'), apiSecret: pick(source, 'apiSecret', 'api_secret', 'apiSECRET'), privateKey: pick(source, 'privateKey', 'private_key', 'privateKEY') };
 }
-
 export default function SSIPlatform({ onMessage }: Props) {
-  const [open, setOpen] = useState(false);
-  const [environment, setEnvironment] = useState('production');
-  const [credentials, setCredentials] = useState<Credentials>(initialCredentials);
-  const [otp, setOtp] = useState('');
-  const [transactionId, setTransactionId] = useState('');
-  const [tested, setTested] = useState(false);
-  const [busy, setBusy] = useState(false);
-  const [result, setResult] = useState<ResultState>(null);
-  const [fileName, setFileName] = useState('');
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
-  const updateCredential = (key: keyof Credentials, value: string) => {
-    setCredentials((current) => ({ ...current, [key]: value }));
-    setTested(false); setResult(null); setFileName('');
-  };
-  const messageFrom = (error: unknown) => {
-    const value = error as { response?: { data?: { message?: string } }; message?: string };
-    return value?.response?.data?.message ?? value?.message ?? 'Request failed';
-  };
-  const uploadJson = async (file?: File) => {
-    if (!file) return;
-    setResult(null); setTested(false); setFileName('');
-    try {
-      if (!file.name.toLowerCase().endsWith('.json') && file.type !== 'application/json') throw new Error('Please select a JSON file');
-      const parsed = JSON.parse(await file.text());
-      const next = credentialsFromJson(parsed);
-      const found = Object.values(next).filter(Boolean).length;
-      if (!found) throw new Error('No supported SSI credential fields were found in the JSON');
-      setCredentials(next); setFileName(file.name);
-      setResult({ ok: true, message: `Loaded ${found}/5 credential fields from ${file.name}. Review them, then Test Connection.` });
-      onMessage?.(`Loaded SSI credentials from ${file.name}`);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : messageFrom(error);
-      setResult({ ok: false, message }); onMessage?.(`JSON upload failed: ${message}`);
-    } finally { if (fileInputRef.current) fileInputRef.current.value = ''; }
-  };
-  const testConnection = async () => {
-    setBusy(true); setTested(false); setResult(null);
-    try {
-      const response = await platformApi.ssiTest({ environment, credentials, otp: otp || undefined, transactionId: transactionId || undefined });
-      const data = response.data; const ok = Boolean(data?.ok); setTested(ok);
-      setResult({ ok, message: ok ? 'SSI connection verified. Credentials are ready to save.' : data?.error?.message ?? 'SSI connection failed' });
-      onMessage?.(ok ? 'SSI connection verified' : `SSI connection failed: ${data?.error?.message ?? 'unknown error'}`);
-    } catch (error) { const message = messageFrom(error); setResult({ ok: false, message }); onMessage?.(`SSI connection failed: ${message}`); }
-    finally { setBusy(false); }
-  };
-  const requestOtp = async () => {
-    setBusy(true);
-    try {
-      const response = await platformApi.ssiOtp({ environment, credentials });
-      setTransactionId(response.data?.data?.transactionId ?? response.data?.transactionId ?? '');
-      setResult({ ok: true, message: 'OTP request sent. Enter the OTP and run Test Connection again.' }); onMessage?.('SSI OTP request sent');
-    } catch (error) { const message = messageFrom(error); setResult({ ok: false, message }); onMessage?.(`SSI OTP request failed: ${message}`); }
-    finally { setBusy(false); }
-  };
-  const save = async () => {
-    if (!tested) { setResult({ ok: false, message: 'Test Connection must succeed before saving.' }); return; }
-    setBusy(true);
-    try {
-      const response = await platformApi.ssiSaveTested({ environment, credentials, otp: otp || undefined, transactionId: transactionId || undefined });
-      const data = response.data;
-      if (!data?.ok) { setResult({ ok: false, message: data?.error?.message ?? 'SSI save failed' }); return; }
-      setResult({ ok: true, message: 'SSI credentials saved securely.' }); onMessage?.('SSI credentials saved');
-    } catch (error) { const message = messageFrom(error); setResult({ ok: false, message }); onMessage?.(`SSI save failed: ${message}`); }
-    finally { setBusy(false); }
-  };
-  const runAccountAction = async (action: () => Promise<{ data?: { ok?: boolean; error?: { message?: string } } }>, label: string) => {
-    setBusy(true);
-    try {
-      const response = await action(); const data = response.data; const ok = data?.ok !== false;
-      const message = ok ? `${label}: OK` : `${label}: ${data?.error?.message ?? 'failed'}`; setResult({ ok, message }); onMessage?.(message);
-    } catch (error) { const message = messageFrom(error); setResult({ ok: false, message: `${label}: ${message}` }); onMessage?.(`${label}: ${message}`); }
-    finally { setBusy(false); }
-  };
-
-  return <section className="mb-5 overflow-hidden rounded-[22px] border border-violet-200/[0.09] bg-[#150d1d] shadow-[0_18px_50px_rgba(0,0,0,.18)]">
-    <button type="button" onClick={() => setOpen((value) => !value)} className="flex min-h-16 w-full items-center justify-between gap-4 px-5 text-left" aria-expanded={open}>
-      <div className="flex min-w-0 items-center gap-3"><div className="grid size-9 shrink-0 place-items-center rounded-xl bg-violet-400/10 text-violet-200"><KeyRound className="size-4" /></div><div className="min-w-0"><p className="font-semibold tracking-tight">SSI FastConnect</p><p className="mt-0.5 truncate text-xs text-[#81748a]">Configure, test and securely save SSI credentials</p></div></div>
-      <ChevronDown className={`size-4 shrink-0 text-[#81748a] transition-transform ${open ? 'rotate-180' : ''}`} />
-    </button>
-    {open && <div className="border-t border-violet-200/[0.07] px-5 pb-5 pt-4">
-      <div className="mb-4 flex flex-wrap items-center gap-2">
-        <input ref={fileInputRef} type="file" accept=".json,application/json" className="hidden" onChange={(event) => void uploadJson(event.target.files?.[0])} />
-        <ActionButton disabled={busy} onClick={() => fileInputRef.current?.click()}><Upload className="size-4" /> Upload JSON</ActionButton>
-        {fileName && <span className="inline-flex min-h-10 items-center gap-2 rounded-xl border border-emerald-300/10 bg-emerald-300/[0.04] px-3 text-xs text-emerald-200"><FileJson className="size-4" />{fileName}</span>}
-      </div>
-      <div className="grid gap-3 sm:grid-cols-2">
-        <Field label="Environment"><select value={environment} onChange={(event) => { setEnvironment(event.target.value); setTested(false); setResult(null); }} className="input"><option value="production">Production</option><option value="staging">Staging</option></select></Field>
-        <Field label="Account No."><input className="input" value={credentials.accountNo} onChange={(event) => updateCredential('accountNo', event.target.value)} placeholder="SSI account number" autoComplete="off" /></Field>
-        <Field label="Client ID"><input className="input" value={credentials.clientId} onChange={(event) => updateCredential('clientId', event.target.value)} placeholder="Client ID" autoComplete="off" /></Field>
-        <Field label="API Key"><input className="input" value={credentials.apiKey} onChange={(event) => updateCredential('apiKey', event.target.value)} placeholder="API Key" autoComplete="off" /></Field>
-        <Field label="API Secret"><input className="input" type="password" value={credentials.apiSecret} onChange={(event) => updateCredential('apiSecret', event.target.value)} placeholder="API Secret" autoComplete="new-password" /></Field>
-        <Field label="Private Key"><textarea className="input min-h-24 resize-y py-2" value={credentials.privateKey} onChange={(event) => updateCredential('privateKey', event.target.value)} placeholder="Private Key" autoComplete="off" /></Field>
-        <Field label="OTP"><input className="input" inputMode="numeric" value={otp} onChange={(event) => { setOtp(event.target.value); setTested(false); setResult(null); }} placeholder="OTP from SSI" autoComplete="one-time-code" /></Field>
-        <Field label="Transaction ID"><input className="input" value={transactionId} onChange={(event) => { setTransactionId(event.target.value); setTested(false); setResult(null); }} placeholder="Filled after Request OTP" autoComplete="off" /></Field>
-      </div>
-      <div className="mt-4 flex flex-wrap gap-2">
-        <ActionButton disabled={busy} onClick={testConnection}>{busy ? <Loader2 className="size-4 animate-spin" /> : <ShieldCheck className="size-4" />} Test Connection</ActionButton>
-        <ActionButton disabled={busy} onClick={requestOtp}>Request OTP</ActionButton>
-        <ActionButton disabled={busy || !tested} onClick={save}>Save</ActionButton>
-        <ActionButton disabled={busy} onClick={() => void runAccountAction(() => platformApi.ssiCurrent({ environment, otp: otp || undefined, transactionId: transactionId || undefined }), 'Current')}>Current</ActionButton>
-        <ActionButton disabled={busy} onClick={() => void runAccountAction(() => platformApi.ssiSync({ environment, otp: otp || undefined, transactionId: transactionId || undefined }), 'Sync')}>Sync</ActionButton>
-      </div>
-      {result && <div className={`mt-4 flex items-start gap-2 rounded-xl border px-3 py-2.5 text-sm ${result.ok ? 'border-emerald-300/15 bg-emerald-300/[0.05] text-emerald-200' : 'border-red-300/15 bg-red-300/[0.05] text-red-200'}`}>{result.ok ? <CheckCircle2 className="mt-0.5 size-4 shrink-0" /> : <XCircle className="mt-0.5 size-4 shrink-0" />}<span>{result.message}</span></div>}
-      <p className="mt-3 text-[11px] leading-5 text-[#75697d]">JSON is parsed locally in the browser. It is not uploaded anywhere until you explicitly Test Connection or Save.</p>
-    </div>}
-  </section>;
+  const [open, setOpen] = useState(false); const [environment, setEnvironment] = useState('production'); const [credentials, setCredentials] = useState<Credentials>(initialCredentials); const [otp, setOtp] = useState(''); const [transactionId, setTransactionId] = useState(''); const [tested, setTested] = useState(false); const [busy, setBusy] = useState(false); const [result, setResult] = useState<ResultState>(null); const [fileName, setFileName] = useState(''); const fileInputRef = useRef<HTMLInputElement>(null);
+  const updateCredential = (key: keyof Credentials, value: string) => { setCredentials((current) => ({ ...current, [key]: value })); setTested(false); setResult(null); setFileName(''); };
+  const messageFrom = (error: unknown) => { const value = error as { response?: { data?: { message?: string } }; message?: string }; return value?.response?.data?.message ?? value?.message ?? 'Request failed'; };
+  const uploadJson = async (file?: File) => { if (!file) return; setResult(null); setTested(false); setFileName(''); try { if (!file.name.toLowerCase().endsWith('.json') && file.type !== 'application/json') throw new Error('Please select a JSON file'); const parsed = JSON.parse(await file.text()); const next = credentialsFromJson(parsed); const found = Object.values(next).filter(Boolean).length; if (!found) throw new Error('No supported SSI credential fields were found in the JSON'); setCredentials(next); setFileName(file.name); setResult({ ok: true, message: `Loaded ${found}/4 credential fields from ${file.name}. Review them, then Test Connection.` }); onMessage?.(`Loaded SSI credentials from ${file.name}`); } catch (error) { const message = error instanceof Error ? error.message : messageFrom(error); setResult({ ok: false, message }); onMessage?.(`JSON upload failed: ${message}`); } finally { if (fileInputRef.current) fileInputRef.current.value = ''; } };
+  const testConnection = async () => { setBusy(true); setTested(false); setResult(null); try { const response = await platformApi.ssiTest({ environment, credentials, otp: otp || undefined, transactionId: transactionId || undefined }); const data = response.data; const ok = Boolean(data?.ok); setTested(ok); setResult({ ok, message: ok ? 'SSI connection verified. Credentials are ready to save.' : data?.error?.message ?? 'SSI connection failed' }); onMessage?.(ok ? 'SSI connection verified' : `SSI connection failed: ${data?.error?.message ?? 'unknown error'}`); } catch (error) { const message = messageFrom(error); setResult({ ok: false, message }); onMessage?.(`SSI connection failed: ${message}`); } finally { setBusy(false); } };
+  const requestOtp = async () => { setBusy(true); try { const response = await platformApi.ssiOtp({ environment, credentials }); setTransactionId(response.data?.data?.transactionId ?? response.data?.transactionId ?? ''); setResult({ ok: true, message: 'OTP request sent. Enter the OTP and run Test Connection again.' }); onMessage?.('SSI OTP request sent'); } catch (error) { const message = messageFrom(error); setResult({ ok: false, message }); onMessage?.(`SSI OTP request failed: ${message}`); } finally { setBusy(false); } };
+  const save = async () => { if (!tested) { setResult({ ok: false, message: 'Test Connection must succeed before saving.' }); return; } setBusy(true); try { const response = await platformApi.ssiSaveTested({ environment, credentials, otp: otp || undefined, transactionId: transactionId || undefined }); const data = response.data; if (!data?.ok) { setResult({ ok: false, message: data?.error?.message ?? 'SSI save failed' }); return; } setResult({ ok: true, message: 'SSI credentials saved securely.' }); onMessage?.('SSI credentials saved'); } catch (error) { const message = messageFrom(error); setResult({ ok: false, message }); onMessage?.(`SSI save failed: ${message}`); } finally { setBusy(false); } };
+  const runAccountAction = async (action: () => Promise<{ data?: { ok?: boolean; error?: { message?: string } } }>, label: string) => { setBusy(true); try { const response = await action(); const data = response.data; const ok = data?.ok !== false; const message = ok ? `${label}: OK` : `${label}: ${data?.error?.message ?? 'failed'}`; setResult({ ok, message }); onMessage?.(message); } catch (error) { const message = messageFrom(error); setResult({ ok: false, message: `${label}: ${message}` }); onMessage?.(`${label}: ${message}`); } finally { setBusy(false); } };
+  return <section className="mb-5 overflow-hidden rounded-[22px] border border-violet-200/[0.09] bg-[#150d1d] shadow-[0_18px_50px_rgba(0,0,0,.18)]"><button type="button" onClick={() => setOpen((value) => !value)} className="flex min-h-16 w-full items-center justify-between gap-4 px-5 text-left" aria-expanded={open}><div className="flex min-w-0 items-center gap-3"><div className="grid size-9 shrink-0 place-items-center rounded-xl bg-violet-400/10 text-violet-200"><KeyRound className="size-4" /></div><div className="min-w-0"><p className="font-semibold tracking-tight">SSI FastConnect</p><p className="mt-0.5 truncate text-xs text-[#81748a]">Configure, test and securely save SSI credentials</p></div></div><ChevronDown className={`size-4 shrink-0 text-[#81748a] transition-transform ${open ? 'rotate-180' : ''}`} /></button>{open && <div className="border-t border-violet-200/[0.07] px-5 pb-5 pt-4"><div className="mb-4 flex flex-wrap items-center gap-2"><input ref={fileInputRef} type="file" accept=".json,application/json" className="hidden" onChange={(event) => void uploadJson(event.target.files?.[0])} /><ActionButton disabled={busy} onClick={() => fileInputRef.current?.click()}><Upload className="size-4" /> Upload JSON</ActionButton>{fileName && <span className="inline-flex min-h-10 items-center gap-2 rounded-xl border border-emerald-300/10 bg-emerald-300/[0.04] px-3 text-xs text-emerald-200"><FileJson className="size-4" />{fileName}</span>}</div><div className="grid gap-3 sm:grid-cols-2"><Field label="Environment"><select value={environment} onChange={(event) => { setEnvironment(event.target.value); setTested(false); setResult(null); }} className="input"><option value="production">Production</option><option value="staging">Staging</option></select></Field><Field label="Client ID"><input className="input" value={credentials.clientId} onChange={(event) => updateCredential('clientId', event.target.value)} placeholder="Client ID" autoComplete="off" /></Field><Field label="API Key"><input className="input" value={credentials.apiKey} onChange={(event) => updateCredential('apiKey', event.target.value)} placeholder="API Key" autoComplete="off" /></Field><Field label="API Secret"><input className="input" type="password" value={credentials.apiSecret} onChange={(event) => updateCredential('apiSecret', event.target.value)} placeholder="API Secret" autoComplete="new-password" /></Field><Field label="Private Key"><textarea className="input min-h-24 resize-y py-2" value={credentials.privateKey} onChange={(event) => updateCredential('privateKey', event.target.value)} placeholder="Private Key" autoComplete="off" /></Field><Field label="OTP"><input className="input" inputMode="numeric" value={otp} onChange={(event) => { setOtp(event.target.value); setTested(false); setResult(null); }} placeholder="OTP from SSI" autoComplete="one-time-code" /></Field><Field label="Transaction ID"><input className="input" value={transactionId} onChange={(event) => { setTransactionId(event.target.value); setTested(false); setResult(null); }} placeholder="Filled after Request OTP" autoComplete="off" /></Field></div><div className="mt-4 flex flex-wrap gap-2"><ActionButton disabled={busy} onClick={testConnection}>{busy ? <Loader2 className="size-4 animate-spin" /> : <ShieldCheck className="size-4" />} Test Connection</ActionButton><ActionButton disabled={busy} onClick={requestOtp}>Request OTP</ActionButton><ActionButton disabled={busy || !tested} onClick={save}>Save</ActionButton><ActionButton disabled={busy} onClick={() => void runAccountAction(() => platformApi.ssiCurrent({ environment, otp: otp || undefined, transactionId: transactionId || undefined }), 'Current')}>Current</ActionButton><ActionButton disabled={busy} onClick={() => void runAccountAction(() => platformApi.ssiSync({ environment, otp: otp || undefined, transactionId: transactionId || undefined }), 'Sync')}>Sync</ActionButton></div>{result && <div className={`mt-4 flex items-start gap-2 rounded-xl border px-3 py-2.5 text-sm ${result.ok ? 'border-emerald-300/15 bg-emerald-300/[0.05] text-emerald-200' : 'border-red-300/15 bg-red-300/[0.05] text-red-200'}`}>{result.ok ? <CheckCircle2 className="mt-0.5 size-4 shrink-0" /> : <XCircle className="mt-0.5 size-4 shrink-0" />}<span>{result.message}</span></div>}<p className="mt-3 text-[11px] leading-5 text-[#75697d]">JSON is parsed locally in the browser. It is not uploaded anywhere until you explicitly Test Connection or Save.</p></div>}</section>;
 }
-
 function Field({ label, children }: { label: string; children: React.ReactNode }) { return <label className="block"><span className="mb-1.5 block text-[10px] font-semibold uppercase tracking-[.1em] text-[#81748a]">{label}</span>{children}</label>; }
 function ActionButton({ disabled, onClick, children }: { disabled?: boolean; onClick: () => void; children: React.ReactNode }) { return <button type="button" disabled={disabled} onClick={onClick} className="inline-flex min-h-10 items-center gap-2 rounded-xl border border-violet-200/10 bg-[#1b1123] px-3.5 text-xs font-semibold text-[#ddd2e5] transition hover:bg-[#23152d] disabled:cursor-not-allowed disabled:opacity-45">{children}</button>; }
