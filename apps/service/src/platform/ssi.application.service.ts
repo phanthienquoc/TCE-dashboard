@@ -2,6 +2,7 @@ import { Injectable, NotFoundException, ServiceUnavailableException } from '@nes
 import { CONTRACT_TOKENS, OrderRepository, PlatformCredentialPort, PositionRepository, SsiAuthInput } from '@tce/contracts';
 import { Inject } from '@nestjs/common';
 import { SsiBrokerAdapter, SsiOrderStatusEvent, SsiTokenSnapshot } from '@tce/ssi';
+import { SupabaseClientService } from '../db/supabase.client';
 
 @Injectable()
 export class SsiApplicationService {
@@ -11,6 +12,7 @@ export class SsiApplicationService {
     @Inject(CONTRACT_TOKENS.credentials) private readonly credentials: PlatformCredentialPort,
     @Inject(CONTRACT_TOKENS.positionRepository) private readonly positions: PositionRepository,
     @Inject(CONTRACT_TOKENS.orderRepository) private readonly orders: OrderRepository,
+    private readonly supabase: SupabaseClientService,
   ) {}
 
   private fromRaw(raw: Record<string, unknown>, userId: string, environment: string, accountNoOverride?: string, persistToken = false) {
@@ -59,5 +61,17 @@ export class SsiApplicationService {
   async accountSnapshots(userId: string, environment: string, input: SsiAuthInput) { const { adapter } = await this.adapter(userId, environment); return adapter.accountSnapshots(input); }
   async marketPrices(userId: string, environment: string, symbols: string[]) { const { adapter } = await this.adapter(userId, environment, false); return adapter.marketPrices(symbols); }
   async dailyCloses(userId: string, environment: string, symbols: string[], tradingDate: string) { const { adapter } = await this.adapter(userId, environment, false); return adapter.dailyCloses(symbols, tradingDate); }
-  async sync(userId: string, environment: string, input: SsiAuthInput) { const session = await this.adapter(userId, environment); const snapshot = await session.adapter.syncPortfolio(session.accountNo, input); if (!snapshot.ok) return snapshot; let positionsSynced = 0; for (const position of snapshot.data.positions) { await this.positions.upsert({ ...position, accountId: userId }); positionsSynced += 1; } let ordersSynced = 0; for (const order of snapshot.data.orders) { await this.orders.upsert({ ...order, accountId: userId }); ordersSynced += 1; } void this.startOrderStream(userId, session); return { ok: true as const, data: { positionsSynced, ordersSynced, balance: snapshot.data.balance } }; }
+  async sync(userId: string, environment: string, input: SsiAuthInput) {
+    const session = await this.adapter(userId, environment);
+    const snapshot = await session.adapter.syncPortfolio(session.accountNo, input);
+    if (!snapshot.ok) return snapshot;
+    let positionsSynced = 0;
+    for (const position of snapshot.data.positions) { await this.positions.upsert({ ...position, accountId: userId }); positionsSynced += 1; }
+    let ordersSynced = 0;
+    for (const order of snapshot.data.orders) { await this.orders.upsert({ ...order, accountId: userId }); ordersSynced += 1; }
+    const { data: account, error: accountError } = await this.supabase.db.from('tce_accounts').select('id').eq('user_id', userId).maybeSingle();
+    if (!accountError && account?.id) await this.supabase.db.from('tce_accounts').update({ capital_available: snapshot.data.balance.cash, updated_at: new Date().toISOString() }).eq('id', account.id);
+    void this.startOrderStream(userId, session);
+    return { ok: true as const, data: { positionsSynced, ordersSynced, balance: snapshot.data.balance } };
+  }
 }
