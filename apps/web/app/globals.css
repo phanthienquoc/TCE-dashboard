@@ -52,14 +52,14 @@ button:disabled { cursor: not-allowed; }
 .panel-head p { margin: 3px 0 0; color: #6f6478; font-size: 10px; }
 .panel-action { display: inline-flex; align-items: center; gap: 2px; min-height: 36px; border: 0; background: transparent; color: #9e82bb; font-size: 10px; }
 .panel-body { padding: 0 15px; }
-.asset-list { divide-y: 1px solid var(--line); }
+.asset-list { width: 100%; }
 .asset-row { min-width: 0; min-height: 65px; display: flex; align-items: center; gap: 10px; border-bottom: 1px solid rgb(238 222 255 / .055); }
 .asset-row:last-child { border-bottom: 0; }
 .asset-mark { width: 34px; height: 34px; flex: 0 0 auto; display: grid; place-items: center; border-radius: 11px; background: #21192b; color: #c8b4d5; font-size: 10px; font-weight: 800; }
 .asset-main { min-width: 0; flex: 1; }
 .asset-main p { margin: 0; overflow: hidden; color: #eee6f2; font-size: 13px; font-weight: 650; text-overflow: ellipsis; white-space: nowrap; }
 .asset-main small, .asset-value small { display: block; margin-top: 3px; color: #71657a; font-size: 10px; }
-.asset-value { text-align: right; }
+.asset-value { min-width: 56px; text-align: right; }
 .asset-value strong { color: #ded4e4; font-size: 12px; font-weight: 650; }
 .data-card { border-radius: 21px; overflow: hidden; }
 .mobile-records { display: grid; }
@@ -80,6 +80,10 @@ button:disabled { cursor: not-allowed; }
 .bottom-nav-item.is-active { background: rgb(139 77 196 / .25); color: #f6edf9; }
 .bottom-nav-item.is-active .bottom-nav-icon { background: rgb(169 107 255 / .17); color: #d5b5fa; }
 .touch-target { min-height: 44px; min-width: 44px; }
+
+/* shadcn tabs: keep configuration controls inside the viewport on mobile. */
+[role="tablist"] { max-width: 100%; min-width: 0; }
+@media (max-width: 767px) { [role="tablist"] { display: grid !important; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 3px; overflow: hidden !important; } [role="tab"] { min-width: 0 !important; padding-inline: 6px !important; font-size: 11px !important; white-space: normal !important; line-height: 1.15 !important; } }
 
 /* Login */
 .auth-shell { position: relative; width: 100%; min-height: 100dvh; display: grid; place-items: center; padding: 32px 18px; overflow: hidden; }
@@ -124,9 +128,8 @@ button:disabled { cursor: not-allowed; }
   .metric-grid { gap: 9px; }
   .metric-label { font-size: 10px; }
   .metric-secondary { font-size: 13px; }
-  .account-strip { display: flex; overflow-x: auto; scrollbar-width: none; padding-bottom: 2px; }
-  .account-strip::-webkit-scrollbar { display: none; }
-  .account-chip { min-width: 178px; }
+  .account-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .account-chip { min-width: 0; padding: 9px; }
   .dashboard-sections { grid-template-columns: 1fr; gap: 12px; }
   .panel-card { border-radius: 18px; }
   .mobile-record { grid-template-columns: 1.25fr .85fr .85fr; gap: 8px; }
