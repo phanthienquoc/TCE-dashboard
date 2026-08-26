@@ -20,9 +20,7 @@ export class PlatformCredentialsController {
 
   private binanceEnvironment(value?: string): 'production' | 'testnet' {
     const environment = value ?? 'production';
-    if (environment !== 'production' && environment !== 'testnet') {
-      throw new UnauthorizedException(`Unsupported Binance environment: ${environment}`);
-    }
+    if (environment !== 'production' && environment !== 'testnet') throw new UnauthorizedException(`Unsupported Binance environment: ${environment}`);
     return environment;
   }
 
@@ -33,37 +31,19 @@ export class PlatformCredentialsController {
   save(@Headers('authorization') auth: string | undefined, @Param('provider') provider: 'ssi' | 'binance' | 'fastapi', @Body() body: { environment?: string; credentials: Record<string, unknown> }) {
     if (!body?.credentials || typeof body.credentials !== 'object') throw new UnauthorizedException('Credentials are required');
     const environment = provider === 'binance' ? this.binanceEnvironment(body.environment) : body.environment ?? 'production';
-    const credentials = provider === 'binance'
-      ? { apiKey: body.credentials.apiKey, apiSecret: body.credentials.apiSecret }
-      : body.credentials;
-    if (provider === 'binance' && (typeof credentials.apiKey !== 'string' || typeof credentials.apiSecret !== 'string' || !credentials.apiKey || !credentials.apiSecret)) {
-      throw new UnauthorizedException('Binance API Key and API Secret are required');
-    }
+    const credentials = provider === 'binance' ? { apiKey: body.credentials.apiKey, apiSecret: body.credentials.apiSecret } : body.credentials;
+    if (provider === 'binance' && (typeof credentials.apiKey !== 'string' || typeof credentials.apiSecret !== 'string' || !credentials.apiKey || !credentials.apiSecret)) throw new UnauthorizedException('Binance API Key and API Secret are required');
     return this.credentials.save(this.userId(auth), provider, environment, credentials);
   }
 
   @Post('binance/test')
-  testBinance(@Headers('authorization') auth: string | undefined, @Body() body?: { environment?: string }) {
-    return this.binance.testConnection(this.userId(auth), this.binanceEnvironment(body?.environment));
-  }
-
+  testBinance(@Headers('authorization') auth: string | undefined, @Body() body?: { environment?: string }) { return this.binance.testConnection(this.userId(auth), this.binanceEnvironment(body?.environment)); }
   @Post('binance/order')
-  orderBinance(@Headers('authorization') auth: string | undefined, @Body() body: FuturesEntryOrderInput & { environment?: string }) {
-    const { environment, ...input } = body;
-    return this.binance.entry(this.userId(auth), input, this.binanceEnvironment(environment));
-  }
-
+  orderBinance(@Headers('authorization') auth: string | undefined, @Body() body: FuturesEntryOrderInput & { environment?: string }) { const { environment, ...input } = body; return this.binance.entry(this.userId(auth), input, this.binanceEnvironment(environment)); }
   @Post('binance/tp')
-  takeProfitBinance(@Headers('authorization') auth: string | undefined, @Body() body: FuturesTpSlInput & { environment?: string }) {
-    const { environment, ...input } = body;
-    return this.binance.takeProfit(this.userId(auth), input, this.binanceEnvironment(environment));
-  }
-
+  takeProfitBinance(@Headers('authorization') auth: string | undefined, @Body() body: FuturesTpSlInput & { environment?: string }) { const { environment, ...input } = body; return this.binance.takeProfit(this.userId(auth), input, this.binanceEnvironment(environment)); }
   @Post('binance/sl')
-  stopLossBinance(@Headers('authorization') auth: string | undefined, @Body() body: FuturesTpSlInput & { environment?: string }) {
-    const { environment, ...input } = body;
-    return this.binance.stopLoss(this.userId(auth), input, this.binanceEnvironment(environment));
-  }
+  stopLossBinance(@Headers('authorization') auth: string | undefined, @Body() body: FuturesTpSlInput & { environment?: string }) { const { environment, ...input } = body; return this.binance.stopLoss(this.userId(auth), input, this.binanceEnvironment(environment)); }
 
   @Post(':provider/request-otp')
   requestOtp(@Headers('authorization') auth: string | undefined, @Param('provider') provider: string, @Body() body?: { environment?: string; credentials?: Record<string, unknown> }) {
@@ -79,11 +59,12 @@ export class PlatformCredentialsController {
   }
 
   @Post(':provider/save-tested')
-  saveTested(@Headers('authorization') auth: string | undefined, @Param('provider') provider: string, @Body() body?: { environment?: string; otp?: string; transactionId?: string; credentials?: Record<string, unknown> }) {
+  saveTested(@Headers('authorization') auth: string | undefined, @Param('provider') provider: string, @Body() body?: { environment?: string; otp?: string; transactionId?: string; accountNo?: string; credentials?: Record<string, unknown> }) {
     if (provider !== 'ssi') throw new UnauthorizedException('Save-tested flow is not implemented for this provider yet');
     if (!body?.credentials || typeof body.credentials !== 'object') throw new UnauthorizedException('Credentials are required');
-    const input: SsiAuthInput = { otp: body?.otp, transactionId: body?.transactionId };
-    return this.ssi.saveTested(this.userId(auth), body?.environment ?? 'production', body.credentials, input);
+    if (!body.accountNo) throw new UnauthorizedException('SSI account number is required');
+    const input: SsiAuthInput = { otp: body.otp, transactionId: body.transactionId };
+    return this.ssi.saveTested(this.userId(auth), body.environment ?? 'production', body.credentials, input, body.accountNo);
   }
 
   @Post(':provider/current')
