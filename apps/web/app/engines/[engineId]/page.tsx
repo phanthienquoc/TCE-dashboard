@@ -4,8 +4,8 @@ import Link from 'next/link';
 import { ArrowLeft, Save } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { useParams } from 'next/navigation';
-import { Card, CardContent } from '../../components/ui/card';
-import { Button } from '../../components/ui/button';
+import { Card, CardContent } from '../../../components/ui/card';
+import { Button } from '../../../components/ui/button';
 import { getEngine } from '../engine-registry';
 
 const STORAGE_KEY = 'tce-engine-config';
