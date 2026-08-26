@@ -2,6 +2,7 @@ FROM node:24-alpine AS build
 WORKDIR /app
 
 COPY package.json ./
+COPY postcss.config.mjs ./
 RUN npm install
 
 COPY nx.json tsconfig.base.json ./
