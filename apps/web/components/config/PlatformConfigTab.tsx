@@ -7,9 +7,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui
 import { Input } from '../ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
 
-type SsiCredentials = { clientId: string; apiKey: string; apiSecret: string; accountNo: string; privateKey: string };
-
-const emptySsi: SsiCredentials = { clientId: '', apiKey: '', apiSecret: '', accountNo: '', privateKey: '' };
+type SsiCredentials = { clientId: string; apiKey: string; apiSecret: string; privateKey: string };
+const emptySsi: SsiCredentials = { clientId: '', apiKey: '', apiSecret: '', privateKey: '' };
 
 export default function PlatformConfigTab() {
   const [ssiEnv, setSsiEnv] = useState<'production' | 'sandbox'>('production');
@@ -54,7 +53,6 @@ export default function PlatformConfigTab() {
         clientId: pick('clientId', 'client_id', 'clientID'),
         apiKey: pick('apiKey', 'api_key', 'apikey'),
         apiSecret: pick('apiSecret', 'api_secret', 'secret'),
-        accountNo: pick('accountNo', 'accountNO', 'account_no', 'accountNumber', 'account_number'),
         privateKey: pick('privateKey', 'private_key', 'privateKEY'),
       };
       if (!Object.values(imported).some(Boolean)) throw new Error('No SSI credential fields found');
@@ -78,7 +76,7 @@ export default function PlatformConfigTab() {
   }
 
   return <div className="space-y-4">
-    <div><p className="text-[11px] font-semibold uppercase tracking-[.16em] text-[#887b91]">Platform configuration</p><h2 className="mt-1 text-xl font-semibold">Connections & environments</h2><p className="mt-1 text-sm text-zinc-400">Secrets stay in memory until you save them. Imported JSON is never uploaded directly to the browser server.</p></div>
+    <div><p className="text-[11px] font-semibold uppercase tracking-[.16em] text-[#887b91]">Platform configuration</p><h2 className="mt-1 text-xl font-semibold">Connections & environments</h2><p className="mt-1 text-sm text-zinc-400">Secrets stay in memory until you save them. Imported JSON is parsed locally and is never uploaded directly.</p></div>
     <Tabs defaultValue="ssi" className="w-full">
       <TabsList className="w-full justify-start overflow-x-auto"><TabsTrigger value="ssi">SSI FastConnect</TabsTrigger><TabsTrigger value="binance">Binance Futures</TabsTrigger><TabsTrigger value="fastapi">FastAPI</TabsTrigger></TabsList>
       <TabsContent value="ssi">
@@ -87,12 +85,11 @@ export default function PlatformConfigTab() {
           <div className="flex flex-wrap items-center gap-2 rounded-xl border border-white/10 bg-white/[0.025] p-3">
             <input ref={fileRef} type="file" accept="application/json,.json" className="sr-only" onChange={e => { const file = e.target.files?.[0]; if (file) void importSsiJson(file); }} />
             <Button type="button" variant="outline" disabled={!!busy} onClick={() => fileRef.current?.click()}><Upload className="size-4"/>Upload JSON config</Button>
-            {jsonName ? <span className="inline-flex min-w-0 items-center gap-1.5 text-xs text-zinc-400"><FileJson className="size-4 shrink-0"/><span className="truncate">{jsonName}</span></span> : <span className="text-xs text-zinc-500">Maps client ID, API key/secret, account no. and private key.</span>}
+            {jsonName ? <span className="inline-flex min-w-0 items-center gap-1.5 text-xs text-zinc-400"><FileJson className="size-4 shrink-0"/><span className="truncate">{jsonName}</span></span> : <span className="text-xs text-zinc-500">Maps client ID, API key/secret and private key.</span>}
           </div>
           <button type="button" onClick={() => setSsiOpen(v => !v)} className="flex min-h-11 w-full items-center justify-between rounded-xl border border-white/10 bg-white/[0.03] px-3 text-sm font-medium"><span>Credential configuration</span><ChevronDown className={`size-4 transition-transform ${ssiOpen ? 'rotate-180' : ''}`} /></button>
           {ssiOpen && <div className="grid gap-3 sm:grid-cols-2">
             <Field label="Client ID"><Input value={ssi.clientId} onChange={e => setSsi({ ...ssi, clientId: e.target.value })} autoComplete="off" /></Field>
-            <Field label="Account No."><Input value={ssi.accountNo} onChange={e => setSsi({ ...ssi, accountNo: e.target.value })} autoComplete="off" placeholder="SSI account number" /></Field>
             <Field label="API Key"><Input value={ssi.apiKey} onChange={e => setSsi({ ...ssi, apiKey: e.target.value })} type="password" autoComplete="new-password" /></Field>
             <Field label="API Secret"><Input value={ssi.apiSecret} onChange={e => setSsi({ ...ssi, apiSecret: e.target.value })} type="password" autoComplete="new-password" /></Field>
             <Field label="Private Key" className="sm:col-span-2"><textarea value={ssi.privateKey} onChange={e => setSsi({ ...ssi, privateKey: e.target.value })} rows={5} className="w-full rounded-xl border border-white/10 bg-black/20 p-3 text-sm text-white outline-none focus:ring-2 focus:ring-violet-400/60" autoComplete="off" /></Field>
