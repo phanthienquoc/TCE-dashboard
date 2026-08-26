@@ -50,7 +50,6 @@ export class SsiApplicationService {
       accountId: userId,
     });
 
-    // A fill changes the position. Refresh only the affected account; this keeps the dashboard authoritative.
     if (event.status === 'FF' || event.status === 'PF' || event.status === 'FFPC') {
       const positions = await session.adapter.positions(session.accountNo);
       if (positions.ok) {
@@ -79,11 +78,20 @@ export class SsiApplicationService {
     const result = await session.adapter.test(input);
     if (result.ok) {
       if (credentials) {
-        await this.credentials.save(userId, 'ssi', environment, credentials);
         this.sessions.set(`${userId}:ssi:${environment}`, session);
       }
       void this.startOrderStream(userId, session);
     }
+    return result;
+  }
+
+  async saveTested(userId: string, environment: string, credentials: Record<string, unknown>, input: SsiAuthInput) {
+    const session = this.fromRaw(credentials, environment);
+    const result = await session.adapter.test(input);
+    if (!result.ok) return result;
+    await this.credentials.save(userId, 'ssi', environment, credentials);
+    this.sessions.set(`${userId}:ssi:${environment}`, session);
+    void this.startOrderStream(userId, session);
     return result;
   }
 
