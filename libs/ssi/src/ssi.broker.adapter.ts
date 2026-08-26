@@ -39,7 +39,8 @@ export class SsiBrokerAdapter implements BrokerPort, SsiConnectionPort {
         const candles = await data.marketData.getOhlc1Minute(symbol);
         const candle = candles?.at(-1);
         if (!candle || Number(candle.closePrice ?? 0) <= 0) continue;
-        results.push({ symbol, price: Number(candle.closePrice), tradingDate: String(candle.tradingDate).slice(0, 10) });
+        const tradingDate = String(candle.tradingDate ?? '').slice(0, 10).replaceAll('/', '-');
+        results.push({ symbol, price: Number(candle.closePrice), tradingDate });
       }
       return results;
     });
