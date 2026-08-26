@@ -19,7 +19,7 @@ export class SsiApplicationService {
     return { adapter: new SsiBrokerAdapter({ apiKey, apiSecret, clientId: raw.clientId ? String(raw.clientId) : undefined, privateKey: raw.privateKey ? String(raw.privateKey) : undefined, accountNo: accountNo || undefined }), accountNo };
   }
 
-  private async adapter(userId: string, environment: string) {
+  private async adapter(userId: string, environment: string, requireAccount = true) {
     const key = `${userId}:ssi:${environment}`;
     const cached = this.sessions.get(key);
     if (cached) return cached;
@@ -32,8 +32,8 @@ export class SsiApplicationService {
       throw new ServiceUnavailableException('Unable to load SSI credentials');
     }
     const session = this.fromRaw(raw, environment);
-    if (!session.accountNo) throw new NotFoundException(`SSI account is not selected for environment: ${environment}`);
-    this.sessions.set(key, session);
+    if (requireAccount && !session.accountNo) throw new NotFoundException(`SSI account is not selected for environment: ${environment}`);
+    if (requireAccount) this.sessions.set(key, session);
     return session;
   }
 
@@ -56,7 +56,7 @@ export class SsiApplicationService {
   async saveTested(userId: string, environment: string, credentials: Record<string, unknown>, input: SsiAuthInput, accountNo: string) { if (!accountNo) throw new NotFoundException('SSI account number is required'); const session = this.fromRaw(credentials, environment, accountNo); const result = await session.adapter.test(input); if (!result.ok) return result; await this.credentials.save(userId, 'ssi', environment, { ...credentials, accountNo }); this.sessions.set(`${userId}:ssi:${environment}`, session); void this.startOrderStream(userId, session); return result; }
   async current(userId: string, environment: string, input: SsiAuthInput) { const { adapter, accountNo } = await this.adapter(userId, environment); return adapter.current(accountNo, input); }
   async accountSnapshots(userId: string, environment: string, input: SsiAuthInput) { const { adapter } = await this.adapter(userId, environment); return adapter.accountSnapshots(input); }
-  async marketPrices(userId: string, environment: string, symbols: string[]) { const { adapter } = await this.adapter(userId, environment); return adapter.marketPrices(symbols); }
-  async dailyCloses(userId: string, environment: string, symbols: string[], tradingDate: string) { const { adapter } = await this.adapter(userId, environment); return adapter.dailyCloses(symbols, tradingDate); }
+  async marketPrices(userId: string, environment: string, symbols: string[]) { const { adapter } = await this.adapter(userId, environment, false); return adapter.marketPrices(symbols); }
+  async dailyCloses(userId: string, environment: string, symbols: string[], tradingDate: string) { const { adapter } = await this.adapter(userId, environment, false); return adapter.dailyCloses(symbols, tradingDate); }
   async sync(userId: string, environment: string, input: SsiAuthInput) { const session = await this.adapter(userId, environment); const snapshot = await session.adapter.syncPortfolio(session.accountNo, input); if (!snapshot.ok) return snapshot; let positionsSynced = 0; for (const position of snapshot.data.positions) { await this.positions.upsert({ ...position, accountId: userId }); positionsSynced += 1; } let ordersSynced = 0; for (const order of snapshot.data.orders) { await this.orders.upsert({ ...order, accountId: userId }); ordersSynced += 1; } void this.startOrderStream(userId, session); return { ok: true as const, data: { positionsSynced, ordersSynced, balance: snapshot.data.balance } }; }
 }
