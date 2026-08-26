@@ -6,7 +6,7 @@ export type SsiTokenSnapshot = {
   tokenType: string;
   expiresAt: number;
   refreshToken: string;
-  refreshTokenExpiresAt: number;
+  refreshExpiresAt: number;
 };
 
 export type SsiConfig = {
@@ -30,12 +30,78 @@ export class SsiBrokerAdapter implements BrokerPort, SsiConnectionPort {
   constructor(private readonly config: SsiConfig) {}
 
   private result<T>(fn: () => Promise<T>): Promise<ContractResult<T>> { return fn().then((data) => ({ ok: true, data }) as const).catch((error) => ({ ok: false, error: { code: 'PROVIDER_ERROR', message: error instanceof Error ? error.message : String(error), retryable: false, provider: this.provider } }) as const); }
-  private createAuth(includePrivateKey = true) { const auth = new Auth(new Config({ clientId: this.config.clientId ?? '', apiKey: this.config.apiKey, apiSecret: this.config.apiSecret, privateKey: includePrivateKey ? this.config.privateKey ?? '' : '', apiUrl: 'https://api.ssi.com.vn', streamingUrl: 'wss://stream.ssi.com.vn/ws/v3', timeout: 60000, maxRetries: 5, retryDelay: 2000, rateLimitPerSecond: 10 })); const token = this.config.token; if (includePrivateKey && token?.accessToken && token.refreshToken) auth.tokenManager.setToken({ accessToken: token.accessToken, tokenType: token.tokenType ?? 'Bearer', expiresAt: Number(token.expiresAt ?? 0), refreshToken: token.refreshToken, refreshTokenExpiresAt: Number(token.refreshTokenExpiresAt ?? 0) }); return auth; }
-  private tokenSnapshot(): SsiTokenSnapshot | undefined { const token = this.auth?.getToken(); if (!token?.accessToken || !token.refreshToken) return undefined; return { accessToken: String(token.accessToken), tokenType: String(token.tokenType ?? 'Bearer'), expiresAt: Number(token.expiresAt ?? 0), refreshToken: String(token.refreshToken), refreshTokenExpiresAt: Number(token.refreshTokenExpiresAt ?? 0) }; }
+
+  private createAuth(includePrivateKey = true) {
+    const auth = new Auth(new Config({ clientId: this.config.clientId ?? '', apiKey: this.config.apiKey, apiSecret: this.config.apiSecret, privateKey: includePrivateKey ? this.config.privateKey ?? '' : '', apiUrl: 'https://api.ssi.com.vn', streamingUrl: 'wss://stream.ssi.com.vn/ws/v3', timeout: 60000, maxRetries: 5, retryDelay: 2000, rateLimitPerSecond: 10 }));
+    const token = this.config.token;
+    if (includePrivateKey && token?.accessToken && token.refreshToken) {
+      auth.tokenManager.setToken({
+        accessToken: token.accessToken,
+        tokenType: token.tokenType ?? 'Bearer',
+        expiresAt: Number(token.expiresAt ?? 0),
+        refreshToken: token.refreshToken,
+        refreshExpiresAt: Number(token.refreshExpiresAt ?? 0),
+      });
+    }
+    return auth;
+  }
+
+  private tokenSnapshot(): SsiTokenSnapshot | undefined {
+    const token = this.auth?.getToken();
+    if (!token?.accessToken || !token.refreshToken) return undefined;
+    return {
+      accessToken: String(token.accessToken),
+      tokenType: String(token.tokenType ?? 'Bearer'),
+      expiresAt: Number(token.expiresAt ?? 0),
+      refreshToken: String(token.refreshToken),
+      refreshExpiresAt: Number(token.refreshExpiresAt ?? 0),
+    };
+  }
+
   getTokenSnapshot() { return this.tokenSnapshot(); }
-  private async persistToken() { const token = this.tokenSnapshot(); if (token && this.config.onTokenUpdated) await this.config.onTokenUpdated(token); return token; }
-  private async authenticate(input: SsiAuthInput = {}) { this.auth ??= this.createAuth(true); const tokenManager = this.auth.tokenManager; const current = this.auth.getToken(); if (current && !tokenManager.isTokenExpired()) { this.tradingClient ??= new Trading(this.auth); return current; } if (current && tokenManager.hasRefreshToken() && !tokenManager.isRefreshTokenExpired()) { const refreshed = await this.auth.refresh(); this.tradingClient = new Trading(this.auth); await this.persistToken(); return refreshed; } if (!input.otp && !input.transactionId) throw new Error('SSI_REAUTH_REQUIRED'); const token = input.transactionId ? await this.auth.authenticate(undefined, input.transactionId) : await this.auth.authenticate(input.otp); this.tradingClient = new Trading(this.auth); await this.persistToken(); return token; }
-  private async authenticateMarketData() { if (this.auth?.getToken() && !this.auth.tokenManager.isTokenExpired()) return this.auth; if (this.auth?.getToken() && this.auth.tokenManager.hasRefreshToken() && !this.auth.tokenManager.isRefreshTokenExpired()) { await this.auth.refresh(); await this.persistToken(); return this.auth; } this.marketAuth ??= this.createAuth(false); const tokenManager = this.marketAuth.tokenManager; if (!this.marketAuth.getToken() || tokenManager.isTokenExpired()) await this.marketAuth.authenticate(); return this.marketAuth; }
+
+  private async persistToken() {
+    const token = this.tokenSnapshot();
+    if (token && this.config.onTokenUpdated) await this.config.onTokenUpdated(token);
+    return token;
+  }
+
+  private async authenticate(input: SsiAuthInput = {}) {
+    this.auth ??= this.createAuth(true);
+    const tokenManager = this.auth.tokenManager;
+    const current = this.auth.getToken();
+
+    if (current && !tokenManager.isTokenExpired()) {
+      this.tradingClient ??= new Trading(this.auth);
+      return current;
+    }
+
+    if (current && tokenManager.hasRefreshToken()) {
+      const refreshed = await this.auth.refresh();
+      this.tradingClient = new Trading(this.auth);
+      await this.persistToken();
+      return refreshed;
+    }
+
+    if (!input.otp && !input.transactionId) throw new Error('SSI_REAUTH_REQUIRED');
+    const token = input.transactionId ? await this.auth.authenticate(undefined, input.transactionId) : await this.auth.authenticate(input.otp);
+    this.tradingClient = new Trading(this.auth);
+    await this.persistToken();
+    return token;
+  }
+
+  private async authenticateMarketData() {
+    if (this.auth?.getToken() && !this.auth.tokenManager.isTokenExpired()) return this.auth;
+    if (this.auth?.getToken() && this.auth.tokenManager.hasRefreshToken()) {
+      await this.auth.refresh();
+      await this.persistToken();
+      return this.auth;
+    }
+    this.marketAuth ??= this.createAuth(false);
+    const tokenManager = this.marketAuth.tokenManager;
+    if (!this.marketAuth.getToken() || tokenManager.isTokenExpired()) await this.marketAuth.authenticate();
+    return this.marketAuth;
+  }
 
   async requestOtp() { return this.result(async () => { const auth = this.createAuth(true); const result = await auth.requestOtp(); const data = (result?.data ?? {}) as Record<string, unknown>; return { message: String(data.message ?? 'SSI approval/OTP request sent'), transactionId: typeof data.transactionId === 'string' ? data.transactionId : undefined }; }); }
   async connect(input: ConnectInput) { return this.result(async () => { await this.authenticate(input as SsiAuthInput); }); }
