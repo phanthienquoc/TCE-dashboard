@@ -12,9 +12,10 @@ button:disabled { cursor: not-allowed; }
 @media (max-width: 767px) { html { font-size: 16px; } body { -webkit-tap-highlight-color: transparent; } button, input, select { min-height: 44px; } input, select { font-size: 16px; } main { width: 100%; max-width: 100vw; min-width: 0; overflow-x: clip; } }
 @media (min-width: 768px) { body { overscroll-behavior-y: auto; } .mobile-bottom-nav { display: none; } }
 
-/* Dashboard viewport contract: never allow a desktop-sized content box on compact Safari. */
 .dashboard-shell, .dashboard-container { min-width: 0; }
-.dashboard-container { width: 100%; margin-inline: auto; }
+.dashboard-container { width: 100%; margin-inline: auto; max-width: 1280px; }
+.touch-target { min-height: 44px; min-width: 44px; }
+.metric-card, .hero-card, .data-table { -webkit-backdrop-filter: blur(18px); backdrop-filter: blur(18px); }
 
 @media (max-width: 767px) {
   .dashboard-shell { width: 100%; max-width: 100vw; min-width: 0; overflow-x: clip; }
