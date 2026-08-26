@@ -5,10 +5,19 @@ import { SsiAuthInput } from '@tce/contracts';
 
 @Injectable()
 export class SsiAssetSyncService {
-  constructor(private readonly ssi: SsiApplicationService, private readonly db: SupabaseClientService) {}
+  constructor(
+    private readonly ssi: SsiApplicationService,
+    private readonly db: SupabaseClientService,
+  ) {}
 
   async sync(userId: string, environment = 'production', input: SsiAuthInput = {}) {
-    const { data: account, error } = await this.db.db.from('tce_accounts').select('id').eq('user_id', userId).limit(1).maybeSingle();
+    const { data: account, error } = await this.db.db
+      .from('tce_accounts')
+      .select('id')
+      .eq('user_id', userId)
+      .limit(1)
+      .maybeSingle();
+
     if (error) throw error;
     if (!account) throw new NotFoundException('TCE account is not configured');
 
@@ -17,46 +26,105 @@ export class SsiAssetSyncService {
 
     let accountsSynced = 0;
     let assetsSynced = 0;
+    let assetsZeroed = 0;
     const syncedAt = new Date().toISOString();
 
     for (const snapshot of snapshots.data) {
-      const { data: brokerAccount, error: brokerError } = await this.db.db.from('tce_broker_accounts').upsert({
-        account_id: account.id,
-        provider: 'ssi',
-        environment,
-        external_account_no: snapshot.account.accountNo,
-        account_type: snapshot.account.accountType,
-        raw_account: snapshot.account,
-        last_synced_at: syncedAt,
-        updated_at: syncedAt,
-      }, { onConflict: 'account_id,provider,environment,external_account_no' }).select('id').single();
+      const { data: brokerAccount, error: brokerError } = await this.db.db
+        .from('tce_broker_accounts')
+        .upsert(
+          {
+            account_id: account.id,
+            provider: 'ssi',
+            environment,
+            external_account_no: snapshot.account.accountNo,
+            account_type: snapshot.account.accountType,
+            raw_account: snapshot.account,
+            last_synced_at: syncedAt,
+            updated_at: syncedAt,
+          },
+          { onConflict: 'account_id,provider,environment,external_account_no' },
+        )
+        .select('id')
+        .single();
+
       if (brokerError) throw brokerError;
       accountsSynced += 1;
 
-      const assets = snapshot.positions.filter((position) => Number(position.quantity) > 0);
-      for (const position of assets) {
-        const total = Number(position.quantity ?? 0);
-        const { error: assetError } = await this.db.db.from('tce_broker_assets').upsert({
-          account_id: account.id,
-          broker_account_id: brokerAccount.id,
-          provider: 'ssi',
-          environment,
-          asset_code: String(position.symbol).toUpperCase(),
-          asset_name: String(position.symbol).toUpperCase(),
-          available: total,
-          locked: 0,
-          total,
-          market_value: null,
-          currency: 'VND',
-          raw_asset: position,
-          observed_at: syncedAt,
-          updated_at: syncedAt,
-        }, { onConflict: 'broker_account_id,asset_code' });
+      const positions = new Map<string, { symbol: string; quantity: number; raw: unknown }>();
+      for (const position of snapshot.positions) {
+        const symbol = String(position.symbol).trim().toUpperCase();
+        if (!symbol) continue;
+        positions.set(symbol, {
+          symbol,
+          quantity: Math.max(0, Number(position.quantity ?? 0)),
+          raw: position,
+        });
+      }
+
+      for (const position of positions.values()) {
+        const total = position.quantity;
+        const { error: assetError } = await this.db.db.from('tce_broker_assets').upsert(
+          {
+            account_id: account.id,
+            broker_account_id: brokerAccount.id,
+            provider: 'ssi',
+            environment,
+            asset_code: position.symbol,
+            asset_name: position.symbol,
+            available: total,
+            locked: 0,
+            total,
+            market_value: null,
+            currency: 'VND',
+            raw_asset: position.raw,
+            observed_at: syncedAt,
+            updated_at: syncedAt,
+          },
+          { onConflict: 'broker_account_id,asset_code' },
+        );
+
         if (assetError) throw assetError;
         assetsSynced += 1;
       }
+
+      const { data: existingAssets, error: existingError } = await this.db.db
+        .from('tce_broker_assets')
+        .select('id,asset_code,total')
+        .eq('broker_account_id', brokerAccount.id);
+
+      if (existingError) throw existingError;
+
+      const currentSymbols = new Set(positions.keys());
+      for (const existing of existingAssets ?? []) {
+        const code = String(existing.asset_code ?? '').trim().toUpperCase();
+        if (!code || currentSymbols.has(code) || Number(existing.total ?? 0) === 0) continue;
+
+        const { error: zeroError } = await this.db.db
+          .from('tce_broker_assets')
+          .update({
+            available: 0,
+            locked: 0,
+            total: 0,
+            market_value: null,
+            observed_at: syncedAt,
+            updated_at: syncedAt,
+          })
+          .eq('id', existing.id);
+
+        if (zeroError) throw zeroError;
+        assetsZeroed += 1;
+      }
     }
 
-    return { ok: true as const, data: { accountsSynced, assetsSynced, fetchedAt: syncedAt } };
+    return {
+      ok: true as const,
+      data: {
+        accountsSynced,
+        assetsSynced,
+        assetsZeroed,
+        fetchedAt: syncedAt,
+      },
+    };
   }
 }
