@@ -39,8 +39,9 @@ export default function SSIPlatform({ onMessage }: Props) {
     if (!tested) { onMessage('Save SSI: Test connection successfully before saving'); return; }
     setBusy(true);
     try {
-      await platformApi.save('ssi', environment, credentials);
-      onMessage('Save SSI: OK');
+      const result = await platformApi.ssiSaveTested({ environment, credentials, otp: otp || undefined, transactionId: transactionId || undefined });
+      if (result.data?.ok) onMessage('Save SSI: OK');
+      else onMessage(`Save SSI: ${result.data?.error?.message ?? 'Failed'}`);
     } catch (error) { onMessage(`Save SSI: ${messageFrom(error)}`); }
     finally { setBusy(false); }
   };
