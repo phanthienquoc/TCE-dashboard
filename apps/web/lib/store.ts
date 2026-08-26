@@ -1,6 +1,6 @@
 'use client';
 import { create } from 'zustand';
-import { authApi, setAccessToken } from './api';
+import { authApi, setAccessToken, dashboardApi } from './api';
 
 type User={id:string;email:string;role:string;mfaEnabled:boolean};
 type AuthStatus='loading'|'authenticated'|'anonymous';
@@ -15,4 +15,4 @@ export const useAuthStore=create<AuthState>((set,get)=>({
 }));
 
 type DashboardState={data:any;loading:boolean;error:string|null;load:()=>Promise<void>};
-export const useDashboardStore=create<DashboardState>((set)=>({data:null,loading:false,error:null,load:async()=>{set({loading:true,error:null});try{const r=await import('./api').then(x=>x.dashboardApi.all());set({data:r.data});}catch(e:any){set({error:e?.response?.data?.message??'Unable to load dashboard'});}finally{set({loading:false});}}}));
+export const useDashboardStore=create<DashboardState>((set)=>({data:null,loading:false,error:null,load:async()=>{set({loading:true,error:null});try{const r=await dashboardApi.all('WATCHING');set({data:r.data});}catch(e:any){set({error:e?.response?.data?.message??'Unable to load dashboard'});}finally{set({loading:false});}}}));

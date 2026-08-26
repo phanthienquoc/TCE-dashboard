@@ -3,6 +3,9 @@ import type { DashboardSnapshot, DashboardSourceResult } from '@tce/dashboard-da
 import { SupabaseClientService } from '../db/supabase.client';
 import { DashboardSourcesService } from './dashboard-sources.service';
 
+const ENGINE_IDS = ['tce-decision', 'ssi-execution', 'binance-market'] as const;
+type EngineId = (typeof ENGINE_IDS)[number];
+
 @Injectable()
 export class DashboardService {
   constructor(private readonly supabase: SupabaseClientService, private readonly sources: DashboardSourcesService) {}
@@ -20,7 +23,7 @@ export class DashboardService {
   }
 
   async getStrategy(_userId: string) { return null; }
-  async getPoolsForUser(userId: string) { const account = await this.resolveAccount(userId); return this.getPools(account.id); }
+  async getPoolsForUser(userId: string, status?: string) { const account = await this.resolveAccount(userId); return this.getPools(account.id, status); }
   async getNextPositionsForUser(_userId: string) { return []; }
   async getOrdersForUser(_userId: string) { return []; }
 
@@ -33,9 +36,31 @@ export class DashboardService {
     ];
   }
 
-  async get(userId: string): Promise<DashboardSnapshot> {
+  async getEngines(userId: string) {
     const account = await this.resolveAccount(userId);
-    const [positions, pools] = await Promise.all([this.getPositions(userId), this.getPools(account.id)]);
+    const { data, error } = await this.supabase.db.from('tce_engine_states').select('engine_id,status,updated_at').eq('account_id', account.id);
+    if (error) throw this.dbError('getEngines', error);
+    const states = new Map((data ?? []).map((row: any) => [row.engine_id, row]));
+    return ENGINE_IDS.map((engineId) => {
+      const state = states.get(engineId);
+      return { engineId, status: state?.status ?? 'ACTIVE', updatedAt: state?.updated_at ?? null };
+    });
+  }
+
+  async setEngineStatus(userId: string, engineId: string, status: string) {
+    const account = await this.resolveAccount(userId);
+    const normalizedId = String(engineId).trim().toLowerCase();
+    const normalizedStatus = String(status).trim().toUpperCase();
+    if (!ENGINE_IDS.includes(normalizedId as EngineId)) throw new NotFoundException(`Unknown engine: ${engineId}`);
+    if (!['ACTIVE', 'INACTIVE'].includes(normalizedStatus)) throw new Error('Engine status must be ACTIVE or INACTIVE');
+    const { data, error } = await this.supabase.db.from('tce_engine_states').upsert({ account_id: account.id, engine_id: normalizedId, status: normalizedStatus, updated_at: new Date().toISOString() }, { onConflict: 'account_id,engine_id' }).select('engine_id,status,updated_at').single();
+    if (error) throw this.dbError('setEngineStatus', error);
+    return { engineId: data.engine_id, status: data.status, updatedAt: data.updated_at };
+  }
+
+  async get(userId: string, poolStatus?: string): Promise<DashboardSnapshot> {
+    const account = await this.resolveAccount(userId);
+    const [positions, pools] = await Promise.all([this.getPositions(userId), this.getPools(account.id, poolStatus)]);
     const deployed = Number(account.capital_deployed ?? 0);
     const unrealized = positions.reduce((sum, p) => sum + Number(p.unrealized_pnl ?? 0), 0);
     return { account: { userId, accountId: account.id, name: account.name, initial_capital: Number(account.initial_capital ?? 0), capital_deployed: Math.round(deployed), capital_available: Number(account.capital_available ?? 0), cashout_target: Number(account.cashout_target ?? 0), cashout_realized: Number(account.cashout_realized ?? 0), recovery_remaining: Number(account.recovery_remaining ?? 0), current_cycle: Number(account.current_cycle ?? 1), unrealized_pnl: Math.round(unrealized), max_positions: 0, pool_size: pools.length }, positions, orders: [], pools, nextPositions: [], sources: await this.getSources(userId) };
@@ -68,8 +93,11 @@ export class DashboardService {
     if (repaired.error) throw this.dbError('resolveAccount.repair', repaired.error); return repaired.data;
   }
 
-  private async getPools(accountId: string) {
-    const { data, error } = await this.supabase.db.from('tce_pool_entries').select('id,account_id,symbol,rank,status,score,cashout_score,liquidity_score,catalyst_score,recovery_score,risk_score,entry_low,entry_high,target_price,invalidation_price,expected_cashout,expected_return_pct,expected_hold_days,rationale,observed_at,expires_at,created_at,updated_at').eq('account_id', accountId).order('rank', { ascending: true }).limit(50);
+  private async getPools(accountId: string, status?: string) {
+    let query = this.supabase.db.from('tce_pool_entries').select('id,account_id,symbol,rank,status,score,cashout_score,liquidity_score,catalyst_score,recovery_score,risk_score,entry_low,entry_high,target_price,invalidation_price,expected_cashout,expected_return_pct,expected_hold_days,rationale,observed_at,expires_at,created_at,updated_at').eq('account_id', accountId);
+    const normalizedStatus = String(status ?? '').trim().toUpperCase();
+    if (normalizedStatus) query = query.eq('status', normalizedStatus);
+    const { data, error } = await query.order('rank', { ascending: true }).limit(50);
     if (error) throw this.dbError('getPools', error); return data ?? [];
   }
 
