@@ -8,11 +8,17 @@ import { Input } from '../ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
 
 type SsiCredentials = { clientId: string; apiKey: string; apiSecret: string; privateKey: string };
+type SsiAccount = { accountNo: string; accountType: string };
 const emptySsi: SsiCredentials = { clientId: '', apiKey: '', apiSecret: '', privateKey: '' };
 
 export default function PlatformConfigTab() {
   const [ssiEnv, setSsiEnv] = useState<'production' | 'sandbox'>('production');
   const [ssi, setSsi] = useState<SsiCredentials>(emptySsi);
+  const [ssiAccountNo, setSsiAccountNo] = useState('');
+  const [ssiAccounts, setSsiAccounts] = useState<SsiAccount[]>([]);
+  const [ssiOtp, setSsiOtp] = useState('');
+  const [ssiTransactionId, setSsiTransactionId] = useState('');
+  const [ssiTested, setSsiTested] = useState(false);
   const [binanceEnv, setBinanceEnv] = useState<'production' | 'testnet'>('testnet');
   const [binance, setBinance] = useState({ apiKey: '', apiSecret: '' });
   const [fastapi, setFastapi] = useState({ baseUrl: '', healthPath: '/health' });
@@ -24,20 +30,17 @@ export default function PlatformConfigTab() {
   const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => { void loadConfig(); }, []);
+  useEffect(() => { setSsiTested(false); setSsiAccounts([]); setSsiAccountNo(''); }, [ssiEnv]);
 
   async function loadConfig() {
     try {
       const [credentials, fast] = await Promise.all([platformApi.credentials(), platformApi.fastApiConfig()]);
       const rows = credentials.data?.credentials ?? credentials.data ?? [];
-      const has = (provider: string, environment: string) => Array.isArray(rows)
-        ? rows.some((x: any) => x.provider === provider && (!x.environment || x.environment === environment))
-        : Boolean(rows?.[provider]);
+      const has = (provider: string, environment: string) => Array.isArray(rows) ? rows.some((x: any) => x.provider === provider && (!x.environment || x.environment === environment)) : Boolean(rows?.[provider]);
       setStatus(s => ({ ...s, ssi: has('ssi', ssiEnv) ? 'Configured' : 'Not configured', binance: has('binance', binanceEnv) ? 'Configured' : 'Not configured' }));
       const cfg = fast.data?.config ?? fast.data ?? {};
       setFastapi({ baseUrl: cfg.baseUrl ?? '', healthPath: cfg.healthPath ?? '/health' });
-    } catch {
-      setStatus(s => ({ ...s, ssi: 'Unable to load', binance: 'Unable to load' }));
-    }
+    } catch { setStatus(s => ({ ...s, ssi: 'Unable to load', binance: 'Unable to load' })); }
   }
 
   async function importSsiJson(file: File) {
@@ -45,34 +48,66 @@ export default function PlatformConfigTab() {
       const parsed = JSON.parse(await file.text());
       const source = parsed?.credentials ?? parsed?.ssi ?? parsed;
       if (!source || typeof source !== 'object' || Array.isArray(source)) throw new Error('JSON root must be an object');
-      const pick = (...keys: string[]) => {
-        for (const key of keys) if (source[key] !== undefined && source[key] !== null) return String(source[key]);
-        return '';
-      };
+      const pick = (...keys: string[]) => { for (const key of keys) if (source[key] !== undefined && source[key] !== null) return String(source[key]); return ''; };
       const imported: SsiCredentials = {
-        clientId: pick('clientId', 'client_id', 'clientID'),
-        apiKey: pick('apiKey', 'api_key', 'apikey'),
-        apiSecret: pick('apiSecret', 'api_secret', 'secret'),
-        privateKey: pick('privateKey', 'private_key', 'privateKEY'),
+        clientId: pick('clientId', 'client_id', 'clientID', 'Customerid'),
+        apiKey: pick('apiKey', 'api_key', 'apikey', 'ApiKey'),
+        apiSecret: pick('apiSecret', 'api_secret', 'secret', 'ApiSecret'),
+        privateKey: pick('privateKey', 'private_key', 'privateKEY', 'PrivateKey'),
       };
-      if (!Object.values(imported).some(Boolean)) throw new Error('No SSI credential fields found');
+      if (!imported.apiKey || !imported.apiSecret) throw new Error('JSON must contain ApiKey and ApiSecret');
       setSsi(imported);
+      setSsiAccountNo(pick('accountNo', 'account_no', 'accountNumber'));
       setJsonName(file.name);
-      setStatus(s => ({ ...s, ssi: 'JSON loaded — review before save' }));
+      setSsiTested(false);
+      setStatus(s => ({ ...s, ssi: 'JSON loaded — test connection before save' }));
     } catch (e: any) {
       setStatus(s => ({ ...s, ssi: `JSON import failed: ${e?.message ?? 'Invalid file'}` }));
       setJsonName('');
-    } finally {
-      if (fileRef.current) fileRef.current.value = '';
-    }
+    } finally { if (fileRef.current) fileRef.current.value = ''; }
   }
 
   async function run(key: string, action: () => Promise<any>, success: string) {
-    setBusy(key);
-    setStatus(s => ({ ...s, [key]: 'Working…' }));
+    setBusy(key); setStatus(s => ({ ...s, [key]: 'Working…' }));
     try { await action(); setStatus(s => ({ ...s, [key]: success })); }
-    catch (e: any) { setStatus(s => ({ ...s, [key]: e?.response?.data?.message ?? 'Request failed' })); }
+    catch (e: any) { setStatus(s => ({ ...s, [key]: e?.response?.data?.message ?? e?.message ?? 'Request failed' })); }
     finally { setBusy(null); }
+  }
+
+  async function testSsi() {
+    if (!ssi.apiKey || !ssi.apiSecret) { setStatus(s => ({ ...s, ssi: 'ApiKey and ApiSecret are required' })); return; }
+    setBusy('ssi'); setStatus(s => ({ ...s, ssi: 'Testing SSI connection…' }));
+    try {
+      const response = await platformApi.ssiTest({ environment: ssiEnv, credentials: ssi, otp: ssiOtp || undefined, transactionId: ssiTransactionId || undefined });
+      const result = response.data;
+      if (!result?.ok) throw new Error(result?.error?.message ?? 'SSI connection failed');
+      const accounts: SsiAccount[] = result.data?.accounts ?? [];
+      setSsiAccounts(accounts);
+      setSsiAccountNo(current => current && accounts.some(a => a.accountNo === current) ? current : accounts[0]?.accountNo ?? '');
+      setSsiTested(true);
+      setStatus(s => ({ ...s, ssi: accounts.length ? `Connection OK — ${accounts.length} account(s) found` : 'Connection OK — no trading account found' }));
+    } catch (e: any) { setSsiTested(false); setStatus(s => ({ ...s, ssi: e?.response?.data?.message ?? e?.message ?? 'SSI connection failed' })); }
+    finally { setBusy(null); }
+  }
+
+  async function requestSsiOtp() {
+    if (!ssi.apiKey || !ssi.apiSecret) { setStatus(s => ({ ...s, ssi: 'ApiKey and ApiSecret are required' })); return; }
+    await run('ssi', async () => {
+      const response = await platformApi.ssiOtp({ environment: ssiEnv, credentials: ssi });
+      const result = response.data;
+      if (!result?.ok) throw new Error(result?.error?.message ?? 'Unable to request SSI OTP');
+      if (result.data?.transactionId) setSsiTransactionId(String(result.data.transactionId));
+    }, 'OTP requested — enter OTP and test');
+  }
+
+  async function saveTestedSsi() {
+    if (!ssiTested) { setStatus(s => ({ ...s, ssi: 'Test the SSI connection before saving' })); return; }
+    if (!ssiAccountNo) { setStatus(s => ({ ...s, ssi: 'Select an SSI account before saving' })); return; }
+    await run('ssi', async () => {
+      const response = await platformApi.ssiSaveTested({ environment: ssiEnv, credentials: ssi, accountNo: ssiAccountNo, otp: ssiOtp || undefined, transactionId: ssiTransactionId || undefined });
+      const result = response.data;
+      if (!result?.ok) throw new Error(result?.error?.message ?? 'Unable to save SSI credentials');
+    }, 'Saved');
   }
 
   return <div className="space-y-4">
@@ -80,21 +115,26 @@ export default function PlatformConfigTab() {
     <Tabs defaultValue="ssi" className="w-full">
       <TabsList className="w-full justify-start overflow-x-auto"><TabsTrigger value="ssi">SSI FastConnect</TabsTrigger><TabsTrigger value="binance">Binance Futures</TabsTrigger><TabsTrigger value="fastapi">FastAPI</TabsTrigger></TabsList>
       <TabsContent value="ssi">
-        <Card><CardHeader><div className="flex items-center justify-between gap-3"><div><CardTitle>SSI FastConnect</CardTitle><CardDescription>Production / Sandbox credentials.</CardDescription></div><StatusBadge value={status.ssi}/></div></CardHeader><CardContent className="space-y-4">
+        <Card><CardHeader><div className="flex items-center justify-between gap-3"><div><CardTitle>SSI FastConnect</CardTitle><CardDescription>Test v3 credentials first, then select the trading account and save.</CardDescription></div><StatusBadge value={status.ssi}/></div></CardHeader><CardContent className="space-y-4">
           <SelectField label="Environment" value={ssiEnv} onChange={v => setSsiEnv(v as 'production' | 'sandbox')} options={[['production', 'Production'], ['sandbox', 'Sandbox']]} />
           <div className="flex flex-wrap items-center gap-2 rounded-xl border border-white/10 bg-white/[0.025] p-3">
             <input ref={fileRef} type="file" accept="application/json,.json" className="sr-only" onChange={e => { const file = e.target.files?.[0]; if (file) void importSsiJson(file); }} />
             <Button type="button" variant="outline" disabled={!!busy} onClick={() => fileRef.current?.click()}><Upload className="size-4"/>Upload JSON config</Button>
-            {jsonName ? <span className="inline-flex min-w-0 items-center gap-1.5 text-xs text-zinc-400"><FileJson className="size-4 shrink-0"/><span className="truncate">{jsonName}</span></span> : <span className="text-xs text-zinc-500">Maps client ID, API key/secret and private key.</span>}
+            {jsonName ? <span className="inline-flex min-w-0 items-center gap-1.5 text-xs text-zinc-400"><FileJson className="size-4 shrink-0"/><span className="truncate">{jsonName}</span></span> : <span className="text-xs text-zinc-500">Maps Client ID, ApiKey, ApiSecret and PrivateKey.</span>}
           </div>
           <button type="button" onClick={() => setSsiOpen(v => !v)} className="flex min-h-11 w-full items-center justify-between rounded-xl border border-white/10 bg-white/[0.03] px-3 text-sm font-medium"><span>Credential configuration</span><ChevronDown className={`size-4 transition-transform ${ssiOpen ? 'rotate-180' : ''}`} /></button>
           {ssiOpen && <div className="grid gap-3 sm:grid-cols-2">
-            <Field label="Client ID"><Input value={ssi.clientId} onChange={e => setSsi({ ...ssi, clientId: e.target.value })} autoComplete="off" /></Field>
-            <Field label="API Key"><Input value={ssi.apiKey} onChange={e => setSsi({ ...ssi, apiKey: e.target.value })} type="password" autoComplete="new-password" /></Field>
-            <Field label="API Secret"><Input value={ssi.apiSecret} onChange={e => setSsi({ ...ssi, apiSecret: e.target.value })} type="password" autoComplete="new-password" /></Field>
-            <Field label="Private Key" className="sm:col-span-2"><textarea value={ssi.privateKey} onChange={e => setSsi({ ...ssi, privateKey: e.target.value })} rows={5} className="w-full rounded-xl border border-white/10 bg-black/20 p-3 text-sm text-white outline-none focus:ring-2 focus:ring-violet-400/60" autoComplete="off" /></Field>
+            <Field label="Client ID"><Input value={ssi.clientId} onChange={e => { setSsi({ ...ssi, clientId: e.target.value }); setSsiTested(false); }} autoComplete="off" /></Field>
+            <Field label="API Key"><Input value={ssi.apiKey} onChange={e => { setSsi({ ...ssi, apiKey: e.target.value }); setSsiTested(false); }} type="password" autoComplete="new-password" /></Field>
+            <Field label="API Secret"><Input value={ssi.apiSecret} onChange={e => { setSsi({ ...ssi, apiSecret: e.target.value }); setSsiTested(false); }} type="password" autoComplete="new-password" /></Field>
+            <Field label="Private Key" className="sm:col-span-2"><textarea value={ssi.privateKey} onChange={e => { setSsi({ ...ssi, privateKey: e.target.value }); setSsiTested(false); }} rows={5} className="w-full rounded-xl border border-white/10 bg-black/20 p-3 text-sm text-white outline-none focus:ring-2 focus:ring-violet-400/60" autoComplete="off" /></Field>
           </div>}
-          <div className="flex flex-wrap gap-2"><Button disabled={!!busy} onClick={() => run('ssi', () => platformApi.save('ssi', ssiEnv, ssi), 'Saved')}><Save className="size-4"/>Save</Button><Button variant="outline" disabled={!!busy} onClick={() => run('ssi', () => platformApi.ssiTest({ environment: ssiEnv, credentials: ssi }), 'Connection OK')}><Wifi className="size-4"/>Test connection</Button></div>
+          <div className="grid gap-3 sm:grid-cols-3">
+            <Field label="OTP (optional)"><Input value={ssiOtp} onChange={e => setSsiOtp(e.target.value)} inputMode="numeric" autoComplete="one-time-code" placeholder="OTP" /></Field>
+            <Field label="Transaction ID (optional)" className="sm:col-span-2"><Input value={ssiTransactionId} onChange={e => setSsiTransactionId(e.target.value)} autoComplete="off" placeholder="Returned by Request OTP" /></Field>
+          </div>
+          {ssiAccounts.length > 0 && <Field label="Trading account"><select value={ssiAccountNo} onChange={e => setSsiAccountNo(e.target.value)} className="h-11 w-full rounded-xl border border-white/10 bg-[#120b18] px-3 text-sm text-white outline-none focus:ring-2 focus:ring-violet-400/60">{ssiAccounts.map(account => <option key={account.accountNo} value={account.accountNo}>{account.accountNo} · {account.accountType}</option>)}</select></Field>}
+          <div className="flex flex-wrap gap-2"><Button variant="outline" disabled={!!busy} onClick={() => void requestSsiOtp()}>Request OTP</Button><Button variant="outline" disabled={!!busy} onClick={() => void testSsi()}><Wifi className="size-4"/>Test connection</Button><Button disabled={!!busy || !ssiTested || !ssiAccountNo} onClick={() => void saveTestedSsi()}><Save className="size-4"/>Save tested credentials</Button></div>
         </CardContent></Card>
       </TabsContent>
       <TabsContent value="binance">
@@ -115,4 +155,4 @@ export default function PlatformConfigTab() {
 
 function Field({ label, children, className = '' }: { label: string; children: React.ReactNode; className?: string }) { return <div className={`space-y-1.5 ${className}`}><label className="text-xs font-medium text-zinc-300">{label}</label>{children}</div>; }
 function SelectField({ label, value, onChange, options }: { label: string; value: string; onChange: (v: string) => void; options: string[][] }) { return <Field label={label}><select value={value} onChange={e => onChange(e.target.value)} className="h-11 w-full rounded-xl border border-white/10 bg-[#120b18] px-3 text-sm text-white outline-none focus:ring-2 focus:ring-violet-400/60">{options.map(([v, t]) => <option key={v} value={v}>{t}</option>)}</select></Field>; }
-function StatusBadge({ value }: { value?: string }) { const ok = value === 'Configured' || value === 'Connection OK' || value === 'Saved'; return <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-medium ${ok ? 'bg-emerald-400/10 text-emerald-300' : 'bg-white/[0.06] text-zinc-400'}`}>{ok ? <CheckCircle2 className="size-3.5"/> : <ShieldCheck className="size-3.5"/>}{value ?? 'Not configured'}</span>; }
+function StatusBadge({ value }: { value?: string }) { const ok = value === 'Configured' || value === 'Connection OK' || value === 'Saved' || value?.startsWith('Connection OK'); return <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-medium ${ok ? 'bg-emerald-400/10 text-emerald-300' : 'bg-white/[0.06] text-zinc-400'}`}>{ok ? <CheckCircle2 className="size-3.5"/> : <ShieldCheck className="size-3.5"/>}{value ?? 'Not configured'}</span>; }
