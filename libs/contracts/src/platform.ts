@@ -3,8 +3,8 @@ export type PlatformHealth = { provider: PlatformKind; available: boolean; laten
 export type ConnectInput = { userId: string; environment: string };
 export type MarketQuote = { symbol: string; price: number; timestamp: string; source: PlatformKind };
 export type AccountBalance = { cash: number; equity: number; withdrawable: number; source: PlatformKind };
-export type AccountPosition = { accountId?: string; symbol: string; quantity: number; averagePrice: number; marketPrice?: number; marketValue?: number; unrealizedPnl?: number; source: PlatformKind };
-export type AccountOrder = { accountId?: string; externalId: string; symbol: string; side: 'BUY'|'SELL'; quantity: number; price?: number; status: string; createdAt?: string; source: PlatformKind };
+export type AccountPosition = { accountId?: string; userId?: string; symbol: string; quantity: number; averagePrice: number; marketPrice?: number; marketValue?: number; unrealizedPnl?: number; source: PlatformKind };
+export type AccountOrder = { accountId?: string; userId?: string; externalId: string; symbol: string; side: 'BUY'|'SELL'; quantity: number; price?: number; status: string; createdAt?: string; source: PlatformKind };
 
 export interface PlatformPort { readonly provider: PlatformKind; connect(input: ConnectInput): Promise<void>; health(input: ConnectInput): Promise<PlatformHealth>; disconnect(input: ConnectInput): Promise<void>; }
 export interface MarketDataPort extends PlatformPort { quote(symbol: string): Promise<MarketQuote>; }
