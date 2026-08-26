@@ -20,6 +20,20 @@ export class SsiMarketPriceService implements OnModuleInit, OnModuleDestroy {
   }
   onModuleDestroy() { if (this.timer) clearInterval(this.timer); }
 
+  async syncNow(userId: string) {
+    if (this.running) return { ok: false as const, error: { code: 'SYNC_IN_PROGRESS', message: 'SSI market sync is already running' } };
+    this.running = true;
+    try {
+      const result = await this.syncHourlyPrices(userId);
+      return { ok: true as const, data: { ...result, syncedAt: new Date().toISOString() } };
+    } catch (error) {
+      console.error('[SSI_MARKET_PRICE_MANUAL_SYNC]', error);
+      return { ok: false as const, error: { code: 'SYNC_FAILED', message: error instanceof Error ? error.message : String(error) } };
+    } finally {
+      this.running = false;
+    }
+  }
+
   private nowParts() {
     const parts = new Intl.DateTimeFormat('en-CA', { timeZone: TIME_ZONE, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false }).formatToParts(new Date());
     const get = (type: string) => parts.find((part) => part.type === type)?.value ?? '';
@@ -45,36 +59,42 @@ export class SsiMarketPriceService implements OnModuleInit, OnModuleDestroy {
     finally { this.running = false; }
   }
 
-  private async usersAndSymbols() {
-    const { data: accounts, error: accountError } = await this.db.db.from('tce_accounts').select('id,user_id').not('user_id', 'is', null);
+  private async usersAndSymbols(userId?: string) {
+    let query = this.db.db.from('tce_accounts').select('id,user_id').not('user_id', 'is', null);
+    if (userId) query = query.eq('user_id', userId);
+    const { data: accounts, error: accountError } = await query;
     if (accountError) throw accountError;
     const byUser = new Map<string, Set<string>>();
     for (const account of accounts ?? []) {
-      const userId = String(account.user_id);
+      const accountUserId = String(account.user_id);
       const [{ data: positions, error: positionsError }, { data: pools, error: poolsError }] = await Promise.all([
-        this.db.db.from('tce_positions').select('symbol').eq('user_id', userId).neq('status', 'CLOSED'),
+        this.db.db.from('tce_positions').select('symbol').eq('user_id', accountUserId).neq('status', 'CLOSED'),
         this.db.db.from('tce_pool_entries').select('symbol').eq('account_id', account.id).eq('status', 'WATCHING'),
       ]);
       if (positionsError) throw positionsError;
       if (poolsError) throw poolsError;
-      const symbols = byUser.get(userId) ?? new Set<string>();
+      const symbols = byUser.get(accountUserId) ?? new Set<string>();
       for (const row of [...(positions ?? []), ...(pools ?? [])]) {
         const symbol = String(row.symbol ?? '').trim().toUpperCase();
         if (symbol) symbols.add(symbol);
       }
-      byUser.set(userId, symbols);
+      byUser.set(accountUserId, symbols);
     }
-    return [...byUser.entries()].filter(([, symbols]) => symbols.size).map(([userId, symbols]) => ({ userId, symbols: [...symbols] }));
+    return [...byUser.entries()].filter(([, symbols]) => symbols.size).map(([accountUserId, symbols]) => ({ userId: accountUserId, symbols: [...symbols] }));
   }
 
-  private async syncHourlyPrices() {
-    const users = await this.usersAndSymbols();
+  private async syncHourlyPrices(userId?: string) {
+    const users = await this.usersAndSymbols(userId);
     const observedAt = new Date().toISOString();
+    let usersSynced = 0;
+    let symbolsSynced = 0;
     for (const user of users) {
       const quotes = await this.ssi.marketPrices(user.userId, 'production', user.symbols);
       if (!quotes.ok) { console.error('[SSI_MARKET_PRICE_USER]', user.userId, quotes.error); continue; }
-      for (const quote of quotes.data) await this.persistPrice(user.userId, quote.symbol, quote.price, undefined, quote.tradingDate, observedAt);
+      usersSynced += 1;
+      for (const quote of quotes.data) { await this.persistPrice(user.userId, quote.symbol, quote.price, undefined, quote.tradingDate, observedAt); symbolsSynced += 1; }
     }
+    return { usersSynced, symbolsSynced };
   }
 
   private async syncDailyClose(tradingDate: string) {

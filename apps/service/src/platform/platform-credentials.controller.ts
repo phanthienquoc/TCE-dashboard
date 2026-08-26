@@ -3,11 +3,12 @@ import { CONTRACT_TOKENS, FuturesEntryOrderInput, FuturesTpSlInput, PlatformCred
 import { JwtService } from '../auth/jwt.service';
 import { SsiApplicationService } from './ssi.application.service';
 import { SsiAssetSyncService } from './ssi-asset-sync.service';
+import { SsiMarketPriceService } from './ssi-market-price.service';
 import { BinanceFuturesService } from './binance-futures.service';
 
 @Controller('platform/credentials')
 export class PlatformCredentialsController {
-  constructor(@Inject(CONTRACT_TOKENS.credentials) private readonly credentials: PlatformCredentialPort, private readonly ssi: SsiApplicationService, private readonly ssiAssetSync: SsiAssetSyncService, private readonly binance: BinanceFuturesService, private readonly jwt: JwtService) {}
+  constructor(@Inject(CONTRACT_TOKENS.credentials) private readonly credentials: PlatformCredentialPort, private readonly ssi: SsiApplicationService, private readonly ssiAssetSync: SsiAssetSyncService, private readonly ssiMarketPrice: SsiMarketPriceService, private readonly binance: BinanceFuturesService, private readonly jwt: JwtService) {}
   private userId(auth?: string) { if (!auth?.startsWith('Bearer ')) throw new UnauthorizedException('Bearer token required'); return this.jwt.verify(auth.slice(7)).sub; }
   private binanceEnvironment(value?: string): 'production' | 'testnet' { const environment = value ?? 'production'; if (environment !== 'production' && environment !== 'testnet') throw new UnauthorizedException(`Unsupported Binance environment: ${environment}`); return environment; }
   @Get() list(@Headers('authorization') auth?: string) { return this.credentials.list(this.userId(auth)); }
@@ -22,5 +23,6 @@ export class PlatformCredentialsController {
   @Post(':provider/current') current(@Headers('authorization') auth: string | undefined, @Param('provider') provider: string, @Body() body?: { environment?: string; otp?: string; transactionId?: string }) { if (provider !== 'ssi') throw new UnauthorizedException('Current account info is only available for SSI'); return this.ssi.current(this.userId(auth), body?.environment ?? 'production', { otp: body?.otp, transactionId: body?.transactionId }); }
   @Post(':provider/sync') sync(@Headers('authorization') auth: string | undefined, @Param('provider') provider: string, @Body() body?: { environment?: string; otp?: string; transactionId?: string }) { if (provider !== 'ssi') throw new UnauthorizedException('Portfolio sync is only available for SSI'); return this.ssi.sync(this.userId(auth), body?.environment ?? 'production', { otp: body?.otp, transactionId: body?.transactionId }); }
   @Post('ssi/sync-assets') syncAssets(@Headers('authorization') auth: string | undefined, @Body() body?: { environment?: string; otp?: string; transactionId?: string }) { const input: SsiAuthInput = { otp: body?.otp, transactionId: body?.transactionId }; return this.ssiAssetSync.sync(this.userId(auth), body?.environment ?? 'production', input); }
+  @Post('ssi/sync-market-price') syncMarketPrice(@Headers('authorization') auth: string | undefined) { return this.ssiMarketPrice.syncNow(this.userId(auth)); }
   @Delete(':provider') remove(@Headers('authorization') auth: string | undefined, @Param('provider') provider: 'ssi' | 'binance' | 'fastapi', @Body() body?: { environment?: string }) { const environment = provider === 'binance' ? this.binanceEnvironment(body?.environment) : body?.environment ?? 'production'; return this.credentials.remove(this.userId(auth), provider, environment); }
 }

@@ -1,20 +1,24 @@
 'use client';
 
 import Link from 'next/link';
-import { ArrowLeft, Save } from 'lucide-react';
+import { ArrowLeft, RefreshCw, Save } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { Card, CardContent } from '../../../components/ui/card';
 import { Button } from '../../../components/ui/button';
 import { getEngine } from '../engine-registry';
+import { platformApi } from '../../../lib/api';
 
 const STORAGE_KEY = 'tce-engine-config';
+type ActionResult = { ok: boolean; message: string } | null;
 
 export default function EngineDetailPage() {
   const params = useParams<{ engineId: string }>();
   const engine = useMemo(() => getEngine(params.engineId), [params.engineId]);
   const [config, setConfig] = useState<Record<string, string | number | boolean>>({});
   const [saved, setSaved] = useState(false);
+  const [syncing, setSyncing] = useState(false);
+  const [syncResult, setSyncResult] = useState<ActionResult>(null);
 
   useEffect(() => {
     if (!engine) return;
@@ -39,6 +43,28 @@ export default function EngineDetailPage() {
     } catch { setSaved(false); }
   }
 
+  async function syncMarketData() {
+    if (syncing) return;
+    setSyncing(true);
+    setSyncResult(null);
+    try {
+      const response = await platformApi.ssiMarketPriceSync();
+      const data = response.data;
+      if (!data?.ok) {
+        setSyncResult({ ok: false, message: data?.error?.message ?? 'SSI market sync failed' });
+        return;
+      }
+      const usersSynced = Number(data?.data?.usersSynced ?? 0);
+      const symbolsSynced = Number(data?.data?.symbolsSynced ?? 0);
+      setSyncResult({ ok: true, message: `Synced ${symbolsSynced} symbols across ${usersSynced} account(s).` });
+    } catch (error) {
+      const value = error as { response?: { data?: { message?: string; error?: { message?: string } } }; message?: string };
+      setSyncResult({ ok: false, message: value?.response?.data?.error?.message ?? value?.response?.data?.message ?? value?.message ?? 'SSI market sync failed' });
+    } finally {
+      setSyncing(false);
+    }
+  }
+
   return (
     <main className="app-shell">
       <header className="app-header">
@@ -51,6 +77,15 @@ export default function EngineDetailPage() {
       </header>
       <div className="app-container app-content">
         <div className="page-heading"><div className="min-w-0"><p className="eyebrow">Configuration</p><h1>Engine detail</h1><p className="page-subtitle">{engine.description}</p></div></div>
+        {engineId === 'ssi-execution' && (
+          <Card className="panel-card mb-4"><CardContent className="space-y-3 p-5 sm:p-6">
+            <div className="flex items-center justify-between gap-3">
+              <div className="min-w-0"><p className="font-semibold">Market data</p><p className="mt-1 text-xs leading-5 text-[#75697d]">Trigger the SSI market-price sync manually without waiting for the hourly scheduler.</p></div>
+              <Button className="touch-target shrink-0" disabled={syncing} onClick={() => void syncMarketData()}><RefreshCw className={`size-4 ${syncing ? 'animate-spin' : ''}`} /> {syncing ? 'Syncing…' : 'Sync now'}</Button>
+            </div>
+            {syncResult && <div className={`rounded-xl border px-3 py-2.5 text-xs ${syncResult.ok ? 'border-emerald-300/15 bg-emerald-300/[0.05] text-emerald-200' : 'border-red-300/15 bg-red-300/[0.05] text-red-200'}`}>{syncResult.message}</div>}
+          </CardContent></Card>
+        )}
         <Card className="panel-card"><CardContent className="space-y-5 p-5 sm:p-6">
           {Object.entries(config).map(([key, value]) => (
             <label key={key} className="block">
