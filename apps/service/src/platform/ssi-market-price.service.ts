@@ -5,6 +5,17 @@ import { SsiApplicationService } from './ssi.application.service';
 const TIME_ZONE = 'Asia/Ho_Chi_Minh';
 const MARKET_HOURS = new Set([9, 10, 11, 12, 13, 14, 15]);
 
+type SyncUserError = { userId: string; code: string; message: string; symbols: string[] };
+type MarketSyncResult = {
+  usersProcessed: number;
+  usersSynced: number;
+  symbolsRequested: number;
+  symbolsSynced: number;
+  failedSymbols: string[];
+  errors: SyncUserError[];
+  partial: boolean;
+};
+
 @Injectable()
 export class SsiMarketPriceService implements OnModuleInit, OnModuleDestroy {
   private timer?: NodeJS.Timeout;
@@ -19,9 +30,20 @@ export class SsiMarketPriceService implements OnModuleInit, OnModuleDestroy {
   async syncNow(userId: string) {
     if (this.running) return { ok: false as const, error: { code: 'SYNC_IN_PROGRESS', message: 'SSI market sync is already running' } };
     this.running = true;
-    try { const result = await this.syncHourlyPrices(userId); return { ok: true as const, data: { ...result, syncedAt: new Date().toISOString() } }; }
-    catch (error) { console.error('[SSI_MARKET_PRICE_MANUAL_SYNC]', error); return { ok: false as const, error: { code: 'SYNC_FAILED', message: error instanceof Error ? error.message : String(error) } }; }
-    finally { this.running = false; }
+    try {
+      const result = await this.syncHourlyPrices(userId);
+      if (result.symbolsRequested > 0 && result.symbolsSynced === 0) {
+        return {
+          ok: false as const,
+          error: { code: result.errors[0]?.code ?? 'NO_MARKET_PRICES', message: result.errors[0]?.message ?? 'SSI returned no market prices' },
+          data: { ...result, syncedAt: new Date().toISOString() },
+        };
+      }
+      return { ok: true as const, data: { ...result, syncedAt: new Date().toISOString() } };
+    } catch (error) {
+      console.error('[SSI_MARKET_PRICE_MANUAL_SYNC]', error);
+      return { ok: false as const, error: { code: 'SYNC_FAILED', message: error instanceof Error ? error.message : String(error) } };
+    } finally { this.running = false; }
   }
 
   private nowParts() {
@@ -42,9 +64,12 @@ export class SsiMarketPriceService implements OnModuleInit, OnModuleDestroy {
     if (!isHourly && !isClose) return;
     const runKey = `${this.tradingDate(now)}:${now.hour}:${isClose ? 'close' : 'hourly'}`;
     if (this.lastRunKey === runKey) return;
-    this.lastRunKey = runKey; this.running = true;
-    try { if (isClose) await this.syncDailyClose(this.tradingDate(now)); else await this.syncHourlyPrices(); }
-    catch (error) { console.error('[SSI_MARKET_PRICE_SYNC]', error); }
+    this.running = true;
+    try {
+      if (isClose) await this.syncDailyClose(this.tradingDate(now));
+      else await this.syncHourlyPrices();
+      this.lastRunKey = runKey;
+    } catch (error) { console.error('[SSI_MARKET_PRICE_SYNC]', error); }
     finally { this.running = false; }
   }
 
@@ -64,22 +89,53 @@ export class SsiMarketPriceService implements OnModuleInit, OnModuleDestroy {
       if (positionsError) throw positionsError;
       if (poolsError) throw poolsError;
       const symbols = byUser.get(accountUserId) ?? new Set<string>();
-      for (const row of [...(positions ?? []), ...(pools ?? [])]) { const symbol = String(row.symbol ?? '').trim().toUpperCase(); if (symbol) symbols.add(symbol); }
+      for (const row of [...(positions ?? []), ...(pools ?? [])]) {
+        const symbol = String(row.symbol ?? '').trim().toUpperCase();
+        if (symbol) symbols.add(symbol);
+      }
       byUser.set(accountUserId, symbols);
     }
     return [...byUser.entries()].filter(([, symbols]) => symbols.size).map(([accountUserId, symbols]) => ({ userId: accountUserId, symbols: [...symbols] }));
   }
 
-  private async syncHourlyPrices(userId?: string) {
+  private async syncHourlyPrices(userId?: string): Promise<MarketSyncResult> {
     const users = await this.usersAndSymbols(userId);
-    const observedAt = new Date().toISOString(); let usersSynced = 0; let symbolsSynced = 0;
+    const observedAt = new Date().toISOString();
+    let usersSynced = 0;
+    let symbolsRequested = 0;
+    let symbolsSynced = 0;
+    const failedSymbols = new Set<string>();
+    const errors: SyncUserError[] = [];
+
     for (const user of users) {
+      symbolsRequested += user.symbols.length;
       const quotes = await this.ssi.marketPrices(user.userId, 'production', user.symbols);
-      if (!quotes.ok) { console.error('[SSI_MARKET_PRICE_USER]', user.userId, quotes.error); continue; }
+      if (!quotes.ok) {
+        console.error('[SSI_MARKET_PRICE_USER]', user.userId, quotes.error);
+        user.symbols.forEach((symbol) => failedSymbols.add(symbol));
+        errors.push({ userId: user.userId, code: quotes.error.code, message: quotes.error.message, symbols: user.symbols });
+        continue;
+      }
       usersSynced += 1;
-      for (const quote of quotes.data) { await this.persistPrice(user.userId, quote.symbol, quote.price, undefined, quote.tradingDate, observedAt); symbolsSynced += 1; }
+      const returnedSymbols = new Set(quotes.data.map((quote) => quote.symbol.toUpperCase()));
+      const missing = user.symbols.filter((symbol) => !returnedSymbols.has(symbol));
+      missing.forEach((symbol) => failedSymbols.add(symbol));
+      if (missing.length) errors.push({ userId: user.userId, code: 'PARTIAL_MARKET_DATA', message: `SSI returned ${quotes.data.length}/${user.symbols.length} requested symbols`, symbols: missing });
+      for (const quote of quotes.data) {
+        await this.persistPrice(user.userId, quote.symbol, quote.price, undefined, quote.tradingDate, observedAt);
+        symbolsSynced += 1;
+      }
     }
-    return { usersSynced, symbolsSynced };
+
+    return {
+      usersProcessed: users.length,
+      usersSynced,
+      symbolsRequested,
+      symbolsSynced,
+      failedSymbols: [...failedSymbols].sort(),
+      errors,
+      partial: symbolsSynced > 0 && symbolsSynced < symbolsRequested,
+    };
   }
 
   private async syncDailyClose(tradingDate: string) {
