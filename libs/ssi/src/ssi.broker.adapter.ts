@@ -36,12 +36,6 @@ export class SsiBrokerAdapter implements BrokerPort, SsiConnectionPort {
       .catch((error) => ({ ok: false, error: { code: 'PROVIDER_ERROR', message: error instanceof Error ? error.message : String(error), retryable: false, provider: this.provider } }) as const);
   }
 
-  /**
-   * Build one SSI Auth instance from the credential snapshot loaded by the
-   * application layer. The persisted access/refresh token is restored for
-   * both trading and market-data flows; market data must not create a second
-   * authentication lifecycle.
-   */
   private createAuth(includePrivateKey = true) {
     const auth = new Auth(new Config({
       clientId: this.config.clientId ?? '',
@@ -66,7 +60,6 @@ export class SsiBrokerAdapter implements BrokerPort, SsiConnectionPort {
         refreshExpiresAt: Number(token.refreshExpiresAt ?? 0),
       });
     }
-
     return auth;
   }
 
@@ -82,9 +75,7 @@ export class SsiBrokerAdapter implements BrokerPort, SsiConnectionPort {
     };
   }
 
-  getTokenSnapshot() {
-    return this.tokenSnapshot();
-  }
+  getTokenSnapshot() { return this.tokenSnapshot(); }
 
   private async persistToken() {
     const token = this.tokenSnapshot();
@@ -92,17 +83,6 @@ export class SsiBrokerAdapter implements BrokerPort, SsiConnectionPort {
     return token;
   }
 
-  /**
-   * Single authentication lifecycle for the adapter.
-   *
-   * Order of precedence:
-   * 1. persisted/current access token when still valid;
-   * 2. persisted/current refresh token when access token expired;
-   * 3. explicit OTP/transactionId re-authentication.
-   *
-   * A refresh is persisted immediately because SSI may rotate the refresh
-   * token. This makes Supabase the durable source of truth across restarts.
-   */
   private async authenticate(input: SsiAuthInput = {}) {
     if (this.authenticatePromise) return this.authenticatePromise;
 
@@ -138,18 +118,10 @@ export class SsiBrokerAdapter implements BrokerPort, SsiConnectionPort {
       return token;
     })();
 
-    try {
-      return await this.authenticatePromise;
-    } finally {
-      this.authenticatePromise = undefined;
-    }
+    try { return await this.authenticatePromise; }
+    finally { this.authenticatePromise = undefined; }
   }
 
-  /**
-   * Market data deliberately reuses the same Auth instance as portfolio and
-   * trading. This guarantees DB-restored tokens and refresh rotation are
-   * shared by every SSI operation.
-   */
   private async authenticateMarketData() {
     await this.authenticate();
     return this.auth!;
@@ -160,16 +132,11 @@ export class SsiBrokerAdapter implements BrokerPort, SsiConnectionPort {
       const auth = this.createAuth(true);
       const result = await auth.requestOtp();
       const data = (result?.data ?? {}) as Record<string, unknown>;
-      return {
-        message: String(data.message ?? 'SSI approval/OTP request sent'),
-        transactionId: typeof data.transactionId === 'string' ? data.transactionId : undefined,
-      };
+      return { message: String(data.message ?? 'SSI approval/OTP request sent'), transactionId: typeof data.transactionId === 'string' ? data.transactionId : undefined };
     });
   }
 
-  async connect(input: ConnectInput) {
-    return this.result(async () => { await this.authenticate(input as SsiAuthInput); });
-  }
+  async connect(input: ConnectInput) { return this.result(async () => { await this.authenticate(input as SsiAuthInput); }); }
 
   async health(input: ConnectInput): Promise<ContractResult<PlatformHealth>> {
     const started = Date.now();
@@ -205,14 +172,8 @@ export class SsiBrokerAdapter implements BrokerPort, SsiConnectionPort {
     });
   }
 
-  private trading() {
-    if (!this.auth) throw new Error('SSI is not connected');
-    return this.tradingClient!;
-  }
-
-  private marketData(auth: Auth) {
-    return new Data(auth);
-  }
+  private trading() { if (!this.auth) throw new Error('SSI is not connected'); return this.tradingClient!; }
+  private marketData(auth: Auth) { return new Data(auth); }
 
   async balance(accountNo: string) {
     return this.result(async () => {
@@ -235,9 +196,7 @@ export class SsiBrokerAdapter implements BrokerPort, SsiConnectionPort {
     });
   }
 
-  private latestDate() {
-    return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Ho_Chi_Minh', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
-  }
+  private latestDate() { return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Ho_Chi_Minh', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date()); }
 
   private async latestDailyClose(data: Data, symbol: string) {
     const end = this.latestDate();
@@ -285,7 +244,7 @@ export class SsiBrokerAdapter implements BrokerPort, SsiConnectionPort {
     });
   }
 
-  async accountSnapshots(input: SsiAuthInput): Promise<ContractResult<Array<{ account: SsiAccount; balance: AccountBalance; positions: AccountPosition[] }>> {
+  async accountSnapshots(input: SsiAuthInput): Promise<ContractResult<Array<{ account: SsiAccount; balance: AccountBalance; positions: AccountPosition[] }>>> {
     return this.result(async () => {
       await this.authenticate(input);
       const accounts = await this.accountInfo();
@@ -322,10 +281,7 @@ export class SsiBrokerAdapter implements BrokerPort, SsiConnectionPort {
     this.streamClient.streaming.ping(undefined, 30000);
   }
 
-  async stopOrderStatusStream() {
-    this.streamClient?.streaming.disconnect();
-    this.streamClient = undefined;
-  }
+  async stopOrderStatusStream() { this.streamClient?.streaming.disconnect(); this.streamClient = undefined; }
 
   async disconnect(_input: ConnectInput) {
     await this.stopOrderStatusStream();
