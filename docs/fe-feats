@@ -1,0 +1,160 @@
+# TCE Dashboard — Current FE Features
+
+> Snapshot of the frontend capabilities currently implemented on `master`.
+> Source of truth: `apps/web` implementation. Update this document whenever a user-visible FE feature is added, removed, or materially changed.
+
+## 1. Stack / Shell
+
+- Next.js 16 + React 19 frontend in `apps/web`.
+- Nx monorepo integration; web can be built/served independently.
+- Centralized Axios/API service layer and auth context.
+- Global client-only and toast hosts.
+- Responsive dashboard UI with sticky app navigation/header behavior handled by the FE shell.
+
+## 2. Authentication
+
+### Login
+
+- `/login` page with email + password sign-in.
+- Email field is prefilled with the primary TCE account email currently used by the UI.
+- Loading state prevents duplicate submissions.
+- API errors are surfaced through the shared error notification path and inline error text.
+- Authenticated users visiting `/login` are redirected to `/`.
+- MFA-required login response is detected and the pending user id is retained locally for the MFA flow.
+
+### Session handling
+
+- Dashboard requires an authenticated session; anonymous users are redirected to `/login`.
+- JWT authentication is attached centrally by the FE API layer.
+- Expired access tokens are refreshed once; failed refresh clears the local session.
+- A 401 / expired-session response on dashboard loading signs the user out and redirects to login.
+- Sign-out action is available from the dashboard header.
+
+## 3. Dashboard / Overview
+
+The main dashboard currently provides five FE tabs:
+
+1. Overview
+2. Positions
+3. Recent Orders
+4. Trading Platforms
+5. Security
+
+### Overview
+
+- Backend health indicator: checking / online / unavailable.
+- Auto-refresh of dashboard data every 30 seconds while authenticated.
+- Hero metric: **Investigate value / total** showing deployed capital.
+- Unrealized P/L displayed below the hero value.
+- Cash-out recovery progress ring based on realized cash-out versus target.
+- Shared Pools summary (up to four quick cards).
+- Current Positions quick view (up to five positions).
+- Next Positions / shared candidates list (up to five ranked candidates).
+- Empty states for missing positions/candidates.
+
+### Positions tab
+
+- Lists the user's current/open positions.
+- Shows symbol, quantity, average buy cost, market price, cycle number.
+- Shows market value / cost basis and unrealized P/L.
+- Positive/negative P/L is visually differentiated.
+- Empty state when there are no open positions.
+
+### Orders tab
+
+- Shows recent orders belonging to the current account.
+- Displays BUY/SELL badge, symbol, quantity, price, gross value.
+- Displays order date, status, and fee/tax.
+- Empty state when no recent orders exist.
+
+## 4. Trading Platforms
+
+The Platforms tab currently contains configuration and manual execution controls for **SSI FastConnect** and **Binance Futures**.
+
+### SSI FastConnect
+
+- Environment selector: Production / Sandbox.
+- Credential inputs:
+  - Client ID
+  - API Key
+  - API Secret
+  - Account No.
+  - Private Key
+- Credentials are sent to the backend; the FE does not display saved secrets back to the user.
+- Configured / not-configured status indicator.
+- Save SSI credentials.
+- Test SSI connection.
+- Request OTP / approval.
+- Track/display SSI transaction id returned by the approval request.
+- Load current SSI account information.
+- Sync SSI portfolio.
+- Status / result area for async actions.
+- Current-info JSON output is available after loading current info.
+
+### Binance Futures
+
+- Environment selector: Production / Testnet.
+- Environment drives both credential save/test and manual order execution.
+- API Key + API Secret inputs.
+- Read-only Base URL display for the selected environment.
+- Configured / not-configured status indicator.
+- Save credentials for the selected environment.
+- Test connection for the selected environment.
+- Credential configuration section supports expand/collapse.
+- Manual execution section supports expand/collapse.
+- Changing environment resets real-order confirmation state and the displayed order result.
+
+### Binance manual execution
+
+- Active order environment is shown prominently before execution.
+- Order fields currently include:
+  - Symbol
+  - Side: BUY / SELL
+  - Type: MARKET / LIMIT / STOP / STOP_MARKET
+  - Quantity
+  - Price when applicable
+  - Trigger Price when applicable
+  - Position Side: BOTH / LONG / SHORT
+- Validation prevents submission without required quantity/price/trigger price.
+- Explicit confirmation checkbox is required before sending an order, including Testnet orders.
+- Entry order result/status is shown after submission.
+- TP action is supported with reduce-only exit payload.
+- SL action is supported with reduce-only exit payload.
+- TP/SL actions use the same selected Binance environment as entry orders.
+- Busy states are tracked per action and buttons are disabled while a request is running.
+
+## 5. Security Tab
+
+- Explains the current client-side session behavior:
+  - JWT is attached centrally by Axios.
+  - Expired access token is refreshed once.
+  - Failed refresh clears the local session.
+
+## 6. Navigation / UX
+
+- Bottom navigation switches between Overview, Positions, Orders, Platforms and Security without a full page navigation.
+- Header title changes according to the selected tab.
+- Backend status remains visible at the top of the dashboard.
+- Shared loading screens cover session checking, redirecting, and initial dashboard loading.
+- Shared empty/error/status states are implemented for major data sections.
+- Async actions expose a `Working…` state to prevent duplicate requests.
+
+## 7. Current FE ↔ Backend Responsibilities
+
+- FE owns presentation, local form state, tab state, validation, loading/error states, and user confirmation before execution.
+- Platform credentials and trading operations are delegated to backend service endpoints.
+- Dashboard data is fetched through the dashboard service rather than embedding backend logic in UI components.
+- Authentication/session lifecycle is centralized through the auth context/API layer.
+
+## 8. Explicitly NOT Assumed as Implemented
+
+This document intentionally records only functionality visible in the current FE implementation. Backend capabilities, scheduled jobs, database behavior, or API endpoints are not considered FE features unless the current UI exposes them.
+
+## 9. Maintenance Rule
+
+When changing FE behavior:
+
+1. Update the relevant section in this document.
+2. Keep feature names aligned with the UI labels.
+3. Record environment-specific behavior explicitly when it affects save/test/order execution.
+4. Do not store real credentials, API secrets, private keys, tokens, or OTP values in this document.
