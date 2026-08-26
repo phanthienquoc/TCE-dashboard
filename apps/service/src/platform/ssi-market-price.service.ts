@@ -20,6 +20,20 @@ export class SsiMarketPriceService implements OnModuleInit, OnModuleDestroy {
   }
   onModuleDestroy() { if (this.timer) clearInterval(this.timer); }
 
+  async syncNow() {
+    if (this.running) return { ok: false as const, error: { code: 'SYNC_IN_PROGRESS', message: 'SSI market sync is already running' } };
+    this.running = true;
+    try {
+      const result = await this.syncHourlyPrices();
+      return { ok: true as const, data: { ...result, syncedAt: new Date().toISOString() } };
+    } catch (error) {
+      console.error('[SSI_MARKET_PRICE_MANUAL_SYNC]', error);
+      return { ok: false as const, error: { code: 'SYNC_FAILED', message: error instanceof Error ? error.message : String(error) } };
+    } finally {
+      this.running = false;
+    }
+  }
+
   private nowParts() {
     const parts = new Intl.DateTimeFormat('en-CA', { timeZone: TIME_ZONE, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false }).formatToParts(new Date());
     const get = (type: string) => parts.find((part) => part.type === type)?.value ?? '';
@@ -70,11 +84,15 @@ export class SsiMarketPriceService implements OnModuleInit, OnModuleDestroy {
   private async syncHourlyPrices() {
     const users = await this.usersAndSymbols();
     const observedAt = new Date().toISOString();
+    let usersSynced = 0;
+    let symbolsSynced = 0;
     for (const user of users) {
       const quotes = await this.ssi.marketPrices(user.userId, 'production', user.symbols);
       if (!quotes.ok) { console.error('[SSI_MARKET_PRICE_USER]', user.userId, quotes.error); continue; }
-      for (const quote of quotes.data) await this.persistPrice(user.userId, quote.symbol, quote.price, undefined, quote.tradingDate, observedAt);
+      usersSynced += 1;
+      for (const quote of quotes.data) { await this.persistPrice(user.userId, quote.symbol, quote.price, undefined, quote.tradingDate, observedAt); symbolsSynced += 1; }
     }
+    return { usersSynced, symbolsSynced };
   }
 
   private async syncDailyClose(tradingDate: string) {
