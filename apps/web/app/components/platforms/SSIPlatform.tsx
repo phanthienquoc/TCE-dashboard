@@ -1,89 +1,111 @@
 'use client';
+
 import { useState } from 'react';
+import { CheckCircle2, ChevronDown, KeyRound, Loader2, ShieldCheck, XCircle } from 'lucide-react';
 import { platformApi } from '../../../lib/api';
 
-type Credentials = { clientId:string; apiKey:string; apiSecret:string; accountNo:string; privateKey:string };
+type Credentials = {
+  clientId: string;
+  apiKey: string;
+  apiSecret: string;
+  accountNo: string;
+  privateKey: string;
+};
 
-type Props = { onMessage:(v:string)=>void };
+type Props = { onMessage?: (message: string) => void };
+type ResultState = { ok: boolean; message: string } | null;
+
+const initialCredentials: Credentials = { clientId: '', apiKey: '', apiSecret: '', accountNo: '', privateKey: '' };
 
 export default function SSIPlatform({ onMessage }: Props) {
   const [open, setOpen] = useState(false);
   const [environment, setEnvironment] = useState('production');
-  const [busy, setBusy] = useState(false);
-  const [tested, setTested] = useState(false);
+  const [credentials, setCredentials] = useState<Credentials>(initialCredentials);
   const [otp, setOtp] = useState('');
   const [transactionId, setTransactionId] = useState('');
-  const [credentials, setCredentials] = useState<Credentials>({ clientId:'', apiKey:'', apiSecret:'', accountNo:'', privateKey:'' });
+  const [tested, setTested] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [result, setResult] = useState<ResultState>(null);
 
-  const set = (key:keyof Credentials, value:string) => {
+  const updateCredential = (key: keyof Credentials, value: string) => {
+    setCredentials((current) => ({ ...current, [key]: value }));
     setTested(false);
-    setCredentials(current => ({ ...current, [key]: value }));
+    setResult(null);
   };
-
-  const messageFrom = (error: any) => error?.response?.data?.message ?? error?.message ?? 'Failed';
-
-  const test = async () => {
-    setBusy(true);
-    try {
-      const result = await platformApi.ssiTest({ environment, credentials, otp: otp || undefined, transactionId: transactionId || undefined });
-      setTested(Boolean(result.data?.ok));
-      if (result.data?.ok) onMessage('Test SSI: OK — credentials verified and ready to save');
-      else onMessage(`Test SSI: ${result.data?.error?.message ?? 'Failed'}`);
-    } catch (error) {
-      setTested(false);
-      onMessage(`Test SSI: ${messageFrom(error)}`);
-    } finally { setBusy(false); }
+  const messageFrom = (error: unknown) => {
+    const value = error as { response?: { data?: { message?: string } }; message?: string };
+    return value?.response?.data?.message ?? value?.message ?? 'Request failed';
   };
-
-  const save = async () => {
-    if (!tested) { onMessage('Save SSI: Test connection successfully before saving'); return; }
-    setBusy(true);
+  const testConnection = async () => {
+    setBusy(true); setTested(false); setResult(null);
     try {
-      const result = await platformApi.ssiSaveTested({ environment, credentials, otp: otp || undefined, transactionId: transactionId || undefined });
-      if (result.data?.ok) onMessage('Save SSI: OK');
-      else onMessage(`Save SSI: ${result.data?.error?.message ?? 'Failed'}`);
-    } catch (error) { onMessage(`Save SSI: ${messageFrom(error)}`); }
+      const response = await platformApi.ssiTest({ environment, credentials, otp: otp || undefined, transactionId: transactionId || undefined });
+      const data = response.data; const ok = Boolean(data?.ok);
+      setTested(ok);
+      setResult({ ok, message: ok ? 'SSI connection verified. Credentials are ready to save.' : data?.error?.message ?? 'SSI connection failed' });
+      onMessage?.(ok ? 'SSI connection verified' : `SSI connection failed: ${data?.error?.message ?? 'unknown error'}`);
+    } catch (error) { const message = messageFrom(error); setResult({ ok: false, message }); onMessage?.(`SSI connection failed: ${message}`); }
     finally { setBusy(false); }
   };
-
   const requestOtp = async () => {
     setBusy(true);
     try {
-      const result = await platformApi.ssiOtp({ environment, credentials });
-      setTransactionId(result.data?.data?.transactionId ?? result.data?.transactionId ?? '');
-      onMessage('Request OTP: OK — enter OTP and test again');
-    } catch (error) { onMessage(`Request OTP: ${messageFrom(error)}`); }
+      const response = await platformApi.ssiOtp({ environment, credentials });
+      setTransactionId(response.data?.data?.transactionId ?? response.data?.transactionId ?? '');
+      setResult({ ok: true, message: 'OTP request sent. Enter the OTP and run Test Connection again.' });
+      onMessage?.('SSI OTP request sent');
+    } catch (error) { const message = messageFrom(error); setResult({ ok: false, message }); onMessage?.(`SSI OTP request failed: ${message}`); }
     finally { setBusy(false); }
   };
-
-  const action = async (fn:()=>Promise<any>, name:string) => {
+  const save = async () => {
+    if (!tested) { setResult({ ok: false, message: 'Test Connection must succeed before saving.' }); return; }
     setBusy(true);
-    try { const result = await fn(); onMessage(`${name}: ${result.data?.ok === false ? result.data?.error?.message ?? 'Failed' : 'OK'}`); }
-    catch (error) { onMessage(`${name}: ${messageFrom(error)}`); }
+    try {
+      const response = await platformApi.ssiSaveTested({ environment, credentials, otp: otp || undefined, transactionId: transactionId || undefined });
+      const data = response.data;
+      if (!data?.ok) { setResult({ ok: false, message: data?.error?.message ?? 'SSI save failed' }); return; }
+      setResult({ ok: true, message: 'SSI credentials saved securely.' }); onMessage?.('SSI credentials saved');
+    } catch (error) { const message = messageFrom(error); setResult({ ok: false, message }); onMessage?.(`SSI save failed: ${message}`); }
+    finally { setBusy(false); }
+  };
+  const runAccountAction = async (action: () => Promise<{ data?: { ok?: boolean; error?: { message?: string } } }>, label: string) => {
+    setBusy(true);
+    try {
+      const response = await action(); const data = response.data; const ok = data?.ok !== false;
+      const message = ok ? `${label}: OK` : `${label}: ${data?.error?.message ?? 'failed'}`;
+      setResult({ ok, message }); onMessage?.(message);
+    } catch (error) { const message = messageFrom(error); setResult({ ok: false, message: `${label}: ${message}` }); onMessage?.(`${label}: ${message}`); }
     finally { setBusy(false); }
   };
 
-  return <div className="card">
-    <div className="row"><h2>SSI FastConnect</h2><button onClick={()=>setOpen(v=>!v)}>{open?'Collapse':'Expand'}</button></div>
-    {open && <>
-      <div className="field"><label>Environment</label><select value={environment} onChange={e=>{setEnvironment(e.target.value);setTested(false)}}><option value="production">Production</option><option value="sandbox">Sandbox</option></select></div>
-      <div className="field">
-        <input placeholder="Client ID" value={credentials.clientId} onChange={e=>set('clientId',e.target.value)}/>
-        <input placeholder="API Key" value={credentials.apiKey} onChange={e=>set('apiKey',e.target.value)}/>
-        <input placeholder="API Secret" type="password" value={credentials.apiSecret} onChange={e=>set('apiSecret',e.target.value)}/>
-        <input placeholder="Account No." value={credentials.accountNo} onChange={e=>set('accountNo',e.target.value)}/>
-        <input placeholder="Private Key" type="password" value={credentials.privateKey} onChange={e=>set('privateKey',e.target.value)}/>
-        <input placeholder="OTP" value={otp} onChange={e=>{setOtp(e.target.value);setTested(false)}}/>
-        <input placeholder="Transaction ID" value={transactionId} onChange={e=>{setTransactionId(e.target.value);setTested(false)}}/>
+  return <section className="mb-5 overflow-hidden rounded-[22px] border border-violet-200/[0.09] bg-[#150d1d] shadow-[0_18px_50px_rgba(0,0,0,.18)]">
+    <button type="button" onClick={() => setOpen((value) => !value)} className="flex min-h-16 w-full items-center justify-between gap-4 px-5 text-left" aria-expanded={open}>
+      <div className="flex min-w-0 items-center gap-3"><div className="grid size-9 shrink-0 place-items-center rounded-xl bg-violet-400/10 text-violet-200"><KeyRound className="size-4" /></div><div className="min-w-0"><p className="font-semibold tracking-tight">SSI FastConnect</p><p className="mt-0.5 truncate text-xs text-[#81748a]">Configure, test and securely save SSI credentials</p></div></div>
+      <ChevronDown className={`size-4 shrink-0 text-[#81748a] transition-transform ${open ? 'rotate-180' : ''}`} />
+    </button>
+    {open && <div className="border-t border-violet-200/[0.07] px-5 pb-5 pt-4">
+      <div className="grid gap-3 sm:grid-cols-2">
+        <Field label="Environment"><select value={environment} onChange={(event) => { setEnvironment(event.target.value); setTested(false); setResult(null); }} className="input"><option value="production">Production</option><option value="staging">Staging</option></select></Field>
+        <Field label="Account No."><input className="input" value={credentials.accountNo} onChange={(event) => updateCredential('accountNo', event.target.value)} placeholder="SSI account number" autoComplete="off" /></Field>
+        <Field label="Client ID"><input className="input" value={credentials.clientId} onChange={(event) => updateCredential('clientId', event.target.value)} placeholder="Client ID" autoComplete="off" /></Field>
+        <Field label="API Key"><input className="input" value={credentials.apiKey} onChange={(event) => updateCredential('apiKey', event.target.value)} placeholder="API Key" autoComplete="off" /></Field>
+        <Field label="API Secret"><input className="input" type="password" value={credentials.apiSecret} onChange={(event) => updateCredential('apiSecret', event.target.value)} placeholder="API Secret" autoComplete="new-password" /></Field>
+        <Field label="Private Key"><textarea className="input min-h-24 resize-y py-2" value={credentials.privateKey} onChange={(event) => updateCredential('privateKey', event.target.value)} placeholder="Private Key" autoComplete="off" /></Field>
+        <Field label="OTP"><input className="input" inputMode="numeric" value={otp} onChange={(event) => { setOtp(event.target.value); setTested(false); setResult(null); }} placeholder="OTP from SSI" autoComplete="one-time-code" /></Field>
+        <Field label="Transaction ID"><input className="input" value={transactionId} onChange={(event) => { setTransactionId(event.target.value); setTested(false); setResult(null); }} placeholder="Filled after Request OTP" autoComplete="off" /></Field>
       </div>
-      <div className="actions">
-        <button disabled={busy} onClick={test}>Test Connection</button>
-        <button disabled={busy} onClick={requestOtp}>Request OTP</button>
-        <button disabled={busy || !tested} onClick={save}>Save</button>
-        <button disabled={busy} onClick={()=>action(()=>platformApi.ssiCurrent({environment,otp:otp||undefined,transactionId:transactionId||undefined}),'Current')}>Current</button>
-        <button disabled={busy} onClick={()=>action(()=>platformApi.ssiSync({environment,otp:otp||undefined,transactionId:transactionId||undefined}),'Sync')}>Sync</button>
+      <div className="mt-4 flex flex-wrap gap-2">
+        <ActionButton disabled={busy} onClick={testConnection}>{busy ? <Loader2 className="size-4 animate-spin" /> : <ShieldCheck className="size-4" />} Test Connection</ActionButton>
+        <ActionButton disabled={busy} onClick={requestOtp}>Request OTP</ActionButton>
+        <ActionButton disabled={busy || !tested} onClick={save}>Save</ActionButton>
+        <ActionButton disabled={busy} onClick={() => void runAccountAction(() => platformApi.ssiCurrent({ environment, otp: otp || undefined, transactionId: transactionId || undefined }), 'Current')}>Current</ActionButton>
+        <ActionButton disabled={busy} onClick={() => void runAccountAction(() => platformApi.ssiSync({ environment, otp: otp || undefined, transactionId: transactionId || undefined }), 'Sync')}>Sync</ActionButton>
       </div>
-      <div className="muted">{tested ? 'Connection verified. Save is enabled.' : 'Test the current credentials before saving.'}</div>
-    </>}
-  </div>
+      {result && <div className={`mt-4 flex items-start gap-2 rounded-xl border px-3 py-2.5 text-sm ${result.ok ? 'border-emerald-300/15 bg-emerald-300/[0.05] text-emerald-200' : 'border-red-300/15 bg-red-300/[0.05] text-red-200'}`}>{result.ok ? <CheckCircle2 className="mt-0.5 size-4 shrink-0" /> : <XCircle className="mt-0.5 size-4 shrink-0" />}<span>{result.message}</span></div>}
+      <p className="mt-3 text-[11px] leading-5 text-[#75697d]">Credentials stay in component state only. The backend re-tests the supplied credentials before persisting them encrypted.</p>
+    </div>}
+  </section>;
 }
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) { return <label className="block"><span className="mb-1.5 block text-[10px] font-semibold uppercase tracking-[.1em] text-[#81748a]">{label}</span>{children}</label>; }
+function ActionButton({ disabled, onClick, children }: { disabled?: boolean; onClick: () => void; children: React.ReactNode }) { return <button type="button" disabled={disabled} onClick={onClick} className="inline-flex min-h-10 items-center gap-2 rounded-xl border border-violet-200/10 bg-[#1b1123] px-3.5 text-xs font-semibold text-[#ddd2e5] transition hover:bg-[#23152d] disabled:cursor-not-allowed disabled:opacity-45">{children}</button>; }
