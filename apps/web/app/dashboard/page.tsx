@@ -1,8 +1,9 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Activity, ChevronRight, Layers3, LogOut, RefreshCw, Settings2, ShoppingCart, TrendingUp, WalletCards } from 'lucide-react';
+import { Activity, ChevronRight, Layers3, LogOut, RefreshCw, Settings2, ShoppingCart, TrendingUp, WalletCards, Cpu } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { Button } from '../../components/ui/button';
 import { Card, CardContent } from '../../components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs';
@@ -34,7 +35,7 @@ export default function DashboardPage() {
       <div className="mx-auto max-w-6xl px-4 py-3 sm:px-6 sm:py-4">
         <div className="flex items-center justify-between gap-3">
           <div className="flex min-w-0 items-center gap-3"><div className="grid size-9 shrink-0 place-items-center rounded-full bg-gradient-to-br from-[#d69cff] to-[#7d37c9]"><Activity className="size-4" /></div><div className="min-w-0"><p className="text-[10px] uppercase tracking-[.14em] text-[#9d8fa8]">TCE account</p><p className="truncate text-sm font-semibold">{user.email}</p></div></div>
-          <Button variant="outline" size="sm" onClick={async () => { await logout(); router.replace('/login'); }}><LogOut className="size-4" /><span className="hidden sm:inline">Sign out</span></Button>
+          <div className="flex items-center gap-2"><Link href="/engines" className="inline-flex h-9 items-center gap-1.5 rounded-md border border-violet-200/[0.12] px-3 text-xs font-medium text-[#c9bdce] hover:bg-white/[0.04] hover:text-white"><Cpu className="size-4" /> Engines</Link><Button variant="outline" size="sm" onClick={async () => { await logout(); router.replace('/login'); }}><LogOut className="size-4" /><span className="hidden sm:inline">Sign out</span></Button></div>
         </div>
         <Tabs value={tab} onValueChange={v=>setTab(v as Tab)} className="mt-4">
           <TabsList className="w-full justify-start overflow-x-auto"><TabsTrigger value="overview">Overview</TabsTrigger><TabsTrigger value="positions">Positions</TabsTrigger><TabsTrigger value="orders">Orders</TabsTrigger><TabsTrigger value="config"><Settings2 className="mr-1.5 size-4"/>Config</TabsTrigger></TabsList>
