@@ -3,27 +3,18 @@ import { SupabaseClientService } from '../db/supabase.client';
 import { SsiApplicationService } from './ssi.application.service';
 
 const TIME_ZONE = 'Asia/Ho_Chi_Minh';
-const MARKET_HOURS = new Set([9, 10, 11, 12, 13, 14, 15]);
+// Vietnam equity session: 09:00-11:30 and 13:00-14:45.
+const MARKET_HOURS = new Set([9, 10, 11, 13, 14]);
 
 type SyncUserError = { userId: string; code: string; message: string; symbols: string[] };
-type MarketSyncResult = {
-  usersProcessed: number;
-  usersSynced: number;
-  symbolsRequested: number;
-  symbolsSynced: number;
-  failedSymbols: string[];
-  errors: SyncUserError[];
-  partial: boolean;
-};
+type MarketSyncResult = { usersProcessed: number; usersSynced: number; symbolsRequested: number; symbolsSynced: number; failedSymbols: string[]; errors: SyncUserError[]; partial: boolean };
 
 @Injectable()
 export class SsiMarketPriceService implements OnModuleInit, OnModuleDestroy {
   private timer?: NodeJS.Timeout;
   private lastRunKey?: string;
   private running = false;
-
   constructor(private readonly ssi: SsiApplicationService, private readonly db: SupabaseClientService) {}
-
   onModuleInit() { void this.tick(); this.timer = setInterval(() => void this.tick(), 60_000); this.timer.unref(); }
   onModuleDestroy() { if (this.timer) clearInterval(this.timer); }
 
@@ -32,13 +23,7 @@ export class SsiMarketPriceService implements OnModuleInit, OnModuleDestroy {
     this.running = true;
     try {
       const result = await this.syncHourlyPrices(userId);
-      if (result.symbolsRequested > 0 && result.symbolsSynced === 0) {
-        return {
-          ok: false as const,
-          error: { code: result.errors[0]?.code ?? 'NO_MARKET_PRICES', message: result.errors[0]?.message ?? 'SSI returned no market prices' },
-          data: { ...result, syncedAt: new Date().toISOString() },
-        };
-      }
+      if (result.symbolsRequested > 0 && result.symbolsSynced === 0) return { ok: false as const, error: { code: result.errors[0]?.code ?? 'NO_MARKET_PRICES', message: result.errors[0]?.message ?? 'SSI returned no market prices' }, data: { ...result, syncedAt: new Date().toISOString() } };
       return { ok: true as const, data: { ...result, syncedAt: new Date().toISOString() } };
     } catch (error) {
       console.error('[SSI_MARKET_PRICE_MANUAL_SYNC]', error);
@@ -65,11 +50,8 @@ export class SsiMarketPriceService implements OnModuleInit, OnModuleDestroy {
     const runKey = `${this.tradingDate(now)}:${now.hour}:${isClose ? 'close' : 'hourly'}`;
     if (this.lastRunKey === runKey) return;
     this.running = true;
-    try {
-      if (isClose) await this.syncDailyClose(this.tradingDate(now));
-      else await this.syncHourlyPrices();
-      this.lastRunKey = runKey;
-    } catch (error) { console.error('[SSI_MARKET_PRICE_SYNC]', error); }
+    try { if (isClose) await this.syncDailyClose(this.tradingDate(now)); else await this.syncHourlyPrices(); this.lastRunKey = runKey; }
+    catch (error) { console.error('[SSI_MARKET_PRICE_SYNC]', error); }
     finally { this.running = false; }
   }
 
@@ -80,8 +62,7 @@ export class SsiMarketPriceService implements OnModuleInit, OnModuleDestroy {
     if (accountError) throw accountError;
     const byUser = new Map<string, Set<string>>();
     for (const account of accounts ?? []) {
-      const accountUserId = String(account.user_id);
-      const accountId = String(account.id);
+      const accountUserId = String(account.user_id), accountId = String(account.id);
       const [{ data: positions, error: positionsError }, { data: pools, error: poolsError }] = await Promise.all([
         this.db.db.from('tce_positions').select('symbol').eq('account_id', accountId).neq('status', 'CLOSED'),
         this.db.db.from('tce_pool_entries').select('symbol').eq('account_id', accountId).eq('status', 'WATCHING'),
@@ -89,57 +70,32 @@ export class SsiMarketPriceService implements OnModuleInit, OnModuleDestroy {
       if (positionsError) throw positionsError;
       if (poolsError) throw poolsError;
       const symbols = byUser.get(accountUserId) ?? new Set<string>();
-      for (const row of [...(positions ?? []), ...(pools ?? [])]) {
-        const symbol = String(row.symbol ?? '').trim().toUpperCase();
-        if (symbol) symbols.add(symbol);
-      }
+      for (const row of [...(positions ?? []), ...(pools ?? [])]) { const symbol = String(row.symbol ?? '').trim().toUpperCase(); if (symbol) symbols.add(symbol); }
       byUser.set(accountUserId, symbols);
     }
     return [...byUser.entries()].filter(([, symbols]) => symbols.size).map(([accountUserId, symbols]) => ({ userId: accountUserId, symbols: [...symbols] }));
   }
 
   private async syncHourlyPrices(userId?: string): Promise<MarketSyncResult> {
-    const users = await this.usersAndSymbols(userId);
-    const observedAt = new Date().toISOString();
-    let usersSynced = 0;
-    let symbolsRequested = 0;
-    let symbolsSynced = 0;
-    const failedSymbols = new Set<string>();
-    const errors: SyncUserError[] = [];
-
+    const users = await this.usersAndSymbols(userId), observedAt = new Date().toISOString();
+    let usersSynced = 0, symbolsRequested = 0, symbolsSynced = 0;
+    const failedSymbols = new Set<string>(), errors: SyncUserError[] = [];
     for (const user of users) {
       symbolsRequested += user.symbols.length;
       const quotes = await this.ssi.marketPrices(user.userId, 'production', user.symbols);
-      if (!quotes.ok) {
-        console.error('[SSI_MARKET_PRICE_USER]', user.userId, quotes.error);
-        user.symbols.forEach((symbol) => failedSymbols.add(symbol));
-        errors.push({ userId: user.userId, code: quotes.error.code, message: quotes.error.message, symbols: user.symbols });
-        continue;
-      }
+      if (!quotes.ok) { console.error('[SSI_MARKET_PRICE_USER]', user.userId, quotes.error); user.symbols.forEach((symbol) => failedSymbols.add(symbol)); errors.push({ userId: user.userId, code: quotes.error.code, message: quotes.error.message, symbols: user.symbols }); continue; }
       usersSynced += 1;
       const returnedSymbols = new Set(quotes.data.map((quote) => quote.symbol.toUpperCase()));
       const missing = user.symbols.filter((symbol) => !returnedSymbols.has(symbol));
       missing.forEach((symbol) => failedSymbols.add(symbol));
       if (missing.length) errors.push({ userId: user.userId, code: 'PARTIAL_MARKET_DATA', message: `SSI returned ${quotes.data.length}/${user.symbols.length} requested symbols`, symbols: missing });
-      for (const quote of quotes.data) {
-        await this.persistPrice(user.userId, quote.symbol, quote.price, undefined, quote.tradingDate, observedAt);
-        symbolsSynced += 1;
-      }
+      for (const quote of quotes.data) { await this.persistPrice(user.userId, quote.symbol, quote.price, undefined, quote.tradingDate, observedAt); symbolsSynced += 1; }
     }
-
-    return {
-      usersProcessed: users.length,
-      usersSynced,
-      symbolsRequested,
-      symbolsSynced,
-      failedSymbols: [...failedSymbols].sort(),
-      errors,
-      partial: symbolsSynced > 0 && symbolsSynced < symbolsRequested,
-    };
+    return { usersProcessed: users.length, usersSynced, symbolsRequested, symbolsSynced, failedSymbols: [...failedSymbols].sort(), errors, partial: symbolsSynced > 0 && symbolsSynced < symbolsRequested };
   }
 
   private async syncDailyClose(tradingDate: string) {
-    const users = await this.usersAndSymbols(); const observedAt = new Date().toISOString();
+    const users = await this.usersAndSymbols(), observedAt = new Date().toISOString();
     for (const user of users) {
       const closes = await this.ssi.dailyCloses(user.userId, 'production', user.symbols, tradingDate);
       if (!closes.ok) { console.error('[SSI_DAILY_CLOSE_USER]', user.userId, closes.error); continue; }
