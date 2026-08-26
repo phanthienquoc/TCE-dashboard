@@ -1,7 +1,7 @@
 import { Auth, Board, Config, Data, Stream, Trading } from '@ssi.developer/ssi-sdk';
 import { AccountBalance, AccountOrder, AccountPosition, BrokerPort, ConnectInput, ContractResult, PlatformHealth, SsiAccount, SsiAuthInput, SsiConnectionPort, SsiConnectionTest, SsiCurrentInfo } from '@tce/contracts';
 
-export type SsiConfig = { apiKey: string; apiSecret: string; clientId?: string; privateKey?: string; accountNo: string };
+export type SsiConfig = { apiKey: string; apiSecret: string; clientId?: string; privateKey?: string; accountNo?: string };
 export type SsiOrderStatusEvent = {
   type?: string; accountNo?: string; clientRequestId?: string; orderId?: string; symbol?: string; side?: string; orderType?: string;
   price?: number; quantity?: number; osQuantity?: number; filledQuantity?: number; cancelQuantity?: number; status?: string;
