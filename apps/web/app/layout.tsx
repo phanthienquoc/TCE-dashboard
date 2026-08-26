@@ -4,6 +4,7 @@ import './globals.css';
 export const metadata: Metadata = {
   title: 'TCE Dashboard',
   description: 'TCE trading dashboard',
+  appleWebApp: { capable: true, statusBarStyle: 'black-translucent', title: 'TCE Dashboard' },
 };
 
 export const viewport: Viewport = {
@@ -12,6 +13,7 @@ export const viewport: Viewport = {
   viewportFit: 'cover',
   maximumScale: 1,
   userScalable: false,
+  themeColor: '#070b12',
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
