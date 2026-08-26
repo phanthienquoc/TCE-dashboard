@@ -1,0 +1,1 @@
+SSI flow: test credentials before save; UI must send current credentials; save only after successful test.
