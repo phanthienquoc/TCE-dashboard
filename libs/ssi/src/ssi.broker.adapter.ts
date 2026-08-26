@@ -24,9 +24,44 @@ export class SsiBrokerAdapter implements BrokerPort, SsiConnectionPort {
   async test(input: SsiAuthInput): Promise<ContractResult<SsiConnectionTest>> { return this.result(async () => { const token = await this.authenticate(input); const data = new Data(this.auth!); const securities = await data.marketData.getSecuritiesInfoByBoard(Board.HOSE); const accounts = input.otp || input.transactionId ? await this.accountInfo() : []; return { provider: 'ssi', apiVersion: 'v3', authentication: 'ok', marketData: 'ok', securities: securities.length, accounts, tokenExpiresAt: token?.expiresAt }; }); }
   async current(accountNo: string, input: SsiAuthInput): Promise<ContractResult<SsiCurrentInfo>> { return this.result(async () => { await this.authenticate(input); const [accounts, balance, positions, orders] = await Promise.all([this.accountInfo(), this.balance(accountNo), this.positions(accountNo), this.orders(accountNo)]); if (!balance.ok) throw new Error(balance.error.message); if (!positions.ok) throw new Error(positions.error.message); if (!orders.ok) throw new Error(orders.error.message); return { accounts, balance: balance.data, positions: positions.data, orders: orders.data, fetchedAt: new Date().toISOString() }; }); }
   private trading() { if (!this.tradingClient) throw new Error('SSI is not connected'); return this.tradingClient; }
+  private marketData() { if (!this.auth) throw new Error('SSI is not authenticated'); return new Data(this.auth); }
   async balance(accountNo: string) { return this.result(async () => { const balance = await this.trading().portfolio.getEquityBalance(accountNo); return { cash: Number(balance?.accountBalance ?? 0), equity: Number(balance?.accountBalance ?? 0), withdrawable: Number(balance?.withdrawable ?? 0), source: 'ssi' } as AccountBalance; }); }
   async positions(accountNo: string) { return this.result(async () => { const positions = await this.trading().portfolio.getEquityPositions(accountNo); return (positions ?? []).map((position) => ({ symbol: String(position.symbol).toUpperCase(), quantity: Number(position.quantity ?? 0), averagePrice: Number(position.costPrice ?? 0), source: 'ssi' as const })) as AccountPosition[]; }); }
   async orders(accountNo: string) { return this.result(async () => { const orders = await this.trading().portfolio.getTodayOrders(accountNo); return (orders ?? []).filter((order) => order.orderId && order.symbol).map((order) => ({ externalId: String(order.orderId), symbol: String(order.symbol).toUpperCase(), side: String(order.side).toUpperCase() === 'S' ? 'SELL' as const : 'BUY' as const, quantity: Number(order.filledQuantity ?? order.quantity ?? 0), price: Number(order.avgPrice ?? order.price ?? 0), status: String(order.status ?? 'UNKNOWN'), createdAt: order.inputTime ? String(order.inputTime) : undefined, source: 'ssi' as const })) as AccountOrder[]; }); }
+  async marketPrices(symbols: string[]): Promise<ContractResult<Array<{ symbol: string; price: number; tradingDate: string }>>> {
+    return this.result(async () => {
+      await this.authenticate();
+      const data = this.marketData();
+      const results: Array<{ symbol: string; price: number; tradingDate: string }> = [];
+      for (const rawSymbol of symbols) {
+        const symbol = String(rawSymbol).trim().toUpperCase();
+        if (!symbol) continue;
+        const candles = await data.marketData.getOhlc1Minute(symbol);
+        const candle = candles?.at(-1);
+        if (!candle || Number(candle.closePrice ?? 0) <= 0) continue;
+        results.push({ symbol, price: Number(candle.closePrice), tradingDate: String(candle.tradingDate).slice(0, 10) });
+      }
+      return results;
+    });
+  }
+  async dailyCloses(symbols: string[], tradingDate: string): Promise<ContractResult<Array<{ symbol: string; closePrice: number }>>> {
+    return this.result(async () => {
+      await this.authenticate();
+      const data = this.marketData();
+      const from = `${tradingDate.replaceAll('-', '/') } 00:00:00`;
+      const to = `${tradingDate.replaceAll('-', '/') } 23:59:59`;
+      const results: Array<{ symbol: string; closePrice: number }> = [];
+      for (const rawSymbol of symbols) {
+        const symbol = String(rawSymbol).trim().toUpperCase();
+        if (!symbol) continue;
+        const candles = await data.marketData.getOhlc1DayHistorical(symbol, from, to, 1, 10);
+        const candle = candles?.at(-1);
+        if (!candle || Number(candle.closePrice ?? 0) <= 0) continue;
+        results.push({ symbol, closePrice: Number(candle.closePrice) });
+      }
+      return results;
+    });
+  }
   async accountSnapshots(input: SsiAuthInput): Promise<ContractResult<Array<{ account: SsiAccount; balance: AccountBalance; positions: AccountPosition[] }>> > {
     return this.result(async () => {
       await this.authenticate(input);
