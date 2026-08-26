@@ -1,5 +1,5 @@
 import { Injectable, NotFoundException, ServiceUnavailableException, Inject } from '@nestjs/common';
-import { PlatformCredentialPort, SsiAuthInput } from '@tce/contracts';
+import { CONTRACT_TOKENS, OrderRepository, PlatformCredentialPort, PositionRepository, SsiAuthInput } from '@tce/contracts';
 import { SsiBrokerAdapter } from '@tce/ssi';
 import { SsiExecutionReconciler } from './ssi.execution.reconciler';
 
@@ -8,7 +8,9 @@ export class SsiApplicationService {
   private readonly sessions = new Map<string, { adapter: SsiBrokerAdapter; accountNo: string }>();
 
   constructor(
-    @Inject('tce.contracts.credentials') private readonly credentials: PlatformCredentialPort,
+    @Inject(CONTRACT_TOKENS.credentials) private readonly credentials: PlatformCredentialPort,
+    @Inject(CONTRACT_TOKENS.positionRepository) private readonly positions: PositionRepository,
+    @Inject(CONTRACT_TOKENS.orderRepository) private readonly orders: OrderRepository,
     private readonly reconciler: SsiExecutionReconciler,
   ) {}
 
@@ -70,9 +72,9 @@ export class SsiApplicationService {
     const snapshot = await session.adapter.syncPortfolio(session.accountNo, input);
     if (!snapshot.ok) return snapshot;
     let positionsSynced = 0;
-    for (const position of snapshot.data.positions) { await this.reconciler['positions'].upsert({ ...position, accountId: userId }); positionsSynced += 1; }
+    for (const position of snapshot.data.positions) { await this.positions.upsert({ ...position, accountId: userId }); positionsSynced += 1; }
     let ordersSynced = 0;
-    for (const order of snapshot.data.orders) { await this.reconciler['orders'].upsert({ ...order, accountId: userId }); ordersSynced += 1; }
+    for (const order of snapshot.data.orders) { await this.orders.upsert({ ...order, accountId: userId }); ordersSynced += 1; }
     void this.startOrderStream(userId, session);
     return { ok: true as const, data: { positionsSynced, ordersSynced, balance: snapshot.data.balance } };
   }
