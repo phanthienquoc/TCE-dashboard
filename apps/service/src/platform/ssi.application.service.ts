@@ -1,5 +1,5 @@
 import { Injectable, NotFoundException, ServiceUnavailableException, Inject } from '@nestjs/common';
-import { CONTRACT_TOKENS, OrderRepository, PlatformCredentialPort, PositionRepository, SsiAuthInput } from '@tce/contracts';
+import { CONTRACT_TOKENS, OrderRepository, PlatformCredentialPort, PositionRepository, SsiAuthInput, TceAccountRepository } from '@tce/contracts';
 import { SsiBrokerAdapter } from '@tce/ssi';
 import { SsiExecutionReconciler } from './ssi.execution.reconciler';
 
@@ -11,6 +11,7 @@ export class SsiApplicationService {
     @Inject(CONTRACT_TOKENS.credentials) private readonly credentials: PlatformCredentialPort,
     @Inject(CONTRACT_TOKENS.positionRepository) private readonly positions: PositionRepository,
     @Inject(CONTRACT_TOKENS.orderRepository) private readonly orders: OrderRepository,
+    @Inject(CONTRACT_TOKENS.tceAccountRepository) private readonly accounts: TceAccountRepository,
     private readonly reconciler: SsiExecutionReconciler,
   ) {}
 
@@ -69,13 +70,14 @@ export class SsiApplicationService {
 
   async sync(userId: string, environment: string, input: SsiAuthInput) {
     const session = await this.adapter(userId, environment);
+    const accountId = await this.accounts.resolveForUser(userId);
     const snapshot = await session.adapter.syncPortfolio(session.accountNo, input);
     if (!snapshot.ok) return snapshot;
     let positionsSynced = 0;
-    for (const position of snapshot.data.positions) { await this.positions.upsert({ ...position, accountId: userId }); positionsSynced += 1; }
+    for (const position of snapshot.data.positions) { await this.positions.upsert({ ...position, accountId, userId }); positionsSynced += 1; }
     let ordersSynced = 0;
-    for (const order of snapshot.data.orders) { await this.orders.upsert({ ...order, accountId: userId }); ordersSynced += 1; }
+    for (const order of snapshot.data.orders) { await this.orders.upsert({ ...order, accountId, userId }); ordersSynced += 1; }
     void this.startOrderStream(userId, session);
-    return { ok: true as const, data: { positionsSynced, ordersSynced, balance: snapshot.data.balance } };
+    return { ok: true as const, data: { accountId, positionsSynced, ordersSynced, balance: snapshot.data.balance } };
   }
 }
