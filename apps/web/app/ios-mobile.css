@@ -1,0 +1,82 @@
+/* iOS mobile hardening for compact Safari viewports (iPhone 13 and similar). */
+@supports (-webkit-touch-callout: none) {
+  @media screen and (max-width: 430px) {
+    html,
+    body {
+      width: 100%;
+      min-width: 0;
+      max-width: 100%;
+      overflow-x: hidden;
+      overscroll-behavior-x: none;
+    }
+
+    .auth-shell {
+      width: 100%;
+      min-height: 100dvh;
+      padding: calc(72px + env(safe-area-inset-top)) 16px calc(24px + env(safe-area-inset-bottom));
+      place-items: start center;
+      overflow: hidden;
+    }
+
+    .auth-brand {
+      position: absolute;
+      top: calc(18px + env(safe-area-inset-top));
+      left: 16px;
+      right: 16px;
+    }
+
+    .auth-card {
+      width: 100%;
+      max-width: 390px;
+      min-width: 0;
+      margin: 0;
+      padding: 22px 18px;
+      border-radius: 22px;
+    }
+
+    .auth-header h1 {
+      font-size: 30px;
+      line-height: 1.05;
+    }
+
+    .auth-header p {
+      line-height: 1.5;
+    }
+
+    .auth-card form {
+      width: 100%;
+      min-width: 0;
+    }
+
+    .auth-card label,
+    .auth-card input,
+    .auth-submit {
+      min-width: 0;
+      width: 100%;
+    }
+
+    .auth-card input {
+      min-height: 48px;
+      padding: 12px 13px;
+      font-size: 16px;
+      line-height: 1.25;
+      -webkit-appearance: none;
+      appearance: none;
+    }
+
+    .auth-submit {
+      min-height: 48px;
+      padding: 12px 14px;
+    }
+
+    .auth-options {
+      min-width: 0;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .auth-footer {
+      line-height: 1.5;
+    }
+  }
+}
