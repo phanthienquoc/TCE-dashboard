@@ -21,4 +21,6 @@ export type DashboardSnapshot = {
   pools: unknown[];
   nextPositions: unknown[];
   sources: DashboardSourceResult[];
+  balance?: Record<string, unknown>;
+  brokerAccounts?: unknown[];
 };

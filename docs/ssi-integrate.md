@@ -13,6 +13,7 @@ NestJS / apps/service
  ├── SsiApplicationService
  │      ├── credential loading / persistence
  │      ├── per-user + environment session cache
+ │      ├── token restore / refresh / persistence
  │      ├── portfolio sync
  │      ├── market-price sync
  │      └── order-status reconciliation
@@ -20,7 +21,7 @@ NestJS / apps/service
  ▼
 SsiBrokerAdapter (libs/ssi)
  │
- ├── Auth
+ ├── Auth / TokenManager
  ├── Trading
  ├── Data / MarketData
  └── Stream
@@ -44,12 +45,16 @@ Expected fields:
 | `clientId` | No | SSI client/application ID when required |
 | `privateKey` | No | Private key used by authenticated trading flows |
 | `accountNo` | No until account selection | Selected SSI account for execution/portfolio operations |
+| `accessToken` | Generated | Current SSI bearer token, stored encrypted |
+| `refreshToken` | Generated | SSI refresh token, stored encrypted |
+| `expiresAt` | Generated | Access-token expiry |
+| `refreshTokenExpiresAt` | Generated | Refresh-token expiry |
 
-Production credentials must never be committed to Git. TCE stores encrypted platform credentials and only materializes them inside the service session.
+Production credentials and tokens must never be committed to Git. TCE stores the complete credential payload encrypted with AES-256-GCM and only materializes it inside the backend service. The encryption key is supplied through `TCE_CREDENTIAL_ENCRYPTION_KEY` and must remain persistent across deployments.
 
 ## 3. Authentication flow
 
-### OTP / approval
+### First connection
 
 1. FE submits SSI configuration for the selected environment.
 2. BE creates an SSI adapter from the supplied credentials.
@@ -57,12 +62,39 @@ Production credentials must never be committed to Git. TCE stores encrypted plat
 4. FE receives the returned `transactionId` when SSI provides one.
 5. FE submits either the OTP or transaction ID to the test/connect endpoint.
 6. The adapter authenticates and creates the SSI `Trading` client.
+7. After a successful test/save, the returned access token and refresh token are persisted together with the encrypted credentials.
 
-The adapter reuses an existing authenticated Bearer token where possible. This is important for the manual sync flow because market-data calls can use the authenticated trading token instead of requesting a second token.
+### Existing credential
+
+When a credential already exists, the backend does **not** require the FE to send the secret again.
+
+```text
+Supabase encrypted credential
+        │
+        ▼
+backend decrypts with TCE_CREDENTIAL_ENCRYPTION_KEY
+        │
+        ▼
+restore SSI access + refresh token
+        │
+        ├── access token valid → reuse
+        │
+        └── access token expired
+                │
+                ├── refresh token valid → SSI refresh()
+                │                       ↓
+                │                 persist rotated token
+                │
+                └── refresh token expired/missing → require OTP
+```
+
+The adapter uses SSI SDK `TokenManager` to check token expiry and refresh-token expiry. SSI's Node SDK exposes `refresh()` and `ensureAuthenticated()` for this lifecycle. urlSSI Node.js SDK authentication docshttps://www.npmjs.com/package/%40ssi.developer/ssi-sdk
+
+This means a backend restart does not automatically force a new OTP as long as the encrypted refresh token is still valid.
 
 ## 4. Connection test before save
 
-The connection test is deliberately performed before credentials are persisted.
+The connection test is deliberately performed before new credentials are persisted.
 
 `SsiBrokerAdapter.test()` verifies:
 
@@ -71,9 +103,9 @@ The connection test is deliberately performed before credentials are persisted.
 - HOSE security/market-data access;
 - account information when an authenticated trading session is available.
 
-Only after the test succeeds does `SsiApplicationService.saveTested()` persist the credentials and selected account.
+Only after the test succeeds does `SsiApplicationService.saveTested()` persist the credentials, selected account, and token snapshot.
 
-This keeps invalid credentials out of the persistent credential store.
+For an already persisted credential, a successful token refresh updates the encrypted credential row with the latest token values.
 
 ## 5. Portfolio synchronization
 
@@ -85,6 +117,20 @@ The current-account flow reads:
 - today's orders.
 
 `syncPortfolio()` filters out zero-quantity positions/orders before the application service persists them. Position and order records are upserted using the TCE repositories.
+
+A successful manual sync also persists the SSI cash balance into the user's TCE account as `capital_available`. Dashboard total value is then calculated as:
+
+```text
+cash / capital_available + latest persisted position market_value
+```
+
+Position market fields are maintained as:
+
+```text
+market_price
+market_value = quantity * market_price
+unrealized_pnl = quantity * (market_price - avg_cost)
+```
 
 A successful order-status event (`FF`, `PF`, or `FFPC`) triggers a fresh position read so the local position state is reconciled with SSI.
 
@@ -149,13 +195,7 @@ user_id + symbol + trading_date
 
 as the logical upsert key.
 
-For open positions, the latest market price updates:
-
-```text
-market_price
-market_value = quantity * market_price
-unrealized_pnl = quantity * (market_price - avg_cost)
-```
+For open positions, the latest market price updates the position valuation fields as described above.
 
 ## 8. Market-price scheduler
 
@@ -185,7 +225,27 @@ Sync now
 
 The endpoint returns partial-sync information when SSI returns only a subset of requested symbols. The UI should surface the successful symbols and failed symbols rather than interpreting the entire request as an authentication failure.
 
-## 10. Error semantics
+## 10. Dashboard data after sync
+
+The dashboard reads the persisted TCE state rather than assuming the sync response itself is the dashboard model.
+
+After a successful sync the expected fields are:
+
+| Dashboard field | Source |
+|---|---|
+| Positions | `tce_positions` |
+| Avg buy cost | `tce_positions.avg_cost` |
+| Market price | `tce_positions.market_price` |
+| Market value | `tce_positions.market_value` |
+| Unrealized P&L | `tce_positions.unrealized_pnl` |
+| Cash / available capital | `tce_accounts.capital_available` |
+| Total portfolio value | cash + position market value |
+| Orders | `tce_orders` |
+| SSI account | `platform_credentials.ssi_account_no` |
+
+The FE uses the dashboard's camel-case display aliases (`avgBuyCost`, `marketPrice`, `marketValue`, `unrealizedPnl`) while the database remains snake_case.
+
+## 11. Error semantics
 
 The broker adapter wraps provider failures in `ContractResult`:
 
@@ -210,34 +270,38 @@ PARTIAL_MARKET_DATA
 Use the distinction carefully:
 
 - `401` / authentication error → credential/session problem;
+- `SSI_REAUTH_REQUIRED` → access token expired and no valid refresh token remains;
 - provider/network error → SSI/API availability problem;
 - `0/N` intraday symbols outside session → expected market-data condition;
 - `M/N` symbols during session → partial provider data or symbol-specific issue.
 
-## 11. Current implementation locations
+## 12. Current implementation locations
 
 | Responsibility | Location |
 |---|---|
 | SSI SDK adapter | `libs/ssi/src/ssi.broker.adapter.ts` |
 | SSI application orchestration | `apps/service/src/platform/ssi.application.service.ts` |
+| Encrypted credential persistence | `libs/db/src/supabase.credentials.adapter.ts` |
+| Dashboard aggregation | `apps/service/src/dashboard/dashboard.service.ts` |
 | Market-price scheduler | `apps/service/src/platform/ssi-market-price.service.ts` |
 | Production k3s manifests | `infra/k3s/service-prod.yaml`, `infra/k3s/frontend-prod.yaml` |
 | Production deployment | `.github/workflows/wf-03-tce-deploy.yml` |
 
-## 12. Production checklist
+## 13. Production checklist
 
 Before enabling SSI in production:
 
 - [ ] API key and API secret are configured for the correct environment.
 - [ ] Private key/client ID are configured when required by the SSI account.
 - [ ] Account number has been selected after a successful connection test.
-- [ ] Credentials are stored only through the encrypted platform credential path.
+- [ ] Access and refresh tokens are persisted only through the encrypted platform credential path.
 - [ ] `TCE_CREDENTIAL_ENCRYPTION_KEY` is persistent across deployments.
 - [ ] Manual Sync works both during and outside the Vietnam market session.
 - [ ] Market prices for positions and WATCHING pool symbols are persisted.
+- [ ] Dashboard total value, market value and unrealized P&L are populated from persisted data.
 - [ ] Order-status streaming reconnect/health monitoring is available before relying on it for critical execution reconciliation.
 
-## 13. Known SSI market-data behavior
+## 14. Known SSI market-data behavior
 
 Do not use the absence of intraday candles as proof that SSI authentication failed. Authentication and market-data availability are separate concerns.
 

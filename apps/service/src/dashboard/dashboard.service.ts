@@ -19,19 +19,27 @@ export class DashboardService {
     const account = await this.resolveAccount(userId);
     const { data, error } = await this.supabase.db.from('tce_positions').select('id,account_id,symbol,quantity,avg_cost,cost_basis,market_price,market_value,unrealized_pnl,status,cycle_no').eq('account_id', account.id).neq('status', 'CLOSED').order('symbol');
     if (error) throw this.dbError('getPositions', error);
-    return data ?? [];
+    return (data ?? []).map((p) => ({ ...p, avgBuyCost: Number(p.avg_cost ?? 0), marketPrice: p.market_price == null ? null : Number(p.market_price), marketValue: p.market_value == null ? null : Number(p.market_value), unrealizedPnl: p.unrealized_pnl == null ? null : Number(p.unrealized_pnl) }));
   }
 
   async getStrategy(_userId: string) { return null; }
   async getPoolsForUser(userId: string, status?: string) { const account = await this.resolveAccount(userId); return this.getPools(account.id, status); }
   async getNextPositionsForUser(_userId: string) { return []; }
-  async getOrdersForUser(_userId: string) { return []; }
 
-  async getSources(_userId: string): Promise<DashboardSourceResult[]> {
+  async getOrdersForUser(userId: string) {
+    const account = await this.resolveAccount(userId);
+    const { data, error } = await this.supabase.db.from('tce_orders').select('id,account_id,order_date,symbol,side,price,quantity,gross_value,fee_tax,net_cashflow,cycle_no,status,note,created_at').eq('account_id', account.id).order('order_date', { ascending: false }).order('created_at', { ascending: false }).limit(50);
+    if (error) throw this.dbError('getOrdersForUser', error);
+    return (data ?? []).map((o) => ({ ...o, grossValue: Number(o.gross_value ?? 0), feeTax: Number(o.fee_tax ?? 0), netCashflow: Number(o.net_cashflow ?? 0) }));
+  }
+
+  async getSources(userId: string): Promise<DashboardSourceResult[]> {
     const fetchedAt = new Date().toISOString();
+    const { data: ssiCredential, error } = await this.supabase.db.from('platform_credentials').select('id,ssi_account_no').eq('user_id', userId).eq('provider', 'ssi').eq('environment', 'production').eq('is_active', true).maybeSingle();
+    const ssiConfigured = !error && Boolean(ssiCredential?.id);
     return [
       { source: 'supabase', available: true, data: { role: 'primary', persisted: true }, fetchedAt, error: null },
-      { source: 'ssi', available: false, data: { role: 'account', configured: false, environment: 'production' }, fetchedAt, error: null },
+      { source: 'ssi', available: ssiConfigured, data: { role: 'account', configured: ssiConfigured, environment: 'production', accountNo: ssiCredential?.ssi_account_no ?? null }, fetchedAt, error: error ? 'Unable to inspect SSI configuration' : null },
       { source: 'fastapi', available: false, data: { role: 'market-signal', configured: false, config: null }, fetchedAt, error: null },
     ];
   }
@@ -41,10 +49,7 @@ export class DashboardService {
     const { data, error } = await this.supabase.db.from('tce_engine_states').select('engine_id,status,updated_at').eq('account_id', account.id);
     if (error) throw this.dbError('getEngines', error);
     const states = new Map((data ?? []).map((row: any) => [row.engine_id, row]));
-    return ENGINE_IDS.map((engineId) => {
-      const state = states.get(engineId);
-      return { engineId, status: state?.status ?? 'ACTIVE', updatedAt: state?.updated_at ?? null };
-    });
+    return ENGINE_IDS.map((engineId) => { const state = states.get(engineId); return { engineId, status: state?.status ?? 'ACTIVE', updatedAt: state?.updated_at ?? null }; });
   }
 
   async setEngineStatus(userId: string, engineId: string, status: string) {
@@ -60,10 +65,22 @@ export class DashboardService {
 
   async get(userId: string, poolStatus?: string): Promise<DashboardSnapshot> {
     const account = await this.resolveAccount(userId);
-    const [positions, pools] = await Promise.all([this.getPositions(userId), this.getPools(account.id, poolStatus)]);
+    const [positions, pools, orders, sources] = await Promise.all([this.getPositions(userId), this.getPools(account.id, poolStatus), this.getOrdersForUser(userId), this.getSources(userId)]);
     const deployed = Number(account.capital_deployed ?? 0);
+    const cash = Number(account.capital_available ?? 0);
+    const marketValue = positions.reduce((sum, p) => sum + Number(p.market_value ?? 0), 0);
     const unrealized = positions.reduce((sum, p) => sum + Number(p.unrealized_pnl ?? 0), 0);
-    return { account: { userId, accountId: account.id, name: account.name, initial_capital: Number(account.initial_capital ?? 0), capital_deployed: Math.round(deployed), capital_available: Number(account.capital_available ?? 0), cashout_target: Number(account.cashout_target ?? 0), cashout_realized: Number(account.cashout_realized ?? 0), recovery_remaining: Number(account.recovery_remaining ?? 0), current_cycle: Number(account.current_cycle ?? 1), unrealized_pnl: Math.round(unrealized), max_positions: 0, pool_size: pools.length }, positions, orders: [], pools, nextPositions: [], sources: await this.getSources(userId) };
+    const brokerAccounts = sources.find((source) => source.source === 'ssi')?.data as Record<string, unknown> | undefined;
+    return {
+      account: { userId, accountId: account.id, name: account.name, initial_capital: Number(account.initial_capital ?? 0), capital_deployed: Math.round(deployed), capital_available: cash, cashout_target: Number(account.cashout_target ?? 0), cashout_realized: Number(account.cashout_realized ?? 0), recovery_remaining: Number(account.recovery_remaining ?? 0), current_cycle: Number(account.current_cycle ?? 1), unrealized_pnl: Math.round(unrealized), market_value: Math.round(marketValue), totalValue: Math.round(cash + marketValue), max_positions: 0, pool_size: pools.length },
+      positions,
+      orders,
+      pools,
+      nextPositions: [],
+      balance: { cash, equity: cash + marketValue, withdrawable: cash, source: 'supabase' },
+      brokerAccounts: brokerAccounts?.configured ? [{ provider: 'ssi', accountNo: brokerAccounts.accountNo ?? undefined, environment: 'production', status: 'Connected' }] : [],
+      sources,
+    };
   }
 
   async createPosition(userId: string, input: Record<string, unknown>) {
