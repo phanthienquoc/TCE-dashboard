@@ -1,16 +1,15 @@
-import { Injectable, NotFoundException, ServiceUnavailableException } from '@nestjs/common';
-import { CONTRACT_TOKENS, OrderRepository, PlatformCredentialPort, PositionRepository, SsiAuthInput } from '@tce/contracts';
-import { Inject } from '@nestjs/common';
-import { SsiBrokerAdapter, SsiOrderStatusEvent } from '@tce/ssi';
+import { Injectable, NotFoundException, ServiceUnavailableException, Inject } from '@nestjs/common';
+import { PlatformCredentialPort, SsiAuthInput } from '@tce/contracts';
+import { SsiBrokerAdapter } from '@tce/ssi';
+import { SsiExecutionReconciler } from './ssi.execution.reconciler';
 
 @Injectable()
 export class SsiApplicationService {
   private readonly sessions = new Map<string, { adapter: SsiBrokerAdapter; accountNo: string }>();
 
   constructor(
-    @Inject(CONTRACT_TOKENS.credentials) private readonly credentials: PlatformCredentialPort,
-    @Inject(CONTRACT_TOKENS.positionRepository) private readonly positions: PositionRepository,
-    @Inject(CONTRACT_TOKENS.orderRepository) private readonly orders: OrderRepository,
+    @Inject('tce.contracts.credentials') private readonly credentials: PlatformCredentialPort,
+    private readonly reconciler: SsiExecutionReconciler,
   ) {}
 
   private fromRaw(raw: Record<string, unknown>, environment: string) {
@@ -36,33 +35,10 @@ export class SsiApplicationService {
     return session;
   }
 
-  private async handleOrderEvent(userId: string, session: { adapter: SsiBrokerAdapter; accountNo: string }, event: SsiOrderStatusEvent) {
-    if (!event.orderId || !event.symbol) return;
-    await this.orders.upsert({
-      externalId: String(event.orderId),
-      symbol: String(event.symbol).toUpperCase(),
-      side: String(event.side).toUpperCase() === 'S' ? 'SELL' : 'BUY',
-      quantity: Number(event.filledQuantity ?? event.quantity ?? 0),
-      price: Number(event.price ?? 0),
-      status: String(event.status ?? 'UNKNOWN'),
-      createdAt: event.inputTime,
-      source: 'ssi',
-      accountId: userId,
-    });
-
-    // A fill changes the position. Refresh only the affected account; this keeps the dashboard authoritative.
-    if (event.status === 'FF' || event.status === 'PF' || event.status === 'FFPC') {
-      const positions = await session.adapter.positions(session.accountNo);
-      if (positions.ok) {
-        for (const position of positions.data) await this.positions.upsert({ ...position, accountId: userId });
-      }
-    }
-  }
-
   private async startOrderStream(userId: string, session: { adapter: SsiBrokerAdapter; accountNo: string }) {
     try {
       await session.adapter.startOrderStatusStream(session.accountNo, (event) => {
-        void this.handleOrderEvent(userId, session, event).catch((error) => console.error('[SSI_ORDER_EVENT]', error));
+        void this.reconciler.reconcile(userId, session, event).catch((error) => console.error('[SSI_ORDER_RECONCILE]', error));
       });
     } catch (error) {
       console.error('[SSI_ORDER_STREAM_START]', error);
@@ -94,9 +70,9 @@ export class SsiApplicationService {
     const snapshot = await session.adapter.syncPortfolio(session.accountNo, input);
     if (!snapshot.ok) return snapshot;
     let positionsSynced = 0;
-    for (const position of snapshot.data.positions) { await this.positions.upsert({ ...position, accountId: userId }); positionsSynced += 1; }
+    for (const position of snapshot.data.positions) { await this.reconciler['positions'].upsert({ ...position, accountId: userId }); positionsSynced += 1; }
     let ordersSynced = 0;
-    for (const order of snapshot.data.orders) { await this.orders.upsert({ ...order, accountId: userId }); ordersSynced += 1; }
+    for (const order of snapshot.data.orders) { await this.reconciler['orders'].upsert({ ...order, accountId: userId }); ordersSynced += 1; }
     void this.startOrderStream(userId, session);
     return { ok: true as const, data: { positionsSynced, ordersSynced, balance: snapshot.data.balance } };
   }
