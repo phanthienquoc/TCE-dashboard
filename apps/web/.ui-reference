@@ -1,0 +1,1 @@
+Mobile dashboard UI reference: dark near-black background, deep violet surfaces, purple accent, compact 2x2 portfolio metric cards, allocation donut, dense position rows, safe-area-aware bottom navigation, iOS-first touch targets. Implemented as HTML elements + Tailwind CSS only; no shadcn.
