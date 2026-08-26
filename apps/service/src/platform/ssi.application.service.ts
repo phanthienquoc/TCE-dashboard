@@ -22,10 +22,18 @@ export class SsiApplicationService {
     return { adapter: new SsiBrokerAdapter({ apiKey, apiSecret, clientId: raw.clientId ? String(raw.clientId) : undefined, privateKey: raw.privateKey ? String(raw.privateKey) : undefined, accountNo: accountNo || undefined, token: { accessToken: raw.accessToken ? String(raw.accessToken) : undefined, tokenType: raw.tokenType ? String(raw.tokenType) : undefined, expiresAt: raw.expiresAt ? Number(raw.expiresAt) : undefined, refreshToken: raw.refreshToken ? String(raw.refreshToken) : undefined, refreshExpiresAt: raw.refreshExpiresAt ? Number(raw.refreshExpiresAt) : undefined }, onTokenUpdated }), accountNo };
   }
 
+  /**
+   * DB is the source of truth for normal SSI sessions.
+   *
+   * Never reuse a cached adapter for a normal request: another request/process
+   * may have rotated the SSI access/refresh token and persisted it to DB. By
+   * decrypting the current credential row first, the adapter always starts
+   * with the newest token snapshot and can refresh before calling SSI APIs.
+   *
+   * The in-memory session map is intentionally kept only for the order stream
+   * lifecycle; it is not used as the credential source for API requests.
+   */
   private async adapter(userId: string, environment: string, requireAccount = true) {
-    const key = `${userId}:ssi:${environment}`;
-    const cached = this.sessions.get(key);
-    if (cached) return cached;
     let raw: Record<string, unknown>;
     try { raw = await this.credentials.get(userId, 'ssi', environment); }
     catch (error) {
@@ -34,9 +42,9 @@ export class SsiApplicationService {
       console.error('[SSI_CREDENTIALS_LOAD]', { userId, environment, message });
       throw new ServiceUnavailableException('Unable to load SSI credentials');
     }
+
     const session = this.fromRaw(raw, userId, environment, undefined, true);
     if (requireAccount && !session.accountNo) throw new NotFoundException(`SSI account is not selected for environment: ${environment}`);
-    if (requireAccount) this.sessions.set(key, session);
     return session;
   }
 
