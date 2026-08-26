@@ -1,6 +1,6 @@
 import { Module } from '@nestjs/common';
 import { CONTRACT_TOKENS } from '@tce/contracts';
-import { SupabaseCredentialAdapter, SupabaseOrderAdapter, SupabasePositionAdapter } from '@tce/db';
+import { SupabaseAccountAdapter, SupabaseCredentialAdapter, SupabaseOrderAdapter, SupabasePositionAdapter } from '@tce/db';
 import { SsiApplicationService } from './ssi.application.service';
 import { SsiExecutionReconciler } from './ssi.execution.reconciler';
 import { BinanceFuturesService } from './binance-futures.service';
@@ -14,12 +14,13 @@ import { SupabaseClientService } from '../db/supabase.client';
   controllers: [PlatformCredentialsController],
   providers: [
     { provide: CONTRACT_TOKENS.credentials, inject: [SupabaseClientService], useFactory: (db: SupabaseClientService) => { const key = process.env.TCE_CREDENTIAL_ENCRYPTION_KEY; if (!key) throw new Error('TCE_CREDENTIAL_ENCRYPTION_KEY is required'); return new SupabaseCredentialAdapter(db.db, key); } },
+    { provide: CONTRACT_TOKENS.tceAccountRepository, inject: [SupabaseClientService], useFactory: (db: SupabaseClientService) => new SupabaseAccountAdapter(db.db) },
     { provide: CONTRACT_TOKENS.positionRepository, inject: [SupabaseClientService], useFactory: (db: SupabaseClientService) => new SupabasePositionAdapter(db.db) },
     { provide: CONTRACT_TOKENS.orderRepository, inject: [SupabaseClientService], useFactory: (db: SupabaseClientService) => new SupabaseOrderAdapter(db.db) },
     SsiExecutionReconciler,
     SsiApplicationService,
     BinanceFuturesService,
   ],
-  exports: [CONTRACT_TOKENS.credentials, CONTRACT_TOKENS.positionRepository, CONTRACT_TOKENS.orderRepository, SsiApplicationService, BinanceFuturesService],
+  exports: [CONTRACT_TOKENS.credentials, CONTRACT_TOKENS.tceAccountRepository, CONTRACT_TOKENS.positionRepository, CONTRACT_TOKENS.orderRepository, SsiApplicationService, BinanceFuturesService],
 })
 export class PlatformCredentialsModule {}
