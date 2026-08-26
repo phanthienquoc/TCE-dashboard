@@ -1,4 +1,6 @@
 import { AccountOrder, AccountPosition, MarketQuote } from './platform.js';
+
+export interface TceAccountRepository { resolveForUser(userId: string): Promise<string>; }
 export interface PositionRepository { listOpen(accountId: string): Promise<AccountPosition[]>; upsert(position: AccountPosition): Promise<AccountPosition>; }
 export interface OrderRepository { list(accountId: string): Promise<AccountOrder[]>; upsert(order: AccountOrder): Promise<AccountOrder>; }
 export interface MarketDataService { quote(symbol: string): Promise<MarketQuote>; }
