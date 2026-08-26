@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next';
 import './globals.css';
+import { AppProviders } from './providers';
 
 export const metadata: Metadata = {
   title: 'TCE Dashboard',
@@ -17,5 +18,11 @@ export const viewport: Viewport = {
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
-  return <html lang="en" className="bg-[#070b12]"><body>{children}</body></html>;
+  return (
+    <html lang="en" className="bg-[#070b12]">
+      <body>
+        <AppProviders>{children}</AppProviders>
+      </body>
+    </html>
+  );
 }
