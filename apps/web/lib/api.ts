@@ -34,7 +34,12 @@ export const authApi = {
   logout: () => api.post('/auth/logout'),
 };
 export const dashboardApi = {
-  all: () => api.get('/dashboard'), account:()=>api.get('/dashboard/account'), positions:()=>api.get('/dashboard/positions'), orders:()=>api.get('/dashboard/orders'), pools:()=>api.get('/dashboard/pools'), nextPositions:()=>api.get('/dashboard/next-positions'), strategy:()=>api.get('/dashboard/strategy'), sources:()=>api.get('/dashboard/sources')
+  all: (status?: string) => api.get('/dashboard', { params: status ? { status } : undefined }),
+  account:()=>api.get('/dashboard/account'), positions:()=>api.get('/dashboard/positions'), orders:()=>api.get('/dashboard/orders'),
+  pools:(status?: string)=>api.get('/dashboard/pools', { params: status ? { status } : undefined }),
+  nextPositions:()=>api.get('/dashboard/next-positions'), strategy:()=>api.get('/dashboard/strategy'), sources:()=>api.get('/dashboard/sources'),
+  engines:()=>api.get('/dashboard/engines'),
+  setEngineStatus:(engineId:string,status:'ACTIVE'|'INACTIVE')=>api.patch(`/dashboard/engines/${engineId}/status`,{status}),
 };
 export const platformApi = {
   credentials:()=>api.get('/platform/credentials'), save:(provider:string,environment:string,credentials:Record<string,unknown>)=>api.post(`/platform/credentials/${provider}`,{environment,credentials}), remove:(provider:string,environment:string)=>api.delete(`/platform/credentials/${provider}`,{data:{environment}}),
