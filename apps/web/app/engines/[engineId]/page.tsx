@@ -28,6 +28,7 @@ export default function EngineDetailPage() {
   }, [engine]);
 
   if (!engine) return <main className="min-h-svh bg-[#090510] p-5 text-white"><p>Engine not found.</p></main>;
+  const engineId = engine.id;
 
   function update(key: string, value: string | number | boolean) {
     setConfig((current) => ({ ...current, [key]: value }));
@@ -38,7 +39,7 @@ export default function EngineDetailPage() {
     try {
       const raw = window.localStorage.getItem(STORAGE_KEY);
       const all = raw ? JSON.parse(raw) : {};
-      all[engine.id] = config;
+      all[engineId] = config;
       window.localStorage.setItem(STORAGE_KEY, JSON.stringify(all));
       setSaved(true);
     } catch {
