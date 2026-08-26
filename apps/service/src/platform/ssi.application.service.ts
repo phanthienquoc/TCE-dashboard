@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException, ServiceUnavailableException } from '@nestjs/common';
 import { CONTRACT_TOKENS, OrderRepository, PlatformCredentialPort, PositionRepository, SsiAuthInput } from '@tce/contracts';
 import { Inject } from '@nestjs/common';
-import { SsiBrokerAdapter, SsiOrderStatusEvent } from '@tce/ssi';
+import { SsiBrokerAdapter, SsiOrderStatusEvent, SsiTokenSnapshot } from '@tce/ssi';
 
 @Injectable()
 export class SsiApplicationService {
@@ -13,10 +13,11 @@ export class SsiApplicationService {
     @Inject(CONTRACT_TOKENS.orderRepository) private readonly orders: OrderRepository,
   ) {}
 
-  private fromRaw(raw: Record<string, unknown>, environment: string, accountNoOverride?: string) {
+  private fromRaw(raw: Record<string, unknown>, userId: string, environment: string, accountNoOverride?: string, persistToken = false) {
     const apiKey = String(raw.apiKey ?? ''), apiSecret = String(raw.apiSecret ?? ''), accountNo = String(accountNoOverride ?? raw.accountNo ?? '');
     if (!apiKey || !apiSecret) throw new NotFoundException(`SSI credentials are incomplete for environment: ${environment}`);
-    return { adapter: new SsiBrokerAdapter({ apiKey, apiSecret, clientId: raw.clientId ? String(raw.clientId) : undefined, privateKey: raw.privateKey ? String(raw.privateKey) : undefined, accountNo: accountNo || undefined }), accountNo };
+    const onTokenUpdated = persistToken ? async (token: SsiTokenSnapshot) => { await this.credentials.save(userId, 'ssi', environment, { ...raw, ...token }); } : undefined;
+    return { adapter: new SsiBrokerAdapter({ apiKey, apiSecret, clientId: raw.clientId ? String(raw.clientId) : undefined, privateKey: raw.privateKey ? String(raw.privateKey) : undefined, accountNo: accountNo || undefined, token: { accessToken: raw.accessToken ? String(raw.accessToken) : undefined, tokenType: raw.tokenType ? String(raw.tokenType) : undefined, expiresAt: raw.expiresAt ? Number(raw.expiresAt) : undefined, refreshToken: raw.refreshToken ? String(raw.refreshToken) : undefined, refreshTokenExpiresAt: raw.refreshTokenExpiresAt ? Number(raw.refreshTokenExpiresAt) : undefined }, onTokenUpdated }), accountNo };
   }
 
   private async adapter(userId: string, environment: string, requireAccount = true) {
@@ -31,7 +32,7 @@ export class SsiApplicationService {
       console.error('[SSI_CREDENTIALS_LOAD]', { userId, environment, message });
       throw new ServiceUnavailableException('Unable to load SSI credentials');
     }
-    const session = this.fromRaw(raw, environment);
+    const session = this.fromRaw(raw, userId, environment, undefined, true);
     if (requireAccount && !session.accountNo) throw new NotFoundException(`SSI account is not selected for environment: ${environment}`);
     if (requireAccount) this.sessions.set(key, session);
     return session;
@@ -51,9 +52,9 @@ export class SsiApplicationService {
     catch (error) { console.error('[SSI_ORDER_STREAM_START]', error); }
   }
 
-  async requestOtp(userId: string, environment: string, credentials?: Record<string, unknown>) { const { adapter } = credentials ? this.fromRaw(credentials, environment) : await this.adapter(userId, environment); return adapter.requestOtp(); }
-  async test(userId: string, environment: string, input: SsiAuthInput, credentials?: Record<string, unknown>) { const session = credentials ? this.fromRaw(credentials, environment) : await this.adapter(userId, environment); const result = await session.adapter.test(input); if (result.ok && credentials) this.sessions.set(`${userId}:ssi:${environment}`, { ...session, accountNo: session.accountNo }); if (result.ok && session.accountNo) void this.startOrderStream(userId, { ...session, accountNo: session.accountNo }); return result; }
-  async saveTested(userId: string, environment: string, credentials: Record<string, unknown>, input: SsiAuthInput, accountNo: string) { if (!accountNo) throw new NotFoundException('SSI account number is required'); const session = this.fromRaw(credentials, environment, accountNo); const result = await session.adapter.test(input); if (!result.ok) return result; await this.credentials.save(userId, 'ssi', environment, { ...credentials, accountNo }); this.sessions.set(`${userId}:ssi:${environment}`, session); void this.startOrderStream(userId, session); return result; }
+  async requestOtp(userId: string, environment: string, credentials?: Record<string, unknown>) { const { adapter } = credentials ? this.fromRaw(credentials, userId, environment) : await this.adapter(userId, environment); return adapter.requestOtp(); }
+  async test(userId: string, environment: string, input: SsiAuthInput, credentials?: Record<string, unknown>) { const session = credentials ? this.fromRaw(credentials, userId, environment) : await this.adapter(userId, environment); const result = await session.adapter.test(input); if (result.ok && credentials) { const token = session.adapter.getTokenSnapshot(); const testedCredentials = token ? { ...credentials, ...token } : credentials; const testedSession = this.fromRaw(testedCredentials, userId, environment, undefined, true); this.sessions.set(`${userId}:ssi:${environment}`, testedSession); if (testedSession.accountNo) void this.startOrderStream(userId, testedSession); } else if (result.ok && session.accountNo) void this.startOrderStream(userId, session); return result; }
+  async saveTested(userId: string, environment: string, credentials: Record<string, unknown>, input: SsiAuthInput, accountNo: string) { if (!accountNo) throw new NotFoundException('SSI account number is required'); const session = this.fromRaw(credentials, userId, environment, accountNo); const result = await session.adapter.test(input); if (!result.ok) return result; const token = session.adapter.getTokenSnapshot(); await this.credentials.save(userId, 'ssi', environment, { ...credentials, accountNo, ...(token ?? {}) }); const persisted = this.fromRaw({ ...credentials, accountNo, ...(token ?? {}) }, userId, environment, accountNo, true); this.sessions.set(`${userId}:ssi:${environment}`, persisted); void this.startOrderStream(userId, persisted); return result; }
   async current(userId: string, environment: string, input: SsiAuthInput) { const { adapter, accountNo } = await this.adapter(userId, environment); return adapter.current(accountNo, input); }
   async accountSnapshots(userId: string, environment: string, input: SsiAuthInput) { const { adapter } = await this.adapter(userId, environment); return adapter.accountSnapshots(input); }
   async marketPrices(userId: string, environment: string, symbols: string[]) { const { adapter } = await this.adapter(userId, environment, false); return adapter.marketPrices(symbols); }
