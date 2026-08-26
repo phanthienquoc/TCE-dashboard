@@ -1,21 +1,34 @@
 'use client';
 
-import { useState } from 'react';
-import { CheckCircle2, ChevronDown, KeyRound, Loader2, ShieldCheck, XCircle } from 'lucide-react';
+import { useRef, useState } from 'react';
+import { CheckCircle2, ChevronDown, FileJson, KeyRound, Loader2, ShieldCheck, Upload, XCircle } from 'lucide-react';
 import { platformApi } from '../../../lib/api';
 
-type Credentials = {
-  clientId: string;
-  apiKey: string;
-  apiSecret: string;
-  accountNo: string;
-  privateKey: string;
-};
-
+type Credentials = { clientId: string; apiKey: string; apiSecret: string; privateKey: string };
 type Props = { onMessage?: (message: string) => void };
 type ResultState = { ok: boolean; message: string } | null;
+const initialCredentials: Credentials = { clientId: '', apiKey: '', apiSecret: '', privateKey: '' };
 
-const initialCredentials: Credentials = { clientId: '', apiKey: '', apiSecret: '', accountNo: '', privateKey: '' };
+const pick = (source: Record<string, unknown>, ...keys: string[]) => {
+  for (const key of keys) {
+    const value = source[key];
+    if (typeof value === 'string' && value.trim()) return value;
+  }
+  return '';
+};
+
+function credentialsFromJson(value: unknown): Credentials {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('JSON root must be an object');
+  const root = value as Record<string, unknown>;
+  const nested = root.credentials && typeof root.credentials === 'object' && !Array.isArray(root.credentials) ? root.credentials as Record<string, unknown> : {};
+  const source = { ...root, ...nested };
+  return {
+    clientId: pick(source, 'clientId', 'client_id', 'clientID'),
+    apiKey: pick(source, 'apiKey', 'api_key', 'apiKEY'),
+    apiSecret: pick(source, 'apiSecret', 'api_secret', 'apiSECRET'),
+    privateKey: pick(source, 'privateKey', 'private_key', 'privateKEY'),
+  };
+}
 
 export default function SSIPlatform({ onMessage }: Props) {
   const [open, setOpen] = useState(false);
@@ -26,22 +39,39 @@ export default function SSIPlatform({ onMessage }: Props) {
   const [tested, setTested] = useState(false);
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<ResultState>(null);
+  const [fileName, setFileName] = useState('');
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const updateCredential = (key: keyof Credentials, value: string) => {
     setCredentials((current) => ({ ...current, [key]: value }));
-    setTested(false);
-    setResult(null);
+    setTested(false); setResult(null); setFileName('');
   };
   const messageFrom = (error: unknown) => {
     const value = error as { response?: { data?: { message?: string } }; message?: string };
     return value?.response?.data?.message ?? value?.message ?? 'Request failed';
   };
+  const uploadJson = async (file?: File) => {
+    if (!file) return;
+    setResult(null); setTested(false); setFileName('');
+    try {
+      if (!file.name.toLowerCase().endsWith('.json') && file.type !== 'application/json') throw new Error('Please select a JSON file');
+      const parsed = JSON.parse(await file.text());
+      const next = credentialsFromJson(parsed);
+      const found = Object.values(next).filter(Boolean).length;
+      if (!found) throw new Error('No supported SSI credential fields were found in the JSON');
+      setCredentials(next); setFileName(file.name);
+      setResult({ ok: true, message: `Loaded ${found}/4 credential fields from ${file.name}. Review them, then Test Connection.` });
+      onMessage?.(`Loaded SSI credentials from ${file.name}`);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : messageFrom(error);
+      setResult({ ok: false, message }); onMessage?.(`JSON upload failed: ${message}`);
+    } finally { if (fileInputRef.current) fileInputRef.current.value = ''; }
+  };
   const testConnection = async () => {
     setBusy(true); setTested(false); setResult(null);
     try {
       const response = await platformApi.ssiTest({ environment, credentials, otp: otp || undefined, transactionId: transactionId || undefined });
-      const data = response.data; const ok = Boolean(data?.ok);
-      setTested(ok);
+      const data = response.data; const ok = Boolean(data?.ok); setTested(ok);
       setResult({ ok, message: ok ? 'SSI connection verified. Credentials are ready to save.' : data?.error?.message ?? 'SSI connection failed' });
       onMessage?.(ok ? 'SSI connection verified' : `SSI connection failed: ${data?.error?.message ?? 'unknown error'}`);
     } catch (error) { const message = messageFrom(error); setResult({ ok: false, message }); onMessage?.(`SSI connection failed: ${message}`); }
@@ -52,8 +82,7 @@ export default function SSIPlatform({ onMessage }: Props) {
     try {
       const response = await platformApi.ssiOtp({ environment, credentials });
       setTransactionId(response.data?.data?.transactionId ?? response.data?.transactionId ?? '');
-      setResult({ ok: true, message: 'OTP request sent. Enter the OTP and run Test Connection again.' });
-      onMessage?.('SSI OTP request sent');
+      setResult({ ok: true, message: 'OTP request sent. Enter the OTP and run Test Connection again.' }); onMessage?.('SSI OTP request sent');
     } catch (error) { const message = messageFrom(error); setResult({ ok: false, message }); onMessage?.(`SSI OTP request failed: ${message}`); }
     finally { setBusy(false); }
   };
@@ -72,8 +101,7 @@ export default function SSIPlatform({ onMessage }: Props) {
     setBusy(true);
     try {
       const response = await action(); const data = response.data; const ok = data?.ok !== false;
-      const message = ok ? `${label}: OK` : `${label}: ${data?.error?.message ?? 'failed'}`;
-      setResult({ ok, message }); onMessage?.(message);
+      const message = ok ? `${label}: OK` : `${label}: ${data?.error?.message ?? 'failed'}`; setResult({ ok, message }); onMessage?.(message);
     } catch (error) { const message = messageFrom(error); setResult({ ok: false, message: `${label}: ${message}` }); onMessage?.(`${label}: ${message}`); }
     finally { setBusy(false); }
   };
@@ -84,9 +112,13 @@ export default function SSIPlatform({ onMessage }: Props) {
       <ChevronDown className={`size-4 shrink-0 text-[#81748a] transition-transform ${open ? 'rotate-180' : ''}`} />
     </button>
     {open && <div className="border-t border-violet-200/[0.07] px-5 pb-5 pt-4">
+      <div className="mb-4 flex flex-wrap items-center gap-2">
+        <input ref={fileInputRef} type="file" accept=".json,application/json" className="hidden" onChange={(event) => void uploadJson(event.target.files?.[0])} />
+        <ActionButton disabled={busy} onClick={() => fileInputRef.current?.click()}><Upload className="size-4" /> Upload JSON</ActionButton>
+        {fileName && <span className="inline-flex min-h-10 items-center gap-2 rounded-xl border border-emerald-300/10 bg-emerald-300/[0.04] px-3 text-xs text-emerald-200"><FileJson className="size-4" />{fileName}</span>}
+      </div>
       <div className="grid gap-3 sm:grid-cols-2">
         <Field label="Environment"><select value={environment} onChange={(event) => { setEnvironment(event.target.value); setTested(false); setResult(null); }} className="input"><option value="production">Production</option><option value="staging">Staging</option></select></Field>
-        <Field label="Account No."><input className="input" value={credentials.accountNo} onChange={(event) => updateCredential('accountNo', event.target.value)} placeholder="SSI account number" autoComplete="off" /></Field>
         <Field label="Client ID"><input className="input" value={credentials.clientId} onChange={(event) => updateCredential('clientId', event.target.value)} placeholder="Client ID" autoComplete="off" /></Field>
         <Field label="API Key"><input className="input" value={credentials.apiKey} onChange={(event) => updateCredential('apiKey', event.target.value)} placeholder="API Key" autoComplete="off" /></Field>
         <Field label="API Secret"><input className="input" type="password" value={credentials.apiSecret} onChange={(event) => updateCredential('apiSecret', event.target.value)} placeholder="API Secret" autoComplete="new-password" /></Field>
@@ -102,7 +134,7 @@ export default function SSIPlatform({ onMessage }: Props) {
         <ActionButton disabled={busy} onClick={() => void runAccountAction(() => platformApi.ssiSync({ environment, otp: otp || undefined, transactionId: transactionId || undefined }), 'Sync')}>Sync</ActionButton>
       </div>
       {result && <div className={`mt-4 flex items-start gap-2 rounded-xl border px-3 py-2.5 text-sm ${result.ok ? 'border-emerald-300/15 bg-emerald-300/[0.05] text-emerald-200' : 'border-red-300/15 bg-red-300/[0.05] text-red-200'}`}>{result.ok ? <CheckCircle2 className="mt-0.5 size-4 shrink-0" /> : <XCircle className="mt-0.5 size-4 shrink-0" />}<span>{result.message}</span></div>}
-      <p className="mt-3 text-[11px] leading-5 text-[#75697d]">Credentials stay in component state only. The backend re-tests the supplied credentials before persisting them encrypted.</p>
+      <p className="mt-3 text-[11px] leading-5 text-[#75697d]">JSON is parsed locally in the browser. It is not uploaded anywhere until you explicitly Test Connection or Save.</p>
     </div>}
   </section>;
 }
