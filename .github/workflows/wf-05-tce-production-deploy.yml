@@ -54,7 +54,8 @@ jobs:
         run: |
           set -euo pipefail
           docker build --pull -t tce-frontend:prod -f Dockerfile .
-          docker build --pull -t tce-service:prod -f apps/service/Dockerfile apps/service
+          # Service Dockerfile expects the monorepo root as build context.
+          docker build --pull -t tce-service:prod -f apps/service/Dockerfile .
           docker image inspect tce-frontend:prod >/dev/null
           docker image inspect tce-service:prod >/dev/null
           docker save tce-frontend:prod tce-service:prod | gzip > /tmp/tce-prod-images.tar.gz

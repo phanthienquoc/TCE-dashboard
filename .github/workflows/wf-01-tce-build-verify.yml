@@ -53,7 +53,8 @@ jobs:
       - name: Build backend image
         run: |
           set -euo pipefail
-          docker build --pull -t tce-service:verify -f apps/service/Dockerfile apps/service
+          # apps/service/Dockerfile is a monorepo build and requires the repository root as context.
+          docker build --pull -t tce-service:verify -f apps/service/Dockerfile .
           docker image inspect tce-service:verify >/dev/null
 
       - name: Verify image metadata
