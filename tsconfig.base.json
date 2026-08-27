@@ -9,10 +9,11 @@
     "moduleResolution": "node",
     "baseUrl": ".",
     "paths": {
-      "@tce/contracts": ["packages/contracts/src/index.ts"],
-      "@tce/contracts/*": ["packages/contracts/src/*"],
+      "@tce/contracts": ["libs/contracts/src/index.ts"],
+      "@tce/contracts/*": ["libs/contracts/src/*"],
       "@tce/shared": ["libs/shared/src/index.ts"],
       "@tce/tce": ["libs/tce/src/index.ts"],
+      "@tce/tce-engine": ["libs/tce-engine/src/index.ts"],
       "@tce/ssi": ["libs/ssi/src/index.ts"],
       "@tce/binance": ["libs/binance/src/index.ts"],
       "@tce/binance/constants": ["libs/binance/src/binance.constants.ts"],
