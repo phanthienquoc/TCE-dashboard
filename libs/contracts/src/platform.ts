@@ -1,4 +1,4 @@
-export type PlatformKind = 'ssi' | 'binance' | 'fastapi' | 'supabase';
+export type PlatformKind = 'ssi' | 'binance' | 'fastapi' | 'supabase' | 'telegram';
 export type PlatformHealth = { provider: PlatformKind; available: boolean; latencyMs?: number; error?: string; fetchedAt: string };
 export type ConnectInput = { userId: string; environment: string };
 export type MarketQuote = { symbol: string; price: number; timestamp: string; source: PlatformKind };
