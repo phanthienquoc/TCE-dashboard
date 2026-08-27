@@ -46,7 +46,7 @@ export class BinanceFuturesStateAdapter {
       positionAmt: Number(row.positionAmt ?? 0),
       entryPrice: Number(row.entryPrice ?? 0),
       markPrice: Number(row.markPrice ?? 0),
-      unrealizedProfit: Number(row.unRealizedProfit ?? row.unrealizedProfit ?? 0),
+      unrealizedProfit: Number(row.unRealizedProfit ?? 0),
       positionSide: row.positionSide as BinancePosition['positionSide'],
     }));
   }
