@@ -36,29 +36,36 @@ export class SsiApplicationService {
   private storeSession(userId: string, environment: string, session: { adapter: SsiBrokerAdapter; accountNo: string }) { this.sessions.set(`${userId}:ssi:${environment}`, session); }
 
   async requestOtp(userId: string, environment: string, credentials: Record<string, unknown>) { const { adapter } = this.fromRaw(credentials, userId, environment); return adapter.requestOtp(); }
-  async test(userId: string, environment: string, input: SsiAuthInput, credentials?: Record<string, unknown>) {
-    const session = credentials ? this.fromRaw(credentials, userId, environment) : await this.adapter(userId, environment);
 
-    // Test Connection is the entry point used by the FE. If the caller has no
-    // active SSI challenge yet, start one here as a safe backend fallback.
-    // This keeps older/stale FE bundles from immediately surfacing the raw
-    // SSI_REAUTH_REQUIRED provider error and gives the client the transactionId
-    // it needs for the next verification attempt.
-    if (!input.otp?.trim() && !input.transactionId?.trim()) {
+  async approve(userId: string, environment: string, input: SsiAuthInput, credentials: Record<string, unknown>) {
+    const session = this.fromRaw(credentials, userId, environment, undefined, true);
+    const result = await session.adapter.connect(input);
+    if (!result.ok) return result;
+    const token = session.adapter.getTokenSnapshot();
+    const finalSession = token ? this.fromRaw({ ...credentials, ...token }, userId, environment, undefined, true) : session;
+    this.storeSession(userId, environment, finalSession);
+    if (finalSession.accountNo) void this.startOrderStream(userId, finalSession);
+    return { ok: true as const, data: { authentication: 'ok' as const, provider: 'ssi' as const } };
+  }
+
+  async test(userId: string, environment: string, input: SsiAuthInput, credentials?: Record<string, unknown>) {
+    const key = `${userId}:ssi:${environment}`;
+    const existing = this.sessions.get(key);
+    const session = credentials && !input.otp?.trim() && !input.transactionId?.trim() && existing
+      ? existing
+      : credentials ? this.fromRaw(credentials, userId, environment) : await this.adapter(userId, environment);
+
+    if (!input.otp?.trim() && !input.transactionId?.trim() && !existing) {
       const challenge = await session.adapter.requestOtp();
       if (!challenge.ok) return challenge;
       return {
         ok: false as const,
         error: {
           code: 'PROVIDER_ERROR' as const,
-          message: 'SSI_AUTH_REQUIRED',
+          message: 'SSI_AUTH_REQUIRED' as const,
           retryable: false,
           provider: 'ssi',
-          details: {
-            transactionId: challenge.data.transactionId,
-            message: challenge.data.message,
-            action: 'APPROVE_OR_ENTER_OTP',
-          },
+          details: { transactionId: challenge.data.transactionId, message: challenge.data.message, action: 'APPROVE_OR_ENTER_OTP' },
         },
       };
     }
@@ -67,11 +74,12 @@ export class SsiApplicationService {
     if (!result.ok) return result;
     const token = session.adapter.getTokenSnapshot();
     const testedCredentials = token ? { ...credentials, ...token } : credentials;
-    const finalSession = credentials ? this.fromRaw(testedCredentials!, userId, environment, undefined, true) : session;
+    const finalSession = credentials && !existing ? this.fromRaw(testedCredentials!, userId, environment, undefined, true) : session;
     this.storeSession(userId, environment, finalSession);
     if (finalSession.accountNo) void this.startOrderStream(userId, finalSession);
     return result;
   }
+
   async saveTested(userId: string, environment: string, credentials: Record<string, unknown>, input: SsiAuthInput, accountNo: string) {
     if (!accountNo) throw new NotFoundException('SSI account number is required');
     const session = this.fromRaw(credentials, userId, environment, accountNo);
