@@ -1,10 +1,11 @@
 import { Controller, Post, Req } from '@nestjs/common';
 import { TceEngineService } from './tce-engine.service';
+import { BinanceEngineService } from './binance-engine.service';
 import { parseTradingSignal } from './trading-signal.parser';
 
 @Controller('tce/engine')
 export class TceEngineController {
-  constructor(private readonly engine: TceEngineService) {}
+  constructor(private readonly engine: TceEngineService, private readonly binance: BinanceEngineService) {}
 
   @Post('run')
   async run(@Req() req: any) {
@@ -26,5 +27,11 @@ export class TceEngineController {
   parseSignal(@Req() req: any) {
     const text = typeof req.body?.text === 'string' ? req.body.text : String(req.body?.signal ?? '');
     return { ok: true, data: parseTradingSignal(text) };
+  }
+
+  @Post('binance/scan')
+  async scanBinance() {
+    await this.binance.scan();
+    return { ok: true };
   }
 }
