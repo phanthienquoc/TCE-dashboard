@@ -16,4 +16,13 @@ create table if not exists public.tce_telegram_signals (
   updated_at timestamptz not null default now(),
   unique(user_id, environment, telegram_update_id)
 );
-create index if not exists idx_tce_telegram_signals_queue on public.tce_telegram_signals(user_id, environment, status, created_at);
+
+create index if not exists idx_tce_telegram_signals_queue
+  on public.tce_telegram_signals(user_id, environment, status, created_at);
+
+-- Final database-level race-condition guard: a user/environment may have only
+-- one queued or accepted signal for a symbol at a time. Once execution finishes
+-- (or the signal is rejected/failed), the symbol becomes available again.
+create unique index if not exists uq_tce_telegram_active_symbol
+  on public.tce_telegram_signals(user_id, environment, symbol)
+  where status in ('QUEUED', 'ACCEPTED');
