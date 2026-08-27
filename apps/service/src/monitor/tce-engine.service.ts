@@ -14,12 +14,12 @@ const DEFAULT_CONFIG: TceEngineConfig = {
 };
 
 /** Vietnam equities continuous trading sessions, Asia/Ho_Chi_Minh. */
-const VN_TRADING_SESSIONS = [
+export const VN_TRADING_SESSIONS = [
   { start: 9 * 60, end: 11 * 60 + 30 },
   { start: 13 * 60, end: 15 * 60 },
 ] as const;
 
-const isVietnamWeekdayTradingTime = (date = new Date()) => {
+export const isVietnamWeekdayTradingTime = (date = new Date()) => {
   const parts = new Intl.DateTimeFormat('en-US', {
     timeZone: 'Asia/Ho_Chi_Minh',
     weekday: 'short',
