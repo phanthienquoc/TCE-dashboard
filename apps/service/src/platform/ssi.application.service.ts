@@ -1,5 +1,5 @@
 import { Injectable, NotFoundException, ServiceUnavailableException } from '@nestjs/common';
-import { CONTRACT_TOKENS, OrderRepository, PlatformCredentialPort, PositionRepository, SsiAuthInput } from '@tce/contracts';
+import { CONTRACT_TOKENS, BrokerOrderRequest, BrokerOrderResult, OrderRepository, PlatformCredentialPort, PositionRepository, SsiAuthInput } from '@tce/contracts';
 import { Inject } from '@nestjs/common';
 import { SsiBrokerAdapter, SsiOrderStatusEvent, SsiTokenSnapshot } from '@tce/ssi';
 import { SupabaseClientService } from '../db/supabase.client';
@@ -51,25 +51,12 @@ export class SsiApplicationService {
   async test(userId: string, environment: string, input: SsiAuthInput, credentials?: Record<string, unknown>) {
     const key = `${userId}:ssi:${environment}`;
     const existing = this.sessions.get(key);
-    const session = credentials && !input.otp?.trim() && !input.transactionId?.trim() && existing
-      ? existing
-      : credentials ? this.fromRaw(credentials, userId, environment) : await this.adapter(userId, environment);
-
+    const session = credentials && !input.otp?.trim() && !input.transactionId?.trim() && existing ? existing : credentials ? this.fromRaw(credentials, userId, environment) : await this.adapter(userId, environment);
     if (!input.otp?.trim() && !input.transactionId?.trim() && !existing) {
       const challenge = await session.adapter.requestOtp();
       if (!challenge.ok) return challenge;
-      return {
-        ok: false as const,
-        error: {
-          code: 'PROVIDER_ERROR' as const,
-          message: 'SSI_AUTH_REQUIRED' as const,
-          retryable: false,
-          provider: 'ssi',
-          details: { transactionId: challenge.data.transactionId, message: challenge.data.message, action: 'APPROVE_OR_ENTER_OTP' },
-        },
-      };
+      return { ok: false as const, error: { code: 'PROVIDER_ERROR' as const, message: 'SSI_AUTH_REQUIRED' as const, retryable: false, provider: 'ssi', details: { transactionId: challenge.data.transactionId, message: challenge.data.message, action: 'APPROVE_OR_ENTER_OTP' } } };
     }
-
     const result = await session.adapter.test(input);
     if (!result.ok) return result;
     const token = session.adapter.getTokenSnapshot();
@@ -82,10 +69,6 @@ export class SsiApplicationService {
 
   async saveTested(userId: string, environment: string, credentials: Record<string, unknown>, input: SsiAuthInput, accountNo: string) {
     if (!accountNo) throw new NotFoundException('SSI account number is required');
-
-    // Test Connection has already authenticated and stored the live adapter session.
-    // Do not call SSI test/authentication again here: the transaction/OTP may already
-    // be consumed, which caused Save to return provider 401 after a successful test.
     const key = `${userId}:ssi:${environment}`;
     const existing = this.sessions.get(key);
     if (existing) {
@@ -97,9 +80,6 @@ export class SsiApplicationService {
       void this.startOrderStream(userId, persisted);
       return { ok: true as const, data: { saved: true as const, provider: 'ssi' as const } };
     }
-
-    // Defensive fallback for a process/session restart: authenticate only when no
-    // verified in-memory session is available.
     const session = this.fromRaw(credentials, userId, environment, accountNo);
     const result = await session.adapter.test(input);
     if (!result.ok) return result;
@@ -111,10 +91,23 @@ export class SsiApplicationService {
     void this.startOrderStream(userId, persisted);
     return result;
   }
+
   async current(userId: string, environment: string, input: SsiAuthInput) { const { adapter, accountNo } = await this.adapter(userId, environment); return adapter.current(accountNo, input); }
   async accountSnapshots(userId: string, environment: string, input: SsiAuthInput) { const { adapter } = await this.adapter(userId, environment); return adapter.accountSnapshots(input); }
   async marketPrices(userId: string, environment: string, symbols: string[]) { const { adapter } = await this.adapter(userId, environment, false); return adapter.marketPrices(symbols); }
   async dailyCloses(userId: string, environment: string, symbols: string[], tradingDate: string) { const { adapter } = await this.adapter(userId, environment, false); return adapter.dailyCloses(symbols, tradingDate); }
+
+  async placeOrder(userId: string, environment: string, request: Omit<BrokerOrderRequest, 'accountNo'> & { accountNo?: string }) {
+    const key = `${userId}:ssi:${environment}`;
+    const existing = this.sessions.get(key);
+    const session = existing ?? await this.adapter(userId, environment);
+    const accountNo = request.accountNo ?? session.accountNo;
+    if (!accountNo) throw new NotFoundException(`SSI account is not selected for environment: ${environment}`);
+    const result = await session.adapter.placeOrder({ ...request, accountNo });
+    if (result.ok) void this.startOrderStream(userId, { ...session, accountNo });
+    return result as ContractResult<BrokerOrderResult>;
+  }
+
   async sync(userId: string, environment: string, input: SsiAuthInput) {
     const session = await this.adapter(userId, environment);
     const snapshot = await session.adapter.syncPortfolio(session.accountNo, input);
