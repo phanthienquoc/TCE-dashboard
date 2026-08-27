@@ -1,6 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { CONTRACT_TOKENS, FuturesCancelOrderInput, FuturesEntryOrderInput, FuturesTpSlInput, PlatformCredentialPort } from '@tce/contracts';
-import { BinanceFuturesExecutionAdapter } from '@tce/binance';
+import { BinanceFuturesExecutionAdapter, BinanceFuturesStateAdapter } from '@tce/binance';
 
 type BinanceEnvironment = 'production' | 'testnet';
 
@@ -13,10 +13,20 @@ export class BinanceFuturesService {
     return value;
   }
 
-  private async adapter(userId: string, environment = 'production') {
+  private async credentialValues(userId: string, environment = 'production') {
     const selected = this.environment(environment);
     const credentials = await this.credentials.get(userId, 'binance', selected);
-    return new BinanceFuturesExecutionAdapter({ apiKey: typeof credentials.apiKey === 'string' ? credentials.apiKey : undefined, apiSecret: typeof credentials.apiSecret === 'string' ? credentials.apiSecret : undefined }, selected);
+    return { selected, apiKey: typeof credentials.apiKey === 'string' ? credentials.apiKey : undefined, apiSecret: typeof credentials.apiSecret === 'string' ? credentials.apiSecret : undefined };
+  }
+
+  private async adapter(userId: string, environment = 'production') {
+    const { selected, apiKey, apiSecret } = await this.credentialValues(userId, environment);
+    return new BinanceFuturesExecutionAdapter({ apiKey, apiSecret }, selected);
+  }
+
+  private async state(userId: string, environment = 'production') {
+    const { selected, apiKey, apiSecret } = await this.credentialValues(userId, environment);
+    return new BinanceFuturesStateAdapter({ apiKey, apiSecret }, selected);
   }
 
   async testConnection(userId: string, environment = 'production') { return (await this.adapter(userId, environment)).testConnection(); }
@@ -24,4 +34,7 @@ export class BinanceFuturesService {
   async takeProfit(userId: string, input: FuturesTpSlInput, environment = 'production') { return (await this.adapter(userId, environment)).placeTakeProfit(input); }
   async stopLoss(userId: string, input: FuturesTpSlInput, environment = 'production') { return (await this.adapter(userId, environment)).placeStopLoss(input); }
   async cancel(userId: string, input: FuturesCancelOrderInput, environment = 'production') { return (await this.adapter(userId, environment)).cancelOrder(input); }
+  async positions(userId: string, environment = 'production', symbol?: string) { return (await this.state(userId, environment)).positions(symbol); }
+  async openOrders(userId: string, environment = 'production', symbol?: string) { return (await this.state(userId, environment)).openOrders(symbol); }
+  async order(userId: string, environment = 'production', symbol: string, orderId: string) { return (await this.state(userId, environment)).order(symbol, orderId); }
 }
