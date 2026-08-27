@@ -26,7 +26,7 @@ RUN node apps/service/scripts/fix-esm-extensions.mjs /app/dist
 
 RUN test -f /app/dist/apps/service/src/main.js
 RUN test -f /app/dist/apps/service/src/app.module.js
-RUN test -f /app/dist/packages/contracts/src/index.js
+RUN test -f /app/dist/libs/contracts/src/index.js
 RUN test -f /app/dist/libs/db/src/index.js
 RUN node --check /app/dist/apps/service/src/main.js
 RUN npm prune --omit=dev
