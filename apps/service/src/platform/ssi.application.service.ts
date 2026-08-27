@@ -39,7 +39,7 @@ export class SsiApplicationService {
 
   async approve(userId: string, environment: string, input: SsiAuthInput, credentials: Record<string, unknown>) {
     const session = this.fromRaw(credentials, userId, environment, undefined, true);
-    const result = await session.adapter.connect(input);
+    const result = await session.adapter.connect({ userId, environment, ...input });
     if (!result.ok) return result;
     const token = session.adapter.getTokenSnapshot();
     const finalSession = token ? this.fromRaw({ ...credentials, ...token }, userId, environment, undefined, true) : session;
