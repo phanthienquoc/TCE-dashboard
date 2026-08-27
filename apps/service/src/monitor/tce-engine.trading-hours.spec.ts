@@ -1,4 +1,4 @@
-const { isVietnamWeekdayTradingTime } = require('./tce-engine.trading-hours');
+import { isVietnamWeekdayTradingTime } from './tce-engine.service';
 
 describe('isVietnamWeekdayTradingTime', () => {
   const at = (iso: string) => new Date(iso);
