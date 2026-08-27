@@ -5,6 +5,7 @@ import { DashboardModule } from './dashboard/dashboard.module';
 import { PlatformCredentialsModule } from './platform/platform-credentials.module';
 import { PlatformConfigModule } from './platform/platform-config.module';
 import { TceEngineModule } from './monitor/tce-engine.module';
+import { TelegramBotModule } from './telegram/telegram-bot.module';
 
 @Controller()
 class HealthController {
@@ -15,7 +16,7 @@ class HealthController {
 }
 
 @Module({
-  imports: [DbModule, AuthModule, DashboardModule, PlatformCredentialsModule, PlatformConfigModule, TceEngineModule],
+  imports: [DbModule, AuthModule, DashboardModule, PlatformCredentialsModule, PlatformConfigModule, TceEngineModule, TelegramBotModule],
   controllers: [HealthController],
 })
 export class AppModule {}
