@@ -44,9 +44,9 @@ export class BinanceEngineService implements OnModuleInit, OnModuleDestroy {
   }
 
   private async config(userId: string): Promise<BinanceEngineConfig> {
-    const { data, error } = await this.supabase.db.from('tce_strategy_config').select('binance_engine_enabled,binance_order_quantity,binance_quantity,binance_position_side').eq('account_id', userId).maybeSingle();
+    const { data, error } = await this.supabase.db.from('tce_strategy_config').select('binance_engine_enabled,binance_order_quantity,binance_position_side').eq('account_id', userId).maybeSingle();
     if (error) throw error;
-    return { enabled: Boolean(data?.binance_engine_enabled ?? false), quantity: Number(data?.binance_order_quantity ?? data?.binance_quantity ?? 0), positionSide: data?.binance_position_side === 'LONG' || data?.binance_position_side === 'SHORT' ? data.binance_position_side : 'BOTH', scanIntervalMs: 5000 };
+    return { enabled: Boolean(data?.binance_engine_enabled ?? false), quantity: Number(data?.binance_order_quantity ?? 0), positionSide: data?.binance_position_side === 'LONG' || data?.binance_position_side === 'SHORT' ? data.binance_position_side : 'BOTH', scanIntervalMs: 5000 };
   }
 
   private async process(signal: SignalRow) {
