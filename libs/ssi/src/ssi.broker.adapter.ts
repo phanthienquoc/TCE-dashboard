@@ -118,8 +118,6 @@ export class SsiBrokerAdapter implements BrokerPort, SsiConnectionPort {
         ? await this.auth.authenticate(undefined, input.transactionId)
         : await this.auth.authenticate(input.otp);
       this.tradingClient = new Trading(this.auth);
-      // Capture the SDK authentication result immediately. SSI returns the
-      // refresh token together with the access token after OTP/approval.
       await this.persistToken(this.auth, token);
       return token;
     })();
@@ -135,11 +133,6 @@ export class SsiBrokerAdapter implements BrokerPort, SsiConnectionPort {
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       if (!message.startsWith('SSI_REAUTH_REQUIRED')) throw error;
-
-      // Market-data authentication is supported with apiKey/apiSecret only.
-      // If the persisted refresh token is expired/revoked, obtain a fresh
-      // market-data token before any market API request, so no stale bearer
-      // token reaches the SSI data endpoint and causes a 401.
       const marketAuth = this.createAuth(false);
       const marketToken = await marketAuth.authenticate();
       await this.persistToken(marketAuth, marketToken);
@@ -218,13 +211,13 @@ export class SsiBrokerAdapter implements BrokerPort, SsiConnectionPort {
 
   private latestDate() { return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Ho_Chi_Minh', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date()); }
 
-  private async latestDailyClose(data: Data, symbol: string) {
-    const end = this.latestDate();
-    const fromDate = new Date(Date.now() - 7 * 86400000);
-    const from = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Ho_Chi_Minh', year: 'numeric', month: '2-digit', day: '2-digit' }).format(fromDate).replaceAll('-', '/');
-    const to = end.replaceAll('-', '/');
-    const candles = await data.marketData.getOhlc1DayHistorical(symbol, `${from} 00:00:00`, `${to} 23:59:59`, 1, 20);
-    return candles?.filter((candle) => Number(candle.closePrice ?? 0) > 0).at(-1);
+  private normalizeTradingDate(value: unknown) {
+    const normalized = String(value ?? '').slice(0, 10).replaceAll('/', '-');
+    return /^\d{4}-\d{2}-\d{2}$/.test(normalized) ? normalized : '';
+  }
+
+  private isCurrentTradingDate(value: unknown) {
+    return this.normalizeTradingDate(value) === this.latestDate();
   }
 
   async marketPrices(symbols: string[]): Promise<ContractResult<Array<{ symbol: string; price: number; tradingDate: string }>>> {
@@ -232,14 +225,23 @@ export class SsiBrokerAdapter implements BrokerPort, SsiConnectionPort {
       const auth = await this.authenticateMarketData();
       const data = this.marketData(auth);
       const results: Array<{ symbol: string; price: number; tradingDate: string }> = [];
+      const expectedTradingDate = this.latestDate();
       for (const rawSymbol of symbols) {
         const symbol = String(rawSymbol).trim().toUpperCase();
         if (!symbol) continue;
-        let candle = (await data.marketData.getOhlc1Minute(symbol))?.at(-1);
-        if (!candle || Number(candle.closePrice ?? 0) <= 0) candle = await this.latestDailyClose(data, symbol);
-        if (!candle || Number(candle.closePrice ?? 0) <= 0) continue;
-        const tradingDate = String(candle.tradingDate ?? '').slice(0, 10).replaceAll('/', '-');
-        results.push({ symbol, price: Number(candle.closePrice), tradingDate });
+        const candles = await data.marketData.getOhlc1Minute(symbol);
+        const candle = candles?.at(-1);
+        const tradingDate = this.normalizeTradingDate(candle?.tradingDate);
+        const price = Number(candle?.closePrice ?? 0);
+        if (!candle || price <= 0) {
+          console.warn('[SSI_MARKET_PRICE_EMPTY]', { symbol, expectedTradingDate });
+          continue;
+        }
+        if (tradingDate !== expectedTradingDate) {
+          console.warn('[SSI_MARKET_PRICE_STALE]', { symbol, price, tradingDate, expectedTradingDate });
+          continue;
+        }
+        results.push({ symbol, price, tradingDate });
       }
       return results;
     });
