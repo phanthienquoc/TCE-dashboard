@@ -21,10 +21,7 @@ export default function DashboardPage() {
   const [tab, setTab] = useState<Tab>('overview');
   useEffect(() => { void init(); }, [init]);
   useEffect(() => { if (initialized && !user) router.replace('/login'); }, [initialized, user, router]);
-  useEffect(() => {
-    const requested = new URLSearchParams(window.location.search).get('tab');
-    if (requested === 'overview' || requested === 'positions' || requested === 'orders' || requested === 'settings') setTab(requested);
-  }, []);
+  useEffect(() => { const requested = new URLSearchParams(window.location.search).get('tab'); if (requested === 'overview' || requested === 'positions' || requested === 'orders' || requested === 'settings') setTab(requested); }, []);
   useEffect(() => { if (user) void load(); }, [user, load]);
   if (authLoading || !initialized || !user) return <main className="app-shell"><Loading /></main>;
 
@@ -37,7 +34,6 @@ export default function DashboardPage() {
   const invested = account.capital_deployed ?? account.capitalDeployed ?? account.investedValue;
   const portfolioValue = account.totalValue ?? account.portfolioValue ?? account.equity;
   const visibleAccounts = Array.isArray(accounts) && accounts.length ? accounts : inferAccounts(positions);
-
   const selectNavigation = (id: NavItem['id']) => { if (id === 'engine') { router.push('/engines'); return; } setTab(id); router.replace(`/dashboard?tab=${id}`, { scroll: false }); };
 
   return (
@@ -69,26 +65,31 @@ function AssetList({ rows, kind = 'default' }: { rows: any[]; kind?: 'default' |
     const isCandidate = kind === 'candidate';
     const rank = row.rank == null ? null : Number(row.rank);
     const score = row.score == null ? null : Number(row.score);
+    const currentPrice = row.currentPrice ?? row.current_price;
     const targetPrice = row.targetPrice ?? row.target_price;
     const entryLow = row.entryLow ?? row.entry_low;
     const entryHigh = row.entryHigh ?? row.entry_high;
     const quantity = row.quantity ?? row.targetQuantity ?? row.target_quantity ?? row.total;
-    const primaryValue = isPool && entryLow != null && entryHigh != null
-      ? `${formatNumber(entryLow)}–${formatNumber(entryHigh)}`
+    const primaryValue = isPool && currentPrice != null
+      ? formatNumber(currentPrice)
       : isCandidate && targetPrice != null
         ? `TP ${formatNumber(targetPrice)}`
-        : money(row.marketValue ?? row.market_value ?? row.price);
+        : isPool && entryLow != null && entryHigh != null
+          ? `${formatNumber(entryLow)}–${formatNumber(entryHigh)}`
+          : money(row.marketValue ?? row.market_value ?? row.price);
     const secondary = isPool
       ? `#${rank ?? '—'} · ${score == null ? '—' : formatNumber(score)} · ${String(row.status ?? 'WATCHING')}`
       : isCandidate
         ? `#${rank ?? '—'} · ${String(row.status ?? 'queued').toUpperCase()}`
         : String(row.accountNo ?? row.status ?? row.type ?? 'OPEN');
-    const tertiary = isPool && targetPrice != null
-      ? `Target ${formatNumber(targetPrice)}`
+    const tertiary = isPool
+      ? entryLow != null && entryHigh != null
+        ? `Entry ${formatNumber(entryLow)}–${formatNumber(entryHigh)}${targetPrice != null ? ` · Target ${formatNumber(targetPrice)}` : ''}`
+        : targetPrice != null ? `Target ${formatNumber(targetPrice)}` : null
       : isCandidate && quantity != null
         ? `Qty ${formatNumber(quantity)}`
         : null;
-    return <div key={row.id ?? `${symbol}-${i}`} className="asset-row"><div className="asset-mark">{symbol.slice(0, 2).toUpperCase()}</div><div className="asset-main"><p>{symbol}</p><small>{secondary}</small>{tertiary && <small>{tertiary}</small>}</div><div className="asset-value"><strong>{isPool || isCandidate ? primaryValue : formatQuantity(quantity)}</strong><small>{isPool ? '' : money(row.marketValue ?? row.market_value ?? row.price)}</small></div><ChevronRight className="size-4 shrink-0 text-[#675a70]" /></div>;
+    return <div key={row.id ?? `${symbol}-${i}`} className="asset-row"><div className="asset-mark">{symbol.slice(0, 2).toUpperCase()}</div><div className="asset-main"><p>{symbol}</p><small>{secondary}</small>{tertiary && <small>{tertiary}</small>}</div><div className="asset-value"><strong>{isPool ? `Price ${primaryValue}` : isCandidate ? primaryValue : formatQuantity(quantity)}</strong><small>{isPool || isCandidate ? '' : money(row.marketValue ?? row.market_value ?? row.price)}</small></div><ChevronRight className="size-4 shrink-0 text-[#675a70]" /></div>;
   })}</div>;
 }
 function MobileDataView({ title, caption, rows, columns }: { title: string; caption: string; rows: any[]; columns: string[] }) { return <section><SectionHeader title={title} caption={caption} /><Card className="data-card"><div className="mobile-records">{rows.map((row, i) => <div className="mobile-record" key={row.id ?? i}>{columns.map((column, index) => <div key={column} className={index === 0 ? 'record-primary' : 'record-field'}><span>{column.replace(/[A-Z]/g, m => ` ${m}`).toUpperCase()}</span><strong>{String(row?.[column] ?? '—')}</strong></div>)}</div>)}</div>{!rows.length && <Empty />}</Card></section>; }
