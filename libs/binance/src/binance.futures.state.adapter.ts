@@ -40,7 +40,7 @@ export class BinanceFuturesStateAdapter {
 
   async positions(symbol?: string): Promise<BinancePosition[]> {
     this.assertCredentials();
-    const rows = await this.client.getPositionRisk({ symbol: symbol?.toUpperCase() }) as Array<Record<string, unknown>>;
+    const rows = await this.client.getPositions({ symbol: symbol?.toUpperCase() });
     return rows.map((row) => ({
       symbol: String(row.symbol),
       positionAmt: Number(row.positionAmt ?? 0),
@@ -53,7 +53,7 @@ export class BinanceFuturesStateAdapter {
 
   async openOrders(symbol?: string): Promise<BinanceOpenOrder[]> {
     this.assertCredentials();
-    const rows = await this.client.getAllOpenOrders({ symbol: symbol?.toUpperCase() }) as Array<Record<string, unknown>>;
+    const rows = await this.client.getAllOpenOrders({ symbol: symbol?.toUpperCase() });
     return rows.map((row) => ({
       orderId: String(row.orderId),
       clientOrderId: typeof row.clientOrderId === 'string' ? row.clientOrderId : undefined,
