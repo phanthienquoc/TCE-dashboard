@@ -82,6 +82,24 @@ export class SsiApplicationService {
 
   async saveTested(userId: string, environment: string, credentials: Record<string, unknown>, input: SsiAuthInput, accountNo: string) {
     if (!accountNo) throw new NotFoundException('SSI account number is required');
+
+    // Test Connection has already authenticated and stored the live adapter session.
+    // Do not call SSI test/authentication again here: the transaction/OTP may already
+    // be consumed, which caused Save to return provider 401 after a successful test.
+    const key = `${userId}:ssi:${environment}`;
+    const existing = this.sessions.get(key);
+    if (existing) {
+      const token = existing.adapter.getTokenSnapshot();
+      const persistedCredentials = { ...credentials, accountNo, ...(token ?? {}) };
+      await this.credentials.save(userId, 'ssi', environment, persistedCredentials);
+      const persisted = this.fromRaw(persistedCredentials, userId, environment, accountNo, true);
+      this.storeSession(userId, environment, persisted);
+      void this.startOrderStream(userId, persisted);
+      return { ok: true as const, data: { saved: true as const, provider: 'ssi' as const } };
+    }
+
+    // Defensive fallback for a process/session restart: authenticate only when no
+    // verified in-memory session is available.
     const session = this.fromRaw(credentials, userId, environment, accountNo);
     const result = await session.adapter.test(input);
     if (!result.ok) return result;
