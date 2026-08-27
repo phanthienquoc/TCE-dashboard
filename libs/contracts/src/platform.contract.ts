@@ -1,4 +1,4 @@
-export type PlatformKind = 'ssi' | 'binance' | 'fastapi' | 'supabase';
+export type PlatformKind = 'ssi' | 'binance' | 'fastapi' | 'supabase' | 'telegram';
 export type PlatformHealth = { provider: PlatformKind; available: boolean; latencyMs?: number; error?: string; fetchedAt: string };
 export type ConnectInput = { userId: string; environment: string };
 export interface PlatformPort { readonly provider: PlatformKind; connect(input: ConnectInput): Promise<void>; health(input: ConnectInput): Promise<PlatformHealth>; disconnect(input: ConnectInput): Promise<void>; }
