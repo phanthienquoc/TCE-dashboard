@@ -13,6 +13,29 @@ const DEFAULT_CONFIG: TceEngineConfig = {
   buyFromRemainingBudget: true,
 };
 
+/** Vietnam equities continuous trading sessions, Asia/Ho_Chi_Minh. */
+const VN_TRADING_SESSIONS = [
+  { start: 9 * 60, end: 11 * 60 + 30 },
+  { start: 13 * 60, end: 15 * 60 },
+] as const;
+
+const isVietnamWeekdayTradingTime = (date = new Date()) => {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'Asia/Ho_Chi_Minh',
+    weekday: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).formatToParts(date);
+  const values = Object.fromEntries(parts.map(({ type, value }) => [type, value]));
+  const weekday = values.weekday;
+  if (weekday === 'Sat' || weekday === 'Sun') return false;
+  const hour = Number(values.hour);
+  const minute = Number(values.minute);
+  const totalMinutes = hour * 60 + minute;
+  return VN_TRADING_SESSIONS.some(({ start, end }) => totalMinutes >= start && totalMinutes < end);
+};
+
 @Injectable()
 export class TceEngineService {
   private readonly logger = new Logger(TceEngineService.name);
@@ -21,6 +44,9 @@ export class TceEngineService {
   constructor(private readonly supabase: SupabaseClientService, private readonly ssi: SsiApplicationService) {}
 
   async run(accountId: string, environment = 'production', execute = false) {
+    if (!isVietnamWeekdayTradingTime()) {
+      return { skipped: true, reason: 'outside_vn_equity_trading_hours', decisions: [] as TceEngineDecision[] };
+    }
     if (this.running.has(accountId)) return { skipped: true, reason: 'already_running', decisions: [] as TceEngineDecision[] };
     this.running.add(accountId);
     try {
@@ -49,6 +75,9 @@ export class TceEngineService {
   }
 
   private async execute(accountId: string, environment: string, state: TceEngineAccountState, decisions: TceEngineDecision[]) {
+    if (!isVietnamWeekdayTradingTime()) {
+      return { skipped: true, reason: 'outside_vn_equity_trading_hours', decisions, executed: [] as Array<Record<string, unknown>> };
+    }
     const executed: Array<Record<string, unknown>> = [];
     const sells = decisions.filter((decision) => decision.action === 'SELL');
     const buys = decisions.filter((decision) => decision.action === 'BUY');
