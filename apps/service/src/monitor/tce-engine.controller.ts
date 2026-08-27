@@ -1,5 +1,6 @@
 import { Controller, Post, Req } from '@nestjs/common';
 import { TceEngineService } from './tce-engine.service';
+import { parseTradingSignal } from './trading-signal.parser';
 
 @Controller('tce/engine')
 export class TceEngineController {
@@ -19,5 +20,11 @@ export class TceEngineController {
     const environment = String(req.headers['x-environment'] ?? 'production');
     if (!accountId) throw new Error('Authenticated account is required');
     return this.engine.run(accountId, environment, true);
+  }
+
+  @Post('signal/parse')
+  parseSignal(@Req() req: any) {
+    const text = typeof req.body?.text === 'string' ? req.body.text : String(req.body?.signal ?? '');
+    return { ok: true, data: parseTradingSignal(text) };
   }
 }
