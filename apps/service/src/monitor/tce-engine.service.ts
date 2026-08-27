@@ -63,7 +63,18 @@ export class TceEngineService {
         const marketValue = marketPrice * quantity;
         const costBasis = Number(position.cost_basis ?? (Number(position.avg_cost ?? 0) * quantity));
         const unrealizedPnl = marketValue - costBasis;
-        return { symbol: position.symbol, quantity, averagePrice: Number(position.avg_cost ?? 0), marketPrice, marketValue, unrealizedPnl, costBasis, unrealizedPnlPct: costBasis > 0 ? (unrealizedPnl / costBasis) * 100 : undefined };
+        return {
+          accountId,
+          symbol: position.symbol,
+          quantity,
+          averagePrice: Number(position.avg_cost ?? 0),
+          marketPrice,
+          marketValue,
+          unrealizedPnl,
+          source: 'ssi' as const,
+          costBasis,
+          unrealizedPnlPct: costBasis > 0 ? (unrealizedPnl / costBasis) * 100 : undefined,
+        };
       });
       const totalAssetsValue = enrichedPositions.reduce((sum, p) => sum + Math.max(0, p.marketValue || 0), 0) + Number(account.capital_available ?? 0);
       const availableBudget = Math.max(0, Number(account.capital_available ?? 0));
