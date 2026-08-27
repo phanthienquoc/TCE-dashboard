@@ -38,6 +38,31 @@ export class SsiApplicationService {
   async requestOtp(userId: string, environment: string, credentials: Record<string, unknown>) { const { adapter } = this.fromRaw(credentials, userId, environment); return adapter.requestOtp(); }
   async test(userId: string, environment: string, input: SsiAuthInput, credentials?: Record<string, unknown>) {
     const session = credentials ? this.fromRaw(credentials, userId, environment) : await this.adapter(userId, environment);
+
+    // Test Connection is the entry point used by the FE. If the caller has no
+    // active SSI challenge yet, start one here as a safe backend fallback.
+    // This keeps older/stale FE bundles from immediately surfacing the raw
+    // SSI_REAUTH_REQUIRED provider error and gives the client the transactionId
+    // it needs for the next verification attempt.
+    if (!input.otp?.trim() && !input.transactionId?.trim()) {
+      const challenge = await session.adapter.requestOtp();
+      if (!challenge.ok) return challenge;
+      return {
+        ok: false as const,
+        error: {
+          code: 'PROVIDER_ERROR' as const,
+          message: 'SSI_AUTH_REQUIRED',
+          retryable: false,
+          provider: 'ssi',
+          details: {
+            transactionId: challenge.data.transactionId,
+            message: challenge.data.message,
+            action: 'APPROVE_OR_ENTER_OTP',
+          },
+        },
+      };
+    }
+
     const result = await session.adapter.test(input);
     if (!result.ok) return result;
     const token = session.adapter.getTokenSnapshot();
