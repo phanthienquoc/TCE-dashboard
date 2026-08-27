@@ -4,11 +4,12 @@ import { PlatformCredentialsModule } from '../platform/platform-credentials.modu
 import { TceEngineController } from './tce-engine.controller';
 import { TceEngineService } from './tce-engine.service';
 import { TceSignalService } from './tce-signal.service';
+import { BinanceEngineService } from './binance-engine.service';
 
 @Module({
   imports: [DbModule, PlatformCredentialsModule],
   controllers: [TceEngineController],
-  providers: [TceEngineService, TceSignalService],
-  exports: [TceEngineService, TceSignalService],
+  providers: [TceEngineService, TceSignalService, BinanceEngineService],
+  exports: [TceEngineService, TceSignalService, BinanceEngineService],
 })
 export class TceEngineModule {}
