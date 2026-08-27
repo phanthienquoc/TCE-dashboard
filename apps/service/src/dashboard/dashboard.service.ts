@@ -28,13 +28,7 @@ export class DashboardService {
     const account = await this.resolveAccount(userId);
     const { data, error } = await this.supabase.db.from('tce_buy_candidates').select('id,account_id,symbol,rank,target_position,target_quantity,target_price,status,reason,score,pool_entry_id,promoted_at,created_at,updated_at').eq('account_id', account.id).in('status', ['queued', 'ready']).order('rank', { ascending: true }).limit(20);
     if (error) throw this.dbError('getNextPositionsForUser', error);
-    return (data ?? []).map((candidate) => ({
-      ...candidate,
-      targetPosition: candidate.target_position == null ? null : Number(candidate.target_position),
-      targetQuantity: candidate.target_quantity == null ? null : Number(candidate.target_quantity),
-      targetPrice: candidate.target_price == null ? null : Number(candidate.target_price),
-      score: candidate.score == null ? null : Number(candidate.score),
-    }));
+    return (data ?? []).map((candidate) => ({ ...candidate, targetPosition: candidate.target_position == null ? null : Number(candidate.target_position), targetQuantity: candidate.target_quantity == null ? null : Number(candidate.target_quantity), targetPrice: candidate.target_price == null ? null : Number(candidate.target_price), score: candidate.score == null ? null : Number(candidate.score) }));
   }
 
   async getOrdersForUser(userId: string) {
@@ -126,7 +120,18 @@ export class DashboardService {
     const normalizedStatus = String(status ?? '').trim().toUpperCase();
     if (normalizedStatus) query = query.eq('status', normalizedStatus);
     const { data, error } = await query.order('rank', { ascending: true }).limit(50);
-    if (error) throw this.dbError('getPools', error); return data ?? [];
+    if (error) throw this.dbError('getPools', error);
+    const pools = data ?? [];
+    if (!pools.length) return pools;
+    const symbols = [...new Set(pools.map((pool) => String(pool.symbol ?? '').trim().toUpperCase()).filter(Boolean))];
+    const { data: prices, error: priceError } = await this.supabase.db.from('tce_market_prices').select('symbol,price,close_price,trading_date,observed_at').eq('account_id', accountId).in('symbol', symbols).order('trading_date', { ascending: false }).order('observed_at', { ascending: false });
+    if (priceError) throw this.dbError('getPools.marketPrices', priceError);
+    const latestBySymbol = new Map<string, any>();
+    for (const price of prices ?? []) { const symbol = String(price.symbol ?? '').trim().toUpperCase(); if (symbol && !latestBySymbol.has(symbol)) latestBySymbol.set(symbol, price); }
+    return pools.map((pool) => {
+      const latest = latestBySymbol.get(String(pool.symbol ?? '').trim().toUpperCase());
+      return { ...pool, currentPrice: latest?.price == null ? null : Number(latest.price), closePrice: latest?.close_price == null ? null : Number(latest.close_price), priceTradingDate: latest?.trading_date ?? null, priceObservedAt: latest?.observed_at ?? null };
+    });
   }
 
   private dbError(operation: string, error: any) { console.error(`[TCE_DASHBOARD_DB] ${operation}`, { code: error?.code, message: error?.message, details: error?.details, hint: error?.hint }); return new ServiceUnavailableException(`Dashboard database error (${operation})`); }
