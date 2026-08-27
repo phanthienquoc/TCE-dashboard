@@ -1,5 +1,5 @@
 import { Injectable, NotFoundException, ServiceUnavailableException } from '@nestjs/common';
-import { CONTRACT_TOKENS, BrokerOrderRequest, BrokerOrderResult, OrderRepository, PlatformCredentialPort, PositionRepository, SsiAuthInput } from '@tce/contracts';
+import { CONTRACT_TOKENS, BrokerOrderRequest, BrokerOrderResult, ContractResult, OrderRepository, PlatformCredentialPort, PositionRepository, SsiAuthInput } from '@tce/contracts';
 import { Inject } from '@nestjs/common';
 import { SsiBrokerAdapter, SsiOrderStatusEvent, SsiTokenSnapshot } from '@tce/ssi';
 import { SupabaseClientService } from '../db/supabase.client';
@@ -36,87 +36,15 @@ export class SsiApplicationService {
   private storeSession(userId: string, environment: string, session: { adapter: SsiBrokerAdapter; accountNo: string }) { this.sessions.set(`${userId}:ssi:${environment}`, session); }
 
   async requestOtp(userId: string, environment: string, credentials: Record<string, unknown>) { const { adapter } = this.fromRaw(credentials, userId, environment); return adapter.requestOtp(); }
-
-  async approve(userId: string, environment: string, input: SsiAuthInput, credentials: Record<string, unknown>) {
-    const session = this.fromRaw(credentials, userId, environment, undefined, true);
-    const result = await session.adapter.connect({ userId, environment, ...input });
-    if (!result.ok) return result;
-    const token = session.adapter.getTokenSnapshot();
-    const finalSession = token ? this.fromRaw({ ...credentials, ...token }, userId, environment, undefined, true) : session;
-    this.storeSession(userId, environment, finalSession);
-    if (finalSession.accountNo) void this.startOrderStream(userId, finalSession);
-    return { ok: true as const, data: { authentication: 'ok' as const, provider: 'ssi' as const } };
-  }
-
-  async test(userId: string, environment: string, input: SsiAuthInput, credentials?: Record<string, unknown>) {
-    const key = `${userId}:ssi:${environment}`;
-    const existing = this.sessions.get(key);
-    const session = credentials && !input.otp?.trim() && !input.transactionId?.trim() && existing ? existing : credentials ? this.fromRaw(credentials, userId, environment) : await this.adapter(userId, environment);
-    if (!input.otp?.trim() && !input.transactionId?.trim() && !existing) {
-      const challenge = await session.adapter.requestOtp();
-      if (!challenge.ok) return challenge;
-      return { ok: false as const, error: { code: 'PROVIDER_ERROR' as const, message: 'SSI_AUTH_REQUIRED' as const, retryable: false, provider: 'ssi', details: { transactionId: challenge.data.transactionId, message: challenge.data.message, action: 'APPROVE_OR_ENTER_OTP' } } };
-    }
-    const result = await session.adapter.test(input);
-    if (!result.ok) return result;
-    const token = session.adapter.getTokenSnapshot();
-    const testedCredentials = token ? { ...credentials, ...token } : credentials;
-    const finalSession = credentials && !existing ? this.fromRaw(testedCredentials!, userId, environment, undefined, true) : session;
-    this.storeSession(userId, environment, finalSession);
-    if (finalSession.accountNo) void this.startOrderStream(userId, finalSession);
-    return result;
-  }
-
-  async saveTested(userId: string, environment: string, credentials: Record<string, unknown>, input: SsiAuthInput, accountNo: string) {
-    if (!accountNo) throw new NotFoundException('SSI account number is required');
-    const key = `${userId}:ssi:${environment}`;
-    const existing = this.sessions.get(key);
-    if (existing) {
-      const token = existing.adapter.getTokenSnapshot();
-      const persistedCredentials = { ...credentials, accountNo, ...(token ?? {}) };
-      await this.credentials.save(userId, 'ssi', environment, persistedCredentials);
-      const persisted = this.fromRaw(persistedCredentials, userId, environment, accountNo, true);
-      this.storeSession(userId, environment, persisted);
-      void this.startOrderStream(userId, persisted);
-      return { ok: true as const, data: { saved: true as const, provider: 'ssi' as const } };
-    }
-    const session = this.fromRaw(credentials, userId, environment, accountNo);
-    const result = await session.adapter.test(input);
-    if (!result.ok) return result;
-    const token = session.adapter.getTokenSnapshot();
-    const persistedCredentials = { ...credentials, accountNo, ...(token ?? {}) };
-    await this.credentials.save(userId, 'ssi', environment, persistedCredentials);
-    const persisted = this.fromRaw(persistedCredentials, userId, environment, accountNo, true);
-    this.storeSession(userId, environment, persisted);
-    void this.startOrderStream(userId, persisted);
-    return result;
-  }
-
+  async approve(userId: string, environment: string, input: SsiAuthInput, credentials: Record<string, unknown>) { const session = this.fromRaw(credentials, userId, environment, undefined, true); const result = await session.adapter.connect({ userId, environment, ...input }); if (!result.ok) return result; const token = session.adapter.getTokenSnapshot(); const finalSession = token ? this.fromRaw({ ...credentials, ...token }, userId, environment, undefined, true) : session; this.storeSession(userId, environment, finalSession); if (finalSession.accountNo) void this.startOrderStream(userId, finalSession); return { ok: true as const, data: { authentication: 'ok' as const, provider: 'ssi' as const } }; }
+  async test(userId: string, environment: string, input: SsiAuthInput, credentials?: Record<string, unknown>) { const key = `${userId}:ssi:${environment}`; const existing = this.sessions.get(key); const session = credentials && !input.otp?.trim() && !input.transactionId?.trim() && existing ? existing : credentials ? this.fromRaw(credentials, userId, environment) : await this.adapter(userId, environment); if (!input.otp?.trim() && !input.transactionId?.trim() && !existing) { const challenge = await session.adapter.requestOtp(); if (!challenge.ok) return challenge; return { ok: false as const, error: { code: 'PROVIDER_ERROR' as const, message: 'SSI_AUTH_REQUIRED' as const, retryable: false, provider: 'ssi', details: { transactionId: challenge.data.transactionId, message: challenge.data.message, action: 'APPROVE_OR_ENTER_OTP' } } }; } const result = await session.adapter.test(input); if (!result.ok) return result; const token = session.adapter.getTokenSnapshot(); const testedCredentials = token ? { ...credentials, ...token } : credentials; const finalSession = credentials && !existing ? this.fromRaw(testedCredentials!, userId, environment, undefined, true) : session; this.storeSession(userId, environment, finalSession); if (finalSession.accountNo) void this.startOrderStream(userId, finalSession); return result; }
+  async saveTested(userId: string, environment: string, credentials: Record<string, unknown>, input: SsiAuthInput, accountNo: string) { if (!accountNo) throw new NotFoundException('SSI account number is required'); const key = `${userId}:ssi:${environment}`; const existing = this.sessions.get(key); if (existing) { const token = existing.adapter.getTokenSnapshot(); const persistedCredentials = { ...credentials, accountNo, ...(token ?? {}) }; await this.credentials.save(userId, 'ssi', environment, persistedCredentials); const persisted = this.fromRaw(persistedCredentials, userId, environment, accountNo, true); this.storeSession(userId, environment, persisted); void this.startOrderStream(userId, persisted); return { ok: true as const, data: { saved: true as const, provider: 'ssi' as const } }; } const session = this.fromRaw(credentials, userId, environment, accountNo); const result = await session.adapter.test(input); if (!result.ok) return result; const token = session.adapter.getTokenSnapshot(); const persistedCredentials = { ...credentials, accountNo, ...(token ?? {}) }; await this.credentials.save(userId, 'ssi', environment, persistedCredentials); const persisted = this.fromRaw(persistedCredentials, userId, environment, accountNo, true); this.storeSession(userId, environment, persisted); void this.startOrderStream(userId, persisted); return result; }
   async current(userId: string, environment: string, input: SsiAuthInput) { const { adapter, accountNo } = await this.adapter(userId, environment); return adapter.current(accountNo, input); }
   async accountSnapshots(userId: string, environment: string, input: SsiAuthInput) { const { adapter } = await this.adapter(userId, environment); return adapter.accountSnapshots(input); }
   async marketPrices(userId: string, environment: string, symbols: string[]) { const { adapter } = await this.adapter(userId, environment, false); return adapter.marketPrices(symbols); }
   async dailyCloses(userId: string, environment: string, symbols: string[], tradingDate: string) { const { adapter } = await this.adapter(userId, environment, false); return adapter.dailyCloses(symbols, tradingDate); }
 
-  async placeOrder(userId: string, environment: string, request: Omit<BrokerOrderRequest, 'accountNo'> & { accountNo?: string }) {
-    const key = `${userId}:ssi:${environment}`;
-    const existing = this.sessions.get(key);
-    const session = existing ?? await this.adapter(userId, environment);
-    const accountNo = request.accountNo ?? session.accountNo;
-    if (!accountNo) throw new NotFoundException(`SSI account is not selected for environment: ${environment}`);
-    const result = await session.adapter.placeOrder({ ...request, accountNo });
-    if (result.ok) void this.startOrderStream(userId, { ...session, accountNo });
-    return result as ContractResult<BrokerOrderResult>;
-  }
+  async placeOrder(userId: string, environment: string, request: Omit<BrokerOrderRequest, 'accountNo'> & { accountNo?: string }) { const key = `${userId}:ssi:${environment}`; const existing = this.sessions.get(key); const session = existing ?? await this.adapter(userId, environment); const accountNo = request.accountNo ?? session.accountNo; if (!accountNo) throw new NotFoundException(`SSI account is not selected for environment: ${environment}`); const result = await session.adapter.placeOrder({ ...request, accountNo }); if (result.ok) void this.startOrderStream(userId, { ...session, accountNo }); return result as ContractResult<BrokerOrderResult>; }
 
-  async sync(userId: string, environment: string, input: SsiAuthInput) {
-    const session = await this.adapter(userId, environment);
-    const snapshot = await session.adapter.syncPortfolio(session.accountNo, input);
-    if (!snapshot.ok) return snapshot;
-    let positionsSynced = 0; for (const position of snapshot.data.positions) { await this.positions.upsert({ ...position, accountId: userId }); positionsSynced += 1; }
-    let ordersSynced = 0; for (const order of snapshot.data.orders) { await this.orders.upsert({ ...order, accountId: userId }); ordersSynced += 1; }
-    const { data: account, error: accountError } = await this.supabase.db.from('tce_accounts').select('id').eq('user_id', userId).maybeSingle();
-    if (!accountError && account?.id) await this.supabase.db.from('tce_accounts').update({ capital_available: snapshot.data.balance.cash, updated_at: new Date().toISOString() }).eq('id', account.id);
-    void this.startOrderStream(userId, session);
-    return { ok: true as const, data: { positionsSynced, ordersSynced, balance: snapshot.data.balance } };
-  }
+  async sync(userId: string, environment: string, input: SsiAuthInput) { const session = await this.adapter(userId, environment); const snapshot = await session.adapter.syncPortfolio(session.accountNo, input); if (!snapshot.ok) return snapshot; let positionsSynced = 0; for (const position of snapshot.data.positions) { await this.positions.upsert({ ...position, accountId: userId }); positionsSynced += 1; } let ordersSynced = 0; for (const order of snapshot.data.orders) { await this.orders.upsert({ ...order, accountId: userId }); ordersSynced += 1; } const { data: account, error: accountError } = await this.supabase.db.from('tce_accounts').select('id').eq('user_id', userId).maybeSingle(); if (!accountError && account?.id) await this.supabase.db.from('tce_accounts').update({ capital_available: snapshot.data.balance.cash, updated_at: new Date().toISOString() }).eq('id', account.id); void this.startOrderStream(userId, session); return { ok: true as const, data: { positionsSynced, ordersSynced, balance: snapshot.data.balance } }; }
 }
