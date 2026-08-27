@@ -30,9 +30,8 @@ export class TceEngine implements TceEnginePort {
       }
     }
 
-    // A buy is only generated when there is a free portfolio slot after sell decisions.
-    const sellSymbols = new Set(decisions.filter((d) => d.action === 'SELL').map((d) => d.symbol));
-    const openSymbols = new Set(state.positions.filter((p) => Number(p.quantity || 0) > 0 && !sellSymbols.has(p.symbol)).map((p) => p.symbol));
+    const sellSymbols = new Set(decisions.filter((d) => d.action === 'SELL').map((d) => d.symbol.toUpperCase()));
+    const openSymbols = new Set(state.positions.filter((p) => Number(p.quantity || 0) > 0 && !sellSymbols.has(p.symbol.toUpperCase())).map((p) => p.symbol.toUpperCase()));
     const projectedAssetCount = openSymbols.size;
     if (projectedAssetCount >= normalized.maxTotalAssets || availableBudget <= 0) return decisions.length ? decisions : [{ action: 'HOLD', reason: projectedAssetCount >= normalized.maxTotalAssets ? 'max_assets_reached' : 'no_available_budget' }];
 
@@ -42,18 +41,16 @@ export class TceEngine implements TceEnginePort {
     const price = Number(candidate.price ?? 0);
     if (!Number.isFinite(price) || price <= 0) return decisions.length ? decisions : [{ action: 'HOLD', reason: 'candidate_price_unavailable' }];
 
-    const existingValue = Number(state.positions.find((p) => p.symbol === candidate.symbol)?.marketValue ?? 0);
+    const existingValue = Number(state.positions.find((p) => p.symbol.toUpperCase() === candidate.symbol.toUpperCase())?.marketValue ?? 0);
     const maxPositionValue = totalAssetsValue * (normalized.maxAssetAllocationPct / 100);
     const positionCapacity = Math.max(0, maxPositionValue - existingValue);
     const budgetForBuy = Math.min(availableBudget, positionCapacity);
     const quantity = Math.floor(budgetForBuy / price / normalized.buyQuantityStep) * normalized.buyQuantityStep;
     const estimatedValue = quantity * price;
 
-    if (quantity < normalized.buyQuantityStep || estimatedValue <= 0) {
-      return decisions.length ? decisions : [{ action: 'HOLD', reason: 'budget_below_minimum_lot_or_allocation_capacity' }];
-    }
+    if (quantity < normalized.buyQuantityStep || estimatedValue <= 0) return decisions.length ? decisions : [{ action: 'HOLD', reason: 'budget_below_minimum_lot_or_allocation_capacity' }];
 
-    decisions.push({ action: 'BUY', symbol: candidate.symbol, quantity, estimatedValue: Number(estimatedValue.toFixed(2)), reason: 'reinvest_remaining_budget_with_risk_cap' });
+    decisions.push({ action: 'BUY', symbol: candidate.symbol.toUpperCase(), quantity, estimatedValue: Number(estimatedValue.toFixed(2)), reason: 'reinvest_remaining_budget_with_risk_cap' });
     return decisions;
   }
 
