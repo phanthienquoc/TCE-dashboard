@@ -24,7 +24,18 @@ export class DashboardService {
 
   async getStrategy(_userId: string) { return null; }
   async getPoolsForUser(userId: string, status?: string) { const account = await this.resolveAccount(userId); return this.getPools(account.id, status); }
-  async getNextPositionsForUser(_userId: string) { return []; }
+  async getNextPositionsForUser(userId: string) {
+    const account = await this.resolveAccount(userId);
+    const { data, error } = await this.supabase.db.from('tce_buy_candidates').select('id,account_id,symbol,rank,target_position,target_quantity,target_price,status,reason,score,pool_entry_id,promoted_at,created_at,updated_at').eq('account_id', account.id).in('status', ['queued', 'ready']).order('rank', { ascending: true }).limit(20);
+    if (error) throw this.dbError('getNextPositionsForUser', error);
+    return (data ?? []).map((candidate) => ({
+      ...candidate,
+      targetPosition: candidate.target_position == null ? null : Number(candidate.target_position),
+      targetQuantity: candidate.target_quantity == null ? null : Number(candidate.target_quantity),
+      targetPrice: candidate.target_price == null ? null : Number(candidate.target_price),
+      score: candidate.score == null ? null : Number(candidate.score),
+    }));
+  }
 
   async getOrdersForUser(userId: string) {
     const account = await this.resolveAccount(userId);
@@ -65,7 +76,7 @@ export class DashboardService {
 
   async get(userId: string, poolStatus?: string): Promise<DashboardSnapshot> {
     const account = await this.resolveAccount(userId);
-    const [positions, pools, orders, sources] = await Promise.all([this.getPositions(userId), this.getPools(account.id, poolStatus), this.getOrdersForUser(userId), this.getSources(userId)]);
+    const [positions, pools, nextPositions, orders, sources] = await Promise.all([this.getPositions(userId), this.getPools(account.id, poolStatus), this.getNextPositionsForUser(userId), this.getOrdersForUser(userId), this.getSources(userId)]);
     const deployed = Number(account.capital_deployed ?? 0);
     const cash = Number(account.capital_available ?? 0);
     const marketValue = positions.reduce((sum, p) => sum + Number(p.market_value ?? 0), 0);
@@ -76,7 +87,7 @@ export class DashboardService {
       positions,
       orders,
       pools,
-      nextPositions: [],
+      nextPositions,
       balance: { cash, equity: cash + marketValue, withdrawable: cash, source: 'supabase' },
       brokerAccounts: brokerAccounts?.configured ? [{ provider: 'ssi', accountNo: brokerAccounts.accountNo ?? undefined, environment: 'production', status: 'Connected' }] : [],
       sources,
