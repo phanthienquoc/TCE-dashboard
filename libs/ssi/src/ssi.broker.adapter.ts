@@ -63,22 +63,26 @@ export class SsiBrokerAdapter implements BrokerPort, SsiConnectionPort {
     return auth;
   }
 
-  private tokenSnapshot(auth: Auth = this.auth!): SsiTokenSnapshot | undefined {
-    const token = auth?.getToken();
-    if (!token?.accessToken || !token.refreshToken) return undefined;
+  private tokenSnapshot(auth: Auth = this.auth!, tokenOverride?: unknown): SsiTokenSnapshot | undefined {
+    const token = tokenOverride ?? auth?.getToken();
+    if (!token || typeof token !== 'object') return undefined;
+    const raw = token as Record<string, unknown>;
+    const accessToken = raw.accessToken ? String(raw.accessToken) : '';
+    const refreshToken = raw.refreshToken ? String(raw.refreshToken) : '';
+    if (!accessToken || !refreshToken) return undefined;
     return {
-      accessToken: String(token.accessToken),
-      tokenType: String(token.tokenType ?? 'Bearer'),
-      expiresAt: Number(token.expiresAt ?? 0),
-      refreshToken: String(token.refreshToken),
-      refreshExpiresAt: Number(token.refreshExpiresAt ?? 0),
+      accessToken,
+      tokenType: String(raw.tokenType ?? 'Bearer'),
+      expiresAt: Number(raw.expiresAt ?? 0),
+      refreshToken,
+      refreshExpiresAt: Number(raw.refreshExpiresAt ?? raw.refreshTokenExpiresAt ?? 0),
     };
   }
 
   getTokenSnapshot() { return this.tokenSnapshot(); }
 
-  private async persistToken(auth: Auth = this.auth!) {
-    const token = this.tokenSnapshot(auth);
+  private async persistToken(auth: Auth = this.auth!, tokenOverride?: unknown) {
+    const token = this.tokenSnapshot(auth, tokenOverride);
     if (token && this.config.onTokenUpdated) await this.config.onTokenUpdated(token);
     return token;
   }
@@ -100,7 +104,7 @@ export class SsiBrokerAdapter implements BrokerPort, SsiConnectionPort {
         try {
           const refreshed = await this.auth.refresh();
           this.tradingClient = new Trading(this.auth);
-          await this.persistToken(this.auth);
+          await this.persistToken(this.auth, refreshed);
           return refreshed;
         } catch (error) {
           if (!input.otp && !input.transactionId) {
@@ -114,7 +118,9 @@ export class SsiBrokerAdapter implements BrokerPort, SsiConnectionPort {
         ? await this.auth.authenticate(undefined, input.transactionId)
         : await this.auth.authenticate(input.otp);
       this.tradingClient = new Trading(this.auth);
-      await this.persistToken(this.auth);
+      // Capture the SDK authentication result immediately. SSI returns the
+      // refresh token together with the access token after OTP/approval.
+      await this.persistToken(this.auth, token);
       return token;
     })();
 
@@ -135,8 +141,8 @@ export class SsiBrokerAdapter implements BrokerPort, SsiConnectionPort {
       // market-data token before any market API request, so no stale bearer
       // token reaches the SSI data endpoint and causes a 401.
       const marketAuth = this.createAuth(false);
-      await marketAuth.authenticate();
-      await this.persistToken(marketAuth);
+      const marketToken = await marketAuth.authenticate();
+      await this.persistToken(marketAuth, marketToken);
       return marketAuth;
     }
   }
