@@ -45,9 +45,15 @@ export default function SSIPlatform({ onMessage }: Props) {
   const [fileName, setFileName] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const resetAuthChallenge = () => {
+    setOtp('');
+    setTransactionId('');
+    setTested(false);
+  };
+
   const updateCredential = (key: keyof Credentials, value: string) => {
     setCredentials((current) => ({ ...current, [key]: value }));
-    setTested(false);
+    resetAuthChallenge();
     setResult(null);
     setFileName('');
   };
@@ -57,32 +63,37 @@ export default function SSIPlatform({ onMessage }: Props) {
     return value?.response?.data?.message ?? value?.message ?? 'Request failed';
   };
 
-  const requestOtp = async (silent = false) => {
+  const requestOtp = async () => {
+    setBusy(true);
     try {
       const response = await platformApi.ssiOtp({ environment: ENVIRONMENT, credentials });
       const nextTransactionId = response.data?.data?.transactionId ?? response.data?.transactionId ?? '';
       setTransactionId(nextTransactionId);
+      setOtp('');
+      setTested(false);
       setResult({
         ok: true,
-        message: silent
-          ? 'SSI approval is required. OTP request sent; enter the OTP and run Test Connection again.'
-          : 'OTP request sent. Enter the OTP and run Test Connection again.',
+        message: nextTransactionId
+          ? 'SSI approval requested. Approve in iBoard, then run Test Connection.'
+          : 'SSI OTP request sent. Enter the OTP, then run Test Connection.',
       });
-      onMessage?.('SSI OTP request sent');
+      onMessage?.('SSI authentication challenge requested');
       return true;
     } catch (error) {
       const message = messageFrom(error);
-      setResult({ ok: false, message: `SSI OTP request failed: ${message}` });
-      onMessage?.(`SSI OTP request failed: ${message}`);
+      setResult({ ok: false, message: `SSI authentication request failed: ${message}` });
+      onMessage?.(`SSI authentication request failed: ${message}`);
       return false;
+    } finally {
+      setBusy(false);
     }
   };
 
   const uploadJson = async (file?: File) => {
     if (!file) return;
     setResult(null);
-    setTested(false);
     setFileName('');
+    resetAuthChallenge();
     try {
       if (!file.name.toLowerCase().endsWith('.json') && file.type !== 'application/json') {
         throw new Error('Please select a JSON file');
@@ -93,7 +104,7 @@ export default function SSIPlatform({ onMessage }: Props) {
       if (!found) throw new Error('No supported SSI credential fields were found in the JSON');
       setCredentials(next);
       setFileName(file.name);
-      setResult({ ok: true, message: `Loaded ${found}/4 credential fields from ${file.name}. Review them, then Test Connection.` });
+      setResult({ ok: true, message: `Loaded ${found}/4 credential fields from ${file.name}. Review them, then start Test Connection.` });
       onMessage?.(`Loaded SSI credentials from ${file.name}`);
     } catch (error) {
       const message = error instanceof Error ? error.message : messageFrom(error);
@@ -105,6 +116,11 @@ export default function SSIPlatform({ onMessage }: Props) {
   };
 
   const testConnection = async () => {
+    if (!otp.trim() && !transactionId.trim()) {
+      await requestOtp();
+      return;
+    }
+
     setBusy(true);
     setTested(false);
     setResult(null);
@@ -112,8 +128,8 @@ export default function SSIPlatform({ onMessage }: Props) {
       const response = await platformApi.ssiTest({
         environment: ENVIRONMENT,
         credentials,
-        otp: otp || undefined,
-        transactionId: transactionId || undefined,
+        otp: otp.trim() || undefined,
+        transactionId: transactionId.trim() || undefined,
       });
       const data = response.data;
       const ok = Boolean(data?.ok);
@@ -122,14 +138,8 @@ export default function SSIPlatform({ onMessage }: Props) {
       onMessage?.(ok ? 'SSI connection verified' : `SSI connection failed: ${data?.error?.message ?? 'unknown error'}`);
     } catch (error) {
       const message = messageFrom(error);
-      const authRequired = /SSI_REAUTH_REQUIRED|SSI_AUTH_REQUIRED|SSI_OTP_REQUIRED/i.test(message);
-      if (authRequired && !otp && !transactionId) {
-        const requested = await requestOtp(true);
-        if (!requested) setResult({ ok: false, message: 'SSI approval is required, and the OTP request could not be sent.' });
-      } else {
-        setResult({ ok: false, message });
-        onMessage?.(`SSI connection failed: ${message}`);
-      }
+      setResult({ ok: false, message });
+      onMessage?.(`SSI connection failed: ${message}`);
     } finally {
       setBusy(false);
     }
@@ -145,8 +155,8 @@ export default function SSIPlatform({ onMessage }: Props) {
       const response = await platformApi.ssiSaveTested({
         environment: ENVIRONMENT,
         credentials,
-        otp: otp || undefined,
-        transactionId: transactionId || undefined,
+        otp: otp.trim() || undefined,
+        transactionId: transactionId.trim() || undefined,
       });
       const data = response.data;
       if (!data?.ok) {
@@ -209,16 +219,16 @@ export default function SSIPlatform({ onMessage }: Props) {
           <Field label="Transaction ID"><input className="input" value={transactionId} onChange={(event) => { setTransactionId(event.target.value); setTested(false); setResult(null); }} placeholder="Filled after Request OTP" autoComplete="off" /></Field>
         </div>
         <div className="mt-4 flex flex-wrap gap-2">
-          <ActionButton disabled={busy} onClick={testConnection}>{busy ? <Loader2 className="size-4 animate-spin" /> : <ShieldCheck className="size-4" />} Test Connection</ActionButton>
-          <ActionButton disabled={busy} onClick={() => void requestOtp(false)}>Request OTP</ActionButton>
+          <ActionButton disabled={busy} onClick={testConnection}>{busy ? <Loader2 className="size-4 animate-spin" /> : <ShieldCheck className="size-4" />} {otp || transactionId ? 'Verify Connection' : 'Test Connection'}</ActionButton>
+          <ActionButton disabled={busy} onClick={() => void requestOtp()}>Request OTP</ActionButton>
           <ActionButton disabled={busy || !tested} onClick={save}>Save</ActionButton>
-          <ActionButton disabled={busy} onClick={() => void runAccountAction(() => platformApi.ssiCurrent({ environment: ENVIRONMENT, otp: otp || undefined, transactionId: transactionId || undefined }), 'Current')}>Current</ActionButton>
-          <ActionButton disabled={busy} onClick={() => void runAccountAction(() => platformApi.ssiSync({ environment: ENVIRONMENT, otp: otp || undefined, transactionId: transactionId || undefined }), 'Sync')}>Sync</ActionButton>
+          <ActionButton disabled={busy} onClick={() => void runAccountAction(() => platformApi.ssiCurrent({ environment: ENVIRONMENT, otp: otp.trim() || undefined, transactionId: transactionId.trim() || undefined }), 'Current')}>Current</ActionButton>
+          <ActionButton disabled={busy} onClick={() => void runAccountAction(() => platformApi.ssiSync({ environment: ENVIRONMENT, otp: otp.trim() || undefined, transactionId: transactionId.trim() || undefined }), 'Sync')}>Sync</ActionButton>
         </div>
         {result && <div className={`mt-4 flex items-start gap-2 rounded-xl border px-3 py-2.5 text-sm ${result.ok ? 'border-emerald-300/15 bg-emerald-300/[0.05] text-emerald-200' : 'border-red-300/15 bg-red-300/[0.05] text-red-200'}`}>
           {result.ok ? <CheckCircle2 className="mt-0.5 size-4 shrink-0" /> : <XCircle className="mt-0.5 size-4 shrink-0" />}<span>{result.message}</span>
         </div>}
-        <p className="mt-3 text-[11px] leading-5 text-[#75697d]">JSON is parsed locally in the browser. It is not uploaded anywhere until you explicitly Test Connection or Save.</p>
+        <p className="mt-3 text-[11px] leading-5 text-[#75697d]">JSON is parsed locally in the browser. Credentials are sent to the backend only when you request SSI authentication, verify the connection, or save.</p>
       </div>}
     </section>
   );
