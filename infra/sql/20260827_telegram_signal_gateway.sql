@@ -10,10 +10,18 @@ create table if not exists public.tce_telegram_signals (
   entry numeric not null,
   tp numeric not null,
   sl numeric not null,
-  status text not null default 'QUEUED' check (status in ('QUEUED','ACCEPTED','REJECTED','EXECUTED','FAILED')),
+  status text not null default 'QUEUED' check (status in ('QUEUED','PROCESSING','ACCEPTED','EXECUTING','PROTECTED','EXECUTED','REJECTED','FAILED')),
   error_message text,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   unique(user_id, environment, telegram_update_id)
 );
-create index if not exists idx_tce_telegram_signals_queue on public.tce_telegram_signals(user_id, environment, status, created_at);
+
+create index if not exists idx_tce_telegram_signals_queue
+  on public.tce_telegram_signals(user_id, environment, status, created_at);
+
+-- Database-level backstop: even concurrent Telegram requests cannot queue
+-- two active signals for the same account/environment/symbol.
+create unique index if not exists uq_tce_telegram_active_symbol
+  on public.tce_telegram_signals(user_id, environment, symbol)
+  where status in ('QUEUED','PROCESSING','ACCEPTED','EXECUTING','PROTECTED');
