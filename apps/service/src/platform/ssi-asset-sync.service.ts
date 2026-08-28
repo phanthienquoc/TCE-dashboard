@@ -31,7 +31,6 @@ export class SsiAssetSyncService {
     let assetsZeroed = 0;
     let positionsSynced = 0;
     let positionsClosed = 0;
-    let ordersSynced = 0;
     let cashSynced = 0;
     const syncedAt = new Date().toISOString();
 
@@ -201,7 +200,6 @@ export class SsiAssetSyncService {
         assetsZeroed,
         positionsSynced,
         positionsClosed,
-        ordersSynced,
         cashSynced,
         fetchedAt: syncedAt,
       },
