@@ -6,6 +6,6 @@
     "module": "ESNext",
     "moduleResolution": "Bundler"
   },
-  "include": ["src/**/*.ts"],
+  "include": ["src/**/*.ts", "../../libs/ssi/src/**/*.d.ts"],
   "exclude": ["src/**/*.spec.ts", "src/**/*.test.ts"]
 }
