@@ -101,10 +101,6 @@ export class SsiBrokerAdapter implements BrokerPort, SsiConnectionPort {
           console.warn('[SSI_MARKET_PRICE_15M_EMPTY]', { symbol, expectedTradingDate });
           continue;
         }
-        // SSI may return the latest available candle from the previous trading
-        // session while the market is closed or when the intraday feed lags.
-        // A valid last-known price is preferable to rejecting the whole symbol;
-        // the service persists the trading date so stale data remains visible.
         results.push({ symbol, price, tradingDate });
       }
       return results;
@@ -112,7 +108,23 @@ export class SsiBrokerAdapter implements BrokerPort, SsiConnectionPort {
   }
 
   async dailyCloses(symbols: string[], tradingDate: string): Promise<ContractResult<Array<{ symbol: string; closePrice: number }>>> { return this.result(async () => { const auth = await this.authenticateMarketData(); const data = this.marketData(auth); const results: Array<{ symbol: string; closePrice: number }> = []; for (const rawSymbol of symbols) { const symbol = String(rawSymbol).trim().toUpperCase(); if (!symbol) continue; const from = `${tradingDate.replaceAll('-', '/')} 00:00:00`; const to = `${tradingDate.replaceAll('-', '/')} 23:59:59`; const candles = await data.marketData.getOhlc1DayHistorical(symbol, from, to, 1, 10); const candle = candles?.at(-1); if (!candle || Number(candle.closePrice ?? 0) <= 0) continue; results.push({ symbol, closePrice: Number(candle.closePrice) }); } return results; }); }
-  async accountSnapshots(input: SsiAuthInput): Promise<ContractResult<Array<{ account: SsiAccount; balance: AccountBalance; positions: AccountPosition[] }>>> { return this.result(async () => { await this.authenticate(input); const accounts = await this.accountInfo(); const snapshots = await Promise.all(accounts.map(async (account) => { const [balance, positions] = await Promise.all([this.balance(account.accountNo), this.positions(account.accountNo)]); if (!balance.ok) throw new Error(`${account.accountNo}: ${balance.error.message}`); if (!positions.ok) throw new Error(`${account.accountNo}: ${positions.error.message}`); return { account, balance: balance.data, positions: positions.data }; })); return snapshots; }); }
+  async accountSnapshots(input: SsiAuthInput): Promise<ContractResult<Array<{ account: SsiAccount; balance: AccountBalance; positions: AccountPosition[] }>>> {
+    return this.result(async () => {
+      await this.authenticate(input);
+      const accounts = await this.accountInfo();
+      // SSI getAccountInfo() can also return derivative accounts. Equity
+      // portfolio endpoints reject derivative account numbers with HTTP 400.
+      // TCE portfolio sync currently covers Cash + Margin only.
+      const equityAccounts = accounts.filter((account) => account.accountType === 'Cash' || account.accountType === 'Margin');
+      const snapshots = await Promise.all(equityAccounts.map(async (account) => {
+        const [balance, positions] = await Promise.all([this.balance(account.accountNo), this.positions(account.accountNo)]);
+        if (!balance.ok) throw new Error(`${account.accountNo}: ${balance.error.message}`);
+        if (!positions.ok) throw new Error(`${account.accountNo}: ${positions.error.message}`);
+        return { account, balance: balance.data, positions: positions.data };
+      }));
+      return snapshots;
+    });
+  }
   async syncPortfolio(accountNo: string, input: SsiAuthInput) { const authResult = await this.result(() => this.authenticate(input).then(() => undefined)); if (!authResult.ok) return authResult; const [balance, positions, orders] = await Promise.all([this.balance(accountNo), this.positions(accountNo), this.orders(accountNo)]); if (!balance.ok) return { ok: false, error: balance.error } as const; if (!positions.ok) return { ok: false, error: positions.error } as const; if (!orders.ok) return { ok: false, error: orders.error } as const; return { ok: true, data: { positions: positions.data.filter((position) => position.quantity > 0), orders: orders.data.filter((order) => order.quantity > 0), balance: balance.data } } as const; }
   async startOrderStatusStream(accountNo: string, onEvent: (event: SsiOrderStatusEvent) => void) { await this.authenticate(); if (this.streamClient) return; this.streamClient = new Stream(this.auth!); this.streamClient.streaming.onTrading = (message) => { const event = message as unknown as SsiOrderStatusEvent; if (event.type === 'orderEvent' && (!accountNo || !event.accountNo || event.accountNo === accountNo)) onEvent(event); }; await this.streamClient.streaming.connect(); this.streamClient.streaming.subscribeOrderStatus(accountNo); this.streamClient.streaming.ping(undefined, 30000); }
   async stopOrderStatusStream() { this.streamClient?.streaming.disconnect(); this.streamClient = undefined; }
