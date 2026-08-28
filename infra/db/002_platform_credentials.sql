@@ -1,7 +1,7 @@
 create table if not exists platform_credentials (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references users(id) on delete cascade,
-  provider text not null check (provider in ('ssi','binance')),
+  provider text not null check (provider in ('ssi','binance','telegram')),
   environment text not null default 'production' check (environment in ('sandbox','testnet','production')),
   credentials_encrypted text not null,
   encryption_version integer not null default 1,

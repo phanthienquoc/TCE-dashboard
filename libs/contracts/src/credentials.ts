@@ -1,4 +1,4 @@
-export type PlatformProvider = 'ssi' | 'binance' | 'fastapi';
+export type PlatformProvider = 'ssi' | 'binance' | 'fastapi' | 'telegram';
 export type PlatformCredentialRecord = { id: string; provider: PlatformProvider; environment: string; isActive: boolean };
 export interface PlatformCredentialPort {
   list(userId: string): Promise<PlatformCredentialRecord[]>;
