@@ -6,17 +6,16 @@ import { PlatformCredentialsModule } from './platform/platform-credentials.modul
 import { PlatformConfigModule } from './platform/platform-config.module';
 import { TceEngineModule } from './monitor/tce-engine.module';
 import { TelegramBotModule } from './telegram/telegram-bot.module';
+import { TelegramDebugModule } from './telegram/telegram-debug.module';
 
 @Controller()
 class HealthController {
   @Get('health')
-  health() {
-    return { ok: true, service: 'tce-service', timestamp: new Date().toISOString() };
-  }
+  health() { return { ok: true, service: 'tce-service', timestamp: new Date().toISOString() }; }
 }
 
 @Module({
-  imports: [DbModule, AuthModule, DashboardModule, PlatformCredentialsModule, PlatformConfigModule, TceEngineModule, TelegramBotModule],
+  imports: [DbModule, AuthModule, DashboardModule, PlatformCredentialsModule, PlatformConfigModule, TceEngineModule, TelegramDebugModule, TelegramBotModule],
   controllers: [HealthController],
 })
 export class AppModule {}
