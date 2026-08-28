@@ -204,16 +204,19 @@ export class SsiBrokerAdapter implements BrokerPort, SsiConnectionPort {
     return this.result(async () => {
       await this.authenticate(input);
       const accounts = await this.accountInfo();
-      const equityAccounts = accounts.filter((account) => account.accountType === 'Cash' || account.accountType === 'Margin');
+      const equityAccounts = accounts.filter((account) => {
+        const type = String(account.accountType ?? '').trim().toUpperCase();
+        return type === 'EQUITY' || type === 'EQUITY_MARGIN' || type === 'CASH' || type === 'MARGIN';
+      });
+      if (!equityAccounts.length) throw new Error(`SSI_EQUITY_ACCOUNTS_NOT_FOUND: ${accounts.map((account) => `${account.accountNo}:${account.accountType}`).join(', ') || 'no accounts returned'}`);
       return Promise.all(equityAccounts.map(async (account) => {
         const [balance, positions] = await Promise.all([this.balance(account.accountNo), this.positions(account.accountNo)]);
-        if (!balance.ok) throw new Error(`${account.accountNo}: ${balance.error.message}`);
-        if (!positions.ok) throw new Error(`${account.accountNo}: ${positions.error.message}`);
+        if (!balance.ok) throw new Error(`${account.accountNo} (${account.accountType}): ${balance.error.message}`);
+        if (!positions.ok) throw new Error(`${account.accountNo} (${account.accountType}): ${positions.error.message}`);
         return { account, balance: balance.data, positions: positions.data };
       }));
     });
   }
-
   async syncPortfolio(accountNo: string, input: SsiAuthInput) { const authResult = await this.result(() => this.authenticate(input).then(() => undefined)); if (!authResult.ok) return authResult; const [balance, positions, orders] = await Promise.all([this.balance(accountNo), this.positions(accountNo), this.orders(accountNo)]); if (!balance.ok) return { ok: false, error: balance.error } as const; if (!positions.ok) return { ok: false, error: positions.error } as const; if (!orders.ok) return { ok: false, error: orders.error } as const; return { ok: true, data: { positions: positions.data.filter((position) => position.quantity > 0), orders: orders.data.filter((order) => order.quantity > 0), balance: balance.data } } as const; }
   async startOrderStatusStream(accountNo: string, onEvent: (event: SsiOrderStatusEvent) => void) { await this.authenticate(); if (this.streamClient) return; this.streamClient = new Stream(this.auth!); this.streamClient.streaming.onTrading = (message) => { const event = message as unknown as SsiOrderStatusEvent; if (event.type === 'orderEvent' && (!accountNo || !event.accountNo || event.accountNo === accountNo)) onEvent(event); }; await this.streamClient.streaming.connect(); this.streamClient.streaming.subscribeOrderStatus(accountNo); this.streamClient.streaming.ping(undefined, 30000); }
   async stopOrderStatusStream() { this.streamClient?.streaming.disconnect(); this.streamClient = undefined; }
