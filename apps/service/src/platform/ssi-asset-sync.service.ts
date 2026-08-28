@@ -13,7 +13,7 @@ export class SsiAssetSyncService {
   async sync(userId: string, environment = 'production', input: SsiAuthInput = {}) {
     const { data: account, error } = await this.db.db
       .from('tce_accounts')
-      .select('id')
+      .select('id,user_id')
       .eq('user_id', userId)
       .limit(1)
       .maybeSingle();
@@ -21,8 +21,8 @@ export class SsiAssetSyncService {
     if (error) throw error;
     if (!account) throw new NotFoundException('TCE account is not configured');
 
-    // SSI SDK is the source of truth. Fetch all SSI accounts and their current
-    // equity positions through SsiApplicationService -> SsiBrokerAdapter.
+    // This is the canonical SSI portfolio sync path. SSI is the source of truth;
+    // all SSI accounts are fetched and consolidated into the TCE account.
     const snapshots = await this.ssi.accountSnapshots(userId, environment, input);
     if (!snapshots.ok) return snapshots;
 
@@ -31,11 +31,10 @@ export class SsiAssetSyncService {
     let assetsZeroed = 0;
     let positionsSynced = 0;
     let positionsClosed = 0;
+    let ordersSynced = 0;
+    let cashSynced = 0;
     const syncedAt = new Date().toISOString();
 
-    // tce_broker_assets keeps the broker/account-level representation while
-    // tce_positions is the canonical TCE dashboard position view. Aggregate
-    // duplicate symbols across SSI accounts before writing tce_positions.
     const aggregate = new Map<string, { quantity: number; costValue: number }>();
 
     for (const snapshot of snapshots.data) {
@@ -59,6 +58,7 @@ export class SsiAssetSyncService {
 
       if (brokerError) throw brokerError;
       accountsSynced += 1;
+      cashSynced += Number(snapshot.balance.cash ?? 0);
 
       const positions = new Map<string, { symbol: string; quantity: number; averagePrice: number; raw: unknown }>();
       for (const position of snapshot.positions) {
@@ -132,9 +132,6 @@ export class SsiAssetSyncService {
       }
     }
 
-    // Reconcile the dashboard's canonical positions with the successful SSI
-    // snapshot. A symbol absent from every SSI account is closed so stale rows
-    // cannot remain visible after a full sync.
     for (const [symbol, position] of aggregate) {
       const averagePrice = position.quantity > 0 ? position.costValue / position.quantity : 0;
       const { error: positionError } = await this.db.db
@@ -142,7 +139,7 @@ export class SsiAssetSyncService {
         .upsert(
           {
             account_id: account.id,
-            user_id: userId,
+            user_id: account.user_id,
             symbol,
             quantity: Math.round(position.quantity),
             avg_cost: averagePrice,
@@ -190,6 +187,12 @@ export class SsiAssetSyncService {
       positionsClosed += 1;
     }
 
+    const { error: accountUpdateError } = await this.db.db
+      .from('tce_accounts')
+      .update({ capital_available: cashSynced, updated_at: syncedAt })
+      .eq('id', account.id);
+    if (accountUpdateError) throw accountUpdateError;
+
     return {
       ok: true as const,
       data: {
@@ -198,6 +201,8 @@ export class SsiAssetSyncService {
         assetsZeroed,
         positionsSynced,
         positionsClosed,
+        ordersSynced,
+        cashSynced,
         fetchedAt: syncedAt,
       },
     };
