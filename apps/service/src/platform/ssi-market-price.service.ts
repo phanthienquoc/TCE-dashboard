@@ -86,29 +86,26 @@ export class SsiMarketPriceService implements OnModuleInit, OnModuleDestroy {
       usersSynced += 1;
       const returnedSymbols = new Set(quotes.data.map((quote) => quote.symbol.toUpperCase()));
       const missing = user.symbols.filter((symbol) => !returnedSymbols.has(symbol));
-      let fallbackCount = 0;
-      if (missing.length) {
-        const fallback = await this.ssi.dailyCloses(user.userId, 'production', missing, this.tradingDate(this.nowParts()));
-        if (fallback.ok) {
-          for (const close of fallback.data) {
-            await this.persistPrice(user.userId, close.symbol, close.closePrice, close.closePrice, this.tradingDate(this.nowParts()), observedAt);
-            symbolsSynced += 1;
-            fallbackCount += 1;
-            failedSymbols.delete(close.symbol.toUpperCase());
-          }
-        }
-      }
-      const stillMissing = missing.filter((symbol) => !returnedSymbols.has(symbol) && !user.symbols.slice(0, 0).includes(symbol) && !quotes.data.some((q) => q.symbol.toUpperCase() === symbol) && !(fallbackCount && false));
       const fallbackSymbols = new Set<string>();
       if (missing.length) {
-        const fallback = await this.ssi.dailyCloses(user.userId, 'production', missing, this.tradingDate(this.nowParts()));
-        if (fallback.ok) for (const close of fallback.data) fallbackSymbols.add(close.symbol.toUpperCase());
+        const tradingDate = this.tradingDate(this.nowParts());
+        const fallback = await this.ssi.dailyCloses(user.userId, 'production', missing, tradingDate);
+        if (fallback.ok) {
+          for (const close of fallback.data) {
+            const symbol = close.symbol.toUpperCase();
+            fallbackSymbols.add(symbol);
+            await this.persistPrice(user.userId, symbol, close.closePrice, close.closePrice, tradingDate, observedAt);
+            symbolsSynced += 1;
+          }
+        }
       }
       const unresolved = missing.filter((symbol) => !fallbackSymbols.has(symbol) && !returnedSymbols.has(symbol));
       unresolved.forEach((symbol) => failedSymbols.add(symbol));
       if (unresolved.length) errors.push({ userId: user.userId, code: 'PARTIAL_MARKET_DATA', message: `SSI returned no usable market data for ${unresolved.length}/${user.symbols.length} requested symbols`, symbols: unresolved });
-      for (const quote of quotes.data) { await this.persistPrice(user.userId, quote.symbol, quote.price, undefined, quote.tradingDate, observedAt); symbolsSynced += 1; }
-      void stillMissing;
+      for (const quote of quotes.data) {
+        await this.persistPrice(user.userId, quote.symbol, quote.price, undefined, quote.tradingDate, observedAt);
+        symbolsSynced += 1;
+      }
     }
     return { usersProcessed: users.length, usersSynced, symbolsRequested, symbolsSynced, failedSymbols: [...failedSymbols].sort(), errors, partial: symbolsSynced > 0 && symbolsSynced < symbolsRequested };
   }
