@@ -71,35 +71,33 @@ export class SsiBrokerAdapter implements BrokerPort, SsiConnectionPort {
   async placeOrder(request: BrokerOrderRequest): Promise<ContractResult<BrokerOrderResult>> {
     return this.result(async () => {
       if (!request.accountNo) throw new Error('SSI account number is required');
+      if (!request.symbol) throw new Error('Order symbol is required');
+      if (!Number.isInteger(request.quantity) || request.quantity <= 0) throw new Error('Order quantity must be a positive integer');
+      if (request.orderType === 'LO' && (!Number.isFinite(request.price) || Number(request.price) <= 0)) throw new Error('LO order requires a positive price');
       await this.authenticate();
-      const result = await this.trading().order.placeOrder({ accountNo: request.accountNo, symbol: request.symbol, side: request.side === 'BUY' ? OrderSide.BUY : OrderSide.SELL, orderType: request.orderType === 'MARKET' ? OrderType.MARKET : OrderType.LIMIT, quantity: request.quantity, price: request.price, clientRequestId: request.clientRequestId });
-      return { externalId: String(result?.orderId ?? ''), status: String(result?.status ?? 'SUBMITTED'), provider: 'ssi' };
+      const trading = this.trading().trading;
+      const side = request.side === 'SELL' ? OrderSide.SELL : OrderSide.BUY;
+      const type = OrderType[request.orderType as keyof typeof OrderType];
+      if (!type) throw new Error(`Unsupported SSI order type: ${request.orderType}`);
+      const clientRequestId = request.clientRequestId ?? String(Math.floor(Math.random() * 100000000)).padStart(8, '0');
+      const result = await trading.placeOrder(request.accountNo, request.symbol.toUpperCase(), side, request.quantity, Number(request.price ?? 0), type);
+      return { orderId: result.orderId ? String(result.orderId) : undefined, clientRequestId: result.clientRequestId ? String(result.clientRequestId) : clientRequestId, status: String(result.status ?? 'UNKNOWN') };
     });
   }
 
-  async cancelOrder(accountNo: string, orderId: string) { return this.result(async () => { await this.authenticate(); const result = await this.trading().order.cancelOrder(accountNo, orderId); return { externalId: orderId, status: String(result?.status ?? 'CANCEL_REQUESTED'), provider: 'ssi' }; }); }
-  async accountSnapshots(input: SsiAuthInput) {
-    return this.result(async () => {
-      await this.authenticate(input);
-      const accounts = await this.accountInfo();
-      const equityAccounts = accounts.filter((account) => account.accountType === 'Cash' || account.accountType === 'Margin');
-      const snapshots = await Promise.all(equityAccounts.map(async (account) => {
-        const [balance, positions] = await Promise.all([this.balance(account.accountNo), this.positions(account.accountNo)]);
-        if (!balance.ok) throw new Error(balance.error.message);
-        if (!positions.ok) throw new Error(positions.error.message);
-        return { accountNo: account.accountNo, accountType: account.accountType, balance: balance.data, positions: positions.data };
-      }));
-      return snapshots;
-    });
-  }
-  async marketPrices(symbols: string[]) {
+  private latestDate() { return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Ho_Chi_Minh', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date()); }
+  private normalizeTradingDate(value: unknown) { const normalized = String(value ?? '').slice(0, 10).replaceAll('/', '-'); return /^\d{4}-\d{2}-\d{2}$/.test(normalized) ? normalized : ''; }
+
+  async marketPrices(symbols: string[]): Promise<ContractResult<Array<{ symbol: string; price: number; tradingDate: string }>>> {
     return this.result(async () => {
       const auth = await this.authenticateMarketData();
       const data = this.marketData(auth);
-      const expectedTradingDate = new Date().toISOString().slice(0, 10);
-      const results: { symbol: string; price: number; tradingDate: string }[] = [];
-      for (const symbol of symbols) {
-        const candles = await data.marketData.getIntradayCandleData({ symbol, resolution: '15', fromDate: expectedTradingDate, toDate: expectedTradingDate });
+      const results: Array<{ symbol: string; price: number; tradingDate: string }> = [];
+      const expectedTradingDate = this.latestDate();
+      for (const rawSymbol of symbols) {
+        const symbol = String(rawSymbol).trim().toUpperCase();
+        if (!symbol) continue;
+        const candles = await data.marketData.getOhlc15Minute(symbol);
         const candle = [...(candles ?? [])].reverse().find((item) => Number(item?.closePrice ?? 0) > 0);
         const tradingDate = this.normalizeTradingDate(candle?.tradingDate);
         const price = Number(candle?.closePrice ?? 0);
@@ -109,20 +107,24 @@ export class SsiBrokerAdapter implements BrokerPort, SsiConnectionPort {
       return results;
     });
   }
-  async dailyCloses(symbols: string[], tradingDate: string) {
+
+  async dailyCloses(symbols: string[], tradingDate: string): Promise<ContractResult<Array<{ symbol: string; closePrice: number }>>> { return this.result(async () => { const auth = await this.authenticateMarketData(); const data = this.marketData(auth); const results: Array<{ symbol: string; closePrice: number }> = []; for (const rawSymbol of symbols) { const symbol = String(rawSymbol).trim().toUpperCase(); if (!symbol) continue; const from = `${tradingDate.replaceAll('-', '/')} 00:00:00`; const to = `${tradingDate.replaceAll('-', '/')} 23:59:59`; const candles = await data.marketData.getOhlc1DayHistorical(symbol, from, to, 1, 10); const candle = candles?.at(-1); if (!candle || Number(candle.closePrice ?? 0) <= 0) continue; results.push({ symbol, closePrice: Number(candle.closePrice) }); } return results; }); }
+  async accountSnapshots(input: SsiAuthInput): Promise<ContractResult<Array<{ account: SsiAccount; balance: AccountBalance; positions: AccountPosition[] }>>> {
     return this.result(async () => {
-      const auth = await this.authenticateMarketData();
-      const data = this.marketData(auth);
-      const results: { symbol: string; price: number; tradingDate: string }[] = [];
-      for (const symbol of symbols) {
-        const candles = await data.marketData.getDailyCandleData({ symbol, fromDate: tradingDate, toDate: tradingDate });
-        const candle = [...(candles ?? [])].reverse().find((item) => Number(item?.closePrice ?? 0) > 0);
-        const price = Number(candle?.closePrice ?? 0);
-        if (!candle || price <= 0) continue;
-        results.push({ symbol, price, tradingDate: this.normalizeTradingDate(candle?.tradingDate) ?? tradingDate });
-      }
-      return results;
+      await this.authenticate(input);
+      const accounts = await this.accountInfo();
+      const equityAccounts = accounts.filter((account) => account.accountType === 'Cash' || account.accountType === 'Margin');
+      const snapshots = await Promise.all(equityAccounts.map(async (account) => {
+        const [balance, positions] = await Promise.all([this.balance(account.accountNo), this.positions(account.accountNo)]);
+        if (!balance.ok) throw new Error(`${account.accountNo}: ${balance.error.message}`);
+        if (!positions.ok) throw new Error(`${account.accountNo}: ${positions.error.message}`);
+        return { account, balance: balance.data, positions: positions.data };
+      }));
+      return snapshots;
     });
   }
-  private normalizeTradingDate(value: unknown) { if (!value) return undefined; const date = new Date(String(value)); return Number.isNaN(date.getTime()) ? String(value).slice(0, 10) : date.toISOString().slice(0, 10); }
+  async syncPortfolio(accountNo: string, input: SsiAuthInput) { const authResult = await this.result(() => this.authenticate(input).then(() => undefined)); if (!authResult.ok) return authResult; const [balance, positions, orders] = await Promise.all([this.balance(accountNo), this.positions(accountNo), this.orders(accountNo)]); if (!balance.ok) return { ok: false, error: balance.error } as const; if (!positions.ok) return { ok: false, error: positions.error } as const; if (!orders.ok) return { ok: false, error: orders.error } as const; return { ok: true, data: { positions: positions.data.filter((position) => position.quantity > 0), orders: orders.data.filter((order) => order.quantity > 0), balance: balance.data } } as const; }
+  async startOrderStatusStream(accountNo: string, onEvent: (event: SsiOrderStatusEvent) => void) { await this.authenticate(); if (this.streamClient) return; this.streamClient = new Stream(this.auth!); this.streamClient.streaming.onTrading = (message) => { const event = message as unknown as SsiOrderStatusEvent; if (event.type === 'orderEvent' && (!accountNo || !event.accountNo || event.accountNo === accountNo)) onEvent(event); }; await this.streamClient.streaming.connect(); this.streamClient.streaming.subscribeOrderStatus(accountNo); this.streamClient.streaming.ping(undefined, 30000); }
+  async stopOrderStatusStream() { this.streamClient?.streaming.disconnect(); this.streamClient = undefined; }
+  async disconnect(_input: ConnectInput) { await this.stopOrderStatusStream(); this.auth = undefined; this.tradingClient = undefined; this.authenticatePromise = undefined; return { ok: true, data: undefined } as const; }
 }
