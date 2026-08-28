@@ -94,17 +94,17 @@ export class SsiBrokerAdapter implements BrokerPort, SsiConnectionPort {
         const symbol = String(rawSymbol).trim().toUpperCase();
         if (!symbol) continue;
         const candles = await data.marketData.getOhlc15Minute(symbol);
-        const candle = candles?.at(-1);
+        const candle = [...(candles ?? [])].reverse().find((item) => Number(item?.closePrice ?? 0) > 0);
         const tradingDate = this.normalizeTradingDate(candle?.tradingDate);
         const price = Number(candle?.closePrice ?? 0);
-        if (!candle || price <= 0) {
+        if (!candle || price <= 0 || !tradingDate) {
           console.warn('[SSI_MARKET_PRICE_15M_EMPTY]', { symbol, expectedTradingDate });
           continue;
         }
-        if (tradingDate !== expectedTradingDate) {
-          console.warn('[SSI_MARKET_PRICE_15M_STALE]', { symbol, price, tradingDate, expectedTradingDate });
-          continue;
-        }
+        // SSI may return the latest available candle from the previous trading
+        // session while the market is closed or when the intraday feed lags.
+        // A valid last-known price is preferable to rejecting the whole symbol;
+        // the service persists the trading date so stale data remains visible.
         results.push({ symbol, price, tradingDate });
       }
       return results;
