@@ -2,13 +2,12 @@ import { Injectable, NotFoundException, ServiceUnavailableException } from '@nes
 import { CONTRACT_TOKENS, BrokerOrderRequest, BrokerOrderResult, ContractResult, OrderRepository, PlatformCredentialPort, PositionRepository, SsiAuthInput } from '@tce/contracts';
 import { Inject } from '@nestjs/common';
 import { SsiBrokerAdapter, SsiOrderStatusEvent, SsiTokenSnapshot } from '@tce/ssi';
-import { SupabaseClientService } from '../db/supabase.client';
 
 @Injectable()
 export class SsiApplicationService {
   private readonly sessions = new Map<string, { adapter: SsiBrokerAdapter; accountNo: string }>();
 
-  constructor(@Inject(CONTRACT_TOKENS.credentials) private readonly credentials: PlatformCredentialPort, @Inject(CONTRACT_TOKENS.positionRepository) private readonly positions: PositionRepository, @Inject(CONTRACT_TOKENS.orderRepository) private readonly orders: OrderRepository, private readonly supabase: SupabaseClientService) {}
+  constructor(@Inject(CONTRACT_TOKENS.credentials) private readonly credentials: PlatformCredentialPort, @Inject(CONTRACT_TOKENS.positionRepository) private readonly positions: PositionRepository, @Inject(CONTRACT_TOKENS.orderRepository) private readonly orders: OrderRepository) {}
 
   private fromRaw(raw: Record<string, unknown>, userId: string, environment: string, accountNoOverride?: string, persistToken = false) {
     const apiKey = String(raw.apiKey ?? ''), apiSecret = String(raw.apiSecret ?? ''), accountNo = String(accountNoOverride ?? raw.accountNo ?? '');
@@ -45,6 +44,4 @@ export class SsiApplicationService {
   async dailyCloses(userId: string, environment: string, symbols: string[], tradingDate: string) { const { adapter } = await this.adapter(userId, environment, false); return adapter.dailyCloses(symbols, tradingDate); }
 
   async placeOrder(userId: string, environment: string, request: Omit<BrokerOrderRequest, 'accountNo'> & { accountNo?: string }) { const key = `${userId}:ssi:${environment}`; const existing = this.sessions.get(key); const session = existing ?? await this.adapter(userId, environment); const accountNo = request.accountNo ?? session.accountNo; if (!accountNo) throw new NotFoundException(`SSI account is not selected for environment: ${environment}`); const result = await session.adapter.placeOrder({ ...request, accountNo }); if (result.ok) void this.startOrderStream(userId, { ...session, accountNo }); return result as ContractResult<BrokerOrderResult>; }
-
-  async sync(userId: string, environment: string, input: SsiAuthInput) { const session = await this.adapter(userId, environment); const snapshot = await session.adapter.syncPortfolio(session.accountNo, input); if (!snapshot.ok) return snapshot; let positionsSynced = 0; for (const position of snapshot.data.positions) { await this.positions.upsert({ ...position, accountId: userId }); positionsSynced += 1; } let ordersSynced = 0; for (const order of snapshot.data.orders) { await this.orders.upsert({ ...order, accountId: userId }); ordersSynced += 1; } const { data: account, error: accountError } = await this.supabase.db.from('tce_accounts').select('id').eq('user_id', userId).maybeSingle(); if (!accountError && account?.id) await this.supabase.db.from('tce_accounts').update({ capital_available: snapshot.data.balance.cash, updated_at: new Date().toISOString() }).eq('id', account.id); void this.startOrderStream(userId, session); return { ok: true as const, data: { positionsSynced, ordersSynced, balance: snapshot.data.balance } }; }
 }
