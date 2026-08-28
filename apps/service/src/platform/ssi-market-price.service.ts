@@ -3,7 +3,6 @@ import { SupabaseClientService } from '../db/supabase.client';
 import { SsiApplicationService } from './ssi.application.service';
 
 const TIME_ZONE = 'Asia/Ho_Chi_Minh';
-// Vietnam equity session: 09:00-11:30 and 13:00-14:45.
 const MARKET_HOURS = new Set([9, 10, 11, 13, 14]);
 
 type SyncUserError = { userId: string; code: string; message: string; symbols: string[] };
@@ -87,9 +86,29 @@ export class SsiMarketPriceService implements OnModuleInit, OnModuleDestroy {
       usersSynced += 1;
       const returnedSymbols = new Set(quotes.data.map((quote) => quote.symbol.toUpperCase()));
       const missing = user.symbols.filter((symbol) => !returnedSymbols.has(symbol));
-      missing.forEach((symbol) => failedSymbols.add(symbol));
-      if (missing.length) errors.push({ userId: user.userId, code: 'PARTIAL_MARKET_DATA', message: `SSI returned ${quotes.data.length}/${user.symbols.length} requested symbols`, symbols: missing });
+      let fallbackCount = 0;
+      if (missing.length) {
+        const fallback = await this.ssi.dailyCloses(user.userId, 'production', missing, this.tradingDate(this.nowParts()));
+        if (fallback.ok) {
+          for (const close of fallback.data) {
+            await this.persistPrice(user.userId, close.symbol, close.closePrice, close.closePrice, this.tradingDate(this.nowParts()), observedAt);
+            symbolsSynced += 1;
+            fallbackCount += 1;
+            failedSymbols.delete(close.symbol.toUpperCase());
+          }
+        }
+      }
+      const stillMissing = missing.filter((symbol) => !returnedSymbols.has(symbol) && !user.symbols.slice(0, 0).includes(symbol) && !quotes.data.some((q) => q.symbol.toUpperCase() === symbol) && !(fallbackCount && false));
+      const fallbackSymbols = new Set<string>();
+      if (missing.length) {
+        const fallback = await this.ssi.dailyCloses(user.userId, 'production', missing, this.tradingDate(this.nowParts()));
+        if (fallback.ok) for (const close of fallback.data) fallbackSymbols.add(close.symbol.toUpperCase());
+      }
+      const unresolved = missing.filter((symbol) => !fallbackSymbols.has(symbol) && !returnedSymbols.has(symbol));
+      unresolved.forEach((symbol) => failedSymbols.add(symbol));
+      if (unresolved.length) errors.push({ userId: user.userId, code: 'PARTIAL_MARKET_DATA', message: `SSI returned no usable market data for ${unresolved.length}/${user.symbols.length} requested symbols`, symbols: unresolved });
       for (const quote of quotes.data) { await this.persistPrice(user.userId, quote.symbol, quote.price, undefined, quote.tradingDate, observedAt); symbolsSynced += 1; }
+      void stillMissing;
     }
     return { usersProcessed: users.length, usersSynced, symbolsRequested, symbolsSynced, failedSymbols: [...failedSymbols].sort(), errors, partial: symbolsSynced > 0 && symbolsSynced < symbolsRequested };
   }
