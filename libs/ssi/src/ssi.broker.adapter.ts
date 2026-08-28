@@ -82,13 +82,8 @@ export class SsiBrokerAdapter implements BrokerPort, SsiConnectionPort {
   }
 
   private latestDate() { return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Ho_Chi_Minh', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date()); }
-  private normalizeTradingDate(value: unknown) {
-    const normalized = String(value ?? '').slice(0, 10).replaceAll('/', '-');
-    return /^\d{4}-\d{2}-\d{2}$/.test(normalized) ? normalized : '';
-  }
-  private isCurrentTradingDate(value: unknown) {
-    return this.normalizeTradingDate(value) === this.latestDate();
-  }
+  private normalizeTradingDate(value: unknown) { const normalized = String(value ?? '').slice(0, 10).replaceAll('/', '-'); return /^\d{4}-\d{2}-\d{2}$/.test(normalized) ? normalized : ''; }
+
   async marketPrices(symbols: string[]): Promise<ContractResult<Array<{ symbol: string; price: number; tradingDate: string }>>> {
     return this.result(async () => {
       const auth = await this.authenticateMarketData();
@@ -98,16 +93,16 @@ export class SsiBrokerAdapter implements BrokerPort, SsiConnectionPort {
       for (const rawSymbol of symbols) {
         const symbol = String(rawSymbol).trim().toUpperCase();
         if (!symbol) continue;
-        const candles = await data.marketData.getOhlc1Minute(symbol);
+        const candles = await data.marketData.getOhlc15Minute(symbol);
         const candle = candles?.at(-1);
         const tradingDate = this.normalizeTradingDate(candle?.tradingDate);
         const price = Number(candle?.closePrice ?? 0);
         if (!candle || price <= 0) {
-          console.warn('[SSI_MARKET_PRICE_EMPTY]', { symbol, expectedTradingDate });
+          console.warn('[SSI_MARKET_PRICE_15M_EMPTY]', { symbol, expectedTradingDate });
           continue;
         }
         if (tradingDate !== expectedTradingDate) {
-          console.warn('[SSI_MARKET_PRICE_STALE]', { symbol, price, tradingDate, expectedTradingDate });
+          console.warn('[SSI_MARKET_PRICE_15M_STALE]', { symbol, price, tradingDate, expectedTradingDate });
           continue;
         }
         results.push({ symbol, price, tradingDate });
@@ -115,6 +110,7 @@ export class SsiBrokerAdapter implements BrokerPort, SsiConnectionPort {
       return results;
     });
   }
+
   async dailyCloses(symbols: string[], tradingDate: string): Promise<ContractResult<Array<{ symbol: string; closePrice: number }>>> { return this.result(async () => { const auth = await this.authenticateMarketData(); const data = this.marketData(auth); const results: Array<{ symbol: string; closePrice: number }> = []; for (const rawSymbol of symbols) { const symbol = String(rawSymbol).trim().toUpperCase(); if (!symbol) continue; const from = `${tradingDate.replaceAll('-', '/')} 00:00:00`; const to = `${tradingDate.replaceAll('-', '/')} 23:59:59`; const candles = await data.marketData.getOhlc1DayHistorical(symbol, from, to, 1, 10); const candle = candles?.at(-1); if (!candle || Number(candle.closePrice ?? 0) <= 0) continue; results.push({ symbol, closePrice: Number(candle.closePrice) }); } return results; }); }
   async accountSnapshots(input: SsiAuthInput): Promise<ContractResult<Array<{ account: SsiAccount; balance: AccountBalance; positions: AccountPosition[] }>>> { return this.result(async () => { await this.authenticate(input); const accounts = await this.accountInfo(); const snapshots = await Promise.all(accounts.map(async (account) => { const [balance, positions] = await Promise.all([this.balance(account.accountNo), this.positions(account.accountNo)]); if (!balance.ok) throw new Error(`${account.accountNo}: ${balance.error.message}`); if (!positions.ok) throw new Error(`${account.accountNo}: ${positions.error.message}`); return { account, balance: balance.data, positions: positions.data }; })); return snapshots; }); }
   async syncPortfolio(accountNo: string, input: SsiAuthInput) { const authResult = await this.result(() => this.authenticate(input).then(() => undefined)); if (!authResult.ok) return authResult; const [balance, positions, orders] = await Promise.all([this.balance(accountNo), this.positions(accountNo), this.orders(accountNo)]); if (!balance.ok) return { ok: false, error: balance.error } as const; if (!positions.ok) return { ok: false, error: positions.error } as const; if (!orders.ok) return { ok: false, error: orders.error } as const; return { ok: true, data: { positions: positions.data.filter((position) => position.quantity > 0), orders: orders.data.filter((order) => order.quantity > 0), balance: balance.data } } as const; }
