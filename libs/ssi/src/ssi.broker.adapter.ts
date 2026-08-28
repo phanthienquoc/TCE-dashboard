@@ -25,7 +25,7 @@ export class SsiBrokerAdapter implements BrokerPort, SsiConnectionPort {
 
   private tokenSnapshot(auth: Auth = this.auth!, tokenOverride?: unknown): SsiTokenSnapshot | undefined {
     const token = tokenOverride ?? auth?.getToken(); if (!token || typeof token !== 'object') return undefined;
-    const raw = token as Record<string, unknown>; const accessToken = raw.accessToken ? String(raw.accessToken) : ''; const refreshToken = raw.refreshToken ? String(raw.refreshToken) : '';
+    const raw = token as unknown as Record<string, unknown>; const accessToken = raw.accessToken ? String(raw.accessToken) : ''; const refreshToken = raw.refreshToken ? String(raw.refreshToken) : '';
     if (!accessToken || !refreshToken) return undefined;
     return { accessToken, tokenType: String(raw.tokenType ?? 'Bearer'), expiresAt: Number(raw.expiresAt ?? 0), refreshToken, refreshTokenExpiresAt: Number(raw.refreshTokenExpiresAt ?? raw.refreshExpiresAt ?? 0) };
   }
@@ -37,7 +37,7 @@ export class SsiBrokerAdapter implements BrokerPort, SsiConnectionPort {
     this.authenticatePromise = (async () => {
       this.auth ??= this.createAuth(true); const tokenManager = this.auth.tokenManager; const current = this.auth.getToken();
       if (current && !tokenManager.isTokenExpired()) { this.tradingClient ??= new Trading(this.auth); return current; }
-      const currentToken = current && typeof current === 'object' ? current as Record<string, unknown> : undefined;
+      const currentToken = current && typeof current === 'object' ? current as unknown as Record<string, unknown> : undefined;
       const refreshTokenExpiresAt = Number(currentToken?.refreshTokenExpiresAt ?? currentToken?.refreshExpiresAt ?? 0);
       const refreshTokenValid = !refreshTokenExpiresAt || refreshTokenExpiresAt > Date.now();
       if (current && tokenManager.hasRefreshToken() && refreshTokenValid) {
