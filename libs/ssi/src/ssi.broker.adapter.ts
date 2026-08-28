@@ -37,7 +37,10 @@ export class SsiBrokerAdapter implements BrokerPort, SsiConnectionPort {
     this.authenticatePromise = (async () => {
       this.auth ??= this.createAuth(true); const tokenManager = this.auth.tokenManager; const current = this.auth.getToken();
       if (current && !tokenManager.isTokenExpired()) { this.tradingClient ??= new Trading(this.auth); return current; }
-      if (current && tokenManager.hasRefreshToken() && !tokenManager.isRefreshTokenExpired()) {
+      const currentToken = current && typeof current === 'object' ? current as Record<string, unknown> : undefined;
+      const refreshTokenExpiresAt = Number(currentToken?.refreshTokenExpiresAt ?? currentToken?.refreshExpiresAt ?? 0);
+      const refreshTokenValid = !refreshTokenExpiresAt || refreshTokenExpiresAt > Date.now();
+      if (current && tokenManager.hasRefreshToken() && refreshTokenValid) {
         try { const refreshed = await this.auth.refresh(); this.tradingClient = new Trading(this.auth); await this.persistToken(this.auth, refreshed); return refreshed; }
         catch (error) { if (!input.otp && !input.transactionId) throw new Error(`SSI_REAUTH_REQUIRED: ${error instanceof Error ? error.message : String(error)}`); }
       }
