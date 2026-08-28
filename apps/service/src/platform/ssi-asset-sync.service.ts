@@ -21,8 +21,10 @@ export class SsiAssetSyncService {
     if (error) throw error;
     if (!account) throw new NotFoundException('TCE account is not configured');
 
-    // This is the canonical SSI portfolio sync path. SSI is the source of truth;
-    // all SSI accounts are fetched and consolidated into the TCE account.
+    // Canonical SSI portfolio sync: discover every SSI sub-account, persist its
+    // broker assets, then consolidate all current securities into tce_positions.
+    // Cash itself is kept in tce_accounts.capital_available and is never turned
+    // into a stock position.
     const snapshots = await this.ssi.accountSnapshots(userId, environment, input);
     if (!snapshots.ok) return snapshots;
 
@@ -33,7 +35,6 @@ export class SsiAssetSyncService {
     let positionsClosed = 0;
     let cashSynced = 0;
     const syncedAt = new Date().toISOString();
-
     const aggregate = new Map<string, { quantity: number; costValue: number }>();
 
     for (const snapshot of snapshots.data) {
@@ -59,15 +60,18 @@ export class SsiAssetSyncService {
       accountsSynced += 1;
       cashSynced += Number(snapshot.balance.cash ?? 0);
 
+      // getEquityPositions() is the SSI source of truth for securities held by
+      // this specific account. This includes holdings in the Cash sub-account.
       const positions = new Map<string, { symbol: string; quantity: number; averagePrice: number; raw: unknown }>();
       for (const position of snapshot.positions) {
-        const symbol = String(position.symbol).trim().toUpperCase();
+        const symbol = String(position.symbol ?? '').trim().toUpperCase();
         if (!symbol) continue;
 
         const quantity = Math.max(0, Number(position.quantity ?? 0));
         const averagePrice = Math.max(0, Number(position.averagePrice ?? 0));
         positions.set(symbol, { symbol, quantity, averagePrice, raw: position });
 
+        // Only securities with a positive quantity become TCE positions.
         if (quantity > 0) {
           const current = aggregate.get(symbol) ?? { quantity: 0, costValue: 0 };
           current.quantity += quantity;
@@ -76,8 +80,8 @@ export class SsiAssetSyncService {
         }
       }
 
+      // Persist every SSI security row per broker account for audit/source data.
       for (const position of positions.values()) {
-        const total = position.quantity;
         const { error: assetError } = await this.db.db.from('tce_broker_assets').upsert(
           {
             account_id: account.id,
@@ -86,9 +90,9 @@ export class SsiAssetSyncService {
             environment,
             asset_code: position.symbol,
             asset_name: position.symbol,
-            available: total,
+            available: position.quantity,
             locked: 0,
-            total,
+            total: position.quantity,
             market_value: null,
             currency: 'VND',
             raw_asset: position.raw,
@@ -102,35 +106,34 @@ export class SsiAssetSyncService {
         assetsSynced += 1;
       }
 
+      // A security that disappears from the latest SSI position response is no
+      // longer held. Keep its row for history, but zero its current quantity.
       const { data: existingAssets, error: existingError } = await this.db.db
         .from('tce_broker_assets')
         .select('id,asset_code,total')
         .eq('broker_account_id', brokerAccount.id);
 
       if (existingError) throw existingError;
-
       const currentSymbols = new Set(positions.keys());
-      for (const existing of existingAssets ?? []) {
-        const code = String(existing.asset_code ?? '').trim().toUpperCase();
-        if (!code || currentSymbols.has(code) || Number(existing.total ?? 0) === 0) continue;
+      const staleIds = (existingAssets ?? [])
+        .filter((existing) => {
+          const code = String(existing.asset_code ?? '').trim().toUpperCase();
+          return code && !currentSymbols.has(code) && Number(existing.total ?? 0) !== 0;
+        })
+        .map((existing) => existing.id);
 
+      if (staleIds.length) {
         const { error: zeroError } = await this.db.db
           .from('tce_broker_assets')
-          .update({
-            available: 0,
-            locked: 0,
-            total: 0,
-            market_value: null,
-            observed_at: syncedAt,
-            updated_at: syncedAt,
-          })
-          .eq('id', existing.id);
-
+          .update({ available: 0, locked: 0, total: 0, market_value: null, observed_at: syncedAt, updated_at: syncedAt })
+          .in('id', staleIds);
         if (zeroError) throw zeroError;
-        assetsZeroed += 1;
+        assetsZeroed += staleIds.length;
       }
     }
 
+    // Consolidate Cash + Margin (and any other SSI sub-account) holdings into
+    // one TCE position per symbol. The same symbol is weighted by quantity.
     for (const [symbol, position] of aggregate) {
       const averagePrice = position.quantity > 0 ? position.costValue / position.quantity : 0;
       const { error: positionError } = await this.db.db
@@ -156,6 +159,8 @@ export class SsiAssetSyncService {
       positionsSynced += 1;
     }
 
+    // Any previously open TCE position absent from ALL fresh SSI sub-account
+    // holdings is closed. This prevents stale Cash/Margin positions lingering.
     const { data: existingPositions, error: existingPositionsError } = await this.db.db
       .from('tce_positions')
       .select('id,symbol,quantity,status')
@@ -163,27 +168,21 @@ export class SsiAssetSyncService {
       .eq('status', 'OPEN');
 
     if (existingPositionsError) throw existingPositionsError;
-
     const currentPositionSymbols = new Set(aggregate.keys());
-    for (const existing of existingPositions ?? []) {
-      const symbol = String(existing.symbol ?? '').trim().toUpperCase();
-      if (!symbol || currentPositionSymbols.has(symbol)) continue;
+    const stalePositionIds = (existingPositions ?? [])
+      .filter((existing) => {
+        const symbol = String(existing.symbol ?? '').trim().toUpperCase();
+        return symbol && !currentPositionSymbols.has(symbol);
+      })
+      .map((existing) => existing.id);
 
+    if (stalePositionIds.length) {
       const { error: closeError } = await this.db.db
         .from('tce_positions')
-        .update({
-          quantity: 0,
-          cost_basis: 0,
-          market_price: null,
-          market_value: null,
-          unrealized_pnl: null,
-          status: 'CLOSED',
-          updated_at: syncedAt,
-        })
-        .eq('id', existing.id);
-
+        .update({ quantity: 0, cost_basis: 0, market_price: null, market_value: null, unrealized_pnl: null, status: 'CLOSED', updated_at: syncedAt })
+        .in('id', stalePositionIds);
       if (closeError) throw closeError;
-      positionsClosed += 1;
+      positionsClosed += stalePositionIds.length;
     }
 
     const { error: accountUpdateError } = await this.db.db
