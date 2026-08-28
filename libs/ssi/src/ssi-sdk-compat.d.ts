@@ -7,6 +7,8 @@ declare module '@ssi.developer/ssi-sdk' {
 
   interface EquityAccountBalance {
     availableCash?: number;
+    withdrawal?: number;
+    withdrawable?: number;
     bankBalance?: number;
     dividendMargin?: number;
     blockCash?: number;
