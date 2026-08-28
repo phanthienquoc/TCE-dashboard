@@ -1,6 +1,6 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { Inject } from '@nestjs/common';
-import { CONTRACT_TOKENS, PlatformCredentialPort, PlatformCredentialRecord } from '@tce/contracts';
+import { CONTRACT_TOKENS, PlatformCredentialPort } from '@tce/contracts';
 import { SupabaseClientService } from '../db/supabase.client';
 import { TceSignalService } from '../monitor/tce-signal.service';
 
@@ -17,8 +17,6 @@ export class TelegramBotService implements OnModuleInit {
   constructor(@Inject(CONTRACT_TOKENS.credentials) private readonly credentials: PlatformCredentialPort, private readonly signals: TceSignalService, private readonly supabase: SupabaseClientService) {}
 
   async onModuleInit() {
-    const rows = await this.credentials.list('00000000-0000-0000-0000-000000000000').catch(() => []);
-    void rows;
     const { data, error } = await this.supabase.db.from('platform_credentials').select('id,user_id,environment,credential_name').eq('provider', 'telegram').eq('is_active', true);
     if (error) { this.logger.warn(`Unable to restore Telegram bots: ${error.message}`); return; }
     for (const row of data ?? []) await this.start(String(row.user_id), String(row.environment ?? 'production'), String(row.credential_name ?? 'default'), String(row.id));
@@ -42,9 +40,7 @@ export class TelegramBotService implements OnModuleInit {
     return { ok: true, bot: verified.bot, saved };
   }
 
-  async listBots(userId: string) {
-    return (await this.credentials.list(userId)).filter((row) => row.provider === 'telegram' && row.isActive);
-  }
+  async listBots(userId: string) { return (await this.credentials.list(userId)).filter((row) => row.provider === 'telegram' && row.isActive); }
 
   async removeBot(userId: string, environment = 'production', name = 'default') {
     const bots = await this.listBots(userId); const bot = bots.find((row) => row.environment === environment && row.name === this.normalizeName(name));
@@ -77,10 +73,10 @@ export class TelegramBotService implements OnModuleInit {
     try {
       const { data: assignments, error } = await this.supabase.db.from('telegram_debug_assignments').select('telegram_credential_id,service_name,min_level').eq('user_id', userId).eq('enabled', true).in('service_name', [serviceName, '*']);
       if (error || !assignments?.length) return;
-      const selected = new Map<string, { service_name: string; min_level: TelegramDebugLevel }>();
-      for (const row of assignments) { const minLevel = row.min_level as TelegramDebugLevel; if (LEVEL_WEIGHT[level] >= LEVEL_WEIGHT[minLevel]) selected.set(String(row.telegram_credential_id), { service_name: String(row.service_name), min_level: minLevel }); }
+      const selected = new Map<string, true>();
+      for (const row of assignments) { const minLevel = row.min_level as TelegramDebugLevel; if (LEVEL_WEIGHT[level] >= LEVEL_WEIGHT[minLevel]) selected.set(String(row.telegram_credential_id), true); }
       for (const credentialId of selected.keys()) {
-        const { data: row } = await this.supabase.db.from('platform_credentials').select('user_id,environment,credential_name').eq('id', credentialId).eq('user_id', userId).eq('provider', 'telegram').eq('is_active', true).maybeSingle();
+        const { data: row } = await this.supabase.db.from('platform_credentials').select('environment,credential_name').eq('id', credentialId).eq('user_id', userId).eq('provider', 'telegram').eq('is_active', true).maybeSingle();
         if (!row) continue;
         const stored = await this.credentials.get(userId, 'telegram', String(row.environment), String(row.credential_name ?? 'default'));
         const botToken = typeof stored.botToken === 'string' ? stored.botToken : ''; const chatId = typeof stored.chatId === 'string' ? stored.chatId : '';
