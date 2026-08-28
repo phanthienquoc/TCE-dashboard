@@ -3,7 +3,7 @@ import { SsiApplicationService } from './ssi.application.service';
 import { SupabaseClientService } from '../db/supabase.client';
 import { AccountPosition, SsiAuthInput } from '@tce/contracts';
 
-const SSI_SOURCE_VERSION = 'ssi-sdk@3.2.0';
+const SSI_SOURCE_VERSION = 'ssi-sdk@3.2.1';
 
 @Injectable()
 export class SsiAssetSyncService {
@@ -23,6 +23,7 @@ export class SsiAssetSyncService {
 
     for (const snapshot of snapshots.data) {
       const accountType = String(snapshot.account.accountType ?? '');
+      const accountTypeUpper = accountType.trim().toUpperCase();
       const { data: brokerAccount, error: brokerError } = await this.db.db.from('tce_broker_accounts').upsert({
         account_id: account.id,
         provider: 'ssi',
@@ -34,7 +35,7 @@ export class SsiAssetSyncService {
         account_currency: 'VND',
         account_sub_type: accountType,
         is_tradable: true,
-        is_margin_enabled: accountType === 'Margin',
+        is_margin_enabled: accountTypeUpper === 'MARGIN' || accountTypeUpper === 'EQUITY_MARGIN',
         source_version: SSI_SOURCE_VERSION,
         raw_account: snapshot.account,
         raw_account_v2: snapshot.account.raw ?? snapshot.account,
