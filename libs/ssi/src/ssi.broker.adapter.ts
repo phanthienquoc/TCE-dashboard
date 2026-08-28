@@ -200,6 +200,43 @@ export class SsiBrokerAdapter implements BrokerPort, SsiConnectionPort {
 
   async dailyCloses(symbols: string[], tradingDate: string): Promise<ContractResult<Array<{ symbol: string; closePrice: number }>>> { return this.result(async () => { const auth = await this.authenticateMarketData(); const data = this.marketData(auth); const results: Array<{ symbol: string; closePrice: number }> = []; for (const rawSymbol of symbols) { const symbol = String(rawSymbol).trim().toUpperCase(); if (!symbol) continue; const from = `${tradingDate.replaceAll('-', '/')} 00:00:00`; const to = `${tradingDate.replaceAll('-', '/')} 23:59:59`; const candles = await data.marketData.getOhlc1DayHistorical(symbol, from, to, 1, 10); const candle = candles?.at(-1); if (!candle || Number(candle.closePrice ?? 0) <= 0) continue; results.push({ symbol, closePrice: Number(candle.closePrice) }); } return results; }); }
 
+  private async marginBalance(accountNo: string): Promise<ContractResult<AccountBalance>> {
+    return this.result(async () => {
+      const ppmmr = await this.trading().portfolio.getEquityPpmmr(accountNo);
+      return {
+        accountNo: String(ppmmr?.accountNo ?? accountNo),
+        cash: Number(ppmmr?.withdrawable ?? 0),
+        equity: Number(ppmmr?.eeOrigin ?? 0),
+        withdrawable: Number(ppmmr?.withdrawable ?? 0),
+        availableCash: Number(ppmmr?.purchasingPower ?? ppmmr?.withdrawable ?? 0),
+        totalDebt: Number(ppmmr?.totalDebt ?? ppmmr?.debt ?? 0),
+        interestLoan: Number(ppmmr?.interestSSI ?? 0),
+        overdueFeeLoan: 0,
+        onHoldCash: 0,
+        sellUnmatched: Number(ppmmr?.sellUnmatched ?? 0),
+        sellT0: Number(ppmmr?.sellT0 ?? 0),
+        sellT1: Number(ppmmr?.sellT1 ?? 0),
+        sellT2: Number(ppmmr?.sellT2 ?? 0),
+        buyUnmatched: Number(ppmmr?.buyUnmatched ?? 0),
+        buyT0: Number(ppmmr?.buyT0 ?? 0),
+        buyT1: Number(ppmmr?.buyT1 ?? 0),
+        buyT2: Number(ppmmr?.buyT2 ?? 0),
+        advanceCashT0: 0,
+        advanceCashT1: 0,
+        holdSubscription: 0,
+        bankBalance: 0,
+        dividend: Number(ppmmr?.dividend ?? 0),
+        dividendMargin: Number(ppmmr?.dividend ?? 0),
+        blockCash: 0,
+        interestCash: 0,
+        limitT0: Number(ppmmr?.creditLimit ?? 0),
+        termDeposit: 0,
+        source: 'ssi' as const,
+        raw: ppmmr,
+      } as AccountBalance;
+    });
+  }
+
   async accountSnapshots(input: SsiAuthInput): Promise<ContractResult<Array<{ account: SsiAccount; balance: AccountBalance; positions: AccountPosition[] }>>> {
     return this.result(async () => {
       await this.authenticate(input);
@@ -209,12 +246,32 @@ export class SsiBrokerAdapter implements BrokerPort, SsiConnectionPort {
         return type === 'EQUITY' || type === 'EQUITY_MARGIN' || type === 'CASH' || type === 'MARGIN';
       });
       if (!equityAccounts.length) throw new Error(`SSI_EQUITY_ACCOUNTS_NOT_FOUND: ${accounts.map((account) => `${account.accountNo}:${account.accountType}`).join(', ') || 'no accounts returned'}`);
-      return Promise.all(equityAccounts.map(async (account) => {
-        const [balance, positions] = await Promise.all([this.balance(account.accountNo), this.positions(account.accountNo)]);
-        if (!balance.ok) throw new Error(`${account.accountNo} (${account.accountType}): ${balance.error.message}`);
-        if (!positions.ok) throw new Error(`${account.accountNo} (${account.accountType}): ${positions.error.message}`);
-        return { account, balance: balance.data, positions: positions.data };
-      }));
+
+      const snapshots: Array<{ account: SsiAccount; balance: AccountBalance; positions: AccountPosition[] }> = [];
+      const failures: string[] = [];
+      for (const account of equityAccounts) {
+        const type = String(account.accountType ?? '').trim().toUpperCase();
+        const positions = await this.positions(account.accountNo);
+        if (!positions.ok) {
+          failures.push(`${account.accountNo} (${account.accountType}) positions: ${positions.error.message}`);
+          continue;
+        }
+
+        let balance = await this.balance(account.accountNo);
+        if (!balance.ok && (type === 'MARGIN' || type === 'EQUITY_MARGIN')) {
+          console.warn('[SSI_MARGIN_BALANCE_FALLBACK]', { accountNo: account.accountNo, accountType: account.accountType, error: balance.error.message });
+          balance = await this.marginBalance(account.accountNo);
+        }
+        if (!balance.ok) {
+          failures.push(`${account.accountNo} (${account.accountType}) balance: ${balance.error.message}`);
+          continue;
+        }
+        snapshots.push({ account, balance: balance.data, positions: positions.data });
+      }
+
+      if (!snapshots.length) throw new Error(`SSI_EQUITY_SNAPSHOTS_FAILED: ${failures.join('; ')}`);
+      if (failures.length) console.warn('[SSI_PARTIAL_PORTFOLIO_SYNC]', { failures });
+      return snapshots;
     });
   }
   async syncPortfolio(accountNo: string, input: SsiAuthInput) { const authResult = await this.result(() => this.authenticate(input).then(() => undefined)); if (!authResult.ok) return authResult; const [balance, positions, orders] = await Promise.all([this.balance(accountNo), this.positions(accountNo), this.orders(accountNo)]); if (!balance.ok) return { ok: false, error: balance.error } as const; if (!positions.ok) return { ok: false, error: positions.error } as const; if (!orders.ok) return { ok: false, error: orders.error } as const; return { ok: true, data: { positions: positions.data.filter((position) => position.quantity > 0), orders: orders.data.filter((order) => order.quantity > 0), balance: balance.data } } as const; }
