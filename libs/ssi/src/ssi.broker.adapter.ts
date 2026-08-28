@@ -59,14 +59,104 @@ export class SsiBrokerAdapter implements BrokerPort, SsiConnectionPort {
   async requestOtp() { return this.result(async () => { const auth = this.createAuth(true); const result = await auth.requestOtp(); const data = (result?.data ?? {}) as Record<string, unknown>; return { message: String(data.message ?? 'SSI approval/OTP request sent'), transactionId: typeof data.transactionId === 'string' ? data.transactionId : undefined }; }); }
   async connect(input: ConnectInput) { return this.result(async () => { await this.authenticate(input as SsiAuthInput); }); }
   async health(input: ConnectInput): Promise<ContractResult<PlatformHealth>> { const started = Date.now(); return this.result(async () => { if (!this.auth?.getToken() || this.auth.tokenManager.isTokenExpired()) await this.connect(input); return { provider: 'ssi', available: true, latencyMs: Date.now() - started, fetchedAt: new Date().toISOString() }; }); }
-  private async accountInfo(): Promise<SsiAccount[]> { const accounts = await this.trading().account.getAccountInfo(); return (accounts ?? []).map((account) => ({ accountNo: String(account.accountNo), accountType: String(account.accountType) })); }
+
+  private async accountInfo(): Promise<SsiAccount[]> {
+    const accounts = await this.trading().account.getAccountInfo();
+    return (accounts ?? []).map((account) => ({ accountNo: String(account.accountNo), accountType: String(account.accountType), raw: account }));
+  }
+
   async test(input: SsiAuthInput): Promise<ContractResult<SsiConnectionTest>> { return this.result(async () => { const token = await this.authenticate(input); const data = new Data(this.auth!); const securities = await data.marketData.getSecuritiesInfoByBoard(Board.HOSE); const accounts = this.auth?.getToken() ? await this.accountInfo() : []; return { provider: 'ssi', apiVersion: 'v3', authentication: 'ok', marketData: 'ok', securities: securities.length, accounts, tokenExpiresAt: token?.expiresAt }; }); }
   async current(accountNo: string, input: SsiAuthInput): Promise<ContractResult<SsiCurrentInfo>> { return this.result(async () => { await this.authenticate(input); const [accounts, balance, positions, orders] = await Promise.all([this.accountInfo(), this.balance(accountNo), this.positions(accountNo), this.orders(accountNo)]); if (!balance.ok) throw new Error(balance.error.message); if (!positions.ok) throw new Error(positions.error.message); if (!orders.ok) throw new Error(orders.error.message); return { accounts, balance: balance.data, positions: positions.data, orders: orders.data, fetchedAt: new Date().toISOString() }; }); }
   private trading() { if (!this.auth) throw new Error('SSI is not connected'); return this.tradingClient!; }
   private marketData(auth: Auth) { return new Data(auth); }
-  async balance(accountNo: string) { return this.result(async () => { const balance = await this.trading().portfolio.getEquityBalance(accountNo); return { cash: Number(balance?.accountBalance ?? 0), equity: Number(balance?.accountBalance ?? 0), withdrawable: Number(balance?.withdrawable ?? 0), source: 'ssi' } as AccountBalance; }); }
-  async positions(accountNo: string) { return this.result(async () => { const positions = await this.trading().portfolio.getEquityPositions(accountNo); return (positions ?? []).map((position) => ({ symbol: String(position.symbol).toUpperCase(), quantity: Number(position.quantity ?? 0), averagePrice: Number(position.costPrice ?? 0), source: 'ssi' as const })) as AccountPosition[]; }); }
-  async orders(accountNo: string) { return this.result(async () => { const orders = await this.trading().portfolio.getTodayOrders(accountNo); return (orders ?? []).filter((order) => order.orderId && order.symbol).map((order) => ({ externalId: String(order.orderId), symbol: String(order.symbol).toUpperCase(), side: String(order.side).toUpperCase() === 'S' ? 'SELL' as const : 'BUY' as const, quantity: Number(order.filledQuantity ?? order.quantity ?? 0), price: Number(order.avgPrice ?? order.price ?? 0), status: String(order.status ?? 'UNKNOWN'), createdAt: order.inputTime ? String(order.inputTime) : undefined, source: 'ssi' as const })) as AccountOrder[]; }); }
+
+  async balance(accountNo: string) {
+    return this.result(async () => {
+      const balance = await this.trading().portfolio.getEquityBalance(accountNo);
+      return {
+        accountNo: String(balance?.accountNo ?? accountNo),
+        cash: Number(balance?.accountBalance ?? balance?.availableCash ?? 0),
+        equity: Number(balance?.accountBalance ?? 0),
+        withdrawable: Number(balance?.withdrawal ?? balance?.withdrawable ?? 0),
+        availableCash: Number(balance?.availableCash ?? balance?.accountBalance ?? 0),
+        totalDebt: Number(balance?.totalDebt ?? 0),
+        interestLoan: Number(balance?.interestLoan ?? 0),
+        overdueFeeLoan: Number(balance?.overdueFeeLoan ?? 0),
+        onHoldCash: Number(balance?.onHoldCash ?? 0),
+        sellUnmatched: Number(balance?.sellUnmatched ?? 0),
+        sellT0: Number(balance?.sellT0 ?? 0),
+        sellT1: Number(balance?.sellT1 ?? 0),
+        sellT2: Number(balance?.sellT2 ?? 0),
+        buyUnmatched: Number(balance?.buyUnmatched ?? 0),
+        buyT0: Number(balance?.buyT0 ?? 0),
+        buyT1: Number(balance?.buyT1 ?? 0),
+        buyT2: Number(balance?.buyT2 ?? 0),
+        advanceCashT0: Number(balance?.advanceCashT0 ?? 0),
+        advanceCashT1: Number(balance?.advanceCashT1 ?? 0),
+        holdSubscription: Number(balance?.holdSubscription ?? 0),
+        bankBalance: Number(balance?.bankBalance ?? 0),
+        dividend: Number(balance?.dividend ?? 0),
+        dividendMargin: Number(balance?.dividendMargin ?? 0),
+        blockCash: Number(balance?.blockCash ?? 0),
+        interestCash: Number(balance?.interestCash ?? 0),
+        limitT0: Number(balance?.limitT0 ?? 0),
+        termDeposit: Number(balance?.termDeposit ?? 0),
+        source: 'ssi' as const,
+        raw: balance,
+      } as AccountBalance;
+    });
+  }
+
+  async positions(accountNo: string) {
+    return this.result(async () => {
+      const positions = await this.trading().portfolio.getEquityPositions(accountNo);
+      return (positions ?? []).map((position) => ({
+        accountNo: String(position.accountNo ?? accountNo),
+        symbol: String(position.symbol).toUpperCase(),
+        quantity: Number(position.quantity ?? 0),
+        averagePrice: Number(position.costPrice ?? 0),
+        sellableQuantity: Number(position.sellableQuantity ?? 0),
+        blockQuantity: Number(position.blockQuantity ?? 0),
+        dividendQuantity: Number(position.dividendQuantity ?? 0),
+        buyingQuantity: Number(position.buyingQuantity ?? 0),
+        boughtQuantity: Number(position.boughtQuantity ?? 0),
+        sellingQuantity: Number(position.sellingQuantity ?? 0),
+        soldQuantity: Number(position.soldQuantity ?? 0),
+        t1SellQuantity: Number(position.t1SellQuantity ?? 0),
+        t2SellQuantity: Number(position.t2SellQuantity ?? 0),
+        mortgageQuantity: Number(position.mortgageQuantity ?? 0),
+        restrictedQuantity: Number(position.restrictedQuantity ?? 0),
+        source: 'ssi' as const,
+        raw: position,
+      })) as AccountPosition[];
+    });
+  }
+
+  async orders(accountNo: string) {
+    return this.result(async () => {
+      const orders = await this.trading().portfolio.getTodayOrders(accountNo);
+      return (orders ?? []).filter((order) => order.orderId && order.symbol).map((order) => ({
+        accountNo: String(order.accountNo ?? accountNo),
+        externalId: String(order.orderId),
+        clientRequestId: order.clientRequestId ? String(order.clientRequestId) : undefined,
+        symbol: String(order.symbol).toUpperCase(),
+        side: String(order.side).toUpperCase() === 'S' ? 'SELL' as const : 'BUY' as const,
+        orderType: order.orderType ? String(order.orderType) : undefined,
+        quantity: Number(order.quantity ?? 0),
+        osQuantity: Number(order.osQuantity ?? 0),
+        filledQuantity: Number(order.filledQuantity ?? 0),
+        cancelQuantity: Number(order.cancelQuantity ?? 0),
+        price: Number(order.price ?? 0),
+        avgPrice: Number(order.avgPrice ?? 0),
+        status: String(order.status ?? 'UNKNOWN'),
+        createdAt: order.inputTime ? String(order.inputTime) : undefined,
+        modifyTime: order.modifyTime ? String(order.modifyTime) : undefined,
+        message: order.message ? String(order.message) : undefined,
+        source: 'ssi' as const,
+        raw: order,
+      })) as AccountOrder[];
+    });
+  }
 
   async placeOrder(request: BrokerOrderRequest): Promise<ContractResult<BrokerOrderResult>> {
     return this.result(async () => {
@@ -109,20 +199,21 @@ export class SsiBrokerAdapter implements BrokerPort, SsiConnectionPort {
   }
 
   async dailyCloses(symbols: string[], tradingDate: string): Promise<ContractResult<Array<{ symbol: string; closePrice: number }>>> { return this.result(async () => { const auth = await this.authenticateMarketData(); const data = this.marketData(auth); const results: Array<{ symbol: string; closePrice: number }> = []; for (const rawSymbol of symbols) { const symbol = String(rawSymbol).trim().toUpperCase(); if (!symbol) continue; const from = `${tradingDate.replaceAll('-', '/')} 00:00:00`; const to = `${tradingDate.replaceAll('-', '/')} 23:59:59`; const candles = await data.marketData.getOhlc1DayHistorical(symbol, from, to, 1, 10); const candle = candles?.at(-1); if (!candle || Number(candle.closePrice ?? 0) <= 0) continue; results.push({ symbol, closePrice: Number(candle.closePrice) }); } return results; }); }
+
   async accountSnapshots(input: SsiAuthInput): Promise<ContractResult<Array<{ account: SsiAccount; balance: AccountBalance; positions: AccountPosition[] }>>> {
     return this.result(async () => {
       await this.authenticate(input);
       const accounts = await this.accountInfo();
       const equityAccounts = accounts.filter((account) => account.accountType === 'Cash' || account.accountType === 'Margin');
-      const snapshots = await Promise.all(equityAccounts.map(async (account) => {
+      return Promise.all(equityAccounts.map(async (account) => {
         const [balance, positions] = await Promise.all([this.balance(account.accountNo), this.positions(account.accountNo)]);
         if (!balance.ok) throw new Error(`${account.accountNo}: ${balance.error.message}`);
         if (!positions.ok) throw new Error(`${account.accountNo}: ${positions.error.message}`);
         return { account, balance: balance.data, positions: positions.data };
       }));
-      return snapshots;
     });
   }
+
   async syncPortfolio(accountNo: string, input: SsiAuthInput) { const authResult = await this.result(() => this.authenticate(input).then(() => undefined)); if (!authResult.ok) return authResult; const [balance, positions, orders] = await Promise.all([this.balance(accountNo), this.positions(accountNo), this.orders(accountNo)]); if (!balance.ok) return { ok: false, error: balance.error } as const; if (!positions.ok) return { ok: false, error: positions.error } as const; if (!orders.ok) return { ok: false, error: orders.error } as const; return { ok: true, data: { positions: positions.data.filter((position) => position.quantity > 0), orders: orders.data.filter((order) => order.quantity > 0), balance: balance.data } } as const; }
   async startOrderStatusStream(accountNo: string, onEvent: (event: SsiOrderStatusEvent) => void) { await this.authenticate(); if (this.streamClient) return; this.streamClient = new Stream(this.auth!); this.streamClient.streaming.onTrading = (message) => { const event = message as unknown as SsiOrderStatusEvent; if (event.type === 'orderEvent' && (!accountNo || !event.accountNo || event.accountNo === accountNo)) onEvent(event); }; await this.streamClient.streaming.connect(); this.streamClient.streaming.subscribeOrderStatus(accountNo); this.streamClient.streaming.ping(undefined, 30000); }
   async stopOrderStatusStream() { this.streamClient?.streaming.disconnect(); this.streamClient = undefined; }
