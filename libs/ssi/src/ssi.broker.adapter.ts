@@ -1,8 +1,8 @@
 import { Auth, Board, Config, Data, Stream, Trading, OrderSide, OrderType } from '@ssi.developer/ssi-sdk';
 import { AccountBalance, AccountOrder, AccountPosition, BrokerOrderRequest, BrokerOrderResult, BrokerPort, ConnectInput, ContractResult, PlatformHealth, SsiAccount, SsiAuthInput, SsiConnectionPort, SsiConnectionTest, SsiCurrentInfo } from '@tce/contracts';
 
-export type SsiTokenSnapshot = { accessToken: string; tokenType: string; expiresAt: number; refreshToken: string; refreshExpiresAt: number };
-export type SsiConfig = { apiKey: string; apiSecret: string; clientId?: string; privateKey?: string; accountNo?: string; token?: Partial<SsiTokenSnapshot>; onTokenUpdated?: (token: SsiTokenSnapshot) => Promise<void> };
+export type SsiTokenSnapshot = { accessToken: string; tokenType: string; expiresAt: number; refreshToken: string; refreshTokenExpiresAt: number };
+export type SsiConfig = { apiKey: string; apiSecret: string; clientId?: string; privateKey?: string; accountNo?: string; token?: Partial<SsiTokenSnapshot> & { refreshExpiresAt?: number }; onTokenUpdated?: (token: SsiTokenSnapshot) => Promise<void> };
 export type SsiOrderStatusEvent = { type?: string; accountNo?: string; clientRequestId?: string; orderId?: string; symbol?: string; side?: string; orderType?: string; price?: number; quantity?: number; osQuantity?: number; cancelQuantity?: number; filledQuantity?: number; status?: string; inputTime?: string; modifyTime?: string; message?: string };
 
 export class SsiBrokerAdapter implements BrokerPort, SsiConnectionPort {
@@ -18,7 +18,8 @@ export class SsiBrokerAdapter implements BrokerPort, SsiConnectionPort {
   private createAuth(includePrivateKey = true) {
     const auth = new Auth(new Config({ clientId: this.config.clientId ?? '', apiKey: this.config.apiKey, apiSecret: this.config.apiSecret, privateKey: includePrivateKey ? this.config.privateKey ?? '' : '', apiUrl: 'https://api.ssi.com.vn', streamingUrl: 'wss://stream.ssi.com.vn/ws/v3', timeout: 60000, maxRetries: 5, retryDelay: 2000, rateLimitPerSecond: 10 }));
     const token = this.config.token;
-    if (token?.accessToken && token.refreshToken) auth.tokenManager.setToken({ accessToken: token.accessToken, tokenType: token.tokenType ?? 'Bearer', expiresAt: Number(token.expiresAt ?? 0), refreshToken: token.refreshToken, refreshExpiresAt: Number(token.refreshExpiresAt ?? 0) });
+    const refreshTokenExpiresAt = Number(token?.refreshTokenExpiresAt ?? token?.refreshExpiresAt ?? 0);
+    if (token?.accessToken && token.refreshToken) auth.tokenManager.setToken({ accessToken: token.accessToken, tokenType: token.tokenType ?? 'Bearer', expiresAt: Number(token.expiresAt ?? 0), refreshToken: token.refreshToken, refreshExpiresAt: refreshTokenExpiresAt });
     return auth;
   }
 
@@ -26,7 +27,7 @@ export class SsiBrokerAdapter implements BrokerPort, SsiConnectionPort {
     const token = tokenOverride ?? auth?.getToken(); if (!token || typeof token !== 'object') return undefined;
     const raw = token as Record<string, unknown>; const accessToken = raw.accessToken ? String(raw.accessToken) : ''; const refreshToken = raw.refreshToken ? String(raw.refreshToken) : '';
     if (!accessToken || !refreshToken) return undefined;
-    return { accessToken, tokenType: String(raw.tokenType ?? 'Bearer'), expiresAt: Number(raw.expiresAt ?? 0), refreshToken, refreshExpiresAt: Number(raw.refreshExpiresAt ?? raw.refreshTokenExpiresAt ?? 0) };
+    return { accessToken, tokenType: String(raw.tokenType ?? 'Bearer'), expiresAt: Number(raw.expiresAt ?? 0), refreshToken, refreshTokenExpiresAt: Number(raw.refreshTokenExpiresAt ?? raw.refreshExpiresAt ?? 0) };
   }
   getTokenSnapshot() { return this.tokenSnapshot(); }
   private async persistToken(auth: Auth = this.auth!, tokenOverride?: unknown) { const token = this.tokenSnapshot(auth, tokenOverride); if (token && this.config.onTokenUpdated) await this.config.onTokenUpdated(token); return token; }
@@ -36,7 +37,7 @@ export class SsiBrokerAdapter implements BrokerPort, SsiConnectionPort {
     this.authenticatePromise = (async () => {
       this.auth ??= this.createAuth(true); const tokenManager = this.auth.tokenManager; const current = this.auth.getToken();
       if (current && !tokenManager.isTokenExpired()) { this.tradingClient ??= new Trading(this.auth); return current; }
-      if (current && tokenManager.hasRefreshToken()) {
+      if (current && tokenManager.hasRefreshToken() && !tokenManager.isRefreshTokenExpired()) {
         try { const refreshed = await this.auth.refresh(); this.tradingClient = new Trading(this.auth); await this.persistToken(this.auth, refreshed); return refreshed; }
         catch (error) { if (!input.otp && !input.transactionId) throw new Error(`SSI_REAUTH_REQUIRED: ${error instanceof Error ? error.message : String(error)}`); }
       }
@@ -97,10 +98,7 @@ export class SsiBrokerAdapter implements BrokerPort, SsiConnectionPort {
         const candle = [...(candles ?? [])].reverse().find((item) => Number(item?.closePrice ?? 0) > 0);
         const tradingDate = this.normalizeTradingDate(candle?.tradingDate);
         const price = Number(candle?.closePrice ?? 0);
-        if (!candle || price <= 0 || !tradingDate) {
-          console.warn('[SSI_MARKET_PRICE_15M_EMPTY]', { symbol, expectedTradingDate });
-          continue;
-        }
+        if (!candle || price <= 0 || !tradingDate) { console.warn('[SSI_MARKET_PRICE_15M_EMPTY]', { symbol, expectedTradingDate }); continue; }
         results.push({ symbol, price, tradingDate });
       }
       return results;
@@ -112,9 +110,6 @@ export class SsiBrokerAdapter implements BrokerPort, SsiConnectionPort {
     return this.result(async () => {
       await this.authenticate(input);
       const accounts = await this.accountInfo();
-      // SSI getAccountInfo() can also return derivative accounts. Equity
-      // portfolio endpoints reject derivative account numbers with HTTP 400.
-      // TCE portfolio sync currently covers Cash + Margin only.
       const equityAccounts = accounts.filter((account) => account.accountType === 'Cash' || account.accountType === 'Margin');
       const snapshots = await Promise.all(equityAccounts.map(async (account) => {
         const [balance, positions] = await Promise.all([this.balance(account.accountNo), this.positions(account.accountNo)]);
