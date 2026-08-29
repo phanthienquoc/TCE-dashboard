@@ -68,6 +68,16 @@ export class SsiBrokerAdapter implements BrokerPort, SsiConnectionPort {
   private authenticatePromise?: Promise<ReturnType<Auth['getToken']>>;
   constructor(private readonly config: SsiConfig) {}
 
+  private providerError(error: unknown) {
+    const candidate = error as Record<string, unknown> | null;
+    const response = candidate?.response as Record<string, unknown> | undefined;
+    const data = response?.data ?? candidate?.data;
+    const status = response?.status ?? candidate?.status ?? candidate?.statusCode;
+    const message = error instanceof Error ? error.message : String(error);
+    const detail = data != null ? `; response=${JSON.stringify(data)}` : '';
+    return `${status ? `HTTP ${status}: ` : ''}${message}${detail}`;
+  }
+
   private result<T>(fn: () => Promise<T>): Promise<ContractResult<T>> {
     return fn()
       .then(data => ({ ok: true, data }) as const)
@@ -77,7 +87,7 @@ export class SsiBrokerAdapter implements BrokerPort, SsiConnectionPort {
             ok: false,
             error: {
               code: 'PROVIDER_ERROR',
-              message: error instanceof Error ? error.message : String(error),
+              message: this.providerError(error),
               retryable: false,
               provider: this.provider,
             },
@@ -86,6 +96,8 @@ export class SsiBrokerAdapter implements BrokerPort, SsiConnectionPort {
   }
 
   private createAuth(includePrivateKey = true) {
+    if (!this.config.apiKey || !this.config.apiSecret)
+      throw new Error('SSI apiKey/apiSecret are required');
     const auth = new Auth(
       new Config({
         clientId: this.config.clientId ?? '',
@@ -168,9 +180,7 @@ export class SsiBrokerAdapter implements BrokerPort, SsiConnectionPort {
           return refreshed;
         } catch (error) {
           if (!input.otp && !input.transactionId)
-            throw new Error(
-              `SSI_REAUTH_REQUIRED: ${error instanceof Error ? error.message : String(error)}`
-            );
+            throw new Error(`SSI_REAUTH_REQUIRED: ${this.providerError(error)}`);
         }
       }
       if (!input.otp && !input.transactionId) throw new Error('SSI_REAUTH_REQUIRED');
@@ -330,9 +340,13 @@ export class SsiBrokerAdapter implements BrokerPort, SsiConnectionPort {
 
   async positions(accountNo: string) {
     return this.result(async () => {
-      const positions = await this.trading().portfolio.getEquityPositions(accountNo);
+      if (!this.config.clientId?.trim())
+        throw new Error('SSI_CLIENT_ID_REQUIRED_FOR_PORTFOLIO: clientId is required by SSI for equity positions');
+      const normalizedAccountNo = accountNo.trim();
+      if (!normalizedAccountNo) throw new Error('SSI account number is required for positions');
+      const positions = await this.trading().portfolio.getEquityPositions(normalizedAccountNo);
       return (positions ?? []).map(position => ({
-        accountNo: String(position.accountNo ?? accountNo),
+        accountNo: String(position.accountNo ?? normalizedAccountNo),
         symbol: String(position.symbol).toUpperCase(),
         quantity: Number(position.quantity ?? 0),
         averagePrice: Number(position.costPrice ?? 0),
