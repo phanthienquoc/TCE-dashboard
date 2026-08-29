@@ -341,7 +341,9 @@ export class SsiBrokerAdapter implements BrokerPort, SsiConnectionPort {
   async positions(accountNo: string) {
     return this.result(async () => {
       if (!this.config.clientId?.trim())
-        throw new Error('SSI_CLIENT_ID_REQUIRED_FOR_PORTFOLIO: clientId is required by SSI for equity positions');
+        throw new Error(
+          'SSI_CLIENT_ID_REQUIRED_FOR_PORTFOLIO: clientId is required by SSI for equity positions'
+        );
       const normalizedAccountNo = accountNo.trim();
       if (!normalizedAccountNo) throw new Error('SSI account number is required for positions');
       const positions = await this.trading().portfolio.getEquityPositions(normalizedAccountNo);
