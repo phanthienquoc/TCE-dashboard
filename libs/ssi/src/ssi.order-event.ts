@@ -1,9 +1,13 @@
 import type { AccountOrder } from '@tce/contracts';
 import type { SsiOrderStatusEvent } from './ssi.broker.adapter';
 
-export const isSsiFillStatus = (status?: string) => status === 'FF' || status === 'PF' || status === 'FFPC';
+export const isSsiFillStatus = (status?: string) =>
+  status === 'FF' || status === 'PF' || status === 'FFPC';
 
-export const toAccountOrder = (event: SsiOrderStatusEvent, accountId: string): AccountOrder | null => {
+export const toAccountOrder = (
+  event: SsiOrderStatusEvent,
+  accountId: string
+): AccountOrder | null => {
   if (!event.orderId || !event.symbol) return null;
   return {
     externalId: String(event.orderId),

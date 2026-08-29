@@ -10,13 +10,30 @@ test('recognizes SSI fill statuses', () => {
 });
 
 test('maps SSI order events to persisted account orders', () => {
-  const order = toAccountOrder({
-    type: 'orderEvent', orderId: 'ORD-1', symbol: 'ssi', side: 'B',
-    quantity: 300, filledQuantity: 100, price: 32.5, status: 'PF', inputTime: '2026-08-25T09:00:00Z',
-  }, 'user-1');
+  const order = toAccountOrder(
+    {
+      type: 'orderEvent',
+      orderId: 'ORD-1',
+      symbol: 'ssi',
+      side: 'B',
+      quantity: 300,
+      filledQuantity: 100,
+      price: 32.5,
+      status: 'PF',
+      inputTime: '2026-08-25T09:00:00Z',
+    },
+    'user-1'
+  );
   assert.deepEqual(order, {
-    externalId: 'ORD-1', symbol: 'SSI', side: 'BUY', quantity: 100, price: 32.5,
-    status: 'PF', createdAt: '2026-08-25T09:00:00Z', source: 'ssi', accountId: 'user-1',
+    externalId: 'ORD-1',
+    symbol: 'SSI',
+    side: 'BUY',
+    quantity: 100,
+    price: 32.5,
+    status: 'PF',
+    createdAt: '2026-08-25T09:00:00Z',
+    source: 'ssi',
+    accountId: 'user-1',
   });
 });
 

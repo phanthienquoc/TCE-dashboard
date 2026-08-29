@@ -12,20 +12,20 @@ type UIState = {
 
 export const useUIStore = create<UIState>()(
   persist(
-    (set) => ({
+    set => ({
       activeTab: 'Overview',
       binanceEnvironment: 'testnet',
-      setActiveTab: (activeTab) => set({ activeTab }),
-      setBinanceEnvironment: (binanceEnvironment) => set({ binanceEnvironment }),
+      setActiveTab: activeTab => set({ activeTab }),
+      setBinanceEnvironment: binanceEnvironment => set({ binanceEnvironment }),
     }),
     {
       name: 'tce-ui',
       skipHydration: true,
-      partialize: (state) => ({
+      partialize: state => ({
         activeTab: state.activeTab,
         binanceEnvironment: state.binanceEnvironment,
       }),
       version: 1,
-    },
-  ),
+    }
+  )
 );

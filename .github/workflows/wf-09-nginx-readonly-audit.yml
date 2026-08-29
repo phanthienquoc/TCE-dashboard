@@ -1,16 +1,16 @@
-name: "WF-09 Nginx Readonly Audit"
+name: 'WF-09 Nginx Readonly Audit'
 
 on:
   workflow_dispatch:
     inputs:
       host:
-        description: "VPS IP/hostname"
+        description: 'VPS IP/hostname'
         required: true
-        default: "132.226.175.206"
+        default: '132.226.175.206'
       username:
-        description: "SSH username"
+        description: 'SSH username'
         required: true
-        default: "ubuntu"
+        default: 'ubuntu'
 
 jobs:
   audit:

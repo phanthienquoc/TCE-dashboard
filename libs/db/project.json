@@ -1,1 +1,6 @@
-{"name":"db","projectType":"library","sourceRoot":"libs/db/src","targets":{}}
+{
+  "name": "db",
+  "projectType": "library",
+  "sourceRoot": "libs/db/src",
+  "targets": { "lint": {}, "lint:fix": {} }
+}

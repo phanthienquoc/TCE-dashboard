@@ -1,5 +1,12 @@
 import { ContractResult } from './errors.contract';
-import { AccountBalance, AccountOrder, AccountPosition, ConnectInput, MarketQuote, PlatformHealth } from './platform.contract';
+import {
+  AccountBalance,
+  AccountOrder,
+  AccountPosition,
+  ConnectInput,
+  MarketQuote,
+  PlatformHealth,
+} from './platform.contract';
 
 export type BrokerOrderSide = 'BUY' | 'SELL';
 export type BrokerOrderType = 'LO' | 'MTL' | 'MP' | 'ATO' | 'ATC' | 'MOK' | 'MAK' | 'PLO';

@@ -1,4 +1,4 @@
-name: "WF-01 TCE Build Verify"
+name: 'WF-01 TCE Build Verify'
 
 on:
   push:

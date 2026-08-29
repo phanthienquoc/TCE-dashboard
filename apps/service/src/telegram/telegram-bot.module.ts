@@ -12,7 +12,15 @@ import { TelegramBotService } from './telegram-bot.service';
   imports: [DbModule, AuthModule, TceEngineModule],
   controllers: [TelegramBotController],
   providers: [
-    { provide: CONTRACT_TOKENS.credentials, inject: [SupabaseClientService], useFactory: (db: SupabaseClientService) => { const key = process.env.TCE_CREDENTIAL_ENCRYPTION_KEY; if (!key) throw new Error('TCE_CREDENTIAL_ENCRYPTION_KEY is required'); return new SupabaseCredentialAdapter(db.db, key); } },
+    {
+      provide: CONTRACT_TOKENS.credentials,
+      inject: [SupabaseClientService],
+      useFactory: (db: SupabaseClientService) => {
+        const key = process.env.TCE_CREDENTIAL_ENCRYPTION_KEY;
+        if (!key) throw new Error('TCE_CREDENTIAL_ENCRYPTION_KEY is required');
+        return new SupabaseCredentialAdapter(db.db, key);
+      },
+    },
     TelegramBotService,
   ],
   exports: [TelegramBotService],

@@ -3,9 +3,9 @@ name: Codex CI Fix Request
 on:
   workflow_run:
     workflows:
-      - "TCE Backend Unit Tests"
-      - "WF-03 TCE Deploy Orchestrator"
-      - "WF-04 TCE Staging Deploy"
+      - 'TCE Backend Unit Tests'
+      - 'WF-03 TCE Deploy Orchestrator'
+      - 'WF-04 TCE Staging Deploy'
     types: [completed]
 
 permissions:

@@ -91,17 +91,17 @@ The payload is encrypted with AES-256-GCM. The backend receives `TCE_CREDENTIAL_
 
 Required/generated fields:
 
-| Field | Required | Description |
-|---|---:|---|
-| `apiKey` | Yes | SSI API key |
-| `apiSecret` | Yes | SSI API secret |
-| `clientId` | Optional | SSI client/application ID |
-| `privateKey` | Optional | Required by authenticated trading flows when configured by SSI |
-| `accountNo` | Required for portfolio/execution | Selected SSI account |
-| `accessToken` | Generated | Current access token |
-| `refreshToken` | Generated | Refresh token |
-| `expiresAt` | Generated | Access-token expiry |
-| `refreshExpiresAt` | Generated | Refresh-token expiry |
+| Field              |                         Required | Description                                                    |
+| ------------------ | -------------------------------: | -------------------------------------------------------------- |
+| `apiKey`           |                              Yes | SSI API key                                                    |
+| `apiSecret`        |                              Yes | SSI API secret                                                 |
+| `clientId`         |                         Optional | SSI client/application ID                                      |
+| `privateKey`       |                         Optional | Required by authenticated trading flows when configured by SSI |
+| `accountNo`        | Required for portfolio/execution | Selected SSI account                                           |
+| `accessToken`      |                        Generated | Current access token                                           |
+| `refreshToken`     |                        Generated | Refresh token                                                  |
+| `expiresAt`        |                        Generated | Access-token expiry                                            |
+| `refreshExpiresAt` |                        Generated | Refresh-token expiry                                           |
 
 Tokens are stored inside the same encrypted credential payload. They are never stored in plaintext columns.
 
@@ -307,40 +307,40 @@ Therefore a backend restart alone must not force the user to re-enter SSI creden
 
 Use these distinctions when debugging sync failures:
 
-| Error | Meaning | Expected action |
-|---|---|---|
-| `SSI_REAUTH_REQUIRED` | No usable access/refresh token remains | Ask for SSI OTP/approval |
-| `401` from SSI refresh | Persisted session can no longer be refreshed | Re-authenticate and save a new token |
-| `PARTIAL_MARKET_DATA` | SSI returned only some requested symbols | Keep successful symbols; inspect failed symbols |
-| `0/N requested symbols` outside session | No intraday candles available | Use daily-close fallback |
-| Supabase credential load error | Backend cannot load/decrypt stored credential | Check DB row and `TCE_CREDENTIAL_ENCRYPTION_KEY` |
+| Error                                   | Meaning                                       | Expected action                                  |
+| --------------------------------------- | --------------------------------------------- | ------------------------------------------------ |
+| `SSI_REAUTH_REQUIRED`                   | No usable access/refresh token remains        | Ask for SSI OTP/approval                         |
+| `401` from SSI refresh                  | Persisted session can no longer be refreshed  | Re-authenticate and save a new token             |
+| `PARTIAL_MARKET_DATA`                   | SSI returned only some requested symbols      | Keep successful symbols; inspect failed symbols  |
+| `0/N requested symbols` outside session | No intraday candles available                 | Use daily-close fallback                         |
+| Supabase credential load error          | Backend cannot load/decrypt stored credential | Check DB row and `TCE_CREDENTIAL_ENCRYPTION_KEY` |
 
 ## 13. Dashboard persistence after sync
 
 The dashboard reads persisted TCE state rather than relying only on the sync response.
 
-| Data | Persistence source |
-|---|---|
-| Positions | `tce_positions` |
-| Market price | `tce_positions.market_price` / market-price persistence |
-| Market value | `tce_positions.market_value` |
-| Unrealized P&L | `tce_positions.unrealized_pnl` |
-| Cash | `tce_accounts.capital_available` |
-| Orders | `tce_orders` |
-| SSI account | `platform_credentials.ssi_account_no` |
+| Data           | Persistence source                                      |
+| -------------- | ------------------------------------------------------- |
+| Positions      | `tce_positions`                                         |
+| Market price   | `tce_positions.market_price` / market-price persistence |
+| Market value   | `tce_positions.market_value`                            |
+| Unrealized P&L | `tce_positions.unrealized_pnl`                          |
+| Cash           | `tce_accounts.capital_available`                        |
+| Orders         | `tce_orders`                                            |
+| SSI account    | `platform_credentials.ssi_account_no`                   |
 
 This is separate from token persistence: authentication state is stored in the encrypted credential payload, while trading/dashboard state is stored in the corresponding TCE repositories/tables.
 
 ## 14. Implementation locations
 
-| Responsibility | File |
-|---|---|
-| SSI authentication + token lifecycle | `libs/ssi/src/ssi.broker.adapter.ts` |
-| Credential loading + application orchestration | `apps/service/src/platform/ssi.application.service.ts` |
-| AES-256-GCM credential storage | `libs/db/src/supabase.credentials.adapter.ts` |
-| Credential DI/configuration | `apps/service/src/platform/platform-credentials.module.ts` |
-| Market-price scheduler | `apps/service/src/platform/ssi-market-price.service.ts` |
-| Production deployment | `.github/workflows/wf-03-tce-deploy.yml` |
+| Responsibility                                 | File                                                       |
+| ---------------------------------------------- | ---------------------------------------------------------- |
+| SSI authentication + token lifecycle           | `libs/ssi/src/ssi.broker.adapter.ts`                       |
+| Credential loading + application orchestration | `apps/service/src/platform/ssi.application.service.ts`     |
+| AES-256-GCM credential storage                 | `libs/db/src/supabase.credentials.adapter.ts`              |
+| Credential DI/configuration                    | `apps/service/src/platform/platform-credentials.module.ts` |
+| Market-price scheduler                         | `apps/service/src/platform/ssi-market-price.service.ts`    |
+| Production deployment                          | `.github/workflows/wf-03-tce-deploy.yml`                   |
 
 ## 15. Production checklist
 

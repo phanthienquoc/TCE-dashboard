@@ -1,6 +1,6 @@
 {
-  "name": "tce",
+  "name": "contracts-pkg",
   "projectType": "library",
-  "sourceRoot": "libs/tce/src",
+  "sourceRoot": "packages/contracts/src",
   "targets": { "lint": {}, "lint:fix": {} }
 }

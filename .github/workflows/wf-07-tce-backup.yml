@@ -1,9 +1,9 @@
-name: "WF-07 TCE Backup"
+name: 'WF-07 TCE Backup'
 
 on:
   workflow_dispatch:
   schedule:
-    - cron: "30 18 * * *"
+    - cron: '30 18 * * *'
 
 jobs:
   backup:

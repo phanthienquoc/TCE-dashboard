@@ -17,8 +17,10 @@ walk(root);
 // Node ESM requires explicit file extensions. Do not use path.extname(value)
 // here: './app.module' has '.module' as an extname even though it is an
 // extensionless module specifier and must become './app.module.js'.
-const relativeSpecifier = /((?:from\s+|import\s*\(\s*|export\s+[^;]*?from\s+)["'])(\.{1,2}\/[^"']+)(["'])/g;
-const packageSpecifier = /((?:from\s+|import\s*\(\s*|export\s+[^;]*?from\s+)["'])@tce\/([a-z0-9_-]+)([^"']*)(["'])/g;
+const relativeSpecifier =
+  /((?:from\s+|import\s*\(\s*|export\s+[^;]*?from\s+)["'])(\.{1,2}\/[^"']+)(["'])/g;
+const packageSpecifier =
+  /((?:from\s+|import\s*\(\s*|export\s+[^;]*?from\s+)["'])@tce\/([a-z0-9_-]+)([^"']*)(["'])/g;
 
 function withJsExtension(file, value) {
   if (value.endsWith('.js') || value.endsWith('.mjs') || value.endsWith('.cjs')) return value;

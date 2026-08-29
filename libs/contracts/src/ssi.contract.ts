@@ -43,5 +43,8 @@ export interface SsiConnectionPort {
   requestOtp(): Promise<ContractResult<{ transactionId?: string; message: string }>>;
   test(input: SsiAuthInput): Promise<ContractResult<SsiConnectionTest>>;
   current(accountNo: string, input: SsiAuthInput): Promise<ContractResult<SsiCurrentInfo>>;
-  syncPortfolio(accountNo: string, input: SsiAuthInput): Promise<ContractResult<SsiPortfolioSnapshot>>;
+  syncPortfolio(
+    accountNo: string,
+    input: SsiAuthInput
+  ): Promise<ContractResult<SsiPortfolioSnapshot>>;
 }

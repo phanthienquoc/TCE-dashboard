@@ -1,5 +1,12 @@
 import { ContractResult } from './errors.js';
-import { AccountBalance, AccountOrder, AccountPosition, ConnectInput, MarketQuote, PlatformHealth } from './platform.js';
+import {
+  AccountBalance,
+  AccountOrder,
+  AccountPosition,
+  ConnectInput,
+  MarketQuote,
+  PlatformHealth,
+} from './platform.js';
 
 export interface BrokerPort {
   readonly provider: string;

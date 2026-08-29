@@ -1,10 +1,32 @@
 export type PlatformKind = 'ssi' | 'binance' | 'fastapi' | 'supabase' | 'telegram';
-export type PlatformHealth = { provider: PlatformKind; available: boolean; latencyMs?: number; error?: string; fetchedAt: string };
+export type PlatformHealth = {
+  provider: PlatformKind;
+  available: boolean;
+  latencyMs?: number;
+  error?: string;
+  fetchedAt: string;
+};
 export type ConnectInput = { userId: string; environment: string };
-export interface PlatformPort { readonly provider: PlatformKind; connect(input: ConnectInput): Promise<void>; health(input: ConnectInput): Promise<PlatformHealth>; disconnect(input: ConnectInput): Promise<void>; }
-export interface MarketDataPort extends PlatformPort { quote(symbol: string): Promise<MarketQuote>; }
-export interface AccountDataPort extends PlatformPort { balance(accountNo: string): Promise<AccountBalance>; positions(accountNo: string): Promise<AccountPosition[]>; orders(accountNo: string): Promise<AccountOrder[]>; }
-export type MarketQuote = { symbol: string; price: number; timestamp: string; source: PlatformKind };
+export interface PlatformPort {
+  readonly provider: PlatformKind;
+  connect(input: ConnectInput): Promise<void>;
+  health(input: ConnectInput): Promise<PlatformHealth>;
+  disconnect(input: ConnectInput): Promise<void>;
+}
+export interface MarketDataPort extends PlatformPort {
+  quote(symbol: string): Promise<MarketQuote>;
+}
+export interface AccountDataPort extends PlatformPort {
+  balance(accountNo: string): Promise<AccountBalance>;
+  positions(accountNo: string): Promise<AccountPosition[]>;
+  orders(accountNo: string): Promise<AccountOrder[]>;
+}
+export type MarketQuote = {
+  symbol: string;
+  price: number;
+  timestamp: string;
+  source: PlatformKind;
+};
 
 // BE contracts intentionally form a superset of the provider SDK models.
 // Provider-specific fields are optional so the normalized contract remains portable.
@@ -70,7 +92,7 @@ export type AccountOrder = {
   externalId: string;
   clientRequestId?: string;
   symbol: string;
-  side: 'BUY'|'SELL';
+  side: 'BUY' | 'SELL';
   orderType?: string;
   quantity: number;
   osQuantity?: number;

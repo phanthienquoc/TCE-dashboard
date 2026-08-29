@@ -4,17 +4,17 @@ on:
   workflow_dispatch:
     inputs:
       host:
-        description: "VPS hostname/IP"
+        description: 'VPS hostname/IP'
         required: true
-        default: "140.238.3.233"
+        default: '140.238.3.233'
       port:
-        description: "SSH port"
+        description: 'SSH port'
         required: true
-        default: "22"
+        default: '22'
       username:
-        description: "SSH username"
+        description: 'SSH username'
         required: true
-        default: "ubuntu"
+        default: 'ubuntu'
 
 jobs:
   test-ssh:

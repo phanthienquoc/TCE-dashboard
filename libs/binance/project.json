@@ -1,1 +1,6 @@
-{"name":"binance","projectType":"library","sourceRoot":"libs/binance/src","targets":{}}
+{
+  "name": "binance",
+  "projectType": "library",
+  "sourceRoot": "libs/binance/src",
+  "targets": { "lint": {}, "lint:fix": {} }
+}

@@ -1,4 +1,18 @@
-import { Body, Controller, Get, Headers, Param, Delete, Patch, Post, ConflictException, ServiceUnavailableException, UnauthorizedException, MethodNotAllowedException, Res } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Headers,
+  Param,
+  Delete,
+  Patch,
+  Post,
+  ConflictException,
+  ServiceUnavailableException,
+  UnauthorizedException,
+  MethodNotAllowedException,
+  Res,
+} from '@nestjs/common';
 import { isIP } from 'node:net';
 import { AuthRepository } from './auth.repository';
 import { AuthService } from './auth.service';
@@ -11,26 +25,221 @@ import { PasskeyService } from './passkey.service';
 
 @Controller('auth')
 export class AuthController {
- constructor(private readonly repo:AuthRepository,private readonly auth:AuthService,private readonly passwords:PasswordService,private readonly jwt:JwtService,private readonly refresh:RefreshService,private readonly mfa:MfaService,private readonly mfaCrypto:MfaCryptoService,private readonly passkey:PasskeyService){}
- @Get('status') async status(){const configured=!!process.env.SUPABASE_URL&&!!process.env.SUPABASE_SERVICE_ROLE_KEY&&!!process.env.JWT_SECRET&&!!process.env.MFA_ENCRYPTION_KEY;const passkeyConfigured=!!process.env.PASSKEY_RP_ID&&!!process.env.PASSKEY_ORIGIN;if(!configured)return {configured:false,database:'not_configured',passkeyConfigured};try{await this.repo.checkDatabase();return {configured:true,database:'connected',passkeyConfigured};}catch(error){console.error('[AUTH_DB_STATUS]',error);return {configured:true,database:'unavailable',passkeyConfigured};}}
- @Post('signup') async signup(@Body() body:{email:string;password:string}){const email=body?.email?.trim().toLowerCase();const password=body?.password;if(!email||!/^\S+@\S+\.\S+$/.test(email))throw new UnauthorizedException('Valid email is required');if(typeof password!=='string'||password.length<8)throw new UnauthorizedException('Password must be at least 8 characters');try{const existing=await this.repo.findUserByEmail(email);if(existing)throw new ConflictException('Email already registered');return await this.repo.createUser(email,await this.passwords.hash(password));}catch(error){if(error instanceof ConflictException)throw error;console.error('[AUTH_SIGNUP]',error);if((error as any)?.code==='23505')throw new ConflictException('Email already registered');throw new ServiceUnavailableException('Unable to create account');}}
- @Get('login') async loginGet(){throw new MethodNotAllowedException('Login endpoint requires POST');}
- private bearer(authHeader?:string){if(!authHeader?.startsWith('Bearer '))throw new UnauthorizedException('Bearer token required');return this.jwt.verify(authHeader.slice(7));}
- private clientIp(value?:string){const candidate=value?.split(',')[0]?.trim();return candidate&&isIP(candidate)?candidate:undefined;}
- private setRefreshCookie(response:any,token:string){const ttl=Number(process.env.JWT_REFRESH_TTL_SECONDS||2592000);const secure=process.env.NODE_ENV!=='development';response?.header?.('Set-Cookie',`tce_refresh_token=${encodeURIComponent(token)}; Max-Age=${ttl}; Path=/api/auth; HttpOnly; SameSite=Lax${secure?'; Secure':''}`);}
- private clearRefreshCookie(response:any){response?.header?.('Set-Cookie','tce_refresh_token=; Max-Age=0; Path=/api/auth; HttpOnly; SameSite=Lax');}
- private cookieValue(cookieHeader?:string,name='tce_refresh_token'){const match=cookieHeader?.match(new RegExp(`(?:^|;\\s*)${name}=([^;]*)`));return match?decodeURIComponent(match[1]):'';}
- @Post('login') async login(@Body() body:{email:string;password:string},@Headers('x-forwarded-for') ip?:string,@Headers('user-agent') ua?:string,@Res({passthrough:true}) response?:any){const email=body?.email?.trim().toLowerCase();if(!email||typeof body?.password!=='string')throw new UnauthorizedException('Invalid credentials');let user;try{user=await this.repo.findUserByEmail(email);}catch(error){console.error('[AUTH_LOGIN_USER_LOOKUP]',error);throw new ServiceUnavailableException('Authentication database unavailable');}if(!user||!(await this.passwords.verify(body.password,user.password_hash)))throw new UnauthorizedException('Invalid credentials');if(user.mfa_enabled)return {mfaRequired:true,userId:user.id};try{const refreshToken=await this.auth.createRefreshSession(user.id,this.clientIp(ip),ua);this.setRefreshCookie(response,refreshToken);return {accessToken:this.jwt.issue(user.id,user.role)};}catch(error){console.error('[AUTH_LOGIN_SESSION_CREATE]',error);throw new ServiceUnavailableException('Authentication session unavailable');}}
- @Get('me') async me(@Headers('authorization') authHeader?:string){const claims=this.bearer(authHeader);const user=await this.repo.findUserById(claims.sub);if(!user)throw new UnauthorizedException('User not found');return {user:{id:user.id,email:user.email,role:user.role,mfaEnabled:user.mfa_enabled}};}
- @Post('refresh') async refreshToken(@Body() body:{refreshToken?:string},@Headers('cookie') cookie?:string,@Headers('x-refresh-token') headerToken?:string,@Headers('x-forwarded-for') ip?:string,@Headers('user-agent') ua?:string,@Res({passthrough:true}) response?:any){const presented=this.cookieValue(cookie)||body?.refreshToken||headerToken;if(!presented)throw new UnauthorizedException('Refresh token required');try{const result=await this.refresh.rotate(presented,this.clientIp(ip),ua);this.setRefreshCookie(response,result.refreshToken);return {accessToken:result.accessToken};}catch(error){console.error('[AUTH_REFRESH]',{name:(error as any)?.name,message:(error as any)?.message,code:(error as any)?.code});if(error instanceof UnauthorizedException)throw error;throw new ServiceUnavailableException('Authentication refresh unavailable');}}
- @Post('mfa/login') async mfaLogin(@Body() body:{userId:string;code:string},@Headers('x-forwarded-for') ip?:string,@Headers('user-agent') ua?:string,@Res({passthrough:true}) response?:any){const user=await this.repo.findUserById(body.userId);if(!user?.mfa_enabled||!user.mfa_secret_encrypted)throw new UnauthorizedException('Invalid MFA configuration');let secret:string;try{secret=this.mfaCrypto.decrypt(user.mfa_secret_encrypted);}catch{throw new UnauthorizedException('Invalid MFA configuration');}if(!this.mfa.verifyTotp(secret,body.code))throw new UnauthorizedException('Invalid MFA code');const refreshToken=await this.auth.createRefreshSession(user.id,this.clientIp(ip),ua);this.setRefreshCookie(response,refreshToken);return {accessToken:this.jwt.issue(user.id,user.role)};}
- @Post('mfa/recovery') async recovery(@Body() body:{userId:string;code:string},@Headers('x-forwarded-for') ip?:string,@Headers('user-agent') ua?:string,@Res({passthrough:true}) response?:any){const user=await this.repo.findUserById(body.userId);if(!user?.mfa_enabled||!await this.repo.consumeRecoveryCode(user.id,this.auth.hashRefreshToken(body.code)))throw new UnauthorizedException('Invalid recovery code');const refreshToken=await this.auth.createRefreshSession(user.id,this.clientIp(ip),ua);this.setRefreshCookie(response,refreshToken);return {accessToken:this.jwt.issue(user.id,user.role)};}
- @Post('logout') async logout(@Res({passthrough:true}) response?:any){this.clearRefreshCookie(response);return {ok:true};}
- @Post('passkey/register/options') async registerOptions(@Headers('authorization') authHeader?:string){const token=this.bearer(authHeader);return this.passkey.registrationOptions(token.sub);}
- @Post('passkey/register/verify') async registerVerify(@Headers('authorization') authHeader:string|undefined,@Body() body:any){const token=this.bearer(authHeader);return this.passkey.registrationVerify(token.sub,body);}
- @Post('passkey/login/options') async loginOptions(){return this.passkey.authenticationOptions();}
- @Post('passkey/login/verify') async loginVerify(@Body() body:any,@Headers('x-forwarded-for') ip?:string,@Headers('user-agent') ua?:string,@Res({passthrough:true}) response?:any){const result=await this.passkey.authenticationVerify(body,this.clientIp(ip),ua);if(result?.refreshToken)this.setRefreshCookie(response,result.refreshToken);return result;}
- @Get('passkeys') async listPasskeys(@Headers('authorization') authHeader?:string){return this.passkey.list(this.bearer(authHeader).sub);}
- @Patch('passkeys/:id') async renamePasskey(@Headers('authorization') authHeader:string|undefined,@Param('id') id:string,@Body() body:{friendlyName:string}){return this.passkey.rename(this.bearer(authHeader).sub,id,body.friendlyName);}
- @Delete('passkeys/:id') async deletePasskey(@Headers('authorization') authHeader:string|undefined,@Param('id') id:string){return this.passkey.remove(this.bearer(authHeader).sub,id);}
+  constructor(
+    private readonly repo: AuthRepository,
+    private readonly auth: AuthService,
+    private readonly passwords: PasswordService,
+    private readonly jwt: JwtService,
+    private readonly refresh: RefreshService,
+    private readonly mfa: MfaService,
+    private readonly mfaCrypto: MfaCryptoService,
+    private readonly passkey: PasskeyService
+  ) {}
+  @Get('status') async status() {
+    const configured =
+      !!process.env.SUPABASE_URL &&
+      !!process.env.SUPABASE_SERVICE_ROLE_KEY &&
+      !!process.env.JWT_SECRET &&
+      !!process.env.MFA_ENCRYPTION_KEY;
+    const passkeyConfigured = !!process.env.PASSKEY_RP_ID && !!process.env.PASSKEY_ORIGIN;
+    if (!configured) return { configured: false, database: 'not_configured', passkeyConfigured };
+    try {
+      await this.repo.checkDatabase();
+      return { configured: true, database: 'connected', passkeyConfigured };
+    } catch (error) {
+      console.error('[AUTH_DB_STATUS]', error);
+      return { configured: true, database: 'unavailable', passkeyConfigured };
+    }
+  }
+  @Post('signup') async signup(@Body() body: { email: string; password: string }) {
+    const email = body?.email?.trim().toLowerCase();
+    const password = body?.password;
+    if (!email || !/^\S+@\S+\.\S+$/.test(email))
+      throw new UnauthorizedException('Valid email is required');
+    if (typeof password !== 'string' || password.length < 8)
+      throw new UnauthorizedException('Password must be at least 8 characters');
+    try {
+      const existing = await this.repo.findUserByEmail(email);
+      if (existing) throw new ConflictException('Email already registered');
+      return await this.repo.createUser(email, await this.passwords.hash(password));
+    } catch (error) {
+      if (error instanceof ConflictException) throw error;
+      console.error('[AUTH_SIGNUP]', error);
+      if ((error as any)?.code === '23505') throw new ConflictException('Email already registered');
+      throw new ServiceUnavailableException('Unable to create account');
+    }
+  }
+  @Get('login') async loginGet() {
+    throw new MethodNotAllowedException('Login endpoint requires POST');
+  }
+  private bearer(authHeader?: string) {
+    if (!authHeader?.startsWith('Bearer '))
+      throw new UnauthorizedException('Bearer token required');
+    return this.jwt.verify(authHeader.slice(7));
+  }
+  private clientIp(value?: string) {
+    const candidate = value?.split(',')[0]?.trim();
+    return candidate && isIP(candidate) ? candidate : undefined;
+  }
+  private setRefreshCookie(response: any, token: string) {
+    const ttl = Number(process.env.JWT_REFRESH_TTL_SECONDS || 2592000);
+    const secure = process.env.NODE_ENV !== 'development';
+    response?.header?.(
+      'Set-Cookie',
+      `tce_refresh_token=${encodeURIComponent(token)}; Max-Age=${ttl}; Path=/api/auth; HttpOnly; SameSite=Lax${secure ? '; Secure' : ''}`
+    );
+  }
+  private clearRefreshCookie(response: any) {
+    response?.header?.(
+      'Set-Cookie',
+      'tce_refresh_token=; Max-Age=0; Path=/api/auth; HttpOnly; SameSite=Lax'
+    );
+  }
+  private cookieValue(cookieHeader?: string, name = 'tce_refresh_token') {
+    const match = cookieHeader?.match(new RegExp(`(?:^|;\\s*)${name}=([^;]*)`));
+    return match ? decodeURIComponent(match[1]) : '';
+  }
+  @Post('login') async login(
+    @Body() body: { email: string; password: string },
+    @Headers('x-forwarded-for') ip?: string,
+    @Headers('user-agent') ua?: string,
+    @Res({ passthrough: true }) response?: any
+  ) {
+    const email = body?.email?.trim().toLowerCase();
+    if (!email || typeof body?.password !== 'string')
+      throw new UnauthorizedException('Invalid credentials');
+    let user;
+    try {
+      user = await this.repo.findUserByEmail(email);
+    } catch (error) {
+      console.error('[AUTH_LOGIN_USER_LOOKUP]', error);
+      throw new ServiceUnavailableException('Authentication database unavailable');
+    }
+    if (!user || !(await this.passwords.verify(body.password, user.password_hash)))
+      throw new UnauthorizedException('Invalid credentials');
+    if (user.mfa_enabled) return { mfaRequired: true, userId: user.id };
+    try {
+      const refreshToken = await this.auth.createRefreshSession(user.id, this.clientIp(ip), ua);
+      this.setRefreshCookie(response, refreshToken);
+      return { accessToken: this.jwt.issue(user.id, user.role) };
+    } catch (error) {
+      console.error('[AUTH_LOGIN_SESSION_CREATE]', error);
+      throw new ServiceUnavailableException('Authentication session unavailable');
+    }
+  }
+  @Get('me') async me(@Headers('authorization') authHeader?: string) {
+    const claims = this.bearer(authHeader);
+    const user = await this.repo.findUserById(claims.sub);
+    if (!user) throw new UnauthorizedException('User not found');
+    return {
+      user: { id: user.id, email: user.email, role: user.role, mfaEnabled: user.mfa_enabled },
+    };
+  }
+  @Post('refresh') async refreshToken(
+    @Body() body: { refreshToken?: string },
+    @Headers('cookie') cookie?: string,
+    @Headers('x-refresh-token') headerToken?: string,
+    @Headers('x-forwarded-for') ip?: string,
+    @Headers('user-agent') ua?: string,
+    @Res({ passthrough: true }) response?: any
+  ) {
+    const presented = this.cookieValue(cookie) || body?.refreshToken || headerToken;
+    if (!presented) throw new UnauthorizedException('Refresh token required');
+    try {
+      const result = await this.refresh.rotate(presented, this.clientIp(ip), ua);
+      this.setRefreshCookie(response, result.refreshToken);
+      return { accessToken: result.accessToken };
+    } catch (error) {
+      console.error('[AUTH_REFRESH]', {
+        name: (error as any)?.name,
+        message: (error as any)?.message,
+        code: (error as any)?.code,
+      });
+      if (error instanceof UnauthorizedException) throw error;
+      throw new ServiceUnavailableException('Authentication refresh unavailable');
+    }
+  }
+  @Post('mfa/login') async mfaLogin(
+    @Body() body: { userId: string; code: string },
+    @Headers('x-forwarded-for') ip?: string,
+    @Headers('user-agent') ua?: string,
+    @Res({ passthrough: true }) response?: any
+  ) {
+    const user = await this.repo.findUserById(body.userId);
+    if (!user?.mfa_enabled || !user.mfa_secret_encrypted)
+      throw new UnauthorizedException('Invalid MFA configuration');
+    let secret: string;
+    try {
+      secret = this.mfaCrypto.decrypt(user.mfa_secret_encrypted);
+    } catch {
+      throw new UnauthorizedException('Invalid MFA configuration');
+    }
+    if (!this.mfa.verifyTotp(secret, body.code))
+      throw new UnauthorizedException('Invalid MFA code');
+    const refreshToken = await this.auth.createRefreshSession(user.id, this.clientIp(ip), ua);
+    this.setRefreshCookie(response, refreshToken);
+    return { accessToken: this.jwt.issue(user.id, user.role) };
+  }
+  @Post('mfa/recovery') async recovery(
+    @Body() body: { userId: string; code: string },
+    @Headers('x-forwarded-for') ip?: string,
+    @Headers('user-agent') ua?: string,
+    @Res({ passthrough: true }) response?: any
+  ) {
+    const user = await this.repo.findUserById(body.userId);
+    if (
+      !user?.mfa_enabled ||
+      !(await this.repo.consumeRecoveryCode(user.id, this.auth.hashRefreshToken(body.code)))
+    )
+      throw new UnauthorizedException('Invalid recovery code');
+    const refreshToken = await this.auth.createRefreshSession(user.id, this.clientIp(ip), ua);
+    this.setRefreshCookie(response, refreshToken);
+    return { accessToken: this.jwt.issue(user.id, user.role) };
+  }
+  @Post('logout') async logout(@Res({ passthrough: true }) response?: any) {
+    this.clearRefreshCookie(response);
+    return { ok: true };
+  }
+  @Post('passkey/register/options') async registerOptions(
+    @Headers('authorization') authHeader?: string
+  ) {
+    const token = this.bearer(authHeader);
+    return this.passkey.registrationOptions(token.sub);
+  }
+  @Post('passkey/register/verify') async registerVerify(
+    @Headers('authorization') authHeader: string | undefined,
+    @Body() body: any
+  ) {
+    const token = this.bearer(authHeader);
+    return this.passkey.registrationVerify(token.sub, body);
+  }
+  @Post('passkey/login/options') async loginOptions() {
+    return this.passkey.authenticationOptions();
+  }
+  @Post('passkey/login/verify') async loginVerify(
+    @Body() body: any,
+    @Headers('x-forwarded-for') ip?: string,
+    @Headers('user-agent') ua?: string,
+    @Res({ passthrough: true }) response?: any
+  ) {
+    const result = await this.passkey.authenticationVerify(body, this.clientIp(ip), ua);
+    if (result?.refreshToken) this.setRefreshCookie(response, result.refreshToken);
+    return result;
+  }
+  @Get('passkeys') async listPasskeys(@Headers('authorization') authHeader?: string) {
+    return this.passkey.list(this.bearer(authHeader).sub);
+  }
+  @Patch('passkeys/:id') async renamePasskey(
+    @Headers('authorization') authHeader: string | undefined,
+    @Param('id') id: string,
+    @Body() body: { friendlyName: string }
+  ) {
+    return this.passkey.rename(this.bearer(authHeader).sub, id, body.friendlyName);
+  }
+  @Delete('passkeys/:id') async deletePasskey(
+    @Headers('authorization') authHeader: string | undefined,
+    @Param('id') id: string
+  ) {
+    return this.passkey.remove(this.bearer(authHeader).sub, id);
+  }
 }

@@ -7,8 +7,8 @@ import { useAuthStore } from '../../lib/store';
 
 export default function LoginPage() {
   const router = useRouter();
-  const login = useAuthStore((s) => s.login);
-  const mfa = useAuthStore((s) => s.mfa);
+  const login = useAuthStore(s => s.login);
+  const mfa = useAuthStore(s => s.mfa);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [code, setCode] = useState('');
@@ -58,7 +58,11 @@ export default function LoginPage() {
         <header className="auth-header">
           <span className="auth-kicker">SECURE ACCESS</span>
           <h1 id="login-title">Welcome back</h1>
-          <p>{pending ? 'Verify your MFA code to continue.' : 'Sign in to access your trading dashboard.'}</p>
+          <p>
+            {pending
+              ? 'Verify your MFA code to continue.'
+              : 'Sign in to access your trading dashboard.'}
+          </p>
         </header>
 
         <form onSubmit={submit} noValidate>
@@ -69,7 +73,7 @@ export default function LoginPage() {
                 autoFocus
                 required
                 value={code}
-                onChange={(event) => setCode(event.target.value)}
+                onChange={event => setCode(event.target.value)}
                 inputMode="numeric"
                 autoComplete="one-time-code"
                 pattern="[0-9]*"
@@ -85,7 +89,7 @@ export default function LoginPage() {
                   type="email"
                   required
                   value={email}
-                  onChange={(event) => setEmail(event.target.value)}
+                  onChange={event => setEmail(event.target.value)}
                   autoComplete="username"
                   inputMode="email"
                   autoCapitalize="none"
@@ -99,14 +103,18 @@ export default function LoginPage() {
                   type="password"
                   required
                   value={password}
-                  onChange={(event) => setPassword(event.target.value)}
+                  onChange={event => setPassword(event.target.value)}
                   autoComplete="current-password"
                 />
               </label>
             </>
           )}
 
-          {error && <p className="auth-error" role="alert">{error}</p>}
+          {error && (
+            <p className="auth-error" role="alert">
+              {error}
+            </p>
+          )}
 
           <div className="auth-options">
             <span className="secure-badge">

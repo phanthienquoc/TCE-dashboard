@@ -1,1 +1,6 @@
-{"name":"auth","projectType":"library","sourceRoot":"libs/auth/src","targets":{}}
+{
+  "name": "auth",
+  "projectType": "library",
+  "sourceRoot": "libs/auth/src",
+  "targets": { "lint": {}, "lint:fix": {} }
+}

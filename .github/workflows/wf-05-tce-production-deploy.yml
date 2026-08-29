@@ -1,4 +1,4 @@
-name: "WF-05 TCE Production Deploy"
+name: 'WF-05 TCE Production Deploy'
 
 on:
   workflow_call:
@@ -6,11 +6,11 @@ on:
       host:
         required: false
         type: string
-        default: "132.226.175.206"
+        default: '132.226.175.206'
       username:
         required: false
         type: string
-        default: "ubuntu"
+        default: 'ubuntu'
     secrets:
       VPS_SSH_PRIVATE_KEY:
         required: true
@@ -25,24 +25,24 @@ on:
   workflow_dispatch:
     inputs:
       host:
-        description: "VPS IP/hostname"
+        description: 'VPS IP/hostname'
         required: true
-        default: "132.226.175.206"
+        default: '132.226.175.206'
         type: string
       username:
-        description: "SSH username"
+        description: 'SSH username'
         required: true
-        default: "ubuntu"
+        default: 'ubuntu'
         type: string
       confirm:
-        description: "Type DEPLOY-TCE-PROD to confirm"
+        description: 'Type DEPLOY-TCE-PROD to confirm'
         required: true
-        default: ""
+        default: ''
         type: string
 
 env:
-  ENV_NAME: "prod"
-  NAMESPACE: "tce-prod"
+  ENV_NAME: 'prod'
+  NAMESPACE: 'tce-prod'
 
 jobs:
   deploy-production:

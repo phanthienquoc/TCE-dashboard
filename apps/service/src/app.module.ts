@@ -11,11 +11,22 @@ import { TelegramDebugModule } from './telegram/telegram-debug.module';
 @Controller()
 class HealthController {
   @Get('health')
-  health() { return { ok: true, service: 'tce-service', timestamp: new Date().toISOString() }; }
+  health() {
+    return { ok: true, service: 'tce-service', timestamp: new Date().toISOString() };
+  }
 }
 
 @Module({
-  imports: [DbModule, AuthModule, DashboardModule, PlatformCredentialsModule, PlatformConfigModule, TceEngineModule, TelegramDebugModule, TelegramBotModule],
+  imports: [
+    DbModule,
+    AuthModule,
+    DashboardModule,
+    PlatformCredentialsModule,
+    PlatformConfigModule,
+    TceEngineModule,
+    TelegramDebugModule,
+    TelegramBotModule,
+  ],
   controllers: [HealthController],
 })
 export class AppModule {}

@@ -15,7 +15,26 @@ import { DbModule } from '../db/db.module';
 @Module({
   imports: [DbModule],
   controllers: [AuthController, MfaController],
-  providers: [AuthService, AuthRepository, PasskeyRepository, PasskeyService, JwtService, MfaService, MfaCryptoService, PasswordService, RefreshService],
-  exports: [AuthService, AuthRepository, JwtService, MfaService, MfaCryptoService, PasswordService, RefreshService, PasskeyService],
+  providers: [
+    AuthService,
+    AuthRepository,
+    PasskeyRepository,
+    PasskeyService,
+    JwtService,
+    MfaService,
+    MfaCryptoService,
+    PasswordService,
+    RefreshService,
+  ],
+  exports: [
+    AuthService,
+    AuthRepository,
+    JwtService,
+    MfaService,
+    MfaCryptoService,
+    PasswordService,
+    RefreshService,
+    PasskeyService,
+  ],
 })
 export class AuthModule {}

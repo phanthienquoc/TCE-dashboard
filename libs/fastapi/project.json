@@ -1,1 +1,6 @@
-{"name":"fastapi","projectType":"library","sourceRoot":"libs/fastapi/src","targets":{}}
+{
+  "name": "fastapi",
+  "projectType": "library",
+  "sourceRoot": "libs/fastapi/src",
+  "targets": { "lint": {}, "lint:fix": {} }
+}

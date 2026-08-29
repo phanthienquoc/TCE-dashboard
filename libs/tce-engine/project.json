@@ -1,1 +1,6 @@
-{"name":"tce-engine","sourceRoot":"libs/tce-engine/src","projectType":"library","targets":{}}
+{
+  "name": "tce-engine",
+  "sourceRoot": "libs/tce-engine/src",
+  "projectType": "library",
+  "targets": { "lint": {}, "lint:fix": {} }
+}

@@ -1,0 +1,57 @@
+name: 'WF-02 TCE Prettier Format Code'
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    branches:
+      - master
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: prettier-format-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  prettier-format:
+    name: Prettier auto-format & commit
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref || github.ref_name }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm install --include=dev --no-audit --no-fund
+
+      - name: Run Prettier format
+        run: npm run format
+
+      - name: Commit and push changes
+        run: |
+          set -euo pipefail
+          if [ -n "$(git status --porcelain)" ]; then
+            echo "Formatting changes detected. Committing..."
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git add -A
+            git commit -m "style: auto-format code with Prettier [skip ci]"
+            git push origin HEAD:${{ github.head_ref || github.ref_name }}
+            echo "Auto-formatted code pushed successfully."
+          else
+            echo "No formatting changes detected. Code is clean."
+          fi

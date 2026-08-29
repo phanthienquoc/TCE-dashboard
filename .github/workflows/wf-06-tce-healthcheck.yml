@@ -1,9 +1,9 @@
-name: "WF-06 TCE Healthcheck"
+name: 'WF-06 TCE Healthcheck'
 
 on:
   workflow_dispatch:
   schedule:
-    - cron: "*/15 * * * *"
+    - cron: '*/15 * * * *'
 
 jobs:
   healthcheck:

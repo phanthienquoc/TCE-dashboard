@@ -4,14 +4,14 @@ This document records runtime configuration keys used by TCE and where each key 
 
 ## Service runtime keys
 
-| Key | Purpose | Source | Kubernetes mapping |
-|---|---|---|---|
-| `SUPABASE_URL` | Supabase project URL | GitHub Actions secret/environment | `tce-app-secrets.SUPABASE_URL` |
-| `SUPABASE_SERVICE_ROLE_KEY` | Backend Supabase service-role access | GitHub Actions secret/environment | `tce-app-secrets.SUPABASE_SERVICE_ROLE_KEY` |
-| `JWT_SECRET` | JWT signing secret | GitHub Actions secret/environment | `tce-app-secrets.JWT_SECRET` |
-| `JWT_REFRESH_TTL_SECONDS` | Refresh-token lifetime | Deployment config | `2592000` |
-| `MFA_ENCRYPTION_KEY` | Encryption key for MFA-related secrets | Existing `tce-auth` Kubernetes secret | `tce-auth.MFA_ENCRYPTION_KEY` |
-| `TCE_CREDENTIAL_ENCRYPTION_KEY` | Encryption key for stored platform/broker credentials | GitHub Actions secret `TCE_CREDENTIAL_ENCRYPTION_KEY_STG` | `tce-auth.TCE_CREDENTIAL_ENCRYPTION_KEY` |
+| Key                             | Purpose                                               | Source                                                    | Kubernetes mapping                          |
+| ------------------------------- | ----------------------------------------------------- | --------------------------------------------------------- | ------------------------------------------- |
+| `SUPABASE_URL`                  | Supabase project URL                                  | GitHub Actions secret/environment                         | `tce-app-secrets.SUPABASE_URL`              |
+| `SUPABASE_SERVICE_ROLE_KEY`     | Backend Supabase service-role access                  | GitHub Actions secret/environment                         | `tce-app-secrets.SUPABASE_SERVICE_ROLE_KEY` |
+| `JWT_SECRET`                    | JWT signing secret                                    | GitHub Actions secret/environment                         | `tce-app-secrets.JWT_SECRET`                |
+| `JWT_REFRESH_TTL_SECONDS`       | Refresh-token lifetime                                | Deployment config                                         | `2592000`                                   |
+| `MFA_ENCRYPTION_KEY`            | Encryption key for MFA-related secrets                | Existing `tce-auth` Kubernetes secret                     | `tce-auth.MFA_ENCRYPTION_KEY`               |
+| `TCE_CREDENTIAL_ENCRYPTION_KEY` | Encryption key for stored platform/broker credentials | GitHub Actions secret `TCE_CREDENTIAL_ENCRYPTION_KEY_STG` | `tce-auth.TCE_CREDENTIAL_ENCRYPTION_KEY`    |
 
 ## `TCE_CREDENTIAL_ENCRYPTION_KEY`
 

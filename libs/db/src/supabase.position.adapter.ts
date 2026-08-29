@@ -11,7 +11,7 @@ export class SupabasePositionAdapter implements PositionRepository {
       .eq('account_id', accountId)
       .eq('status', 'OPEN');
     if (error) throw error;
-    return (data ?? []).map((p) => ({
+    return (data ?? []).map(p => ({
       accountId,
       symbol: String(p.symbol),
       quantity: Number(p.quantity ?? 0),

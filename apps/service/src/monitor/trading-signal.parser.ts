@@ -6,13 +6,15 @@ export type TradingSignal = {
   stopLoss: number;
 };
 
-const SIGNAL_RE = /^\s*([A-Z0-9._-]+)\s+(BUY|SELL)\s+ENTRY\s+([0-9]+(?:\.[0-9]+)?)\s+TP\s+([0-9]+(?:\.[0-9]+)?)\s+SL\s+([0-9]+(?:\.[0-9]+)?)\s*$/i;
+const SIGNAL_RE =
+  /^\s*([A-Z0-9._-]+)\s+(BUY|SELL)\s+ENTRY\s+([0-9]+(?:\.[0-9]+)?)\s+TP\s+([0-9]+(?:\.[0-9]+)?)\s+SL\s+([0-9]+(?:\.[0-9]+)?)\s*$/i;
 
 /** Parse only the canonical TCE signal format. Ambiguous/partial signals are rejected. */
 export function parseTradingSignal(input: string): TradingSignal {
   const text = String(input ?? '').trim();
   const match = SIGNAL_RE.exec(text);
-  if (!match) throw new Error('Invalid signal. Expected: SYMBOL BUY|SELL ENTRY PRICE TP PRICE SL PRICE');
+  if (!match)
+    throw new Error('Invalid signal. Expected: SYMBOL BUY|SELL ENTRY PRICE TP PRICE SL PRICE');
 
   const [, rawSymbol, rawSide, rawEntry, rawTp, rawSl] = match;
   const symbol = rawSymbol.toUpperCase();
@@ -21,7 +23,12 @@ export function parseTradingSignal(input: string): TradingSignal {
   const takeProfit = Number(rawTp);
   const stopLoss = Number(rawSl);
 
-  if (![entry, takeProfit, stopLoss].every(Number.isFinite) || entry <= 0 || takeProfit <= 0 || stopLoss <= 0) {
+  if (
+    ![entry, takeProfit, stopLoss].every(Number.isFinite) ||
+    entry <= 0 ||
+    takeProfit <= 0 ||
+    stopLoss <= 0
+  ) {
     throw new Error('Entry, TP and SL must be positive numbers');
   }
 
