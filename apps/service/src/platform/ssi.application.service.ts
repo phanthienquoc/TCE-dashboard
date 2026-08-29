@@ -33,8 +33,9 @@ export class SsiApplicationService {
   ) {
     const apiKey = String(raw.apiKey ?? ''),
       apiSecret = String(raw.apiSecret ?? ''),
+      clientId = String(raw.clientId ?? ''),
       accountNo = String(accountNoOverride ?? raw.accountNo ?? '');
-    if (!apiKey || !apiSecret)
+    if (!apiKey || !apiSecret || !clientId)
       throw new NotFoundException(`SSI credentials are incomplete for environment: ${environment}`);
     const onTokenUpdated = persistToken
       ? async (token: SsiTokenSnapshot) => {
@@ -45,7 +46,7 @@ export class SsiApplicationService {
       adapter: new SsiBrokerAdapter({
         apiKey,
         apiSecret,
-        clientId: String(process.env.SSI_CLIENT_ID ?? raw.clientId ?? ''),
+        clientId,
         privateKey: raw.privateKey ? String(raw.privateKey) : undefined,
         accountNo: accountNo || undefined,
         token: {

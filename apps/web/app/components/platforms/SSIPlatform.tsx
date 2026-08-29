@@ -15,12 +15,12 @@ import {
 } from 'lucide-react';
 import { platformApi } from '../../../lib/api';
 
-type Credentials = { apiKey: string; apiSecret: string; privateKey: string };
+type Credentials = { clientId: string; apiKey: string; apiSecret: string; privateKey: string };
 type Props = { onMessage?: (message: string) => void };
 type ResultState = { ok: boolean; message: string } | null;
 type AuthStep = 'credentials' | 'approval' | 'approved';
 
-const initialCredentials: Credentials = { apiKey: '', apiSecret: '', privateKey: '' };
+const initialCredentials: Credentials = { clientId: '', apiKey: '', apiSecret: '', privateKey: '' };
 const ENVIRONMENT = 'production';
 const APPROVAL_POLL_MS = 5000;
 
@@ -42,6 +42,7 @@ function credentialsFromJson(value: unknown): Credentials {
       : {};
   const source = { ...root, ...nested };
   return {
+    clientId: pick(source, 'clientId', 'client_id', 'clientID'),
     apiKey: pick(source, 'apiKey', 'api_key', 'apiKEY'),
     apiSecret: pick(source, 'apiSecret', 'api_secret', 'apiSECRET'),
     privateKey: pick(source, 'privateKey', 'private_key', 'privateKEY'),
@@ -51,6 +52,7 @@ function credentialsFromJson(value: unknown): Credentials {
 export default function SSIPlatform({ onMessage }: Props) {
   const [open, setOpen] = useState(false);
   const [credentials, setCredentials] = useState<Credentials>(initialCredentials);
+  const [accountNo, setAccountNo] = useState('');
   const [otp, setOtp] = useState('');
   const [transactionId, setTransactionId] = useState('');
   const [authStep, setAuthStep] = useState<AuthStep>('credentials');
@@ -64,6 +66,7 @@ export default function SSIPlatform({ onMessage }: Props) {
   const resetAuthChallenge = () => {
     setOtp('');
     setTransactionId('');
+    setAccountNo('');
     setAuthStep('credentials');
     setTested(false);
   };
@@ -89,10 +92,16 @@ export default function SSIPlatform({ onMessage }: Props) {
   };
 
   const requestOtp = async () => {
-    if (!credentials.apiKey.trim() || !credentials.apiSecret.trim()) {
+    if (
+      !credentials.clientId.trim() ||
+      !credentials.apiKey.trim() ||
+      !credentials.apiSecret.trim() ||
+      !credentials.privateKey.trim()
+    ) {
       setResult({
         ok: false,
-        message: 'API Key and API Secret are required before requesting SSI approval.',
+        message:
+          'Client ID, API Key, API Secret and Private Key are required before requesting SSI approval.',
       });
       return false;
     }
@@ -185,12 +194,13 @@ export default function SSIPlatform({ onMessage }: Props) {
       const parsed = JSON.parse(await file.text());
       const next = credentialsFromJson(parsed);
       const found = Object.values(next).filter(Boolean).length;
-      if (!found) throw new Error('No supported SSI credential fields were found in the JSON');
+      if (!next.clientId || !next.apiKey || !next.apiSecret || !next.privateKey)
+        throw new Error('JSON must contain Client ID, API Key, API Secret and Private Key');
       setCredentials(next);
       setFileName(file.name);
       setResult({
         ok: true,
-        message: `Loaded ${found}/3 credential fields from ${file.name}. Review them, then request SSI approval.`,
+        message: `Loaded ${found}/4 credential fields from ${file.name}. Review them, then request SSI approval.`,
       });
       onMessage?.(`Loaded SSI credentials from ${file.name}`);
     } catch (error) {
@@ -214,18 +224,18 @@ export default function SSIPlatform({ onMessage }: Props) {
       const response = await platformApi.ssiTest({ environment: ENVIRONMENT, credentials });
       const data = response.data;
       const ok = Boolean(data?.ok);
-      setTested(ok);
+      if (!ok) throw new Error(data?.error?.message ?? 'SSI connection failed');
+      const accounts = Array.isArray(data?.data?.accounts) ? data.data.accounts : [];
+      const selectedAccount = accounts[0]?.accountNo ?? data?.data?.accountNo ?? '';
+      setAccountNo(String(selectedAccount));
+      setTested(true);
       setResult({
-        ok,
-        message: ok
-          ? 'SSI connection verified. Credentials are ready to save.'
-          : (data?.error?.message ?? 'SSI connection failed'),
+        ok: true,
+        message: accounts.length
+          ? `SSI connection verified — ${accounts.length} account(s) loaded.`
+          : 'SSI connection verified.',
       });
-      onMessage?.(
-        ok
-          ? 'SSI connection verified'
-          : `SSI connection failed: ${data?.error?.message ?? 'unknown error'}`
-      );
+      onMessage?.('SSI connection verified');
     } catch (error) {
       const message = messageFrom(error);
       setResult({ ok: false, message });
@@ -236,8 +246,11 @@ export default function SSIPlatform({ onMessage }: Props) {
   };
 
   const save = async () => {
-    if (!tested) {
-      setResult({ ok: false, message: 'Test Connection must succeed before saving.' });
+    if (!tested || !accountNo) {
+      setResult({
+        ok: false,
+        message: 'Test Connection must succeed and return an SSI account before saving.',
+      });
       return;
     }
     setBusy(true);
@@ -245,6 +258,7 @@ export default function SSIPlatform({ onMessage }: Props) {
       const response = await platformApi.ssiSaveTested({
         environment: ENVIRONMENT,
         credentials,
+        accountNo,
         otp: otp.trim() || undefined,
         transactionId: transactionId.trim() || undefined,
       });
@@ -253,7 +267,10 @@ export default function SSIPlatform({ onMessage }: Props) {
         setResult({ ok: false, message: data?.error?.message ?? 'SSI save failed' });
         return;
       }
-      setResult({ ok: true, message: 'SSI credentials saved securely.' });
+      setResult({
+        ok: true,
+        message: 'SSI credentials, Client ID and verified session saved securely.',
+      });
       onMessage?.('SSI credentials saved');
     } catch (error) {
       const message = messageFrom(error);
@@ -267,6 +284,7 @@ export default function SSIPlatform({ onMessage }: Props) {
   const resetFlow = () => {
     setOtp('');
     setTransactionId('');
+    setAccountNo('');
     setAuthStep('credentials');
     setTested(false);
     setResult(null);
@@ -293,7 +311,6 @@ export default function SSIPlatform({ onMessage }: Props) {
           className={`size-4 shrink-0 text-[#81748a] transition-transform ${open ? 'rotate-180' : ''}`}
         />
       </button>
-
       {open && (
         <div className="border-t border-violet-200/[0.07] px-5 pb-5 pt-4">
           <div className="mb-5 grid grid-cols-2 gap-2">
@@ -310,7 +327,6 @@ export default function SSIPlatform({ onMessage }: Props) {
               done={authStep === 'approved'}
             />
           </div>
-
           {authStep === 'credentials' && (
             <div className="space-y-4">
               <div className="flex flex-wrap items-center gap-2">
@@ -332,6 +348,15 @@ export default function SSIPlatform({ onMessage }: Props) {
                 )}
               </div>
               <div className="grid gap-3 sm:grid-cols-2">
+                <Field label="Client ID">
+                  <input
+                    className="input"
+                    value={credentials.clientId}
+                    onChange={event => updateCredential('clientId', event.target.value)}
+                    placeholder="Client ID"
+                    autoComplete="off"
+                  />
+                </Field>
                 <Field label="API Key">
                   <input
                     className="input"
@@ -371,7 +396,6 @@ export default function SSIPlatform({ onMessage }: Props) {
               </ActionButton>
             </div>
           )}
-
           {authStep === 'approval' && (
             <div className="space-y-4">
               <div className="rounded-2xl border border-amber-300/15 bg-amber-300/[0.05] p-4">
@@ -424,7 +448,6 @@ export default function SSIPlatform({ onMessage }: Props) {
               </Field>
             </div>
           )}
-
           {authStep === 'approved' && (
             <div className="space-y-4">
               <div className="rounded-2xl border border-emerald-300/15 bg-emerald-300/[0.05] p-4">
@@ -447,16 +470,18 @@ export default function SSIPlatform({ onMessage }: Props) {
                   )}{' '}
                   Test Connection
                 </ActionButton>
-                <ActionButton disabled={busy || !tested} onClick={save}>
+                <ActionButton disabled={busy || !tested || !accountNo} onClick={save}>
                   Save
                 </ActionButton>
                 <ActionButton disabled={busy} onClick={resetFlow}>
                   <RotateCcw className="size-4" /> Start over
                 </ActionButton>
               </div>
+              {accountNo && (
+                <p className="text-xs text-zinc-400">Selected SSI account: {accountNo}</p>
+              )}
             </div>
           )}
-
           {result && (
             <div
               className={`mt-4 flex items-start gap-2 rounded-xl border px-3 py-2.5 text-sm ${result.ok ? 'border-emerald-300/15 bg-emerald-300/[0.05] text-emerald-200' : 'border-red-300/15 bg-red-300/[0.05] text-red-200'}`}
@@ -505,7 +530,6 @@ function StepIndicator({
     </div>
   );
 }
-
 function Field({ label, children }: { label: string; children: ReactNode }) {
   return (
     <label className="block">
@@ -516,7 +540,6 @@ function Field({ label, children }: { label: string; children: ReactNode }) {
     </label>
   );
 }
-
 function ActionButton({
   disabled,
   onClick,
