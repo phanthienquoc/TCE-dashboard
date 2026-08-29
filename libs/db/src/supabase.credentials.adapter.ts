@@ -15,31 +15,27 @@ export class SupabaseCredentialAdapter implements PlatformCredentialPort {
       throw new Error('TCE_CREDENTIAL_ENCRYPTION_KEY must be 64 hex characters');
   }
   private encrypt(value: Record<string, unknown>) {
+    return this.encryptText(JSON.stringify(value));
+  }
+  private encryptText(value: string) {
     const iv = randomBytes(12),
       cipher = createCipheriv('aes-256-gcm', this.key, iv);
-    const ciphertext = Buffer.concat([
-      cipher.update(JSON.stringify(value), 'utf8'),
-      cipher.final(),
-    ]);
-    return [
-      VERSION,
-      iv.toString('base64url'),
-      cipher.getAuthTag().toString('base64url'),
-      ciphertext.toString('base64url'),
-    ].join('.');
+    const ciphertext = Buffer.concat([cipher.update(value, 'utf8'), cipher.final()]);
+    return [VERSION, iv.toString('base64url'), cipher.getAuthTag().toString('base64url'), ciphertext.toString('base64url')].join('.');
   }
   private decrypt(payload: string): Record<string, unknown> {
+    return JSON.parse(this.decryptText(payload)) as Record<string, unknown>;
+  }
+  private decryptText(payload: string): string {
     const [version, ivRaw, tagRaw, ciphertextRaw] = payload.split('.');
     if (version !== VERSION || !ivRaw || !tagRaw || !ciphertextRaw)
       throw new Error('Invalid encrypted credentials');
     const decipher = createDecipheriv('aes-256-gcm', this.key, Buffer.from(ivRaw, 'base64url'));
     decipher.setAuthTag(Buffer.from(tagRaw, 'base64url'));
-    return JSON.parse(
-      Buffer.concat([
-        decipher.update(Buffer.from(ciphertextRaw, 'base64url')),
-        decipher.final(),
-      ]).toString('utf8')
-    ) as Record<string, unknown>;
+    return Buffer.concat([
+      decipher.update(Buffer.from(ciphertextRaw, 'base64url')),
+      decipher.final(),
+    ]).toString('utf8');
   }
   async list(userId: string) {
     const { data, error } = await this.db
@@ -65,7 +61,7 @@ export class SupabaseCredentialAdapter implements PlatformCredentialPort {
   ) {
     const { data, error } = await this.db
       .from('platform_credentials')
-      .select('credentials_encrypted')
+      .select('credentials_encrypted,ssi_client_id_encrypted')
       .eq('user_id', userId)
       .eq('provider', provider)
       .eq('environment', environment)
@@ -74,7 +70,10 @@ export class SupabaseCredentialAdapter implements PlatformCredentialPort {
       .maybeSingle();
     if (error) throw error;
     if (!data) throw new Error('Platform credentials not configured');
-    return this.decrypt(data.credentials_encrypted);
+    const credentials = this.decrypt(data.credentials_encrypted);
+    if (provider === 'ssi' && data.ssi_client_id_encrypted)
+      credentials.clientId = this.decryptText(data.ssi_client_id_encrypted);
+    return credentials;
   }
   async save(
     userId: string,
@@ -94,8 +93,10 @@ export class SupabaseCredentialAdapter implements PlatformCredentialPort {
       encryption_version: 1,
       is_active: true,
     };
-    if (provider === 'ssi')
+    if (provider === 'ssi') {
       row.ssi_account_no = credentials.accountNo ? String(credentials.accountNo) : null;
+      row.ssi_client_id_encrypted = credentials.clientId ? this.encryptText(String(credentials.clientId)) : null;
+    }
     const { data, error } = await this.db
       .from('platform_credentials')
       .upsert(row, { onConflict: 'user_id,provider,environment,credential_name' })
