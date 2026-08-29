@@ -35,7 +35,6 @@ export type SsiTokenSnapshot = {
 export type SsiConfig = {
   apiKey: string;
   apiSecret: string;
-  clientId?: string;
   privateKey?: string;
   accountNo?: string;
   token?: Partial<SsiTokenSnapshot> & { refreshExpiresAt?: number };
@@ -100,7 +99,6 @@ export class SsiBrokerAdapter implements BrokerPort, SsiConnectionPort {
       throw new Error('SSI apiKey/apiSecret are required');
     const auth = new Auth(
       new Config({
-        clientId: this.config.clientId ?? '',
         apiKey: this.config.apiKey,
         apiSecret: this.config.apiSecret,
         privateKey: includePrivateKey ? (this.config.privateKey ?? '') : '',
@@ -340,10 +338,6 @@ export class SsiBrokerAdapter implements BrokerPort, SsiConnectionPort {
 
   async positions(accountNo: string) {
     return this.result(async () => {
-      if (!this.config.clientId?.trim())
-        throw new Error(
-          'SSI_CLIENT_ID_REQUIRED_FOR_PORTFOLIO: clientId is required by SSI for equity positions'
-        );
       const normalizedAccountNo = accountNo.trim();
       if (!normalizedAccountNo) throw new Error('SSI account number is required for positions');
       const positions = await this.trading().portfolio.getEquityPositions(normalizedAccountNo);

@@ -45,7 +45,6 @@ export class SsiApplicationService {
       adapter: new SsiBrokerAdapter({
         apiKey,
         apiSecret,
-        clientId: raw.clientId ? String(raw.clientId) : undefined,
         privateKey: raw.privateKey ? String(raw.privateKey) : undefined,
         accountNo: accountNo || undefined,
         token: {
