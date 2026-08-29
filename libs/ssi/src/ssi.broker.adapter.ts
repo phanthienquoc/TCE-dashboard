@@ -104,7 +104,6 @@ export class SsiBrokerAdapter implements BrokerPort, SsiConnectionPort {
     const auth = new Auth(
       new Config({
         clientId,
-        clientId,
         apiKey: this.config.apiKey,
         apiSecret: this.config.apiSecret,
         privateKey: includePrivateKey ? (this.config.privateKey ?? '') : '',
