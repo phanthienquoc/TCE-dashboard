@@ -15,12 +15,12 @@ import {
 } from 'lucide-react';
 import { platformApi } from '../../../lib/api';
 
-type Credentials = { clientId: string; apiKey: string; apiSecret: string; privateKey: string };
+type Credentials = { apiKey: string; apiSecret: string; privateKey: string };
 type Props = { onMessage?: (message: string) => void };
 type ResultState = { ok: boolean; message: string } | null;
 type AuthStep = 'credentials' | 'approval' | 'approved';
 
-const initialCredentials: Credentials = { clientId: '', apiKey: '', apiSecret: '', privateKey: '' };
+const initialCredentials: Credentials = { apiKey: '', apiSecret: '', privateKey: '' };
 const ENVIRONMENT = 'production';
 const APPROVAL_POLL_MS = 5000;
 
@@ -42,7 +42,6 @@ function credentialsFromJson(value: unknown): Credentials {
       : {};
   const source = { ...root, ...nested };
   return {
-    clientId: pick(source, 'clientId', 'client_id', 'clientID'),
     apiKey: pick(source, 'apiKey', 'api_key', 'apiKEY'),
     apiSecret: pick(source, 'apiSecret', 'api_secret', 'apiSECRET'),
     privateKey: pick(source, 'privateKey', 'private_key', 'privateKEY'),
@@ -191,7 +190,7 @@ export default function SSIPlatform({ onMessage }: Props) {
       setFileName(file.name);
       setResult({
         ok: true,
-        message: `Loaded ${found}/4 credential fields from ${file.name}. Review them, then request SSI approval.`,
+        message: `Loaded ${found}/3 credential fields from ${file.name}. Review them, then request SSI approval.`,
       });
       onMessage?.(`Loaded SSI credentials from ${file.name}`);
     } catch (error) {
@@ -333,16 +332,7 @@ export default function SSIPlatform({ onMessage }: Props) {
                 )}
               </div>
               <div className="grid gap-3 sm:grid-cols-2">
-                <Field label="Client ID">
-                  <input
-                    className="input"
-                    value={credentials.clientId}
-                    onChange={event => updateCredential('clientId', event.target.value)}
-                    placeholder="Client ID"
-                    autoComplete="off"
-                  />
-                </Field>
-                <Field label="API Key">
+<Field label="API Key">
                   <input
                     className="input"
                     value={credentials.apiKey}

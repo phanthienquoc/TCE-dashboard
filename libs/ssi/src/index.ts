@@ -1,7 +1,6 @@
 export type SsiCredentials = {
   apiKey: string;
   apiSecret: string;
-  clientId?: string;
   privateKey?: string;
   accountNo: string;
 };
