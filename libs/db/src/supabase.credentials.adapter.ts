@@ -21,7 +21,12 @@ export class SupabaseCredentialAdapter implements PlatformCredentialPort {
     const iv = randomBytes(12),
       cipher = createCipheriv('aes-256-gcm', this.key, iv);
     const ciphertext = Buffer.concat([cipher.update(value, 'utf8'), cipher.final()]);
-    return [VERSION, iv.toString('base64url'), cipher.getAuthTag().toString('base64url'), ciphertext.toString('base64url')].join('.');
+    return [
+      VERSION,
+      iv.toString('base64url'),
+      cipher.getAuthTag().toString('base64url'),
+      ciphertext.toString('base64url'),
+    ].join('.');
   }
   private decrypt(payload: string): Record<string, unknown> {
     return JSON.parse(this.decryptText(payload)) as Record<string, unknown>;
@@ -95,7 +100,9 @@ export class SupabaseCredentialAdapter implements PlatformCredentialPort {
     };
     if (provider === 'ssi') {
       row.ssi_account_no = credentials.accountNo ? String(credentials.accountNo) : null;
-      row.ssi_client_id_encrypted = credentials.clientId ? this.encryptText(String(credentials.clientId)) : null;
+      row.ssi_client_id_encrypted = credentials.clientId
+        ? this.encryptText(String(credentials.clientId))
+        : null;
     }
     const { data, error } = await this.db
       .from('platform_credentials')
