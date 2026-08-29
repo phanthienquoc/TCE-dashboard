@@ -24,7 +24,7 @@ export default function BinanceFuturesTradingTest() {
   const [allowProduction, setAllowProduction] = useState(false);
 
   const isProduction = environment === 'production';
-  const canTrade = !isProduction || allowProduction;
+  const canTrade = connected === true && (!isProduction || allowProduction);
 
   function errorMessage(error: any) {
     return error?.response?.data?.message ?? error?.response?.data?.error?.message ?? error?.message ?? 'Request failed';
@@ -48,16 +48,26 @@ export default function BinanceFuturesTradingTest() {
     }
   }
 
-  async function openPosition() {
+  function validateTrade() {
     const amount = Number(quantity);
     if (!symbol.trim() || !Number.isFinite(amount) || amount <= 0) {
       setResult({ ok: false, message: 'Enter a valid symbol and quantity.' });
-      return;
+      return null;
+    }
+    if (connected !== true) {
+      setResult({ ok: false, message: 'Test the Binance connection successfully before sending an order.' });
+      return null;
     }
     if (!canTrade) {
       setResult({ ok: false, message: 'Confirm production trading before sending a real order.' });
-      return;
+      return null;
     }
+    return amount;
+  }
+
+  async function openPosition() {
+    const amount = validateTrade();
+    if (amount == null) return;
     setBusy('open');
     setResult(null);
     try {
@@ -74,15 +84,8 @@ export default function BinanceFuturesTradingTest() {
   }
 
   async function closePosition() {
-    const amount = Number(quantity);
-    if (!symbol.trim() || !Number.isFinite(amount) || amount <= 0) {
-      setResult({ ok: false, message: 'Enter a valid symbol and quantity.' });
-      return;
-    }
-    if (!canTrade) {
-      setResult({ ok: false, message: 'Confirm production trading before sending a real order.' });
-      return;
-    }
+    const amount = validateTrade();
+    if (amount == null) return;
     setBusy('close');
     setResult(null);
     try {
@@ -118,7 +121,7 @@ export default function BinanceFuturesTradingTest() {
       <CardContent className="space-y-4">
         <div className="grid gap-3 sm:grid-cols-2">
           <Field label="Environment">
-            <select value={environment} onChange={event => { setEnvironment(event.target.value as Environment); setConnected(null); setResult(null); }} className="h-11 w-full rounded-xl border border-white/10 bg-[#120b18] px-3 text-sm text-white outline-none focus:ring-2 focus:ring-violet-400/60">
+            <select value={environment} onChange={event => { setEnvironment(event.target.value as Environment); setConnected(null); setAllowProduction(false); setResult(null); }} className="h-11 w-full rounded-xl border border-white/10 bg-[#120b18] px-3 text-sm text-white outline-none focus:ring-2 focus:ring-violet-400/60">
               <option value="testnet">Testnet · recommended</option>
               <option value="production">Production</option>
             </select>
@@ -142,8 +145,8 @@ export default function BinanceFuturesTradingTest() {
 
         <div className="flex flex-wrap gap-2">
           <Button type="button" variant="outline" disabled={!!busy} onClick={() => void testConnection()}>{busy === 'connection' ? <Loader2 className="size-4 animate-spin" /> : <ShieldCheck className="size-4" />}Test connection</Button>
-          <Button type="button" disabled={!!busy || !canTrade} onClick={() => void openPosition()}>{busy === 'open' ? <Loader2 className="size-4 animate-spin" /> : <CheckCircle2 className="size-4" />}Open position</Button>
-          <Button type="button" variant="outline" disabled={!!busy || !canTrade} onClick={() => void closePosition()}>{busy === 'close' ? <Loader2 className="size-4 animate-spin" /> : <XCircle className="size-4" />}Close position</Button>
+          <Button type="button" disabled={!!busy || connected !== true || !canTrade} onClick={() => void openPosition()}>{busy === 'open' ? <Loader2 className="size-4 animate-spin" /> : <CheckCircle2 className="size-4" />}Open position</Button>
+          <Button type="button" variant="outline" disabled={!!busy || connected !== true || !canTrade} onClick={() => void closePosition()}>{busy === 'close' ? <Loader2 className="size-4 animate-spin" /> : <XCircle className="size-4" />}Close position</Button>
         </div>
 
         {isProduction && <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-amber-300/15 bg-amber-300/[0.04] p-3 text-xs leading-5 text-amber-100/80">
