@@ -87,11 +87,14 @@ export default function BinanceFuturesTradingTest() {
     setResult(null);
     try {
       const closeSide: Side = side === 'BUY' ? 'SELL' : 'BUY';
-      const response = await platformApi.binanceOrder({ environment, symbol: symbol.trim().toUpperCase(), side: closeSide, positionSide, quantity: amount, reduceOnly: true });
+      const request: Record<string, unknown> = { environment, symbol: symbol.trim().toUpperCase(), side: closeSide, positionSide, quantity: amount };
+      if (positionSide === 'BOTH') request.reduceOnly = true;
+      const response = await platformApi.binanceOrder(request);
       const data = response.data;
       if (!data?.ok) throw new Error(data?.error?.message ?? 'Unable to close position');
       const order = data.data;
-      setResult({ ok: true, message: `CLOSE ${order?.symbol ?? symbol.toUpperCase()} ${order?.side ?? closeSide} · reduce-only · qty ${order?.quantity ?? amount} · order ${order?.orderId ?? '—'} · ${order?.status ?? 'submitted'}.` });
+      const closeMode = positionSide === 'BOTH' ? 'reduce-only' : `hedge ${positionSide}`;
+      setResult({ ok: true, message: `CLOSE ${order?.symbol ?? symbol.toUpperCase()} ${order?.side ?? closeSide} · ${closeMode} · qty ${order?.quantity ?? amount} · order ${order?.orderId ?? '—'} · ${order?.status ?? 'submitted'}.` });
     } catch (error) {
       setResult({ ok: false, message: errorMessage(error) });
     } finally {
@@ -105,7 +108,7 @@ export default function BinanceFuturesTradingTest() {
         <div className="flex items-start justify-between gap-3">
           <div>
             <CardTitle>Binance Futures · Order test</CardTitle>
-            <CardDescription>Verify the connected credential, then send a small MARKET open and reduce-only close order.</CardDescription>
+            <CardDescription>Verify the connected credential, then send a small MARKET open and close order.</CardDescription>
           </div>
           <span className={`rounded-full border px-2.5 py-1 text-[11px] font-medium ${connected === true ? 'border-emerald-300/20 bg-emerald-300/[0.06] text-emerald-200' : connected === false ? 'border-red-300/20 bg-red-300/[0.06] text-red-200' : 'border-white/10 bg-white/[0.03] text-zinc-400'}`}>
             {connected === true ? 'Connected' : connected === false ? 'Connection failed' : 'Not tested'}
