@@ -15,7 +15,7 @@ export default function PlatformConfigTab() {
       { id: 'binance', label: 'Binance Futures', component: BinancePlatformConfig },
       { id: 'fastapi', label: 'FastAPI', component: FastApiPlatformConfig },
     ],
-    [],
+    []
   );
 
   const props: PlatformConfigProps = { busy, setBusy };
