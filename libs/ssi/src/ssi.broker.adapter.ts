@@ -261,9 +261,13 @@ export class SsiBrokerAdapter implements BrokerPort, SsiConnectionPort {
   async current(accountNo: string, input: SsiAuthInput): Promise<ContractResult<SsiCurrentInfo>> {
     return this.result(async () => {
       await this.authenticate(input);
-      const [accounts, balance, positions, orders] = await Promise.all([
+      let balance = await this.balance(accountNo);
+      if (!balance.ok) {
+        const fallback = await this.marginBalance(accountNo);
+        if (fallback.ok) balance = fallback;
+      }
+      const [accounts, positions, orders] = await Promise.all([
         this.accountInfo(),
-        this.balance(accountNo),
         this.positions(accountNo),
         this.orders(accountNo),
       ]);
@@ -579,8 +583,12 @@ export class SsiBrokerAdapter implements BrokerPort, SsiConnectionPort {
   async syncPortfolio(accountNo: string, input: SsiAuthInput) {
     const authResult = await this.result(() => this.authenticate(input).then(() => undefined));
     if (!authResult.ok) return authResult;
-    const [balance, positions, orders] = await Promise.all([
-      this.balance(accountNo),
+    let balance = await this.balance(accountNo);
+    if (!balance.ok) {
+      const fallback = await this.marginBalance(accountNo);
+      if (fallback.ok) balance = fallback;
+    }
+    const [positions, orders] = await Promise.all([
       this.positions(accountNo),
       this.orders(accountNo),
     ]);
