@@ -35,6 +35,7 @@ export type SsiTokenSnapshot = {
 export type SsiConfig = {
   apiKey: string;
   apiSecret: string;
+  clientId?: string;
   privateKey?: string;
   accountNo?: string;
   token?: Partial<SsiTokenSnapshot> & { refreshExpiresAt?: number };
@@ -70,11 +71,12 @@ export class SsiBrokerAdapter implements BrokerPort, SsiConnectionPort {
   private providerError(error: unknown) {
     const candidate = error as Record<string, unknown> | null;
     const response = candidate?.response as Record<string, unknown> | undefined;
-    const data = response?.data ?? candidate?.data;
+    const data = response?.data ?? candidate?.data ?? candidate?.responseBody;
     const status = response?.status ?? candidate?.status ?? candidate?.statusCode;
+    const code = candidate?.code ? ` code=${String(candidate.code)}` : '';
     const message = error instanceof Error ? error.message : String(error);
     const detail = data != null ? `; response=${JSON.stringify(data)}` : '';
-    return `${status ? `HTTP ${status}: ` : ''}${message}${detail}`;
+    return `${status ? `HTTP ${status}: ` : ''}${message}${code}${detail}`;
   }
 
   private result<T>(fn: () => Promise<T>): Promise<ContractResult<T>> {
@@ -97,8 +99,11 @@ export class SsiBrokerAdapter implements BrokerPort, SsiConnectionPort {
   private createAuth(includePrivateKey = true) {
     if (!this.config.apiKey || !this.config.apiSecret)
       throw new Error('SSI apiKey/apiSecret are required');
+    const clientId = this.config.clientId ?? process.env.SSI_CLIENT_ID ?? '';
+    if (!clientId) throw new Error('SSI clientId is not configured on the server');
     const auth = new Auth(
       new Config({
+        clientId,
         apiKey: this.config.apiKey,
         apiSecret: this.config.apiSecret,
         privateKey: includePrivateKey ? (this.config.privateKey ?? '') : '',
