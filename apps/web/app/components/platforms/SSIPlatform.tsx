@@ -332,7 +332,7 @@ export default function SSIPlatform({ onMessage }: Props) {
                 )}
               </div>
               <div className="grid gap-3 sm:grid-cols-2">
-<Field label="API Key">
+                <Field label="API Key">
                   <input
                     className="input"
                     value={credentials.apiKey}
