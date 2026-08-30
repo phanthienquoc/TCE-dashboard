@@ -72,7 +72,12 @@ export function NavigationDock({ items, onSelect }: NavigationDockProps) {
       </div>
 
       {open && (
-        <div className="fixed inset-0 z-[80] md:hidden" role="dialog" aria-modal="true" aria-label="Mobile menu">
+        <div
+          className="fixed inset-0 z-[80] md:hidden"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Mobile menu"
+        >
           <button
             type="button"
             className="absolute inset-0 bg-black/55 backdrop-blur-[2px]"
