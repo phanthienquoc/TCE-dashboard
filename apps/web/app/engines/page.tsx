@@ -1,12 +1,18 @@
 'use client';
 
+import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { ArrowLeft, BarChart3, Bell, Cpu, Home, Settings, ArrowLeftRight } from 'lucide-react';
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import EngineControlPanel from './EngineControlPanel';
 import { NavigationDock } from '../../components/navigation/NavigationDock';
 import { useAuthStore } from '../../lib/store';
+
+const EngineControlPanel = dynamic(() => import('./EngineControlPanel'), {
+  loading: () => (
+    <div className="min-h-[180px] animate-pulse rounded-2xl border border-violet-200/[0.07] bg-white/[0.02]" />
+  ),
+});
 
 const navigation = [
   { id: 'overview', label: 'Overview', icon: Home },
@@ -19,7 +25,10 @@ const navigation = [
 
 export default function EnginesPage() {
   const router = useRouter();
-  const { user, loading: authLoading, initialized, init } = useAuthStore();
+  const user = useAuthStore(s => s.user);
+  const authLoading = useAuthStore(s => s.loading);
+  const initialized = useAuthStore(s => s.initialized);
+  const init = useAuthStore(s => s.init);
   useEffect(() => {
     void init();
   }, [init]);
@@ -51,6 +60,7 @@ export default function EnginesPage() {
           <div className="flex items-center gap-3">
             <Link
               href="/dashboard"
+              prefetch
               className="touch-target grid place-items-center rounded-2xl border border-violet-200/[0.09] bg-white/[0.02] text-[#a88bb5]"
               aria-label="Back to dashboard"
             >

@@ -1,11 +1,17 @@
 'use client';
 
+import dynamic from 'next/dynamic';
 import { ArrowLeft, ArrowLeftRight, BarChart3, Bell, Cpu, Home, Settings } from 'lucide-react';
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import TelegramBotConfig from './TelegramBotConfig';
 import { NavigationDock } from '../../components/navigation/NavigationDock';
 import { useAuthStore } from '../../lib/store';
+
+const TelegramBotConfig = dynamic(() => import('./TelegramBotConfig'), {
+  loading: () => (
+    <div className="min-h-[360px] animate-pulse rounded-2xl border border-violet-200/[0.07] bg-white/[0.02]" />
+  ),
+});
 
 const navigation = [
   { id: 'overview', label: 'Overview', icon: Home },
@@ -18,7 +24,10 @@ const navigation = [
 
 export default function NotificationsPage() {
   const router = useRouter();
-  const { user, loading: authLoading, initialized, init } = useAuthStore();
+  const user = useAuthStore(s => s.user);
+  const authLoading = useAuthStore(s => s.loading);
+  const initialized = useAuthStore(s => s.initialized);
+  const init = useAuthStore(s => s.init);
   useEffect(() => {
     void init();
   }, [init]);
