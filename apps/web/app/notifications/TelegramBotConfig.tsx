@@ -33,11 +33,11 @@ export default function TelegramBotConfig() {
       const nextBots = Array.isArray(cachedBots) ? cachedBots : [];
       const nextAssignments = Array.isArray(cachedAssignments) ? cachedAssignments : [];
       setBots(nextBots as BotRow[]); setAssignments(nextAssignments as Assignment[]);
-      if (!botId && nextBots[0]?.id) setBotId(nextBots[0].id);
+      setBotId(current => current || nextBots[0]?.id || '');
       return;
     }
     void load();
-  }, [cachedBots, cachedAssignments, botId]);
+  }, [cachedBots, cachedAssignments]);
 
   async function load() {
     try {
@@ -45,7 +45,7 @@ export default function TelegramBotConfig() {
       const botRows = b.data?.bots ?? b.data ?? [];
       setBots(Array.isArray(botRows) ? botRows : []);
       setAssignments(Array.isArray(a.data) ? a.data : (a.data?.assignments ?? []));
-      if (!botId && botRows?.[0]?.id) setBotId(botRows[0].id);
+      setBotId(current => current || botRows?.[0]?.id || '');
     } catch { setBots([]); setAssignments([]); }
   }
 
