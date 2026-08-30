@@ -20,6 +20,7 @@ import {
 import { useRouter } from 'next/navigation';
 import { Button } from '../../components/ui/button';
 import { Card, CardContent } from '../../components/ui/card';
+import { NavigationDock } from '../../components/navigation/NavigationDock';
 import PlatformConfigTab from '../../components/config/PlatformConfigTab';
 import { useAuthStore, useDashboardStore } from '../../lib/store';
 
@@ -90,6 +91,10 @@ export default function DashboardPage() {
     setTab(id);
     router.replace(`/dashboard?tab=${id}`, { scroll: false });
   };
+  const navigationItems = navigation.map(item => ({
+    ...item,
+    active: item.id !== 'engine' && item.id !== 'notifications' && tab === item.id,
+  }));
   return (
     <main className="app-shell">
       <header className="app-header">
@@ -238,25 +243,7 @@ export default function DashboardPage() {
         {tab === 'settings' && <PlatformConfigTab />}
         {error && <div className="error-banner">{error}</div>}
       </div>
-      <nav aria-label="Dashboard navigation" className="mobile-bottom-nav">
-        {navigation.map(({ id, label, icon: Icon }) => {
-          const active = id === 'engine' || id === 'notifications' ? false : tab === id;
-          return (
-            <button
-              key={id}
-              type="button"
-              onClick={() => selectNavigation(id)}
-              aria-current={active ? 'page' : undefined}
-              className={`bottom-nav-item ${active ? 'is-active' : ''}`}
-            >
-              <span className="bottom-nav-icon">
-                <Icon className="size-[18px]" strokeWidth={active ? 2.2 : 1.9} />
-              </span>
-              <span>{label}</span>
-            </button>
-          );
-        })}
-      </nav>
+      <NavigationDock items={navigationItems} onSelect={id => selectNavigation(id as NavItem['id'])} />
     </main>
   );
 }
