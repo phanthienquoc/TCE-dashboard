@@ -12,7 +12,7 @@ type NavigationDockProps = { items: NavigationItem[]; onSelect: (id: string) => 
 
 export function NavigationDock({ items, onSelect }: NavigationDockProps) {
   const router = useRouter();
-  const { logout } = useAuthStore();
+  const logout = useAuthStore(s => s.logout);
 
   const handleLogout = async () => {
     await logout();
@@ -26,15 +26,22 @@ export function NavigationDock({ items, onSelect }: NavigationDockProps) {
       variant="ghost"
       onClick={() => onSelect(id)}
       aria-current={active ? 'page' : undefined}
+      aria-label={label}
+      title={label}
       className={cn(
-        'h-[58px] min-w-0 flex-1 flex-col gap-1 rounded-2xl px-1 text-[9px] font-semibold text-[#776b80] hover:bg-white/[0.06] hover:text-white',
-        active && 'bg-violet-500/15 text-[#f6edf9]'
+        'h-[52px] min-w-0 flex-1 rounded-2xl px-1 transition-all duration-200 ease-out',
+        'text-[#776b80] hover:bg-white/[0.06] hover:text-white hover:-translate-y-0.5',
+        active && 'bg-violet-500/15 text-[#f6edf9] scale-105'
       )}
     >
-      <span className="grid size-[30px] place-items-center rounded-xl">
-        <Icon className="size-[18px]" />
+      <span
+        className={cn(
+          'grid size-[34px] place-items-center rounded-xl transition-transform duration-200 ease-out',
+          active && 'scale-110'
+        )}
+      >
+        <Icon className="size-[19px]" />
       </span>
-      <span className="max-w-full truncate">{label}</span>
     </Button>
   ));
 
@@ -45,13 +52,13 @@ export function NavigationDock({ items, onSelect }: NavigationDockProps) {
         type="button"
         variant="ghost"
         onClick={() => void handleLogout()}
-        className="h-[58px] min-w-0 flex-1 flex-col gap-1 rounded-2xl px-1 text-[9px] font-semibold text-red-300 hover:bg-red-500/10 hover:text-red-200"
         aria-label="Log out"
+        title="Log out"
+        className="h-[52px] min-w-0 flex-1 rounded-2xl px-1 text-red-300 transition-all duration-200 ease-out hover:bg-red-500/10 hover:text-red-200 hover:-translate-y-0.5"
       >
-        <span className="grid size-[30px] place-items-center rounded-xl">
-          <LogOut className="size-[18px]" />
+        <span className="grid size-[34px] place-items-center rounded-xl">
+          <LogOut className="size-[19px]" />
         </span>
-        <span className="truncate">Log out</span>
       </Button>
     </nav>
   );
