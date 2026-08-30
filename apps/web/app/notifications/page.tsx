@@ -2,6 +2,7 @@
 
 import { ArrowLeft, ArrowLeftRight, BarChart3, Bell, Cpu, Home, Settings } from 'lucide-react';
 import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import TelegramBotConfig from './TelegramBotConfig';
 import { NavigationDock } from '../../components/navigation/NavigationDock';
 import { useAuthStore } from '../../lib/store';
@@ -16,6 +17,7 @@ const navigation = [
 ];
 
 export default function NotificationsPage() {
+  const router = useRouter();
   const { user, loading: authLoading, initialized, init } = useAuthStore();
   useEffect(() => {
     void init();
@@ -36,19 +38,24 @@ export default function NotificationsPage() {
     );
   const select = (id: string) => {
     if (id === 'notifications') return;
-    if (id === 'engine') return window.location.assign('/engines');
-    if (id === 'settings') return window.location.assign('/dashboard?tab=settings');
-    if (id === 'overview') return window.location.assign('/dashboard');
-    return window.location.assign(`/dashboard?tab=${id}`);
+    if (id === 'engine') return router.push('/engines');
+    if (id === 'settings') return router.push('/dashboard?tab=settings');
+    if (id === 'overview') return router.push('/dashboard');
+    return router.push(`/dashboard?tab=${id}`);
   };
   return (
     <main className="app-shell">
       <header className="app-header">
         <div className="app-container app-header-inner">
           <div className="flex items-center gap-3">
-            <div className="touch-target grid place-items-center rounded-2xl border border-violet-200/[0.09] bg-white/[0.02] text-[#a88bb5]">
-              <Bell className="size-4" />
-            </div>
+            <button
+              type="button"
+              onClick={() => router.push('/dashboard')}
+              className="touch-target grid place-items-center rounded-2xl border border-violet-200/[0.09] bg-white/[0.02] text-[#a88bb5]"
+              aria-label="Back to dashboard"
+            >
+              <ArrowLeft className="size-4" />
+            </button>
             <div>
               <p className="eyebrow">TCE</p>
               <p className="account-email">Notification service</p>
