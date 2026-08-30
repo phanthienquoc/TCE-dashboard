@@ -4,7 +4,13 @@ import { useEffect, useState } from 'react';
 import { Bot, Eye, EyeOff, Loader2, Save, ShieldCheck, Trash2, Wrench } from 'lucide-react';
 import { platformApi } from '../../lib/api';
 import { Button } from '../../components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '../../components/ui/card';
 import { Input } from '../../components/ui/input';
 
 type BotRow = { id: string; name: string; environment: string; isActive: boolean };
