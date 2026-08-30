@@ -1,11 +1,15 @@
 'use client';
 
+import dynamic from 'next/dynamic';
 import { ArrowLeft, ArrowLeftRight, BarChart3, Bell, Cpu, Home, Settings } from 'lucide-react';
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import TelegramBotConfig from './TelegramBotConfig';
 import { NavigationDock } from '../../components/navigation/NavigationDock';
 import { useAuthStore } from '../../lib/store';
+
+const TelegramBotConfig = dynamic(() => import('./TelegramBotConfig'), {
+  loading: () => <div className="min-h-[360px] animate-pulse rounded-2xl border border-violet-200/[0.07] bg-white/[0.02]" />,
+});
 
 const navigation = [
   { id: 'overview', label: 'Overview', icon: Home },
@@ -23,11 +27,6 @@ export default function NotificationsPage() {
   const initialized = useAuthStore(s => s.initialized);
   const init = useAuthStore(s => s.init);
   useEffect(() => { void init(); }, [init]);
-  useEffect(() => {
-    router.prefetch('/dashboard');
-    router.prefetch('/engines');
-    router.prefetch('/dashboard?tab=settings');
-  }, [router]);
   if (authLoading || !initialized || !user)
     return <main className="app-shell"><div className="loading-state"><div className="brand-orb"><Bell className="size-4" /></div><div><strong>Opening TCE</strong><span>Checking secure session…</span></div></div></main>;
   const select = (id: string) => {
