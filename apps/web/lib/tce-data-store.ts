@@ -42,31 +42,38 @@ export const useTCEDataStore = create<TCEDataState>((set, get) => ({
       platformApi.credentials(),
       platformApi.telegramBots(),
       platformApi.telegramDebugAssignments(),
-    ]).then(results => {
-      const [dashboard, engines, engineConfig, credentials, telegramBots, telegramAssignments] = results;
-      set({
-        dashboard: dashboard.status === 'fulfilled' ? dashboard.value.data : null,
-        engines: engines.status === 'fulfilled' ? (engines.value.data ?? []) : null,
-        engineConfig: engineConfig.status === 'fulfilled' ? engineConfig.value.data : null,
-        credentials: credentials.status === 'fulfilled' ? credentials.value.data : null,
-        telegramBots:
-          telegramBots.status === 'fulfilled'
-            ? (telegramBots.value.data?.bots ?? telegramBots.value.data ?? [])
-            : null,
-        telegramAssignments:
-          telegramAssignments.status === 'fulfilled'
-            ? Array.isArray(telegramAssignments.value.data)
-              ? telegramAssignments.value.data
-              : (telegramAssignments.value.data?.assignments ?? [])
-            : null,
-        initialized: true,
-        loading: false,
+    ])
+      .then(results => {
+        const [dashboard, engines, engineConfig, credentials, telegramBots, telegramAssignments] =
+          results;
+        set({
+          dashboard: dashboard.status === 'fulfilled' ? dashboard.value.data : null,
+          engines: engines.status === 'fulfilled' ? (engines.value.data ?? []) : null,
+          engineConfig: engineConfig.status === 'fulfilled' ? engineConfig.value.data : null,
+          credentials: credentials.status === 'fulfilled' ? credentials.value.data : null,
+          telegramBots:
+            telegramBots.status === 'fulfilled'
+              ? (telegramBots.value.data?.bots ?? telegramBots.value.data ?? [])
+              : null,
+          telegramAssignments:
+            telegramAssignments.status === 'fulfilled'
+              ? Array.isArray(telegramAssignments.value.data)
+                ? telegramAssignments.value.data
+                : (telegramAssignments.value.data?.assignments ?? [])
+              : null,
+          initialized: true,
+          loading: false,
+        });
+      })
+      .catch(error => {
+        set({
+          loading: false,
+          error: error instanceof Error ? error.message : 'Unable to prefetch TCE data',
+        });
+      })
+      .finally(() => {
+        inFlight = null;
       });
-    }).catch(error => {
-      set({ loading: false, error: error instanceof Error ? error.message : 'Unable to prefetch TCE data' });
-    }).finally(() => {
-      inFlight = null;
-    });
 
     return inFlight;
   },
