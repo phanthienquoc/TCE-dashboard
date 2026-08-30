@@ -21,30 +21,112 @@ export function NavigationDock({ items, onSelect }: NavigationDockProps) {
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [open]);
-  const handleSelect = (id: string) => { setOpen(false); onSelect(id); };
-  const handleLogout = async () => { setOpen(false); await logout(); router.replace('/login'); };
+  const handleSelect = (id: string) => {
+    setOpen(false);
+    onSelect(id);
+  };
+  const handleLogout = async () => {
+    setOpen(false);
+    await logout();
+    router.replace('/login');
+  };
   const navItems = items.map(({ id, label, icon: Icon, active }) => (
-    <Button key={id} type="button" variant="ghost" onClick={() => handleSelect(id)} aria-current={active ? 'page' : undefined}
-      className={cn('h-11 justify-start gap-3 rounded-xl px-3 text-sm font-semibold text-[#a99caf] hover:bg-white/[0.06] hover:text-white md:h-[60px] md:flex-col md:gap-1 md:px-1 md:text-[9px]', active && 'bg-violet-500/15 text-[#f6edf9]')}>
+    <Button
+      key={id}
+      type="button"
+      variant="ghost"
+      onClick={() => handleSelect(id)}
+      aria-current={active ? 'page' : undefined}
+      className={cn(
+        'h-11 justify-start gap-3 rounded-xl px-3 text-sm font-semibold text-[#a99caf] hover:bg-white/[0.06] hover:text-white md:h-[60px] md:flex-col md:gap-1 md:px-1 md:text-[9px]',
+        active && 'bg-violet-500/15 text-[#f6edf9]'
+      )}
+    >
       <Icon className="size-[18px]" />
       <span className="md:max-w-full md:truncate">{label}</span>
     </Button>
   ));
-  return <>
-    <style jsx global>{`@media (max-width: 767px) { .dashboard-account, .desktop-account-action { display:none!important } } @media (min-width:768px) { .mobile-menu-trigger { display:none!important } }`}</style>
-    <div className="fixed right-4 top-[max(12px,env(safe-area-inset-top))] z-[70] md:hidden">
-      <Button type="button" variant="outline" size="icon" className="touch-target rounded-full border-white/10 bg-[#100c16]/90 shadow-[0_12px_40px_rgba(0,0,0,0.35)] backdrop-blur-2xl" onClick={() => setOpen(true)} aria-label="Open account menu" aria-expanded={open}><Menu className="size-5" /></Button>
-    </div>
-    <aside aria-label="Dashboard navigation" className="fixed left-4 top-1/2 z-50 hidden w-[76px] -translate-y-1/2 rounded-2xl border border-white/10 bg-[#100c16]/90 p-2 shadow-[0_18px_60px_rgba(0,0,0,0.45)] backdrop-blur-2xl md:grid">
-      <nav className="grid gap-1">{navItems}</nav>
-    </aside>
-    {open && <div className="fixed inset-0 z-[80] md:hidden" role="dialog" aria-modal="true" aria-label="Mobile menu">
-      <button type="button" className="absolute inset-0 bg-black/55 backdrop-blur-[2px]" onClick={() => setOpen(false)} aria-label="Close menu" />
-      <aside className="absolute right-0 top-0 h-full w-[min(88vw,360px)] border-l border-white/10 bg-[#100c16] p-5 shadow-[-24px_0_70px_rgba(0,0,0,0.45)]">
-        <div className="flex items-center justify-between border-b border-white/10 pb-4"><div className="min-w-0 pr-3"><p className="eyebrow">TCE account</p><p className="account-email max-w-full">{user?.email ?? 'Signed in'}</p></div><Button type="button" variant="ghost" size="icon" className="touch-target shrink-0" onClick={() => setOpen(false)} aria-label="Close menu"><X className="size-5" /></Button></div>
-        <nav aria-label="Mobile navigation" className="mt-5 grid gap-1">{navItems}</nav>
-        <div className="mt-5 border-t border-white/10 pt-4"><Button type="button" variant="ghost" onClick={() => void handleLogout()} className="h-12 w-full justify-start gap-3 rounded-xl px-3 text-sm font-semibold text-red-300 hover:bg-red-500/10 hover:text-red-200"><LogOut className="size-[18px]" />Log out</Button></div>
+  return (
+    <>
+      <style jsx global>{`
+        @media (max-width: 767px) {
+          .dashboard-account,
+          .desktop-account-action {
+            display: none !important;
+          }
+        }
+        @media (min-width: 768px) {
+          .mobile-menu-trigger {
+            display: none !important;
+          }
+        }
+      `}</style>
+      <div className="fixed right-4 top-[max(12px,env(safe-area-inset-top))] z-[70] md:hidden">
+        <Button
+          type="button"
+          variant="outline"
+          size="icon"
+          className="touch-target rounded-full border-white/10 bg-[#100c16]/90 shadow-[0_12px_40px_rgba(0,0,0,0.35)] backdrop-blur-2xl"
+          onClick={() => setOpen(true)}
+          aria-label="Open account menu"
+          aria-expanded={open}
+        >
+          <Menu className="size-5" />
+        </Button>
+      </div>
+      <aside
+        aria-label="Dashboard navigation"
+        className="fixed left-4 top-1/2 z-50 hidden w-[76px] -translate-y-1/2 rounded-2xl border border-white/10 bg-[#100c16]/90 p-2 shadow-[0_18px_60px_rgba(0,0,0,0.45)] backdrop-blur-2xl md:grid"
+      >
+        <nav className="grid gap-1">{navItems}</nav>
       </aside>
-    </div>}
-  </>;
+      {open && (
+        <div
+          className="fixed inset-0 z-[80] md:hidden"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Mobile menu"
+        >
+          <button
+            type="button"
+            className="absolute inset-0 bg-black/55 backdrop-blur-[2px]"
+            onClick={() => setOpen(false)}
+            aria-label="Close menu"
+          />
+          <aside className="absolute right-0 top-0 h-full w-[min(88vw,360px)] border-l border-white/10 bg-[#100c16] p-5 shadow-[-24px_0_70px_rgba(0,0,0,0.45)]">
+            <div className="flex items-center justify-between border-b border-white/10 pb-4">
+              <div className="min-w-0 pr-3">
+                <p className="eyebrow">TCE account</p>
+                <p className="account-email max-w-full">{user?.email ?? 'Signed in'}</p>
+              </div>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="touch-target shrink-0"
+                onClick={() => setOpen(false)}
+                aria-label="Close menu"
+              >
+                <X className="size-5" />
+              </Button>
+            </div>
+            <nav aria-label="Mobile navigation" className="mt-5 grid gap-1">
+              {navItems}
+            </nav>
+            <div className="mt-5 border-t border-white/10 pt-4">
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() => void handleLogout()}
+                className="h-12 w-full justify-start gap-3 rounded-xl px-3 text-sm font-semibold text-red-300 hover:bg-red-500/10 hover:text-red-200"
+              >
+                <LogOut className="size-[18px]" />
+                Log out
+              </Button>
+            </div>
+          </aside>
+        </div>
+      )}
+    </>
+  );
 }
