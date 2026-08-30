@@ -19,10 +19,7 @@ type NavigationDockProps = {
 
 export function NavigationDock({ items, onSelect }: NavigationDockProps) {
   return (
-    <Card
-      asChild
-      className="fixed inset-x-3 bottom-[calc(8px+env(safe-area-inset-bottom))] z-50 mx-auto w-auto max-w-xl border-white/10 bg-[#100c16]/90 p-1.5 shadow-[0_18px_60px_rgba(0,0,0,0.45)] backdrop-blur-2xl md:inset-y-24 md:inset-x-auto md:left-5 md:bottom-auto md:mx-0 md:w-[76px] md:max-w-none md:p-2"
-    >
+    <Card className="fixed inset-x-3 bottom-[calc(8px+env(safe-area-inset-bottom))] z-50 mx-auto w-auto max-w-xl border-white/10 bg-[#100c16]/90 p-1.5 shadow-[0_18px_60px_rgba(0,0,0,0.45)] backdrop-blur-2xl md:inset-y-24 md:inset-x-auto md:left-5 md:bottom-auto md:mx-0 md:w-[76px] md:max-w-none md:p-2">
       <nav aria-label="Dashboard navigation" className="grid grid-cols-6 gap-1 md:grid-cols-1">
         {items.map(({ id, label, icon: Icon, active }) => (
           <Button
