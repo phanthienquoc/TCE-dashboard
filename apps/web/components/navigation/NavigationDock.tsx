@@ -31,13 +31,13 @@ export function NavigationDock({ items, onSelect }: NavigationDockProps) {
             aria-current={active ? 'page' : undefined}
             className={cn(
               'group h-14 min-h-14 w-full flex-col gap-1 rounded-xl px-1 text-[9px] font-semibold text-[#776b80] hover:bg-white/[0.06] hover:text-white md:h-[68px] md:min-h-[68px] md:gap-1.5 md:text-[9px]',
-              active && 'bg-violet-500/15 text-[#f6edf9] shadow-sm hover:bg-violet-500/20',
+              active && 'bg-violet-500/15 text-[#f6edf9] shadow-sm hover:bg-violet-500/20'
             )}
           >
             <span
               className={cn(
                 'grid size-8 place-items-center rounded-xl transition-colors',
-                active && 'bg-violet-500/15 text-[#d5b5fa]',
+                active && 'bg-violet-500/15 text-[#d5b5fa]'
               )}
             >
               <Icon className="size-[18px]" strokeWidth={active ? 2.2 : 1.9} />

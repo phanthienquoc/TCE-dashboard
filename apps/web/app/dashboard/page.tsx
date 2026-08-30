@@ -243,7 +243,10 @@ export default function DashboardPage() {
         {tab === 'settings' && <PlatformConfigTab />}
         {error && <div className="error-banner">{error}</div>}
       </div>
-      <NavigationDock items={navigationItems} onSelect={id => selectNavigation(id as NavItem['id'])} />
+      <NavigationDock
+        items={navigationItems}
+        onSelect={id => selectNavigation(id as NavItem['id'])}
+      />
     </main>
   );
 }
