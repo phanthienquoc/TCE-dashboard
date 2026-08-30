@@ -1,0 +1,108 @@
+/* Telegram-inspired navigation chrome. The existing TCE dark-purple theme remains the source of truth. */
+.mobile-bottom-nav {
+  position: fixed;
+  inset: auto 14px max(12px, env(safe-area-inset-bottom));
+  z-index: 60;
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 3px;
+  width: auto;
+  max-width: 720px;
+  margin-inline: auto;
+  padding: 7px;
+  border: 1px solid rgb(238 222 255 / 0.12);
+  border-radius: 28px;
+  background: rgb(17 12 23 / 0.88);
+  box-shadow:
+    0 18px 50px rgb(0 0 0 / 0.42),
+    inset 0 1px 0 rgb(255 255 255 / 0.035);
+  backdrop-filter: blur(26px) saturate(130%);
+  -webkit-backdrop-filter: blur(26px) saturate(130%);
+}
+
+.bottom-nav-item {
+  min-width: 0;
+  min-height: 56px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  border: 0;
+  border-radius: 21px;
+  background: transparent;
+  color: #776b80;
+  font-size: 9px;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+  transition:
+    background 160ms ease,
+    color 160ms ease,
+    transform 160ms ease;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.bottom-nav-item:active {
+  transform: scale(0.96);
+}
+
+.bottom-nav-icon {
+  width: 34px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  border-radius: 12px;
+  transition:
+    background 160ms ease,
+    color 160ms ease;
+}
+
+.bottom-nav-item.is-active {
+  background: rgb(139 77 196 / 0.24);
+  color: #f6edf9;
+}
+
+.bottom-nav-item.is-active .bottom-nav-icon {
+  background: rgb(169 107 255 / 0.16);
+  color: #cda9fa;
+}
+
+@media (min-width: 768px) {
+  .app-shell {
+    padding-left: 104px;
+    padding-bottom: 24px;
+  }
+
+  .mobile-bottom-nav {
+    inset: 50% auto auto 18px;
+    transform: translateY(-50%);
+    grid-template-columns: 1fr;
+    width: 76px;
+    margin: 0;
+    padding: 7px;
+    border-radius: 26px;
+  }
+
+  .bottom-nav-item {
+    min-height: 62px;
+    border-radius: 18px;
+  }
+}
+
+@media (max-width: 420px) {
+  .mobile-bottom-nav {
+    inset-inline: 8px;
+    border-radius: 25px;
+    padding: 6px;
+  }
+
+  .bottom-nav-item {
+    min-height: 54px;
+    font-size: 8px;
+  }
+
+  .bottom-nav-icon {
+    width: 31px;
+    height: 28px;
+  }
+}
