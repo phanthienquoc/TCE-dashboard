@@ -1,0 +1,6 @@
+/* Shared responsive shell adjustments. */
+@media (max-width: 767px) {
+  /* Dashboard account identity/logout move into NavigationDock's mobile drawer. */
+  .app-header .account-identity { display: none; }
+  .app-header .account-identity + .touch-target { display: none; }
+}
