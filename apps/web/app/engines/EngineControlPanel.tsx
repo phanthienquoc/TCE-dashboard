@@ -84,8 +84,8 @@ export default function EngineControlPanel() {
         </div>
         <div className="hero-status">{activeCount} ACTIVE</div>
       </div>
-      <Card className="panel-card p-3 sm:p-4">
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+      <Card className="panel-card p-3">
+        <div className="grid grid-cols-2 gap-3">
           {engines.map(engine => (
             <div
               key={engine.id}
