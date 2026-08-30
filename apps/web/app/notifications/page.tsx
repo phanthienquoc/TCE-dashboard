@@ -1,6 +1,17 @@
 'use client';
 
-import { ArrowLeft, ArrowLeftRight, BarChart3, Bell, Bot, ChevronRight, Cpu, Home, Plus, Settings } from 'lucide-react';
+import {
+  ArrowLeft,
+  ArrowLeftRight,
+  BarChart3,
+  Bell,
+  Bot,
+  ChevronRight,
+  Cpu,
+  Home,
+  Plus,
+  Settings,
+} from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { NavigationDock } from '../../components/navigation/NavigationDock';
@@ -84,8 +95,13 @@ export default function NotificationsPage() {
     return (
       <main className="app-shell">
         <div className="loading-state">
-          <div className="brand-orb"><Bell className="size-4" /></div>
-          <div><strong>Opening TCE</strong><span>Checking secure session…</span></div>
+          <div className="brand-orb">
+            <Bell className="size-4" />
+          </div>
+          <div>
+            <strong>Opening TCE</strong>
+            <span>Checking secure session…</span>
+          </div>
         </div>
       </main>
     );
@@ -116,7 +132,9 @@ export default function NotificationsPage() {
           <div>
             <p className="eyebrow">Delivery</p>
             <h1>Notifications</h1>
-            <p className="page-subtitle">Manage notification channels and their delivery routing.</p>
+            <p className="page-subtitle">
+              Manage notification channels and their delivery routing.
+            </p>
           </div>
           <Button type="button" onClick={() => router.push('/notifications/new')}>
             <Plus className="size-4" />
@@ -145,8 +163,12 @@ export default function NotificationsPage() {
                   <Bot className="size-5" />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <div className="text-sm font-semibold text-white">No Telegram bots configured</div>
-                  <div className="mt-1 text-xs text-zinc-500">Add a bot to start delivering TCE notifications.</div>
+                  <div className="text-sm font-semibold text-white">
+                    No Telegram bots configured
+                  </div>
+                  <div className="mt-1 text-xs text-zinc-500">
+                    Add a bot to start delivering TCE notifications.
+                  </div>
                 </div>
                 <ChevronRight className="size-4 text-zinc-600" />
               </div>
@@ -168,15 +190,21 @@ export default function NotificationsPage() {
                       </div>
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2">
-                          <span className="truncate text-sm font-semibold text-white">{bot.name}</span>
-                          <span className={`rounded-full border px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wider ${bot.isActive ? 'border-emerald-300/20 text-emerald-300' : 'border-white/10 text-zinc-500'}`}>
+                          <span className="truncate text-sm font-semibold text-white">
+                            {bot.name}
+                          </span>
+                          <span
+                            className={`rounded-full border px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wider ${bot.isActive ? 'border-emerald-300/20 text-emerald-300' : 'border-white/10 text-zinc-500'}`}
+                          >
                             {bot.isActive ? 'Active' : 'Inactive'}
                           </span>
                         </div>
                         <div className="mt-1 flex items-center gap-2 text-xs text-zinc-500">
                           <span className="capitalize">{bot.environment}</span>
                           <span>·</span>
-                          <span>{routes.length} debug route{routes.length === 1 ? '' : 's'}</span>
+                          <span>
+                            {routes.length} debug route{routes.length === 1 ? '' : 's'}
+                          </span>
                         </div>
                       </div>
                       <ChevronRight className="size-4 shrink-0 text-zinc-600" />

@@ -9,7 +9,9 @@ import { useAuthStore } from '../../../lib/store';
 import { platformApi } from '../../../lib/api';
 
 const TelegramBotConfig = dynamic(() => import('../TelegramBotConfig'), {
-  loading: () => <div className="min-h-[360px] animate-pulse rounded-2xl border border-violet-200/[0.07] bg-white/[0.02]" />,
+  loading: () => (
+    <div className="min-h-[360px] animate-pulse rounded-2xl border border-violet-200/[0.07] bg-white/[0.02]" />
+  ),
 });
 
 type BotRow = { id: string; name: string; environment: string; isActive: boolean };
@@ -34,7 +36,9 @@ export default function NotificationDetailPage() {
       try {
         const response = await platformApi.telegramBots();
         const rows = response.data?.bots ?? response.data ?? [];
-        const found = Array.isArray(rows) ? rows.find((item: BotRow) => item.id === params.id) : null;
+        const found = Array.isArray(rows)
+          ? rows.find((item: BotRow) => item.id === params.id)
+          : null;
         setBot(found ?? null);
       } finally {
         setLoading(false);
@@ -46,8 +50,13 @@ export default function NotificationDetailPage() {
     return (
       <main className="app-shell">
         <div className="loading-state">
-          <div className="brand-orb"><Bell className="size-4" /></div>
-          <div><strong>Opening TCE</strong><span>Checking secure session…</span></div>
+          <div className="brand-orb">
+            <Bell className="size-4" />
+          </div>
+          <div>
+            <strong>Opening TCE</strong>
+            <span>Checking secure session…</span>
+          </div>
         </div>
       </main>
     );
@@ -83,8 +92,14 @@ export default function NotificationDetailPage() {
           <section className="rounded-2xl border border-white/10 bg-white/[0.02] p-6">
             <p className="eyebrow">Notification channel</p>
             <h1 className="mt-2">Bot not found</h1>
-            <p className="page-subtitle">This Telegram channel may have been removed or is no longer available.</p>
-            <button type="button" onClick={() => router.push('/notifications')} className="mt-5 text-sm font-medium text-violet-200 hover:text-white">
+            <p className="page-subtitle">
+              This Telegram channel may have been removed or is no longer available.
+            </p>
+            <button
+              type="button"
+              onClick={() => router.push('/notifications')}
+              className="mt-5 text-sm font-medium text-violet-200 hover:text-white"
+            >
               Back to notifications
             </button>
           </section>
@@ -94,16 +109,24 @@ export default function NotificationDetailPage() {
               <div>
                 <p className="eyebrow">Telegram channel</p>
                 <h1>{bot.name}</h1>
-                <p className="page-subtitle">{bot.environment} · {bot.isActive ? 'Active' : 'Inactive'} · credentials and delivery routing</p>
+                <p className="page-subtitle">
+                  {bot.environment} · {bot.isActive ? 'Active' : 'Inactive'} · credentials and
+                  delivery routing
+                </p>
               </div>
-              <div className={`hero-status ${bot.isActive ? '' : 'opacity-50'}`}>{bot.isActive ? 'Active' : 'Inactive'}</div>
+              <div className={`hero-status ${bot.isActive ? '' : 'opacity-50'}`}>
+                {bot.isActive ? 'Active' : 'Inactive'}
+              </div>
             </section>
             <TelegramBotConfig />
           </>
         )}
       </div>
 
-      <NavigationDock items={[{ id: 'notifications', label: 'Notifications', icon: Bell, active: true }]} onSelect={() => router.push('/notifications')} />
+      <NavigationDock
+        items={[{ id: 'notifications', label: 'Notifications', icon: Bell, active: true }]}
+        onSelect={() => router.push('/notifications')}
+      />
     </main>
   );
 }
