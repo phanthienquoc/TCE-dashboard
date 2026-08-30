@@ -39,10 +39,7 @@ export function NavigationDock({ items, onSelect }: NavigationDockProps) {
   ));
 
   return (
-    <nav
-      aria-label="Dashboard navigation"
-      className="mobile-bottom-nav"
-    >
+    <nav aria-label="Dashboard navigation" className="mobile-bottom-nav">
       {navItems}
       <Button
         type="button"

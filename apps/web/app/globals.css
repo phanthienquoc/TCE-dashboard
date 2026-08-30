@@ -23,7 +23,9 @@ body {
   margin: 0;
   background: var(--background);
   color: var(--foreground);
-  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'SF Pro Display', ui-sans-serif, system-ui, sans-serif;
+  font-family:
+    -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'SF Pro Display', ui-sans-serif, system-ui,
+    sans-serif;
   -webkit-font-smoothing: antialiased;
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
