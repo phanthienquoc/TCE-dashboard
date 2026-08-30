@@ -1,52 +1,60 @@
 'use client';
-
 import { ChevronRight, Power, Settings2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Card } from '../../components/ui/card';
 import { dashboardApi } from '../../lib/api';
+import { useTCEDataStore } from '../../lib/tce-data-store';
 import { ENGINE_REGISTRY, EngineId } from './engine-registry';
 
 type EnabledState = Record<EngineId, boolean>;
 type EngineState = { engineId: string; status: string };
 
 export default function EngineControlPanel() {
+  const cachedEngines = useTCEDataStore(s => s.engines);
   const [engines, setEngines] = useState(() => ENGINE_REGISTRY);
   const [enabled, setEnabled] = useState<EnabledState>({
     'tce-decision': true,
     'ssi-execution': true,
     'binance-market': true,
   });
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(cachedEngines === null);
   const [updating, setUpdating] = useState<EngineId | null>(null);
 
   useEffect(() => {
     let mounted = true;
+    const apply = (rows: EngineState[]) => {
+      const configuredIds = new Set(rows.map(row => row.engineId));
+      setEngines(ENGINE_REGISTRY.filter(engine => configuredIds.has(engine.id)));
+      const next = {
+        'tce-decision': true,
+        'ssi-execution': true,
+        'binance-market': true,
+      } as EnabledState;
+      for (const row of rows)
+        if (row.engineId in next)
+          next[row.engineId as EngineId] = String(row.status).toUpperCase() === 'ACTIVE';
+      setEnabled(next);
+      setLoading(false);
+    };
+    if (cachedEngines !== null) {
+      apply(cachedEngines as EngineState[]);
+      return () => {
+        mounted = false;
+      };
+    }
     void dashboardApi
       .engines()
-      .then(response => {
-        if (!mounted) return;
-        const rows = (response.data ?? []) as EngineState[];
-        const configuredIds = new Set(rows.map(row => row.engineId));
-        setEngines(ENGINE_REGISTRY.filter(engine => configuredIds.has(engine.id)));
-        const next = {
-          'tce-decision': true,
-          'ssi-execution': true,
-          'binance-market': true,
-        } as EnabledState;
-        for (const row of rows)
-          if (row.engineId in next)
-            next[row.engineId as EngineId] = String(row.status).toUpperCase() === 'ACTIVE';
-        setEnabled(next);
+      .then(r => {
+        if (mounted) apply((r.data ?? []) as EngineState[]);
       })
-      .catch(() => undefined)
-      .finally(() => {
+      .catch(() => {
         if (mounted) setLoading(false);
       });
     return () => {
       mounted = false;
     };
-  }, []);
+  }, [cachedEngines]);
 
   async function toggle(id: EngineId) {
     if (loading || updating) return;

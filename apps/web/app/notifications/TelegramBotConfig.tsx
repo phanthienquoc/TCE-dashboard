@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { Bot, Eye, EyeOff, Loader2, Save, ShieldCheck, Trash2, Wrench } from 'lucide-react';
 import { platformApi } from '../../lib/api';
+import { useTCEDataStore } from '../../lib/tce-data-store';
 import { Button } from '../../components/ui/button';
 import {
   Card,
@@ -23,6 +24,8 @@ type Assignment = {
 };
 
 export default function TelegramBotConfig() {
+  const cachedBots = useTCEDataStore(s => s.telegramBots);
+  const cachedAssignments = useTCEDataStore(s => s.telegramAssignments);
   const [bots, setBots] = useState<BotRow[]>([]);
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [name, setName] = useState('alerts');
@@ -38,8 +41,16 @@ export default function TelegramBotConfig() {
   const [ok, setOk] = useState(false);
 
   useEffect(() => {
+    if (cachedBots !== null || cachedAssignments !== null) {
+      const nextBots = Array.isArray(cachedBots) ? cachedBots : [];
+      const nextAssignments = Array.isArray(cachedAssignments) ? cachedAssignments : [];
+      setBots(nextBots as BotRow[]);
+      setAssignments(nextAssignments as Assignment[]);
+      setBotId(current => current || nextBots[0]?.id || '');
+      return;
+    }
     void load();
-  }, []);
+  }, [cachedBots, cachedAssignments]);
 
   async function load() {
     try {
@@ -50,7 +61,7 @@ export default function TelegramBotConfig() {
       const botRows = b.data?.bots ?? b.data ?? [];
       setBots(Array.isArray(botRows) ? botRows : []);
       setAssignments(Array.isArray(a.data) ? a.data : (a.data?.assignments ?? []));
-      if (!botId && botRows?.[0]?.id) setBotId(botRows[0].id);
+      setBotId(current => current || botRows?.[0]?.id || '');
     } catch {
       setBots([]);
       setAssignments([]);
@@ -87,7 +98,6 @@ export default function TelegramBotConfig() {
       setBusy(false);
     }
   }
-
   async function removeBot(bot: BotRow) {
     setBusy(true);
     try {
@@ -102,7 +112,6 @@ export default function TelegramBotConfig() {
       setBusy(false);
     }
   }
-
   async function assign() {
     if (!botId || !serviceName.trim()) return;
     setBusy(true);
@@ -124,7 +133,6 @@ export default function TelegramBotConfig() {
       setBusy(false);
     }
   }
-
   async function unassign(id: string) {
     setBusy(true);
     try {

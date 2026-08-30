@@ -1,6 +1,7 @@
 'use client';
 import { create } from 'zustand';
 import { authApi, setAccessToken, dashboardApi } from './api';
+import { useTCEDataStore } from './tce-data-store';
 
 type User = { id: string; email: string; role: string; mfaEnabled: boolean };
 type AuthStatus = 'loading' | 'authenticated' | 'anonymous';
@@ -16,6 +17,8 @@ type AuthState = {
   logout: () => Promise<void>;
 };
 
+const prefetchAfterAuth = () => void useTCEDataStore.getState().prefetch();
+
 export const useAuthStore = create<AuthState>((set, get) => ({
   user: null,
   status: 'loading',
@@ -28,12 +31,14 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     try {
       const r = await authApi.me();
       set({ user: r.data.user, status: 'authenticated', initialized: true });
+      prefetchAfterAuth();
     } catch {
       try {
         const r = await authApi.refresh();
         setAccessToken(r.data.accessToken);
         const me = await authApi.me();
         set({ user: me.data.user, status: 'authenticated', initialized: true });
+        prefetchAfterAuth();
       } catch {
         setAccessToken(null);
         set({ user: null, status: 'anonymous', initialized: true });
@@ -53,6 +58,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       setAccessToken(r.data.accessToken);
       const me = await authApi.me();
       set({ user: me.data.user, status: 'authenticated', initialized: true });
+      prefetchAfterAuth();
       return r.data;
     } catch (err: any) {
       set({ status: 'anonymous', error: err?.response?.data?.message ?? 'Login failed' });
@@ -68,6 +74,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       setAccessToken(r.data.accessToken);
       const me = await authApi.me();
       set({ user: me.data.user, status: 'authenticated', initialized: true });
+      prefetchAfterAuth();
     } catch (err) {
       set({ status: 'anonymous' });
       throw err;
@@ -80,6 +87,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       await authApi.logout();
     } finally {
       setAccessToken(null);
+      useTCEDataStore.getState().clear();
       set({ user: null, status: 'anonymous', initialized: true });
     }
   },
@@ -96,10 +104,20 @@ export const useDashboardStore = create<DashboardState>(set => ({
   loading: false,
   error: null,
   load: async () => {
+    const cache = useTCEDataStore.getState();
+    if (cache.dashboard !== null) {
+      set({ data: cache.dashboard, loading: false, error: null });
+      return;
+    }
     set({ loading: true, error: null });
     try {
-      const r = await dashboardApi.all('WATCHING');
-      set({ data: r.data });
+      await cache.prefetch();
+      const next = useTCEDataStore.getState().dashboard;
+      if (next !== null) set({ data: next });
+      else {
+        const r = await dashboardApi.all('WATCHING');
+        set({ data: r.data });
+      }
     } catch (e: any) {
       set({ error: e?.response?.data?.message ?? 'Unable to load dashboard' });
     } finally {
