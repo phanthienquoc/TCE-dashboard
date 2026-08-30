@@ -18,24 +18,18 @@ const navigation = [
 
 export default function NotificationsPage() {
   const router = useRouter();
-  const { user, loading: authLoading, initialized, init } = useAuthStore();
+  const user = useAuthStore(s => s.user);
+  const authLoading = useAuthStore(s => s.loading);
+  const initialized = useAuthStore(s => s.initialized);
+  const init = useAuthStore(s => s.init);
+  useEffect(() => { void init(); }, [init]);
   useEffect(() => {
-    void init();
-  }, [init]);
+    router.prefetch('/dashboard');
+    router.prefetch('/engines');
+    router.prefetch('/dashboard?tab=settings');
+  }, [router]);
   if (authLoading || !initialized || !user)
-    return (
-      <main className="app-shell">
-        <div className="loading-state">
-          <div className="brand-orb">
-            <Bell className="size-4" />
-          </div>
-          <div>
-            <strong>Opening TCE</strong>
-            <span>Checking secure session…</span>
-          </div>
-        </div>
-      </main>
-    );
+    return <main className="app-shell"><div className="loading-state"><div className="brand-orb"><Bell className="size-4" /></div><div><strong>Opening TCE</strong><span>Checking secure session…</span></div></div></main>;
   const select = (id: string) => {
     if (id === 'notifications') return;
     if (id === 'engine') return router.push('/engines');
@@ -45,41 +39,9 @@ export default function NotificationsPage() {
   };
   return (
     <main className="app-shell">
-      <header className="app-header">
-        <div className="app-container app-header-inner">
-          <div className="flex items-center gap-3">
-            <button
-              type="button"
-              onClick={() => router.push('/dashboard')}
-              className="touch-target grid place-items-center rounded-2xl border border-violet-200/[0.09] bg-white/[0.02] text-[#a88bb5]"
-              aria-label="Back to dashboard"
-            >
-              <ArrowLeft className="size-4" />
-            </button>
-            <div>
-              <p className="eyebrow">TCE</p>
-              <p className="account-email">Notification service</p>
-            </div>
-          </div>
-        </div>
-      </header>
-      <div className="app-container app-content">
-        <section className="page-heading">
-          <div>
-            <p className="eyebrow">Delivery</p>
-            <h1>Notifications</h1>
-            <p className="page-subtitle">
-              Configure notification channels independently from engine runtime settings.
-            </p>
-          </div>
-          <div className="hero-status">Telegram</div>
-        </section>
-        <TelegramBotConfig />
-      </div>
-      <NavigationDock
-        items={navigation.map(item => ({ ...item, active: item.id === 'notifications' }))}
-        onSelect={select}
-      />
+      <header className="app-header"><div className="app-container app-header-inner"><div className="flex items-center gap-3"><button type="button" onClick={() => router.push('/dashboard')} className="touch-target grid place-items-center rounded-2xl border border-violet-200/[0.09] bg-white/[0.02] text-[#a88bb5]" aria-label="Back to dashboard"><ArrowLeft className="size-4" /></button><div><p className="eyebrow">TCE</p><p className="account-email">Notification service</p></div></div></div></header>
+      <div className="app-container app-content"><section className="page-heading"><div><p className="eyebrow">Delivery</p><h1>Notifications</h1><p className="page-subtitle">Configure notification channels independently from engine runtime settings.</p></div><div className="hero-status">Telegram</div></section><TelegramBotConfig /></div>
+      <NavigationDock items={navigation.map(item => ({ ...item, active: item.id === 'notifications' }))} onSelect={select} />
     </main>
   );
 }
