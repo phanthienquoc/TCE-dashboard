@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next';
 import './globals.css';
+import './mobile-sidebar.css';
 import { AppProviders } from './providers';
 
 export const metadata: Metadata = {
