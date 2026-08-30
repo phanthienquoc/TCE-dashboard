@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { ArrowLeft, BarChart3, Bell, Cpu, Home, Settings, ArrowLeftRight } from 'lucide-react';
 import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import EngineControlPanel from './EngineControlPanel';
 import { NavigationDock } from '../../components/navigation/NavigationDock';
 import { useAuthStore } from '../../lib/store';
@@ -17,6 +18,7 @@ const navigation = [
 ];
 
 export default function EnginesPage() {
+  const router = useRouter();
   const { user, loading: authLoading, initialized, init } = useAuthStore();
   useEffect(() => {
     void init();
@@ -37,10 +39,10 @@ export default function EnginesPage() {
     );
   const select = (id: string) => {
     if (id === 'engine') return;
-    if (id === 'notifications') return window.location.assign('/notifications');
-    if (id === 'settings') return window.location.assign('/dashboard?tab=settings');
-    if (id === 'overview') return window.location.assign('/dashboard');
-    return window.location.assign(`/dashboard?tab=${id}`);
+    if (id === 'notifications') return router.push('/notifications');
+    if (id === 'settings') return router.push('/dashboard?tab=settings');
+    if (id === 'overview') return router.push('/dashboard');
+    return router.push(`/dashboard?tab=${id}`);
   };
   return (
     <main className="app-shell">
