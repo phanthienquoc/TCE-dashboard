@@ -1,7 +1,8 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import type { LucideIcon } from 'lucide-react';
-import { LogOut } from 'lucide-react';
+import { LogOut, Menu, X } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -12,9 +13,23 @@ type NavigationDockProps = { items: NavigationItem[]; onSelect: (id: string) => 
 
 export function NavigationDock({ items, onSelect }: NavigationDockProps) {
   const router = useRouter();
-  const { logout } = useAuthStore();
+  const { user, logout } = useAuthStore();
+  const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    if (!open) return;
+    const close = (event: KeyboardEvent) => event.key === 'Escape' && setOpen(false);
+    document.addEventListener('keydown', close);
+    return () => document.removeEventListener('keydown', close);
+  }, [open]);
+
+  const handleSelect = (id: string) => {
+    setOpen(false);
+    onSelect(id);
+  };
 
   const handleLogout = async () => {
+    setOpen(false);
     await logout();
     router.replace('/login');
   };
@@ -24,35 +39,58 @@ export function NavigationDock({ items, onSelect }: NavigationDockProps) {
       key={id}
       type="button"
       variant="ghost"
-      onClick={() => onSelect(id)}
+      onClick={() => handleSelect(id)}
       aria-current={active ? 'page' : undefined}
-      className={cn(
-        'h-[58px] min-w-0 flex-1 flex-col gap-1 rounded-2xl px-1 text-[9px] font-semibold text-[#776b80] hover:bg-white/[0.06] hover:text-white',
-        active && 'bg-violet-500/15 text-[#f6edf9]'
-      )}
+      className={cn('navigation-item', active && 'is-active')}
     >
-      <span className="grid size-[30px] place-items-center rounded-xl">
-        <Icon className="size-[18px]" />
-      </span>
-      <span className="max-w-full truncate">{label}</span>
+      <span className="navigation-item-icon"><Icon className="size-[18px]" /></span>
+      <span>{label}</span>
     </Button>
   ));
 
   return (
-    <nav aria-label="Dashboard navigation" className="mobile-bottom-nav">
-      {navItems}
-      <Button
-        type="button"
-        variant="ghost"
-        onClick={() => void handleLogout()}
-        className="h-[58px] min-w-0 flex-1 flex-col gap-1 rounded-2xl px-1 text-[9px] font-semibold text-red-300 hover:bg-red-500/10 hover:text-red-200"
-        aria-label="Log out"
-      >
-        <span className="grid size-[30px] place-items-center rounded-xl">
+    <>
+      <aside className="desktop-navigation" aria-label="Dashboard navigation">
+        <div className="navigation-brand"><span>T</span><small>TCE</small></div>
+        <nav>{navItems}</nav>
+        <Button type="button" variant="ghost" onClick={() => void handleLogout()} className="navigation-logout" aria-label="Log out">
           <LogOut className="size-[18px]" />
-        </span>
-        <span className="truncate">Log out</span>
-      </Button>
-    </nav>
+          <span>Log out</span>
+        </Button>
+      </aside>
+
+      <div className="mobile-navigation-trigger">
+        <Button type="button" variant="outline" size="icon" className="touch-target" onClick={() => setOpen(true)} aria-label="Open menu" aria-expanded={open}>
+          <Menu className="size-5" />
+        </Button>
+      </div>
+
+      {open && (
+        <div className="mobile-navigation-layer" role="dialog" aria-modal="true" aria-label="TCE menu">
+          <button className="mobile-navigation-backdrop" type="button" aria-label="Close menu" onClick={() => setOpen(false)} />
+          <aside className="mobile-navigation-drawer">
+            <header className="mobile-navigation-header">
+              <div className="account-identity">
+                <div className="brand-orb"><span>T</span></div>
+                <div className="min-w-0">
+                  <p className="eyebrow">Signed in</p>
+                  <p className="account-email">{user?.email ?? 'TCE account'}</p>
+                </div>
+              </div>
+              <Button type="button" variant="ghost" size="icon" className="touch-target" onClick={() => setOpen(false)} aria-label="Close menu">
+                <X className="size-5" />
+              </Button>
+            </header>
+            <nav className="mobile-navigation-list" aria-label="Dashboard navigation">{navItems}</nav>
+            <div className="mobile-navigation-footer">
+              <Button type="button" variant="outline" className="w-full justify-start gap-3" onClick={() => void handleLogout()}>
+                <LogOut className="size-4" />
+                Log out
+              </Button>
+            </div>
+          </aside>
+        </div>
+      )}
+    </>
   );
 }
