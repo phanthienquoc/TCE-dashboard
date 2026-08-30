@@ -1,17 +1,22 @@
 'use client';
 
-import dynamic from 'next/dynamic';
-import { ArrowLeft, ArrowLeftRight, BarChart3, Bell, Cpu, Home, Settings } from 'lucide-react';
-import { useEffect } from 'react';
+import { ArrowLeft, ArrowLeftRight, BarChart3, Bell, Bot, ChevronRight, Cpu, Home, Plus, Settings } from 'lucide-react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { NavigationDock } from '../../components/navigation/NavigationDock';
+import { Button } from '../../components/ui/button';
 import { useAuthStore } from '../../lib/store';
+import { platformApi } from '../../lib/api';
+import { useTCEDataStore } from '../../lib/tce-data-store';
 
-const TelegramBotConfig = dynamic(() => import('./TelegramBotConfig'), {
-  loading: () => (
-    <div className="min-h-[360px] animate-pulse rounded-2xl border border-violet-200/[0.07] bg-white/[0.02]" />
-  ),
-});
+type BotRow = { id: string; name: string; environment: string; isActive: boolean };
+type Assignment = {
+  id: string;
+  telegram_credential_id: string;
+  service_name: string;
+  min_level: string;
+  enabled: boolean;
+};
 
 const navigation = [
   { id: 'overview', label: 'Overview', icon: Home },
@@ -28,23 +33,45 @@ export default function NotificationsPage() {
   const authLoading = useAuthStore(s => s.loading);
   const initialized = useAuthStore(s => s.initialized);
   const init = useAuthStore(s => s.init);
+  const cachedBots = useTCEDataStore(s => s.telegramBots);
+  const cachedAssignments = useTCEDataStore(s => s.telegramAssignments);
+  const [bots, setBots] = useState<BotRow[]>([]);
+  const [assignments, setAssignments] = useState<Assignment[]>([]);
+  const [loading, setLoading] = useState(true);
+
   useEffect(() => {
     void init();
   }, [init]);
-  if (authLoading || !initialized || !user)
-    return (
-      <main className="app-shell">
-        <div className="loading-state">
-          <div className="brand-orb">
-            <Bell className="size-4" />
-          </div>
-          <div>
-            <strong>Opening TCE</strong>
-            <span>Checking secure session…</span>
-          </div>
-        </div>
-      </main>
-    );
+
+  useEffect(() => {
+    if (cachedBots !== null || cachedAssignments !== null) {
+      setBots(Array.isArray(cachedBots) ? (cachedBots as BotRow[]) : []);
+      setAssignments(Array.isArray(cachedAssignments) ? (cachedAssignments as Assignment[]) : []);
+      setLoading(false);
+      return;
+    }
+    void load();
+  }, [cachedBots, cachedAssignments]);
+
+  async function load() {
+    setLoading(true);
+    try {
+      const [b, a] = await Promise.all([
+        platformApi.telegramBots(),
+        platformApi.telegramDebugAssignments(),
+      ]);
+      const botRows = b.data?.bots ?? b.data ?? [];
+      const assignmentRows = Array.isArray(a.data) ? a.data : (a.data?.assignments ?? []);
+      setBots(Array.isArray(botRows) ? botRows : []);
+      setAssignments(Array.isArray(assignmentRows) ? assignmentRows : []);
+    } catch {
+      setBots([]);
+      setAssignments([]);
+    } finally {
+      setLoading(false);
+    }
+  }
+
   const select = (id: string) => {
     if (id === 'notifications') return;
     if (id === 'engine') return router.push('/engines');
@@ -52,6 +79,17 @@ export default function NotificationsPage() {
     if (id === 'overview') return router.push('/dashboard');
     return router.push(`/dashboard?tab=${id}`);
   };
+
+  if (authLoading || !initialized || !user)
+    return (
+      <main className="app-shell">
+        <div className="loading-state">
+          <div className="brand-orb"><Bell className="size-4" /></div>
+          <div><strong>Opening TCE</strong><span>Checking secure session…</span></div>
+        </div>
+      </main>
+    );
+
   return (
     <main className="app-shell">
       <header className="app-header">
@@ -72,19 +110,85 @@ export default function NotificationsPage() {
           </div>
         </div>
       </header>
+
       <div className="app-container app-content">
         <section className="page-heading">
           <div>
             <p className="eyebrow">Delivery</p>
             <h1>Notifications</h1>
-            <p className="page-subtitle">
-              Configure notification channels independently from engine runtime settings.
-            </p>
+            <p className="page-subtitle">Manage notification channels and their delivery routing.</p>
           </div>
-          <div className="hero-status">Telegram</div>
+          <Button type="button" onClick={() => router.push('/notifications/new')}>
+            <Plus className="size-4" />
+            Add bot
+          </Button>
         </section>
-        <TelegramBotConfig />
+
+        <section className="space-y-3">
+          <div className="flex items-center justify-between px-1">
+            <div className="text-xs font-semibold uppercase tracking-[0.18em] text-zinc-500">
+              Telegram bots
+            </div>
+            <div className="text-xs text-zinc-500">{bots.length} configured</div>
+          </div>
+
+          {loading ? (
+            <div className="min-h-[180px] animate-pulse rounded-2xl border border-violet-200/[0.07] bg-white/[0.02]" />
+          ) : bots.length === 0 ? (
+            <button
+              type="button"
+              onClick={() => router.push('/notifications/new')}
+              className="w-full rounded-2xl border border-dashed border-violet-200/10 bg-white/[0.02] p-6 text-left transition hover:border-violet-200/20 hover:bg-white/[0.035]"
+            >
+              <div className="flex items-center gap-3">
+                <div className="grid size-11 place-items-center rounded-xl border border-violet-200/10 bg-violet-300/[0.05] text-violet-200">
+                  <Bot className="size-5" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="text-sm font-semibold text-white">No Telegram bots configured</div>
+                  <div className="mt-1 text-xs text-zinc-500">Add a bot to start delivering TCE notifications.</div>
+                </div>
+                <ChevronRight className="size-4 text-zinc-600" />
+              </div>
+            </button>
+          ) : (
+            <div className="space-y-2">
+              {bots.map(bot => {
+                const routes = assignments.filter(item => item.telegram_credential_id === bot.id);
+                return (
+                  <button
+                    key={bot.id}
+                    type="button"
+                    onClick={() => router.push(`/notifications/${encodeURIComponent(bot.id)}`)}
+                    className="w-full rounded-2xl border border-white/10 bg-white/[0.02] p-4 text-left transition hover:border-violet-200/15 hover:bg-white/[0.035]"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="grid size-11 shrink-0 place-items-center rounded-xl border border-violet-200/10 bg-violet-300/[0.05] text-violet-200">
+                        <Bot className="size-5" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                          <span className="truncate text-sm font-semibold text-white">{bot.name}</span>
+                          <span className={`rounded-full border px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wider ${bot.isActive ? 'border-emerald-300/20 text-emerald-300' : 'border-white/10 text-zinc-500'}`}>
+                            {bot.isActive ? 'Active' : 'Inactive'}
+                          </span>
+                        </div>
+                        <div className="mt-1 flex items-center gap-2 text-xs text-zinc-500">
+                          <span className="capitalize">{bot.environment}</span>
+                          <span>·</span>
+                          <span>{routes.length} debug route{routes.length === 1 ? '' : 's'}</span>
+                        </div>
+                      </div>
+                      <ChevronRight className="size-4 shrink-0 text-zinc-600" />
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </section>
       </div>
+
       <NavigationDock
         items={navigation.map(item => ({ ...item, active: item.id === 'notifications' }))}
         onSelect={select}
