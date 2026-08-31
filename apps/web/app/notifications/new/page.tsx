@@ -27,7 +27,7 @@ export default function NewNotificationPage() {
             >
               <ArrowLeft className="size-4" />
             </button>
-            <div>
+            <div className="min-w-0">
               <p className="eyebrow">Notifications</p>
               <p className="account-email">New Telegram channel</p>
             </div>
@@ -36,7 +36,7 @@ export default function NewNotificationPage() {
       </header>
       <div className="app-container app-content">
         <section className="page-heading">
-          <div>
+          <div className="min-w-0">
             <p className="eyebrow">Delivery</p>
             <h1>Add notification channel</h1>
             <p className="page-subtitle">
@@ -48,7 +48,9 @@ export default function NewNotificationPage() {
         <TelegramBotConfig />
       </div>
       <NavigationDock
-        items={[{ id: 'notifications', label: 'Notifications', icon: Bell, active: true }]}
+        items={[
+          { id: 'notifications', label: 'Notifications', icon: Bell, active: true },
+        ]}
         onSelect={() => router.push('/notifications')}
       />
     </main>
