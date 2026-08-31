@@ -48,9 +48,7 @@ export default function NewNotificationPage() {
         <TelegramBotConfig />
       </div>
       <NavigationDock
-        items={[
-          { id: 'notifications', label: 'Notifications', icon: Bell, active: true },
-        ]}
+        items={[{ id: 'notifications', label: 'Notifications', icon: Bell, active: true }]}
         onSelect={() => router.push('/notifications')}
       />
     </main>

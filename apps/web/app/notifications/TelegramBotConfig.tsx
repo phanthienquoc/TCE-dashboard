@@ -168,7 +168,12 @@ export default function TelegramBotConfig() {
         <div className="grid gap-3 sm:grid-cols-3">
           <div className="min-w-0">
             <label className="mb-1.5 block text-xs text-zinc-400">Bot name</label>
-            <Input value={name} onChange={e => setName(e.target.value)} placeholder="alerts" className="w-full" />
+            <Input
+              value={name}
+              onChange={e => setName(e.target.value)}
+              placeholder="alerts"
+              className="w-full"
+            />
           </div>
           <div className="min-w-0">
             <label className="mb-1.5 block text-xs text-zinc-400">Environment</label>
@@ -218,7 +223,12 @@ export default function TelegramBotConfig() {
           <ShieldCheck className="mr-2 inline size-4 text-violet-300" />
           Tokens remain encrypted on the backend. Stored tokens are never returned to the browser.
         </div>
-        <Button type="button" disabled={busy} onClick={() => void save()} className="w-full sm:w-auto">
+        <Button
+          type="button"
+          disabled={busy}
+          onClick={() => void save()}
+          className="w-full sm:w-auto"
+        >
           {busy ? <Loader2 className="size-4 animate-spin" /> : <Save className="size-4" />}Save &
           connect
         </Button>
