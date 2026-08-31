@@ -29,14 +29,15 @@ type NavItem = {
   id: 'overview' | 'positions' | 'orders' | 'engine' | 'notifications' | 'settings';
   label: string;
   icon: typeof Home;
+  href: string;
 };
 const navigation: NavItem[] = [
-  { id: 'overview', label: 'Overview', icon: Home },
-  { id: 'positions', label: 'Positions', icon: BarChart3 },
-  { id: 'orders', label: 'Orders', icon: ArrowLeftRight },
-  { id: 'engine', label: 'Engine', icon: Cpu },
-  { id: 'notifications', label: 'Notifications', icon: Bell },
-  { id: 'settings', label: 'Settings', icon: Settings },
+  { id: 'overview', label: 'Overview', icon: Home, href: '/dashboard' },
+  { id: 'positions', label: 'Positions', icon: BarChart3, href: '/dashboard?tab=positions' },
+  { id: 'orders', label: 'Orders', icon: ArrowLeftRight, href: '/dashboard?tab=orders' },
+  { id: 'engine', label: 'Engine', icon: Cpu, href: '/engines' },
+  { id: 'notifications', label: 'Notifications', icon: Bell, href: '/notifications' },
+  { id: 'settings', label: 'Settings', icon: Settings, href: '/dashboard?tab=settings' },
 ];
 
 export default function DashboardPage() {
@@ -79,18 +80,6 @@ export default function DashboardPage() {
   const portfolioValue = account.totalValue ?? account.portfolioValue ?? account.equity;
   const visibleAccounts =
     Array.isArray(accounts) && accounts.length ? accounts : inferAccounts(positions);
-  const selectNavigation = (id: NavItem['id']) => {
-    if (id === 'engine') {
-      router.push('/engines');
-      return;
-    }
-    if (id === 'notifications') {
-      router.push('/notifications');
-      return;
-    }
-    setTab(id);
-    router.replace(`/dashboard?tab=${id}`, { scroll: false });
-  };
   const navigationItems = navigation.map(item => ({
     ...item,
     active: item.id !== 'engine' && item.id !== 'notifications' && tab === item.id,
@@ -195,8 +184,7 @@ export default function DashboardPage() {
               caption={`${positions.length} assets`}
               icon={WalletCards}
               action={() => {
-                setTab('positions');
-                router.replace('/dashboard?tab=positions', { scroll: false });
+                router.push('/dashboard?tab=positions');
               }}
             >
               <AssetList rows={positions} />
@@ -216,8 +204,7 @@ export default function DashboardPage() {
               caption={`${orders.length} orders`}
               icon={ShoppingCart}
               action={() => {
-                setTab('orders');
-                router.replace('/dashboard?tab=orders', { scroll: false });
+                router.push('/dashboard?tab=orders');
               }}
             >
               <AssetList rows={orders} />
@@ -243,13 +230,11 @@ export default function DashboardPage() {
         {tab === 'settings' && <PlatformConfigTab />}
         {error && <div className="error-banner">{error}</div>}
       </div>
-      <NavigationDock
-        items={navigationItems}
-        onSelect={id => selectNavigation(id as NavItem['id'])}
-      />
+      <NavigationDock items={navigationItems} />
     </main>
   );
 }
+
 function inferAccounts(positions: any[]) {
   const map = new Map<string, any>();
   for (const row of positions) {
@@ -445,20 +430,20 @@ function money(value: unknown) {
   if (value == null || value === '') return '—';
   const n = Number(value);
   return Number.isFinite(n)
-    ? n.toLocaleString('vi-VN', { maximumFractionDigits: 0 })
+    ? n.toLocaleString('en-US', { maximumFractionDigits: 2 })
     : String(value);
 }
 function formatNumber(value: unknown) {
   if (value == null || value === '') return '—';
   const n = Number(value);
   return Number.isFinite(n)
-    ? n.toLocaleString('vi-VN', { maximumFractionDigits: 2 })
+    ? n.toLocaleString('en-US', { maximumFractionDigits: 4 })
     : String(value);
 }
 function formatQuantity(value: unknown) {
   if (value == null || value === '') return '—';
   const n = Number(value);
   return Number.isFinite(n)
-    ? n.toLocaleString('vi-VN', { maximumFractionDigits: 4 })
+    ? n.toLocaleString('en-US', { maximumFractionDigits: 4 })
     : String(value);
 }

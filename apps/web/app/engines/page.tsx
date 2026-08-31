@@ -4,7 +4,6 @@ import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { ArrowLeft, BarChart3, Bell, Cpu, Home, Settings, ArrowLeftRight } from 'lucide-react';
 import { useEffect } from 'react';
-import { useRouter } from 'next/navigation';
 import { NavigationDock } from '../../components/navigation/NavigationDock';
 import { useAuthStore } from '../../lib/store';
 
@@ -15,16 +14,15 @@ const EngineControlPanel = dynamic(() => import('./EngineControlPanel'), {
 });
 
 const navigation = [
-  { id: 'overview', label: 'Overview', icon: Home },
-  { id: 'positions', label: 'Positions', icon: BarChart3 },
-  { id: 'orders', label: 'Orders', icon: ArrowLeftRight },
-  { id: 'engine', label: 'Engine', icon: Cpu },
-  { id: 'notifications', label: 'Notifications', icon: Bell },
-  { id: 'settings', label: 'Settings', icon: Settings },
+  { id: 'overview', label: 'Overview', icon: Home, href: '/dashboard' },
+  { id: 'positions', label: 'Positions', icon: BarChart3, href: '/dashboard?tab=positions' },
+  { id: 'orders', label: 'Orders', icon: ArrowLeftRight, href: '/dashboard?tab=orders' },
+  { id: 'engine', label: 'Engine', icon: Cpu, href: '/engines' },
+  { id: 'notifications', label: 'Notifications', icon: Bell, href: '/notifications' },
+  { id: 'settings', label: 'Settings', icon: Settings, href: '/dashboard?tab=settings' },
 ];
 
 export default function EnginesPage() {
-  const router = useRouter();
   const user = useAuthStore(s => s.user);
   const authLoading = useAuthStore(s => s.loading);
   const initialized = useAuthStore(s => s.initialized);
@@ -46,13 +44,6 @@ export default function EnginesPage() {
         </div>
       </main>
     );
-  const select = (id: string) => {
-    if (id === 'engine') return;
-    if (id === 'notifications') return router.push('/notifications');
-    if (id === 'settings') return router.push('/dashboard?tab=settings');
-    if (id === 'overview') return router.push('/dashboard');
-    return router.push(`/dashboard?tab=${id}`);
-  };
   return (
     <main className="app-shell">
       <header className="app-header">
@@ -83,10 +74,7 @@ export default function EnginesPage() {
         </section>
         <EngineControlPanel />
       </div>
-      <NavigationDock
-        items={navigation.map(item => ({ ...item, active: item.id === 'engine' }))}
-        onSelect={select}
-      />
+      <NavigationDock items={navigation.map(item => ({ ...item, active: item.id === 'engine' }))} />
     </main>
   );
 }
