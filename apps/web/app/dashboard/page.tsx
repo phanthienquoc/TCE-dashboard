@@ -295,7 +295,13 @@ function Panel({
     </Card>
   );
 }
-function AssetList({ rows, kind = 'default' }: { rows: any[]; kind?: 'default' | 'pool' | 'candidate' }) {
+function AssetList({
+  rows,
+  kind = 'default',
+}: {
+  rows: any[];
+  kind?: 'default' | 'pool' | 'candidate';
+}) {
   if (!rows.length) return <Empty kind={kind} />;
   return (
     <div className="asset-list">
@@ -342,9 +348,17 @@ function AssetList({ rows, kind = 'default' }: { rows: any[]; kind?: 'default' |
             </div>
             <div className="asset-value">
               <strong>
-                {isPool ? `Price ${primaryValue}` : isCandidate ? primaryValue : formatQuantity(quantity)}
+                {isPool
+                  ? `Price ${primaryValue}`
+                  : isCandidate
+                    ? primaryValue
+                    : formatQuantity(quantity)}
               </strong>
-              <small>{isPool || isCandidate ? '' : money(row.marketValue ?? row.market_value ?? row.price)}</small>
+              <small>
+                {isPool || isCandidate
+                  ? ''
+                  : money(row.marketValue ?? row.market_value ?? row.price)}
+              </small>
             </div>
             <ChevronRight className="size-4 shrink-0 text-[#675a70]" />
           </div>
@@ -353,7 +367,17 @@ function AssetList({ rows, kind = 'default' }: { rows: any[]; kind?: 'default' |
     </div>
   );
 }
-function MobileDataView({ title, caption, rows, columns }: { title: string; caption: string; rows: any[]; columns: string[] }) {
+function MobileDataView({
+  title,
+  caption,
+  rows,
+  columns,
+}: {
+  title: string;
+  caption: string;
+  rows: any[];
+  columns: string[];
+}) {
   return (
     <section>
       <SectionHeader title={title} caption={caption} />
@@ -380,7 +404,11 @@ function Empty({ kind = 'default' }: { kind?: 'default' | 'pool' | 'candidate' }
     <div className="empty-state">
       <Layers3 className="size-5" />
       <span>
-        {kind === 'candidate' ? 'No promoted candidates' : kind === 'pool' ? 'No watching pool entries' : 'No data yet'}
+        {kind === 'candidate'
+          ? 'No promoted candidates'
+          : kind === 'pool'
+            ? 'No watching pool entries'
+            : 'No data yet'}
       </span>
     </div>
   );
@@ -401,15 +429,21 @@ function Loading() {
 function money(value: unknown) {
   if (value == null || value === '') return '—';
   const n = Number(value);
-  return Number.isFinite(n) ? n.toLocaleString('en-US', { maximumFractionDigits: 2 }) : String(value);
+  return Number.isFinite(n)
+    ? n.toLocaleString('en-US', { maximumFractionDigits: 2 })
+    : String(value);
 }
 function formatNumber(value: unknown) {
   if (value == null || value === '') return '—';
   const n = Number(value);
-  return Number.isFinite(n) ? n.toLocaleString('en-US', { maximumFractionDigits: 4 }) : String(value);
+  return Number.isFinite(n)
+    ? n.toLocaleString('en-US', { maximumFractionDigits: 4 })
+    : String(value);
 }
 function formatQuantity(value: unknown) {
   if (value == null || value === '') return '—';
   const n = Number(value);
-  return Number.isFinite(n) ? n.toLocaleString('en-US', { maximumFractionDigits: 4 }) : String(value);
+  return Number.isFinite(n)
+    ? n.toLocaleString('en-US', { maximumFractionDigits: 4 })
+    : String(value);
 }

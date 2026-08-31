@@ -210,7 +210,9 @@ export default function NotificationsPage() {
         </section>
       </div>
 
-      <NavigationDock items={navigation.map(item => ({ ...item, active: item.id === 'notifications' }))} />
+      <NavigationDock
+        items={navigation.map(item => ({ ...item, active: item.id === 'notifications' }))}
+      />
     </main>
   );
 }
