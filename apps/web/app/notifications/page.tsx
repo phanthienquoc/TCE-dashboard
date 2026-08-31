@@ -13,6 +13,7 @@ import {
   Settings,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { NavigationDock } from '../../components/navigation/NavigationDock';
 import { Button } from '../../components/ui/button';
@@ -30,12 +31,12 @@ type Assignment = {
 };
 
 const navigation = [
-  { id: 'overview', label: 'Overview', icon: Home },
-  { id: 'positions', label: 'Positions', icon: BarChart3 },
-  { id: 'orders', label: 'Orders', icon: ArrowLeftRight },
-  { id: 'engine', label: 'Engine', icon: Cpu },
-  { id: 'notifications', label: 'Notifications', icon: Bell },
-  { id: 'settings', label: 'Settings', icon: Settings },
+  { id: 'overview', label: 'Overview', icon: Home, href: '/dashboard' },
+  { id: 'positions', label: 'Positions', icon: BarChart3, href: '/dashboard?tab=positions' },
+  { id: 'orders', label: 'Orders', icon: ArrowLeftRight, href: '/dashboard?tab=orders' },
+  { id: 'engine', label: 'Engine', icon: Cpu, href: '/engines' },
+  { id: 'notifications', label: 'Notifications', icon: Bell, href: '/notifications' },
+  { id: 'settings', label: 'Settings', icon: Settings, href: '/dashboard?tab=settings' },
 ];
 
 export default function NotificationsPage() {
@@ -83,14 +84,6 @@ export default function NotificationsPage() {
     }
   }
 
-  const select = (id: string) => {
-    if (id === 'notifications') return;
-    if (id === 'engine') return router.push('/engines');
-    if (id === 'settings') return router.push('/dashboard?tab=settings');
-    if (id === 'overview') return router.push('/dashboard');
-    return router.push(`/dashboard?tab=${id}`);
-  };
-
   if (authLoading || !initialized || !user)
     return (
       <main className="app-shell">
@@ -111,14 +104,14 @@ export default function NotificationsPage() {
       <header className="app-header">
         <div className="app-container app-header-inner">
           <div className="flex items-center gap-3">
-            <button
-              type="button"
-              onClick={() => router.push('/dashboard')}
+            <Link
+              href="/dashboard"
+              prefetch
               className="touch-target grid place-items-center rounded-2xl border border-violet-200/[0.09] bg-white/[0.02] text-[#a88bb5]"
               aria-label="Back to dashboard"
             >
               <ArrowLeft className="size-4" />
-            </button>
+            </Link>
             <div>
               <p className="eyebrow">TCE</p>
               <p className="account-email">Notification service</p>
@@ -217,10 +210,7 @@ export default function NotificationsPage() {
         </section>
       </div>
 
-      <NavigationDock
-        items={navigation.map(item => ({ ...item, active: item.id === 'notifications' }))}
-        onSelect={select}
-      />
+      <NavigationDock items={navigation.map(item => ({ ...item, active: item.id === 'notifications' }))} />
     </main>
   );
 }
