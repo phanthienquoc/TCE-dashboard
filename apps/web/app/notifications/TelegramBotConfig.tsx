@@ -146,19 +146,19 @@ export default function TelegramBotConfig() {
   return (
     <Card>
       <CardHeader>
-        <div className="flex items-center justify-between gap-3">
-          <div>
-            <CardTitle className="flex items-center gap-2">
-              <Bot className="size-4" />
-              Telegram Gateway & Debug
+        <div className="flex min-w-0 items-start justify-between gap-3">
+          <div className="min-w-0 flex-1">
+            <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+              <Bot className="size-4 shrink-0" />
+              <span>Telegram Gateway & Debug</span>
             </CardTitle>
-            <CardDescription>
+            <CardDescription className="mt-1 max-w-2xl">
               One account can have multiple Telegram bots. Backend logs/debug are sent only to
               explicitly assigned bots.
             </CardDescription>
           </div>
           <span
-            className={`rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider ${bots.length ? 'border-emerald-300/20 text-emerald-300' : 'border-white/10 text-zinc-500'}`}
+            className={`shrink-0 rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider ${bots.length ? 'border-emerald-300/20 text-emerald-300' : 'border-white/10 text-zinc-500'}`}
           >
             {bots.length ? `${bots.length} bot${bots.length > 1 ? 's' : ''}` : 'No bots'}
           </span>
@@ -166,11 +166,16 @@ export default function TelegramBotConfig() {
       </CardHeader>
       <CardContent className="space-y-5">
         <div className="grid gap-3 sm:grid-cols-3">
-          <div>
+          <div className="min-w-0">
             <label className="mb-1.5 block text-xs text-zinc-400">Bot name</label>
-            <Input value={name} onChange={e => setName(e.target.value)} placeholder="alerts" />
+            <Input
+              value={name}
+              onChange={e => setName(e.target.value)}
+              placeholder="alerts"
+              className="w-full"
+            />
           </div>
-          <div>
+          <div className="min-w-0">
             <label className="mb-1.5 block text-xs text-zinc-400">Environment</label>
             <select
               value={environment}
@@ -181,7 +186,7 @@ export default function TelegramBotConfig() {
               <option value="testnet">Test / staging</option>
             </select>
           </div>
-          <div>
+          <div className="min-w-0">
             <label className="mb-1.5 block text-xs text-zinc-400">
               Allowed Chat ID <span className="text-zinc-600">(optional)</span>
             </label>
@@ -189,10 +194,11 @@ export default function TelegramBotConfig() {
               value={chatId}
               onChange={e => setChatId(e.target.value)}
               placeholder="Only accept signals from this chat"
+              className="w-full"
             />
           </div>
         </div>
-        <div>
+        <div className="min-w-0">
           <label className="mb-1.5 block text-xs text-zinc-400">Bot Token</label>
           <div className="relative">
             <Input
@@ -201,7 +207,7 @@ export default function TelegramBotConfig() {
               type={showToken ? 'text' : 'password'}
               autoComplete="new-password"
               placeholder="123456789:AA..."
-              className="pr-11"
+              className="w-full pr-11"
             />
             <button
               type="button"
@@ -217,7 +223,12 @@ export default function TelegramBotConfig() {
           <ShieldCheck className="mr-2 inline size-4 text-violet-300" />
           Tokens remain encrypted on the backend. Stored tokens are never returned to the browser.
         </div>
-        <Button type="button" disabled={busy} onClick={() => void save()}>
+        <Button
+          type="button"
+          disabled={busy}
+          onClick={() => void save()}
+          className="w-full sm:w-auto"
+        >
           {busy ? <Loader2 className="size-4 animate-spin" /> : <Save className="size-4" />}Save &
           connect
         </Button>
@@ -229,10 +240,10 @@ export default function TelegramBotConfig() {
             {bots.map(bot => (
               <div
                 key={bot.id}
-                className="flex items-center justify-between rounded-xl border border-white/10 bg-white/[0.02] px-3 py-2"
+                className="flex min-w-0 items-center justify-between gap-3 rounded-xl border border-white/10 bg-white/[0.02] px-3 py-2"
               >
-                <div>
-                  <div className="text-sm text-white">{bot.name}</div>
+                <div className="min-w-0">
+                  <div className="truncate text-sm text-white">{bot.name}</div>
                   <div className="text-xs text-zinc-500">{bot.environment}</div>
                 </div>
                 <Button
@@ -241,9 +252,10 @@ export default function TelegramBotConfig() {
                   size="sm"
                   disabled={busy}
                   onClick={() => void removeBot(bot)}
+                  className="shrink-0"
                 >
                   <Trash2 className="size-4" />
-                  Disconnect
+                  <span className="hidden sm:inline">Disconnect</span>
                 </Button>
               </div>
             ))}
@@ -252,7 +264,7 @@ export default function TelegramBotConfig() {
         <div className="space-y-3 rounded-2xl border border-white/10 p-4">
           <div>
             <div className="flex items-center gap-2 text-sm font-semibold text-white">
-              <Wrench className="size-4" />
+              <Wrench className="size-4 shrink-0" />
               Backend log / debug routing
             </div>
             <div className="mt-1 text-xs text-zinc-500">No assignment = no Telegram delivery.</div>
@@ -274,6 +286,7 @@ export default function TelegramBotConfig() {
               value={serviceName}
               onChange={e => setServiceName(e.target.value)}
               placeholder="Service name or *"
+              className="w-full"
             />
             <select
               value={minLevel}
@@ -291,15 +304,16 @@ export default function TelegramBotConfig() {
             variant="outline"
             disabled={busy || !botId}
             onClick={() => void assign()}
+            className="w-full sm:w-auto"
           >
             Assign routing
           </Button>
           {assignments.map(item => (
             <div
               key={item.id}
-              className="flex items-center justify-between rounded-xl border border-white/10 px-3 py-2"
+              className="flex min-w-0 items-center justify-between gap-3 rounded-xl border border-white/10 px-3 py-2"
             >
-              <div className="text-xs text-zinc-300">
+              <div className="min-w-0 truncate text-xs text-zinc-300">
                 <span className="text-white">
                   {bots.find(b => b.id === item.telegram_credential_id)?.name ??
                     item.telegram_credential_id}
@@ -312,6 +326,8 @@ export default function TelegramBotConfig() {
                 size="sm"
                 disabled={busy}
                 onClick={() => void unassign(item.id)}
+                className="shrink-0"
+                aria-label={`Remove ${item.service_name} routing`}
               >
                 <Trash2 className="size-4" />
               </Button>

@@ -74,7 +74,7 @@ export default function EngineControlPanel() {
   const activeCount = Object.values(enabled).filter(Boolean).length;
   return (
     <section className="space-y-4 pb-4">
-      <div className="page-heading !mb-2">
+      <div className="page-heading engine-control-heading !mb-2">
         <div>
           <p className="eyebrow">Runtime</p>
           <h1>Engine Control</h1>
@@ -85,11 +85,11 @@ export default function EngineControlPanel() {
         <div className="hero-status">{activeCount} ACTIVE</div>
       </div>
       <Card className="panel-card p-3">
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           {engines.map(engine => (
             <div
               key={engine.id}
-              className="group flex min-h-[150px] flex-col rounded-2xl border border-violet-200/[0.07] bg-white/[0.015] p-4 transition hover:border-violet-200/[0.12] hover:bg-white/[0.03]"
+              className="group flex min-h-[170px] flex-col rounded-2xl border border-violet-200/[0.07] bg-white/[0.015] p-4 transition hover:border-violet-200/[0.12] hover:bg-white/[0.03]"
             >
               <div className="flex items-start justify-between gap-3">
                 <button
@@ -112,8 +112,8 @@ export default function EngineControlPanel() {
               </div>
               <Link href={`/engines/${engine.id}`} className="mt-4 min-w-0 flex-1">
                 <div className="flex min-w-0 flex-wrap items-center gap-2">
-                  <p className="text-sm font-semibold leading-5">{engine.name}</p>
-                  <span className="rounded-full border border-violet-200/[0.08] px-2 py-0.5 text-[9px] uppercase tracking-[.1em] text-[#81748a]">
+                  <p className="min-w-0 text-sm font-semibold leading-5">{engine.name}</p>
+                  <span className="shrink-0 rounded-full border border-violet-200/[0.08] px-2 py-0.5 text-[9px] uppercase tracking-[.1em] text-[#81748a]">
                     {engine.category}
                   </span>
                 </div>
