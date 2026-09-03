@@ -20,9 +20,13 @@ export class BinanceFuturesUserDataStream {
   private readonly restBase: string;
   private readonly wsBase: string;
 
-  constructor(private readonly credentials: Credentials, private readonly environment: BinanceFuturesEnvironment = 'production') {
+  constructor(
+    private readonly credentials: Credentials,
+    private readonly environment: BinanceFuturesEnvironment = 'production'
+  ) {
     this.restBase = getBinanceFuturesUrl(environment);
-    this.wsBase = environment === 'testnet' ? 'wss://stream.binancefuture.com' : 'wss://fstream.binance.com';
+    this.wsBase =
+      environment === 'testnet' ? 'wss://stream.binancefuture.com' : 'wss://fstream.binance.com';
   }
 
   on(listener: Listener) {
@@ -43,7 +47,10 @@ export class BinanceFuturesUserDataStream {
     this.reconnect = undefined;
     try {
       if (this.listenKey && this.credentials.apiKey)
-        await fetch(`${this.restBase}/fapi/v1/listenKey`, { method: 'DELETE', headers: { 'X-MBX-APIKEY': this.credentials.apiKey } });
+        await fetch(`${this.restBase}/fapi/v1/listenKey`, {
+          method: 'DELETE',
+          headers: { 'X-MBX-APIKEY': this.credentials.apiKey },
+        });
     } catch {
       // Do not mask application shutdown.
     }
@@ -55,7 +62,10 @@ export class BinanceFuturesUserDataStream {
   private async connect() {
     if (this.stopped) return;
     if (!this.credentials.apiKey) throw new Error('Binance API key is not configured');
-    const response = await fetch(`${this.restBase}/fapi/v1/listenKey`, { method: 'POST', headers: { 'X-MBX-APIKEY': this.credentials.apiKey } });
+    const response = await fetch(`${this.restBase}/fapi/v1/listenKey`, {
+      method: 'POST',
+      headers: { 'X-MBX-APIKEY': this.credentials.apiKey },
+    });
     if (!response.ok) throw new Error(`Unable to create Binance listenKey (${response.status})`);
     const data = (await response.json()) as { listenKey?: string };
     if (!data.listenKey) throw new Error('Binance did not return a listenKey');
@@ -85,7 +95,10 @@ export class BinanceFuturesUserDataStream {
 
   private async keepAlive() {
     if (!this.listenKey || !this.credentials.apiKey || this.stopped) return;
-    const response = await fetch(`${this.restBase}/fapi/v1/listenKey`, { method: 'PUT', headers: { 'X-MBX-APIKEY': this.credentials.apiKey } });
+    const response = await fetch(`${this.restBase}/fapi/v1/listenKey`, {
+      method: 'PUT',
+      headers: { 'X-MBX-APIKEY': this.credentials.apiKey },
+    });
     if (!response.ok) await this.reconnectNow();
   }
 
@@ -99,6 +112,10 @@ export class BinanceFuturesUserDataStream {
 
   private async reconnectNow() {
     if (this.stopped) return;
-    try { await this.connect(); } catch { this.scheduleReconnect(); }
+    try {
+      await this.connect();
+    } catch {
+      this.scheduleReconnect();
+    }
   }
 }
