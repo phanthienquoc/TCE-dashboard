@@ -271,9 +271,73 @@ export class SsiApplicationService {
     const accountNo = request.accountNo ?? session.accountNo;
     if (!accountNo)
       throw new NotFoundException(`SSI account is not selected for environment: ${environment}`);
+
+    const requestedClientRequestId = request.clientRequestId;
     const result = await session.adapter.placeOrder({ ...request, accountNo });
-    if (result.ok)
-      void this.startOrderStream(await this.tceAccountId(userId), { ...session, accountNo });
-    return result as ContractResult<BrokerOrderResult>;
+    if (!result.ok) return result as ContractResult<BrokerOrderResult>;
+
+    const accountId = await this.tceAccountId(userId);
+    void this.startOrderStream(accountId, { ...session, accountNo });
+
+    let confirmed = false;
+    let confirmedOrderId = result.data.orderId;
+    let providerStatus = result.data.status;
+
+    // SSI may expose the new order a short moment after the place-order response.
+    // Poll the authoritative "today orders" endpoint so the UI can distinguish
+    // an accepted order from a request that only returned a transport-level 200.
+    for (let attempt = 0; attempt < 4; attempt += 1) {
+      const orders = await session.adapter.orders(accountNo);
+      if (orders.ok) {
+        const match = orders.data.find(
+          order =>
+            (result.data.orderId && order.externalId === result.data.orderId) ||
+            (requestedClientRequestId && order.clientRequestId === requestedClientRequestId) ||
+            (result.data.clientRequestId && order.clientRequestId === result.data.clientRequestId)
+        );
+        if (match) {
+          confirmed = true;
+          confirmedOrderId = match.externalId;
+          providerStatus = match.status;
+          await this.handleOrderEvent(
+            accountId,
+            { ...session, accountNo },
+            {
+              type: 'orderEvent',
+              accountNo,
+              clientRequestId: match.clientRequestId,
+              orderId: match.externalId,
+              symbol: match.symbol,
+              side: match.side === 'SELL' ? 'S' : 'B',
+              orderType: match.orderType,
+              price: match.price,
+              quantity: match.quantity,
+              osQuantity: match.osQuantity,
+              cancelQuantity: match.cancelQuantity,
+              filledQuantity: match.filledQuantity,
+              status: match.status,
+              inputTime: match.createdAt,
+              modifyTime: match.modifyTime,
+              message: match.message,
+            }
+          );
+          break;
+        }
+      }
+      if (attempt < 3) await new Promise(resolve => setTimeout(resolve, 250));
+    }
+
+    return {
+      ok: true as const,
+      data: {
+        ...result.data,
+        confirmed,
+        providerStatus,
+        confirmedOrderId,
+        message: confirmed
+          ? 'SSI accepted the order and it is visible in today orders.'
+          : 'SSI accepted the order request, but it is not visible in today orders yet. Check SSI order status shortly.',
+      },
+    } as ContractResult<BrokerOrderResult>;
   }
 }

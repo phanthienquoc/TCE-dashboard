@@ -26,7 +26,6 @@ test('SsiBrokerAdapter filters out derivative accounts during snapshot', async (
     },
   });
 
-  // Mock internal methods
   (adapter as unknown as { accountInfo: () => Promise<unknown[]> }).accountInfo = async () => [
     { accountNo: '1234561', accountType: 'Cash' },
     { accountNo: '1234566', accountType: 'Margin' },
@@ -67,7 +66,6 @@ test('SsiBrokerAdapter filters out derivative accounts during snapshot', async (
     assert.equal(result.data[0].account.accountType, 'Cash');
     assert.equal(result.data[1].account.accountNo, '1234566');
     assert.equal(result.data[1].account.accountType, 'Margin');
-    // Derivative account (1234568) must NOT be present
     assert.equal(
       result.data.some(s => s.account.accountNo === '1234568'),
       false
@@ -79,6 +77,7 @@ test('SsiBrokerAdapter falls back to marginBalance (PPMMR) when balance fails fo
   const adapter = new SsiBrokerAdapter({
     apiKey: 'test-api-key',
     apiSecret: 'test-api-secret',
+    clientId: 'test-client',
     token: {
       accessToken: 'valid-token',
       tokenType: 'Bearer',
@@ -94,10 +93,7 @@ test('SsiBrokerAdapter falls back to marginBalance (PPMMR) when balance fails fo
 
   (
     adapter as unknown as { positions: (acc: string) => Promise<{ ok: boolean; data: unknown[] }> }
-  ).positions = async () => ({
-    ok: true,
-    data: [],
-  });
+  ).positions = async () => ({ ok: true, data: [] });
 
   (
     adapter as unknown as {
@@ -138,6 +134,7 @@ test('SsiBrokerAdapter syncPortfolio returns positions, orders, and balance', as
   const adapter = new SsiBrokerAdapter({
     apiKey: 'test-api-key',
     apiSecret: 'test-api-secret',
+    clientId: 'test-client',
     accountNo: '1234561',
     token: {
       accessToken: 'valid-token',
@@ -154,7 +151,7 @@ test('SsiBrokerAdapter syncPortfolio returns positions, orders, and balance', as
     ok: true,
     data: [
       { symbol: 'HPG', quantity: 500, averagePrice: 28000, source: 'ssi' },
-      { symbol: 'VNM', quantity: 0, averagePrice: 70000, source: 'ssi' }, // should be filtered out (>0)
+      { symbol: 'VNM', quantity: 0, averagePrice: 70000, source: 'ssi' },
     ],
   });
 

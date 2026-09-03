@@ -25,6 +25,10 @@ export type BrokerOrderResult = {
   orderId?: string;
   clientRequestId?: string;
   status: string;
+  confirmed?: boolean;
+  providerStatus?: string;
+  confirmedOrderId?: string;
+  message?: string;
 };
 
 export interface BrokerPort {
