@@ -85,6 +85,7 @@ export default function DashboardPage() {
   const portfolioValue = account.totalValue ?? account.portfolioValue ?? account.equity;
   const visibleAccounts =
     Array.isArray(accounts) && accounts.length ? accounts : inferAccounts(positions);
+  const ssiAccountNo = findSsiAccountNo(visibleAccounts);
   const navigationItems = navigation.map(item => ({
     ...item,
     active: item.id !== 'engine' && item.id !== 'notifications' && tab === item.id,
@@ -92,7 +93,7 @@ export default function DashboardPage() {
 
   const openTrade = (pool: any) => {
     setTradeError('');
-    setTradePool(pool);
+    setTradePool({ ...pool, __ssiAccountNo: ssiAccountNo });
   };
   const submitTrade = async (payload: {
     side: 'BUY' | 'SELL';
@@ -105,9 +106,11 @@ export default function DashboardPage() {
     setTradeError('');
     try {
       const environment = String(tradePool.environment ?? 'production');
+      const accountNo = String(tradePool.__ssiAccountNo ?? tradePool.accountNo ?? '').trim();
+      if (!accountNo) throw new Error('SSI account is not configured. Connect SSI in Settings first.');
       await platformApi.ssiOrder({
         environment,
-        accountNo: tradePool.accountNo,
+        accountNo,
         symbol: String(tradePool.symbol ?? tradePool.code ?? '').toUpperCase(),
         ...payload,
       });
@@ -282,6 +285,11 @@ export default function DashboardPage() {
   );
 }
 
+function findSsiAccountNo(accounts: any[]) {
+  const ssi = accounts.find(item => String(item.provider ?? item.broker ?? '').toLowerCase() === 'ssi');
+  const direct = ssi?.accountNo ?? ssi?.externalAccountNo;
+  return direct == null ? '' : String(direct).trim();
+}
 function inferAccounts(positions: any[]) {
   const map = new Map<string, any>();
   for (const row of positions) {
