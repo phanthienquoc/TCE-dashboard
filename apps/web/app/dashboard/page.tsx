@@ -411,6 +411,7 @@ function AssetList({
         const targetPrice = row.targetPrice ?? row.target_price;
         const entryLow = row.entryLow ?? row.entry_low;
         const entryHigh = row.entryHigh ?? row.entry_high;
+        const expectedHoldDays = row.expectedHoldDays ?? row.expected_hold_days;
         const quantity = row.quantity ?? row.targetQuantity ?? row.target_quantity ?? row.total;
         const primaryValue =
           isPool && currentPrice != null
@@ -420,6 +421,7 @@ function AssetList({
               : isPool && entryLow != null && entryHigh != null
                 ? `${formatNumber(entryLow)}–${formatNumber(entryHigh)}`
                 : money(row.marketValue ?? row.market_value ?? row.price);
+        const hold = formatHoldDays(expectedHoldDays);
         const secondary = isPool
           ? `#${rank ?? '—'} · ${score == null ? '—' : formatNumber(score)} · ${String(row.status ?? 'WATCHING')}`
           : isCandidate
@@ -430,6 +432,7 @@ function AssetList({
             <div className="asset-main">
               <div className="asset-symbol">{symbol}</div>
               <div className="asset-secondary">{secondary}</div>
+              {hold && <div className="asset-hold">{hold}</div>}
             </div>
             <div className="asset-value">{primaryValue}</div>
             {isPool && (
@@ -455,6 +458,12 @@ function AssetList({
       })}
     </div>
   );
+}
+
+function formatHoldDays(value: any) {
+  const days = Number(value);
+  if (!Number.isFinite(days) || days <= 0) return '';
+  return `Hold ~${Math.trunc(days)} day${Math.trunc(days) === 1 ? '' : 's'}`;
 }
 
 function Empty({ kind }: { kind: 'default' | 'pool' | 'candidate' }) {
