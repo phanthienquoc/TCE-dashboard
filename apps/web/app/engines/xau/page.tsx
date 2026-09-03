@@ -8,7 +8,9 @@ import { NavigationDock } from '../../../components/navigation/NavigationDock';
 import { useAuthStore } from '../../../lib/store';
 
 const BinanceXauTradingPanel = dynamic(() => import('../BinanceXauTradingPanel'), {
-  loading: () => <div className="min-h-[220px] animate-pulse rounded-2xl border border-violet-200/[0.07] bg-white/[0.02]" />,
+  loading: () => (
+    <div className="min-h-[220px] animate-pulse rounded-2xl border border-violet-200/[0.07] bg-white/[0.02]" />
+  ),
 });
 
 const navigation = [
@@ -31,14 +33,22 @@ export default function BinanceXauPage() {
   }, [init]);
 
   if (authLoading || !initialized || !user)
-    return <main className="app-shell"><div className="loading-state">Loading…</div></main>;
+    return (
+      <main className="app-shell">
+        <div className="loading-state">Loading…</div>
+      </main>
+    );
 
   return (
     <main className="app-shell">
       <header className="app-header">
         <div className="app-container app-header-inner">
           <div className="flex items-center gap-3">
-            <Link href="/engines" className="touch-target grid place-items-center rounded-2xl border border-violet-200/[0.09] bg-white/[0.02] text-[#a88bb5]" aria-label="Back to engines">
+            <Link
+              href="/engines"
+              className="touch-target grid place-items-center rounded-2xl border border-violet-200/[0.09] bg-white/[0.02] text-[#a88bb5]"
+              aria-label="Back to engines"
+            >
               <ArrowLeft className="size-4" />
             </Link>
             <div>
@@ -53,7 +63,9 @@ export default function BinanceXauPage() {
           <div>
             <p className="eyebrow">Execution</p>
             <h1>XAU Futures</h1>
-            <p className="page-subtitle">Telegram signal gateway, single-position guard and live protection.</p>
+            <p className="page-subtitle">
+              Telegram signal gateway, single-position guard and live protection.
+            </p>
           </div>
         </section>
         <BinanceXauTradingPanel />

@@ -45,19 +45,25 @@ export class BinancePositionWatcherService implements OnModuleInit, OnModuleDest
           try {
             const positions = await this.binance.positions(userId, environment, symbol);
             const active = positions.filter(item => Math.abs(item.positionAmt) > 0);
-            const fingerprint = JSON.stringify(active.map(item => [item.symbol, item.positionAmt, item.entryPrice, item.markPrice]));
+            const fingerprint = JSON.stringify(
+              active.map(item => [item.symbol, item.positionAmt, item.entryPrice, item.markPrice])
+            );
             const key = `${userId}:${environment}:${symbol}`;
             if (this.lastFingerprint.get(key) !== fingerprint) {
               this.lastFingerprint.set(key, fingerprint);
               await this.engine.scan();
             }
           } catch (error) {
-            this.logger.debug(`Position watcher ${userId}/${environment}: ${error instanceof Error ? error.message : String(error)}`);
+            this.logger.debug(
+              `Position watcher ${userId}/${environment}: ${error instanceof Error ? error.message : String(error)}`
+            );
           }
         }
       }
     } catch (error) {
-      this.logger.warn(`Binance position watcher failed: ${error instanceof Error ? error.message : String(error)}`);
+      this.logger.warn(
+        `Binance position watcher failed: ${error instanceof Error ? error.message : String(error)}`
+      );
     }
   }
 }

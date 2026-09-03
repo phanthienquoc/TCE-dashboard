@@ -11,7 +11,17 @@ import { BinancePositionWatcherService } from './binance-position-watcher.servic
 @Module({
   imports: [DbModule, AuthModule, PlatformCredentialsModule],
   controllers: [TceEngineController],
-  providers: [TceEngineService, TceSignalService, BinanceEngineService, BinancePositionWatcherService],
-  exports: [TceEngineService, TceSignalService, BinanceEngineService, BinancePositionWatcherService],
+  providers: [
+    TceEngineService,
+    TceSignalService,
+    BinanceEngineService,
+    BinancePositionWatcherService,
+  ],
+  exports: [
+    TceEngineService,
+    TceSignalService,
+    BinanceEngineService,
+    BinancePositionWatcherService,
+  ],
 })
 export class TceEngineModule {}
