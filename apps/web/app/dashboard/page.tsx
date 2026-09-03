@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import {
   Activity,
+  AlertTriangle,
   ArrowLeftRight,
   BarChart3,
   Bell,
@@ -24,7 +25,7 @@ import { Card, CardContent } from '../../components/ui/card';
 import PlatformConfigTab from '../../components/config/PlatformConfigTab';
 import { NavigationDock } from '../../components/navigation/NavigationDock';
 import { useAuthStore, useDashboardStore } from '../../lib/store';
-import { platformApi } from '../../lib/api';
+import { dashboardApi, platformApi } from '../../lib/api';
 
 type Tab = 'overview' | 'positions' | 'orders' | 'settings';
 type NavItem = {
@@ -50,6 +51,8 @@ export default function DashboardPage() {
   const [tradePool, setTradePool] = useState<any | null>(null);
   const [tradeError, setTradeError] = useState('');
   const [tradeBusy, setTradeBusy] = useState(false);
+  const [promoteBusy, setPromoteBusy] = useState<string | null>(null);
+  const [promoteError, setPromoteError] = useState('');
 
   useEffect(() => {
     void init();
@@ -96,6 +99,26 @@ export default function DashboardPage() {
     setTradeError('');
     setTradePool({ ...pool, __ssiAccountNo: ssiAccountNo });
   };
+  const promotePool = async (pool: any) => {
+    const poolId = String(pool?.id ?? '').trim();
+    if (!poolId) return;
+    setPromoteBusy(poolId);
+    setPromoteError('');
+    try {
+      await dashboardApi.promotePool(poolId);
+      await load();
+    } catch (err: any) {
+      setPromoteError(
+        err?.response?.data?.message ??
+          err?.response?.data?.error?.message ??
+          err?.message ??
+          'Unable to promote pool item'
+      );
+    } finally {
+      setPromoteBusy(null);
+    }
+  };
+
   const submitTrade = async (payload: {
     side: 'BUY' | 'SELL';
     quantity: number;
@@ -236,7 +259,13 @@ export default function DashboardPage() {
               <AssetList rows={positions} />
             </Panel>
             <Panel title="Shared Pools" caption={`${pools.length} watching`} icon={Layers3}>
-              <AssetList rows={pools} kind="pool" onTrade={openTrade} />
+              <AssetList
+                rows={pools}
+                kind="pool"
+                onTrade={openTrade}
+                onPromote={promotePool}
+                promoteBusy={promoteBusy}
+              />
             </Panel>
             <Panel
               title="Next Positions"
@@ -275,6 +304,7 @@ export default function DashboardPage() {
         )}
         {tab === 'settings' && <PlatformConfigTab />}
         {error && <div className="error-banner">{error}</div>}
+        {promoteError && <div className="error-banner">{promoteError}</div>}
       </div>
       <NavigationDock items={navigationItems} />
       {tradePool && (
@@ -361,10 +391,14 @@ function AssetList({
   rows,
   kind = 'default',
   onTrade,
+  onPromote,
+  promoteBusy,
 }: {
   rows: any[];
   kind?: 'default' | 'pool' | 'candidate';
   onTrade?: (row: any) => void;
+  onPromote?: (row: any) => void;
+  promoteBusy?: string | null;
 }) {
   if (!rows.length) return <Empty kind={kind} />;
   return (
@@ -403,7 +437,10 @@ function AssetList({
             ? `Qty ${formatNumber(quantity)}`
             : null;
         return (
-          <div key={row.id ?? `${symbol}-${i}`} className="asset-row">
+          <div
+            key={row.id ?? `${symbol}-${i}`}
+            className={`asset-row ${isCandidate && Number(quantity ?? 0) < 100 ? 'border border-rose-500/60' : ''}`}
+          >
             <div className="asset-mark">{symbol.slice(0, 2).toUpperCase()}</div>
             <div className="asset-main">
               <p>{symbol}</p>
@@ -440,6 +477,36 @@ function AssetList({
                 >
                   Sell
                 </button>
+                {onPromote && (
+                  <button
+                    type="button"
+                    disabled={
+                      String(row.status ?? '').toUpperCase() === 'PROMOTED' ||
+                      promoteBusy === String(row.id)
+                    }
+                    className="rounded-md border border-violet-500/30 bg-violet-500/10 px-2 py-1 text-xs font-semibold text-violet-200 hover:bg-violet-500/20 disabled:cursor-not-allowed disabled:opacity-40"
+                    onClick={() => onPromote(row)}
+                  >
+                    {promoteBusy === String(row.id)
+                      ? '…'
+                      : String(row.status ?? '').toUpperCase() === 'PROMOTED'
+                        ? 'Next'
+                        : '→ Next'}
+                  </button>
+                )}
+              </div>
+            ) : isCandidate ? (
+              <div className="flex shrink-0 items-center gap-2">
+                {Number(quantity ?? 0) < 100 && (
+                  <span
+                    title="Available amount is not enough to place a 100-share order"
+                    aria-label="Warning: insufficient amount for a 100-share order"
+                    className="grid size-7 place-items-center rounded-md border border-rose-500/60 bg-rose-500/10 text-rose-300"
+                  >
+                    <AlertTriangle className="size-4" />
+                  </span>
+                )}
+                <ChevronRight className="size-4 text-[#675a70]" />
               </div>
             ) : (
               <ChevronRight className="size-4 shrink-0 text-[#675a70]" />
