@@ -15,6 +15,7 @@ import {
   FuturesEntryOrderInput,
   FuturesTpSlInput,
   PlatformCredentialPort,
+  type BrokerOrderRequest,
 } from '@tce/contracts';
 import { JwtService } from '../auth/jwt.service';
 import { SsiApplicationService } from './ssi.application.service';
@@ -229,6 +230,23 @@ export class PlatformCredentialsController {
     @Headers('authorization') auth: string | undefined
   ) {
     return this.ssiMarketPrice.syncNow(this.userId(auth));
+  }
+  @Post('ssi/order') orderSsi(
+    @Headers('authorization') auth: string | undefined,
+    @Body()
+    body: Omit<BrokerOrderRequest, 'accountNo'> & {
+      accountNo?: string;
+      environment?: string;
+    }
+  ) {
+    const { environment, ...request } = body ?? {};
+    if (request.side !== 'BUY' && request.side !== 'SELL')
+      throw new UnauthorizedException('SSI order side must be BUY or SELL');
+    if (!request.symbol || !Number.isInteger(request.quantity) || request.quantity <= 0)
+      throw new UnauthorizedException('SSI order symbol and positive integer quantity are required');
+    if (request.orderType === 'LO' && (!Number.isFinite(request.price) || Number(request.price) <= 0))
+      throw new UnauthorizedException('SSI LO orders require a positive price');
+    return this.ssi.placeOrder(this.userId(auth), environment ?? 'production', request);
   }
   @Delete(':provider') remove(
     @Headers('authorization') auth: string | undefined,
