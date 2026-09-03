@@ -179,6 +179,7 @@ export default function DashboardPage() {
             </div>
           </div>
           <Button
+            type="button"
             variant="outline"
             size="icon"
             className="touch-target"
@@ -199,6 +200,7 @@ export default function DashboardPage() {
               <p className="eyebrow">Portfolio</p>
             </div>
             <Button
+              type="button"
               variant="outline"
               size="icon"
               className="touch-target shrink-0"
@@ -387,7 +389,7 @@ function Panel({
           </div>
         </div>
         {action && (
-          <button className="panel-action" onClick={action}>
+          <button type="button" className="panel-action" onClick={action}>
             View all
             <ChevronRight className="size-4" />
           </button>
@@ -449,7 +451,20 @@ function AssetList({
             <div className="asset-value">{primaryValue}</div>
             {isCandidate && onTrade && (
               <div className="asset-actions">
-                <button className="primary-action" onClick={() => onTrade(row)}>
+                <button
+                  type="button"
+                  className="primary-action"
+                  onPointerUp={event => {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    onTrade(row);
+                  }}
+                  onClick={event => {
+                    event.preventDefault();
+                    event.stopPropagation();
+                  }}
+                  aria-label={`Create order for ${symbol}`}
+                >
                   Create order
                 </button>
               </div>
@@ -457,14 +472,27 @@ function AssetList({
             {isPool && (
               <div className="asset-actions">
                 {onTrade && (
-                  <button className="panel-action" onClick={() => onTrade(row)}>
+                  <button
+                    type="button"
+                    className="panel-action"
+                    onClick={event => {
+                      event.preventDefault();
+                      event.stopPropagation();
+                      onTrade(row);
+                    }}
+                  >
                     Trade
                   </button>
                 )}
                 {onPromote && row.id && (
                   <button
+                    type="button"
                     className="panel-action"
-                    onClick={() => onPromote(row)}
+                    onClick={event => {
+                      event.preventDefault();
+                      event.stopPropagation();
+                      onPromote(row);
+                    }}
                     disabled={promoteBusy === String(row.id)}
                   >
                     {promoteBusy === String(row.id) ? '…' : 'Promote'}
@@ -598,6 +626,7 @@ function TradeTicket({
             <p>{isNextPosition ? 'Create SSI buy order from Next Position' : 'SSI order'}</p>
           </div>
           <button
+            type="button"
             className="icon-button"
             onClick={onClose}
             aria-label="Close trade ticket"
@@ -609,6 +638,7 @@ function TradeTicket({
         <div className="trade-controls">
           <div className="trade-side-toggle">
             <button
+              type="button"
               className={side === 'BUY' ? 'active' : ''}
               onClick={() => setSide('BUY')}
               disabled={busy || isNextPosition}
@@ -616,6 +646,7 @@ function TradeTicket({
               BUY
             </button>
             <button
+              type="button"
               className={side === 'SELL' ? 'active' : ''}
               onClick={() => setSide('SELL')}
               disabled={busy || isNextPosition}
@@ -658,10 +689,11 @@ function TradeTicket({
         </div>
         {error && <div className="error-banner">{error}</div>}
         <div className="trade-actions">
-          <button className="panel-action" onClick={onClose} disabled={busy}>
+          <button type="button" className="panel-action" onClick={onClose} disabled={busy}>
             Cancel
           </button>
           <button
+            type="button"
             className="primary-action"
             onClick={() =>
               Number.isInteger(numericQuantity) && numericQuantity > 0
