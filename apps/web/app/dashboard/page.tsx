@@ -22,6 +22,7 @@ import { useRouter } from 'next/navigation';
 import { Button } from '../../components/ui/button';
 import { Card, CardContent } from '../../components/ui/card';
 import PlatformConfigTab from '../../components/config/PlatformConfigTab';
+import { NavigationDock } from '../../components/navigation/NavigationDock';
 import { useAuthStore, useDashboardStore } from '../../lib/store';
 import { platformApi } from '../../lib/api';
 
