@@ -63,6 +63,9 @@ export class BinanceFuturesService {
   async openOrders(userId: string, environment = 'production', symbol?: string) {
     return (await this.state(userId, environment)).openOrders(symbol);
   }
+  async openOrdersForSymbol(userId: string, environment = 'production', symbol: string) {
+    return (await this.state(userId, environment)).openOrders(symbol);
+  }
   async order(userId: string, environment = 'production', symbol: string, orderId: string) {
     return (await this.state(userId, environment)).order(symbol, orderId);
   }

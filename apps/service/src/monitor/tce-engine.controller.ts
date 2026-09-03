@@ -29,9 +29,31 @@ export class TceEngineController {
   }
   @Patch('binance/config') setBinanceConfig(
     @Headers('authorization') auth: string | undefined,
-    @Body() body: { enabled?: boolean; quantity?: number; positionSide?: 'BOTH' | 'LONG' | 'SHORT' }
+    @Body()
+    body: {
+      enabled?: boolean;
+      quantity?: number;
+      positionSide?: 'BOTH' | 'LONG' | 'SHORT';
+      xauEnabled?: boolean;
+      xauSymbol?: string;
+      autoProtection?: boolean;
+      tpPct?: number;
+      slPct?: number;
+    }
   ) {
     return this.binance.setConfig(this.userId(auth), body ?? {});
+  }
+  @Get('binance/positions') getBinancePositions(
+    @Headers('authorization') auth?: string,
+    @Headers('x-environment') environment = 'production'
+  ) {
+    return this.binance.getLivePosition(this.userId(auth), environment);
+  }
+  @Get('binance/orders') getBinanceOrders(
+    @Headers('authorization') auth?: string,
+    @Headers('x-environment') environment = 'production'
+  ) {
+    return this.binance.openOrdersForSymbol(this.userId(auth), environment, 'XAUUSDT');
   }
   @Post('run') async run(@Req() req: any) {
     const accountId = String(
