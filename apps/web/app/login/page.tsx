@@ -94,6 +94,7 @@ export default function LoginPage() {
                   inputMode="email"
                   autoCapitalize="none"
                   spellCheck={false}
+                  placeholder="you@example.com"
                 />
               </label>
 
@@ -105,6 +106,7 @@ export default function LoginPage() {
                   value={password}
                   onChange={event => setPassword(event.target.value)}
                   autoComplete="current-password"
+                  placeholder="••••••••"
                 />
               </label>
             </>
@@ -118,13 +120,13 @@ export default function LoginPage() {
 
           <div className="auth-options">
             <span className="secure-badge">
-              <ShieldCheck size={13} aria-hidden="true" /> Secure session
+              <ShieldCheck size={15} strokeWidth={2} aria-hidden="true" /> Secure session
             </span>
           </div>
 
           <button className="auth-submit" type="submit" disabled={busy}>
             <span>{busy ? 'Working…' : pending ? 'Verify code' : 'Sign in'}</span>
-            <ArrowRight size={17} aria-hidden="true" />
+            <ArrowRight size={18} strokeWidth={2} aria-hidden="true" />
           </button>
         </form>
 
