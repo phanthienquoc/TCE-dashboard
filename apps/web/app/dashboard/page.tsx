@@ -119,6 +119,18 @@ export default function DashboardPage() {
     }
   };
 
+  const openNextPositionOrder = (candidate: any) => {
+    setTradeError('');
+    setTradePool({
+      ...candidate,
+      __ssiAccountNo: ssiAccountNo,
+      __orderSource: 'next-position',
+      side: 'BUY',
+      quantity: candidate?.targetQuantity ?? candidate?.target_quantity ?? 100,
+      currentPrice: candidate?.targetPrice ?? candidate?.target_price ?? candidate?.currentPrice,
+    });
+  };
+
   const submitTrade = async (payload: {
     side: 'BUY' | 'SELL';
     quantity: number;
@@ -261,7 +273,7 @@ export default function DashboardPage() {
               caption={next.length ? `${next.length} candidates` : 'Candidates'}
               icon={TrendingUp}
             >
-              <AssetList rows={next} kind="candidate" />
+              <AssetList rows={next} kind="candidate" onTrade={openNextPositionOrder} />
             </Panel>
             <Panel title="Shared Pools" caption={`${pools.length} watching`} icon={Layers3}>
               <AssetList
@@ -435,6 +447,13 @@ function AssetList({
               {hold && <div className="asset-hold">{hold}</div>}
             </div>
             <div className="asset-value">{primaryValue}</div>
+            {isCandidate && onTrade && (
+              <div className="asset-actions">
+                <button className="primary-action" onClick={() => onTrade(row)}>
+                  Create order
+                </button>
+              </div>
+            )}
             {isPool && (
               <div className="asset-actions">
                 {onTrade && (
@@ -555,22 +574,23 @@ function TradeTicket({
     price?: number;
   }) => void;
 }) {
-  const [side, setSide] = useState<'BUY' | 'SELL'>('BUY');
-  const [quantity, setQuantity] = useState('100');
+  const [side, setSide] = useState<'BUY' | 'SELL'>((pool?.side ?? 'BUY') as 'BUY' | 'SELL');
+  const [quantity, setQuantity] = useState(String(pool?.quantity ?? pool?.targetQuantity ?? pool?.target_quantity ?? 100));
   const [orderType, setOrderType] = useState<
     'LO' | 'MTL' | 'MP' | 'ATO' | 'ATC' | 'MOK' | 'MAK' | 'PLO'
   >('LO');
   const [price, setPrice] = useState(String(pool?.currentPrice ?? pool?.current_price ?? ''));
   const numericQuantity = Number(quantity);
   const numericPrice = Number(price);
+  const isNextPosition = pool?.__orderSource === 'next-position';
 
   return (
     <div className="trade-overlay" role="dialog" aria-modal="true">
       <Card className="trade-ticket">
         <div className="panel-head">
           <div>
-            <h2>Trade {String(pool?.symbol ?? pool?.code ?? 'asset').toUpperCase()}</h2>
-            <p>SSI order</p>
+            <h2>{isNextPosition ? 'Create order' : 'Trade'} {String(pool?.symbol ?? pool?.code ?? 'asset').toUpperCase()}</h2>
+            <p>{isNextPosition ? 'Create SSI buy order from Next Position' : 'SSI order'}</p>
           </div>
           <button
             className="icon-button"
@@ -586,14 +606,14 @@ function TradeTicket({
             <button
               className={side === 'BUY' ? 'active' : ''}
               onClick={() => setSide('BUY')}
-              disabled={busy}
+              disabled={busy || isNextPosition}
             >
               BUY
             </button>
             <button
               className={side === 'SELL' ? 'active' : ''}
               onClick={() => setSide('SELL')}
-              disabled={busy}
+              disabled={busy || isNextPosition}
             >
               SELL
             </button>
@@ -639,22 +659,20 @@ function TradeTicket({
           <button
             className="primary-action"
             onClick={() =>
-              Number.isFinite(numericQuantity) && numericQuantity > 0
+              Number.isInteger(numericQuantity) && numericQuantity > 0
                 ? onSubmit({
                     side,
                     quantity: numericQuantity,
                     orderType,
-                    ...(orderType === 'LO' && Number.isFinite(numericPrice)
+                    ...(orderType === 'LO' && Number.isFinite(numericPrice) && numericPrice > 0
                       ? { price: numericPrice }
                       : {}),
                   })
                 : undefined
             }
-            disabled={busy || !Number.isFinite(numericQuantity) || numericQuantity <= 0}
+            disabled={busy || !Number.isInteger(numericQuantity) || numericQuantity <= 0 || (orderType === 'LO' && (!Number.isFinite(numericPrice) || numericPrice <= 0))}
           >
-            {busy
-              ? 'Submitting…'
-              : `${side} ${String(pool?.symbol ?? pool?.code ?? '').toUpperCase()}`}
+            {busy ? 'Submitting…' : `BUY ${String(pool?.symbol ?? pool?.code ?? '').toUpperCase()}`}
           </button>
         </div>
       </Card>
