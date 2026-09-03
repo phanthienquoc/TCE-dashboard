@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next';
 import './globals.css';
+import './ios-mobile.css';
 import { AppProviders } from './providers';
 
 export const metadata: Metadata = {
@@ -14,12 +15,12 @@ export const viewport: Viewport = {
   viewportFit: 'cover',
   maximumScale: 1,
   userScalable: false,
-  themeColor: '#070b12',
+  themeColor: '#ffffff',
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en" className="bg-[#070b12]">
+    <html lang="en" className="bg-white">
       <body>
         <AppProviders>{children}</AppProviders>
       </body>
