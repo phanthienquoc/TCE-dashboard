@@ -47,13 +47,13 @@ export class TceEngineController {
     @Headers('authorization') auth?: string,
     @Headers('x-environment') environment = 'production'
   ) {
-    return this.binance.positions(this.userId(auth), environment, 'XAUUSDT');
+    return this.binance.getLivePosition(this.userId(auth), environment);
   }
   @Get('binance/orders') getBinanceOrders(
     @Headers('authorization') auth?: string,
     @Headers('x-environment') environment = 'production'
   ) {
-    return this.binance.openOrders(this.userId(auth), environment, 'XAUUSDT');
+    return this.binance.openOrdersForSymbol(this.userId(auth), environment, 'XAUUSDT');
   }
   @Post('run') async run(@Req() req: any) {
     const accountId = String(
