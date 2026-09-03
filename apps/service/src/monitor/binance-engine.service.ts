@@ -4,6 +4,9 @@ import { SupabaseClientService } from '../db/supabase.client';
 
 const ACTIVE_STATUSES = ['QUEUED', 'ACCEPTED'] as const;
 const PROTECTION_TYPES = new Set(['STOP', 'STOP_MARKET', 'TAKE_PROFIT', 'TAKE_PROFIT_MARKET']);
+const DEFAULT_SYMBOL = 'XAUUSDT';
+const DEFAULT_TP_SL_PCT = 5;
+
 type SignalRow = {
   id: string;
   user_id: string;
@@ -15,11 +18,17 @@ type SignalRow = {
   sl: number;
   status: string;
 };
+
 export type BinanceEngineConfig = {
   enabled: boolean;
   quantity: number;
   positionSide: 'BOTH' | 'LONG' | 'SHORT';
   scanIntervalMs: number;
+  xauEnabled: boolean;
+  xauSymbol: string;
+  autoProtection: boolean;
+  tpPct: number;
+  slPct: number;
 };
 
 @Injectable()
@@ -27,31 +36,46 @@ export class BinanceEngineService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(BinanceEngineService.name);
   private timer?: ReturnType<typeof setInterval>;
   private readonly processing = new Set<string>();
+
   constructor(
     private readonly supabase: SupabaseClientService,
     private readonly binance: BinanceFuturesService
   ) {}
+
   onModuleInit() {
     this.timer = setInterval(() => void this.scan(), 5000);
     void this.scan();
   }
+
   onModuleDestroy() {
     if (this.timer) clearInterval(this.timer);
   }
+
   async getConfig(userId: string) {
     return this.config(userId);
   }
+
   async setConfig(userId: string, input: Partial<BinanceEngineConfig>) {
     const quantity = Number(input.quantity ?? 0);
     const positionSide =
       input.positionSide === 'LONG' || input.positionSide === 'SHORT' ? input.positionSide : 'BOTH';
     if (!Number.isFinite(quantity) || quantity <= 0)
       throw new Error('Binance order quantity must be greater than zero.');
+    const tpPct = Number(input.tpPct ?? DEFAULT_TP_SL_PCT);
+    const slPct = Number(input.slPct ?? DEFAULT_TP_SL_PCT);
+    if (![tpPct, slPct].every(value => Number.isFinite(value) && value > 0))
+      throw new Error('XAU TP/SL percentages must be greater than zero.');
+    const xauSymbol = String(input.xauSymbol ?? DEFAULT_SYMBOL).trim().toUpperCase() || DEFAULT_SYMBOL;
     const payload = {
       account_id: userId,
       binance_engine_enabled: Boolean(input.enabled),
       binance_order_quantity: quantity,
       binance_position_side: positionSide,
+      binance_xau_enabled: Boolean(input.xauEnabled ?? input.enabled),
+      binance_xau_symbol: xauSymbol,
+      binance_xau_tp_pct: tpPct,
+      binance_xau_sl_pct: slPct,
+      binance_xau_auto_protection: Boolean(input.autoProtection ?? true),
       updated_at: new Date().toISOString(),
     };
     const { error } = await this.supabase.db
@@ -63,8 +87,14 @@ export class BinanceEngineService implements OnModuleInit, OnModuleDestroy {
       quantity,
       positionSide,
       scanIntervalMs: 5000,
+      xauEnabled: payload.binance_xau_enabled,
+      xauSymbol,
+      autoProtection: payload.binance_xau_auto_protection,
+      tpPct,
+      slPct,
     };
   }
+
   async scan() {
     const { data, error } = await this.supabase.db
       .from('tce_telegram_signals')
@@ -92,10 +122,13 @@ export class BinanceEngineService implements OnModuleInit, OnModuleDestroy {
       }
     }
   }
+
   private async config(userId: string): Promise<BinanceEngineConfig> {
     const { data, error } = await this.supabase.db
       .from('tce_strategy_config')
-      .select('binance_engine_enabled,binance_order_quantity,binance_position_side')
+      .select(
+        'binance_engine_enabled,binance_order_quantity,binance_position_side,binance_xau_enabled,binance_xau_symbol,binance_xau_tp_pct,binance_xau_sl_pct,binance_xau_auto_protection'
+      )
       .eq('account_id', userId)
       .maybeSingle();
     if (error) throw error;
@@ -107,45 +140,55 @@ export class BinanceEngineService implements OnModuleInit, OnModuleDestroy {
           ? data.binance_position_side
           : 'BOTH',
       scanIntervalMs: 5000,
+      xauEnabled: Boolean(data?.binance_xau_enabled ?? data?.binance_engine_enabled ?? false),
+      xauSymbol: String(data?.binance_xau_symbol ?? DEFAULT_SYMBOL).trim().toUpperCase() || DEFAULT_SYMBOL,
+      autoProtection: Boolean(data?.binance_xau_auto_protection ?? true),
+      tpPct: Number(data?.binance_xau_tp_pct ?? DEFAULT_TP_SL_PCT),
+      slPct: Number(data?.binance_xau_sl_pct ?? DEFAULT_TP_SL_PCT),
     };
   }
+
   private async process(signal: SignalRow) {
     const config = await this.config(signal.user_id);
-    if (!config.enabled) return;
+    if (!config.enabled || !config.xauEnabled) return;
     if (!Number.isFinite(config.quantity) || config.quantity <= 0) {
       await this.fail(signal.id, 'Binance order quantity is not configured.');
       return;
     }
+
     const symbol = signal.symbol.toUpperCase();
-    const positions = await this.binance.positions(signal.user_id, signal.environment, symbol);
-    const position = positions.find(
-      item => item.symbol === symbol && Math.abs(item.positionAmt) > 0
-    );
-    const openOrders = await this.binance.openOrders(signal.user_id, signal.environment, symbol);
-    if (position) {
-      await this.reconcileProtection(signal, position, openOrders, config);
+    if (symbol !== config.xauSymbol) {
+      await this.fail(signal.id, `${symbol} is not enabled for the XAU futures engine.`);
       return;
     }
+
+    const positions = await this.binance.positions(signal.user_id, signal.environment, symbol);
+    const position = positions.find(item => item.symbol === symbol && Math.abs(item.positionAmt) > 0);
+    const openOrders = await this.binance.openOrders(signal.user_id, signal.environment, symbol);
+
+    // Hard idempotency rule: once a live position exists for the same symbol,
+    // never create a second entry from another Telegram signal. Reconcile exits only.
+    if (position) {
+      if (config.autoProtection) await this.reconcileProtection(signal, position, openOrders, config);
+      else await this.touchStatus(signal.id, 'EXECUTED');
+      return;
+    }
+
     const entryClientId = this.entryClientId(signal.id);
     const entry = openOrders.find(order => order.clientOrderId === entryClientId);
     if (entry) {
-      const current = await this.binance.order(
-        signal.user_id,
-        signal.environment,
-        symbol,
-        entry.orderId
-      );
+      const current = await this.binance.order(signal.user_id, signal.environment, symbol, entry.orderId);
       const status = String(current.status ?? entry.status);
-      if (status === 'FILLED' || status === 'PARTIALLY_FILLED')
-        await this.touchStatus(signal.id, 'ACCEPTED');
-      else if (['CANCELED', 'EXPIRED', 'REJECTED'].includes(status))
-        await this.fail(signal.id, `Binance entry order ${status}.`);
+      if (status === 'FILLED' || status === 'PARTIALLY_FILLED') await this.touchStatus(signal.id, 'ACCEPTED');
+      else if (['CANCELED', 'EXPIRED', 'REJECTED'].includes(status)) await this.fail(signal.id, `Binance entry order ${status}.`);
       return;
     }
+
     if (openOrders.some(order => !PROTECTION_TYPES.has(order.type))) {
       await this.fail(signal.id, `${symbol} already has an active Binance order.`);
       return;
     }
+
     const result = await this.binance.entry(
       signal.user_id,
       {
@@ -163,9 +206,10 @@ export class BinanceEngineService implements OnModuleInit, OnModuleDestroy {
     if (!result.ok) throw new Error(result.error.message);
     await this.touchStatus(signal.id, 'ACCEPTED');
   }
+
   private async reconcileProtection(
     signal: SignalRow,
-    position: { positionAmt: number; positionSide?: 'BOTH' | 'LONG' | 'SHORT' },
+    position: { positionAmt: number; entryPrice?: number; positionSide?: 'BOTH' | 'LONG' | 'SHORT' },
     openOrders: Array<{
       type: string;
       side: 'BUY' | 'SELL';
@@ -178,20 +222,31 @@ export class BinanceEngineService implements OnModuleInit, OnModuleDestroy {
     const quantity = Math.abs(position.positionAmt);
     const exitSide = position.positionAmt > 0 ? 'SELL' : 'BUY';
     const positionSide = position.positionSide ?? config.positionSide;
+    const entryPrice = Number(position.entryPrice ?? signal.entry);
+    const isLong = position.positionAmt > 0;
+    const desiredTp = this.percentPrice(entryPrice, isLong ? config.tpPct : -config.tpPct);
+    const desiredSl = this.percentPrice(entryPrice, isLong ? -config.slPct : config.slPct);
+
+    // When Telegram did not provide sensible protection for the live fill, derive both
+    // levels from the actual Binance entry price. Otherwise preserve the explicit signal levels.
+    const targetTp = this.validProtection(signal, isLong) ? Number(signal.tp) : desiredTp;
+    const targetSl = this.validProtection(signal, isLong) ? Number(signal.sl) : desiredSl;
+
     const hasTp = openOrders.some(
       order =>
         order.side === exitSide &&
         order.positionSide === positionSide &&
         (order.type === 'TAKE_PROFIT_MARKET' || order.type === 'TAKE_PROFIT') &&
-        this.samePrice(order.stopPrice, Number(signal.tp))
+        this.samePrice(order.stopPrice, targetTp)
     );
     const hasSl = openOrders.some(
       order =>
         order.side === exitSide &&
         order.positionSide === positionSide &&
         (order.type === 'STOP_MARKET' || order.type === 'STOP') &&
-        this.samePrice(order.stopPrice, Number(signal.sl))
+        this.samePrice(order.stopPrice, targetSl)
     );
+
     if (!hasSl) {
       const result = await this.binance.stopLoss(
         signal.user_id,
@@ -200,7 +255,7 @@ export class BinanceEngineService implements OnModuleInit, OnModuleDestroy {
           side: exitSide,
           positionSide,
           quantity,
-          triggerPrice: Number(signal.sl),
+          triggerPrice: targetSl,
           reduceOnly: true,
           clientOrderId: this.slClientId(signal.id),
         },
@@ -211,12 +266,14 @@ export class BinanceEngineService implements OnModuleInit, OnModuleDestroy {
         return;
       }
     }
+
     const afterSl =
       hasSl ||
       (await this.binance.openOrders(signal.user_id, signal.environment, signal.symbol)).some(
         order => order.clientOrderId === this.slClientId(signal.id)
       );
     if (!afterSl) return;
+
     if (!hasTp) {
       const result = await this.binance.takeProfit(
         signal.user_id,
@@ -225,7 +282,7 @@ export class BinanceEngineService implements OnModuleInit, OnModuleDestroy {
           side: exitSide,
           positionSide,
           quantity,
-          triggerPrice: Number(signal.tp),
+          triggerPrice: targetTp,
           reduceOnly: true,
           clientOrderId: this.tpClientId(signal.id),
         },
@@ -236,20 +293,29 @@ export class BinanceEngineService implements OnModuleInit, OnModuleDestroy {
         return;
       }
     }
-    const verified = await this.binance.openOrders(
-      signal.user_id,
-      signal.environment,
-      signal.symbol
-    );
+
+    const verified = await this.binance.openOrders(signal.user_id, signal.environment, signal.symbol);
     if (
       verified.some(order => order.clientOrderId === this.tpClientId(signal.id)) &&
       verified.some(order => order.clientOrderId === this.slClientId(signal.id))
-    )
+    ) {
       await this.touchStatus(signal.id, 'EXECUTED');
+    }
   }
+
+  private validProtection(signal: SignalRow, isLong: boolean) {
+    if (![signal.entry, signal.tp, signal.sl].every(value => Number.isFinite(Number(value)) && Number(value) > 0)) return false;
+    return isLong ? signal.sl < signal.entry && signal.entry < signal.tp : signal.tp < signal.entry && signal.entry < signal.sl;
+  }
+
+  private percentPrice(base: number, pct: number) {
+    return Number((base * (1 + pct / 100)).toFixed(2));
+  }
+
   private samePrice(a: number | undefined, b: number) {
     return a != null && Number.isFinite(a) && Math.abs(a - b) < Math.max(1e-8, Math.abs(b) * 1e-8);
   }
+
   private entryClientId(id: string) {
     return `TCE-E-${id.replace(/-/g, '').slice(0, 24)}`;
   }
