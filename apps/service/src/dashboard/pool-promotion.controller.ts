@@ -38,7 +38,9 @@ export class PoolPromotionController {
 
     const { data: pool, error: poolError } = await this.supabase.db
       .from('tce_pool_entries')
-      .select('id,account_id,symbol,rank,score,entry_low,entry_high,target_price,expected_hold_days,rationale,status')
+      .select(
+        'id,account_id,symbol,rank,score,entry_low,entry_high,target_price,expected_hold_days,rationale,status'
+      )
       .eq('id', id)
       .eq('account_id', account.id)
       .single();
@@ -117,8 +119,7 @@ export class PoolPromotionController {
       targetQuantity: Number(candidate.target_quantity ?? 0),
       targetPrice: Number(candidate.target_price ?? 0),
       score: candidate.score == null ? null : Number(candidate.score),
-      expectedHoldDays:
-        pool.expected_hold_days == null ? null : Number(pool.expected_hold_days),
+      expectedHoldDays: pool.expected_hold_days == null ? null : Number(pool.expected_hold_days),
       availableAmount,
       maxQuantity,
       orderLotSize: 100,

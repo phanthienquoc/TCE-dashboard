@@ -105,7 +105,7 @@ export class DashboardService {
       expectedHoldDays:
         candidate.pool_entry_id == null
           ? null
-          : holdDaysByPoolId.get(String(candidate.pool_entry_id)) ?? null,
+          : (holdDaysByPoolId.get(String(candidate.pool_entry_id)) ?? null),
     }));
   }
   async getOrdersForUser(userId: string) {
