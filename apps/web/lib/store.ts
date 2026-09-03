@@ -99,25 +99,40 @@ type DashboardState = {
   error: string | null;
   load: () => Promise<void>;
 };
+
+const normalizeDashboard = (snapshot: any) => {
+  if (!snapshot) return snapshot;
+  const nextPositions = Array.isArray(snapshot.nextPositions) ? snapshot.nextPositions : [];
+  const promotedPoolIds = new Set(
+    nextPositions
+      .map((item: any) => String(item?.pool_entry_id ?? item?.poolEntryId ?? '').trim())
+      .filter(Boolean)
+  );
+  return {
+    ...snapshot,
+    pools: Array.isArray(snapshot.pools)
+      ? snapshot.pools.filter((pool: any) => {
+          const status = String(pool?.status ?? '').trim().toUpperCase();
+          const id = String(pool?.id ?? '').trim();
+          return status !== 'PROMOTED' && !promotedPoolIds.has(id);
+        })
+      : snapshot.pools,
+  };
+};
+
 export const useDashboardStore = create<DashboardState>(set => ({
   data: null,
   loading: false,
   error: null,
   load: async () => {
-    const cache = useTCEDataStore.getState();
-    if (cache.dashboard !== null) {
-      set({ data: cache.dashboard, loading: false, error: null });
-      return;
-    }
     set({ loading: true, error: null });
     try {
-      await cache.prefetch();
-      const next = useTCEDataStore.getState().dashboard;
-      if (next !== null) set({ data: next });
-      else {
-        const r = await dashboardApi.all('WATCHING');
-        set({ data: r.data });
-      }
+      // Bypass the shared prefetch cache after dashboard mutations so a
+      // promoted pool item disappears immediately from Shared Pools.
+      const r = await dashboardApi.all('WATCHING');
+      const next = normalizeDashboard(r.data);
+      useTCEDataStore.setState({ dashboard: next });
+      set({ data: next });
     } catch (e: any) {
       set({ error: e?.response?.data?.message ?? 'Unable to load dashboard' });
     } finally {
