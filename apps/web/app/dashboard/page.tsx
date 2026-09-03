@@ -259,7 +259,13 @@ export default function DashboardPage() {
               <AssetList rows={positions} />
             </Panel>
             <Panel title="Shared Pools" caption={`${pools.length} watching`} icon={Layers3}>
-              <AssetList rows={pools} kind="pool" onTrade={openTrade} onPromote={promotePool} promoteBusy={promoteBusy} />
+              <AssetList
+                rows={pools}
+                kind="pool"
+                onTrade={openTrade}
+                onPromote={promotePool}
+                promoteBusy={promoteBusy}
+              />
             </Panel>
             <Panel
               title="Next Positions"
@@ -431,7 +437,10 @@ function AssetList({
             ? `Qty ${formatNumber(quantity)}`
             : null;
         return (
-          <div key={row.id ?? `${symbol}-${i}`} className={`asset-row ${isCandidate && Number(quantity ?? 0) < 100 ? 'border border-rose-500/60' : ''}`}> 
+          <div
+            key={row.id ?? `${symbol}-${i}`}
+            className={`asset-row ${isCandidate && Number(quantity ?? 0) < 100 ? 'border border-rose-500/60' : ''}`}
+          >
             <div className="asset-mark">{symbol.slice(0, 2).toUpperCase()}</div>
             <div className="asset-main">
               <p>{symbol}</p>
@@ -471,11 +480,18 @@ function AssetList({
                 {onPromote && (
                   <button
                     type="button"
-                    disabled={String(row.status ?? '').toUpperCase() === 'PROMOTED' || promoteBusy === String(row.id)}
+                    disabled={
+                      String(row.status ?? '').toUpperCase() === 'PROMOTED' ||
+                      promoteBusy === String(row.id)
+                    }
                     className="rounded-md border border-violet-500/30 bg-violet-500/10 px-2 py-1 text-xs font-semibold text-violet-200 hover:bg-violet-500/20 disabled:cursor-not-allowed disabled:opacity-40"
                     onClick={() => onPromote(row)}
                   >
-                    {promoteBusy === String(row.id) ? '…' : String(row.status ?? '').toUpperCase() === 'PROMOTED' ? 'Next' : '→ Next'}
+                    {promoteBusy === String(row.id)
+                      ? '…'
+                      : String(row.status ?? '').toUpperCase() === 'PROMOTED'
+                        ? 'Next'
+                        : '→ Next'}
                   </button>
                 )}
               </div>

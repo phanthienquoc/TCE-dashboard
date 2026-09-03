@@ -1,4 +1,12 @@
-import { BadRequestException, Body, Controller, Headers, Param, Post, UnauthorizedException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Body,
+  Controller,
+  Headers,
+  Param,
+  Post,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { JwtService } from '../auth/jwt.service';
 import { SupabaseClientService } from '../db/supabase.client';
 
@@ -55,13 +63,18 @@ export class PoolPromotionController {
       .in('status', ['queued', 'ready']);
     if (candidateError) throw new BadRequestException(candidateError.message);
 
-    const allocated = (candidates ?? []).reduce((sum, row) => sum + Number(row.target_position ?? 0), 0);
+    const allocated = (candidates ?? []).reduce(
+      (sum, row) => sum + Number(row.target_position ?? 0),
+      0
+    );
     const availableAmount = Math.max(0, Number(account.capital_available ?? 0) - allocated);
     const configuredEntry = body?.entry != null ? Number(body.entry) : NaN;
-    const entry = Number.isFinite(configuredEntry) && configuredEntry > 0
-      ? configuredEntry
-      : Number(pool.entry_high ?? pool.entry_low ?? pool.target_price ?? 0);
-    if (!Number.isFinite(entry) || entry <= 0) throw new BadRequestException('Pool entry price is invalid');
+    const entry =
+      Number.isFinite(configuredEntry) && configuredEntry > 0
+        ? configuredEntry
+        : Number(pool.entry_high ?? pool.entry_low ?? pool.target_price ?? 0);
+    if (!Number.isFinite(entry) || entry <= 0)
+      throw new BadRequestException('Pool entry price is invalid');
 
     const maxQuantity = Math.floor(availableAmount / entry);
     const requestedQuantity = body?.quantity == null ? maxQuantity : Number(body.quantity);
@@ -85,7 +98,9 @@ export class PoolPromotionController {
         promoted_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       })
-      .select('id,account_id,symbol,rank,target_position,target_quantity,target_price,status,reason,score,pool_entry_id,promoted_at,created_at,updated_at')
+      .select(
+        'id,account_id,symbol,rank,target_position,target_quantity,target_price,status,reason,score,pool_entry_id,promoted_at,created_at,updated_at'
+      )
       .single();
     if (insertError) throw new BadRequestException(insertError.message);
 
