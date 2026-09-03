@@ -25,7 +25,7 @@ import { Card, CardContent } from '../../components/ui/card';
 import PlatformConfigTab from '../../components/config/PlatformConfigTab';
 import { NavigationDock } from '../../components/navigation/NavigationDock';
 import { useAuthStore, useDashboardStore } from '../../lib/store';
-import { platformApi } from '../../lib/api';
+import { dashboardApi, platformApi } from '../../lib/api';
 
 type Tab = 'overview' | 'positions' | 'orders' | 'settings';
 type NavItem = {
