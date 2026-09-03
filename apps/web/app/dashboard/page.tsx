@@ -575,7 +575,9 @@ function TradeTicket({
   }) => void;
 }) {
   const [side, setSide] = useState<'BUY' | 'SELL'>((pool?.side ?? 'BUY') as 'BUY' | 'SELL');
-  const [quantity, setQuantity] = useState(String(pool?.quantity ?? pool?.targetQuantity ?? pool?.target_quantity ?? 100));
+  const [quantity, setQuantity] = useState(
+    String(pool?.quantity ?? pool?.targetQuantity ?? pool?.target_quantity ?? 100)
+  );
   const [orderType, setOrderType] = useState<
     'LO' | 'MTL' | 'MP' | 'ATO' | 'ATC' | 'MOK' | 'MAK' | 'PLO'
   >('LO');
@@ -589,7 +591,10 @@ function TradeTicket({
       <Card className="trade-ticket">
         <div className="panel-head">
           <div>
-            <h2>{isNextPosition ? 'Create order' : 'Trade'} {String(pool?.symbol ?? pool?.code ?? 'asset').toUpperCase()}</h2>
+            <h2>
+              {isNextPosition ? 'Create order' : 'Trade'}{' '}
+              {String(pool?.symbol ?? pool?.code ?? 'asset').toUpperCase()}
+            </h2>
             <p>{isNextPosition ? 'Create SSI buy order from Next Position' : 'SSI order'}</p>
           </div>
           <button
@@ -670,7 +675,12 @@ function TradeTicket({
                   })
                 : undefined
             }
-            disabled={busy || !Number.isInteger(numericQuantity) || numericQuantity <= 0 || (orderType === 'LO' && (!Number.isFinite(numericPrice) || numericPrice <= 0))}
+            disabled={
+              busy ||
+              !Number.isInteger(numericQuantity) ||
+              numericQuantity <= 0 ||
+              (orderType === 'LO' && (!Number.isFinite(numericPrice) || numericPrice <= 0))
+            }
           >
             {busy ? 'Submitting…' : `BUY ${String(pool?.symbol ?? pool?.code ?? '').toUpperCase()}`}
           </button>
