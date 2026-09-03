@@ -66,7 +66,10 @@ test('SsiBrokerAdapter filters out derivative accounts during snapshot', async (
     assert.equal(result.data[0].account.accountType, 'Cash');
     assert.equal(result.data[1].account.accountNo, '1234566');
     assert.equal(result.data[1].account.accountType, 'Margin');
-    assert.equal(result.data.some(s => s.account.accountNo === '1234568'), false);
+    assert.equal(
+      result.data.some(s => s.account.accountNo === '1234568'),
+      false
+    );
   }
 });
 

@@ -289,33 +289,38 @@ export class SsiApplicationService {
     for (let attempt = 0; attempt < 4; attempt += 1) {
       const orders = await session.adapter.orders(accountNo);
       if (orders.ok) {
-        const match = orders.data.find(order =>
-          (result.data.orderId && order.externalId === result.data.orderId) ||
-          (requestedClientRequestId && order.clientRequestId === requestedClientRequestId) ||
-          (result.data.clientRequestId && order.clientRequestId === result.data.clientRequestId)
+        const match = orders.data.find(
+          order =>
+            (result.data.orderId && order.externalId === result.data.orderId) ||
+            (requestedClientRequestId && order.clientRequestId === requestedClientRequestId) ||
+            (result.data.clientRequestId && order.clientRequestId === result.data.clientRequestId)
         );
         if (match) {
           confirmed = true;
           confirmedOrderId = match.externalId;
           providerStatus = match.status;
-          await this.handleOrderEvent(accountId, { ...session, accountNo }, {
-            type: 'orderEvent',
-            accountNo,
-            clientRequestId: match.clientRequestId,
-            orderId: match.externalId,
-            symbol: match.symbol,
-            side: match.side === 'SELL' ? 'S' : 'B',
-            orderType: match.orderType,
-            price: match.price,
-            quantity: match.quantity,
-            osQuantity: match.osQuantity,
-            cancelQuantity: match.cancelQuantity,
-            filledQuantity: match.filledQuantity,
-            status: match.status,
-            inputTime: match.createdAt,
-            modifyTime: match.modifyTime,
-            message: match.message,
-          });
+          await this.handleOrderEvent(
+            accountId,
+            { ...session, accountNo },
+            {
+              type: 'orderEvent',
+              accountNo,
+              clientRequestId: match.clientRequestId,
+              orderId: match.externalId,
+              symbol: match.symbol,
+              side: match.side === 'SELL' ? 'S' : 'B',
+              orderType: match.orderType,
+              price: match.price,
+              quantity: match.quantity,
+              osQuantity: match.osQuantity,
+              cancelQuantity: match.cancelQuantity,
+              filledQuantity: match.filledQuantity,
+              status: match.status,
+              inputTime: match.createdAt,
+              modifyTime: match.modifyTime,
+              message: match.message,
+            }
+          );
           break;
         }
       }
