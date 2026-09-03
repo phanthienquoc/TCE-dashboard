@@ -112,7 +112,9 @@ const normalizeDashboard = (snapshot: any) => {
     ...snapshot,
     pools: Array.isArray(snapshot.pools)
       ? snapshot.pools.filter((pool: any) => {
-          const status = String(pool?.status ?? '').trim().toUpperCase();
+          const status = String(pool?.status ?? '')
+            .trim()
+            .toUpperCase();
           const id = String(pool?.id ?? '').trim();
           return status !== 'PROMOTED' && !promotedPoolIds.has(id);
         })
