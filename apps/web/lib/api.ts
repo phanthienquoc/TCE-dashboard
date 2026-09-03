@@ -114,6 +114,16 @@ export const platformApi = {
     api.post('/platform/credentials/ssi/current', body),
   ssiSync: (body: Record<string, unknown>) => api.post('/platform/credentials/ssi/sync', body),
   ssiMarketPriceSync: () => api.post('/platform/credentials/ssi/sync-market-price'),
+  ssiOrder: (body: {
+    environment?: string;
+    accountNo?: string;
+    symbol: string;
+    side: 'BUY' | 'SELL';
+    quantity: number;
+    orderType: 'LO' | 'MTL' | 'MP' | 'ATO' | 'ATC' | 'MOK' | 'MAK' | 'PLO';
+    price?: number;
+    clientRequestId?: string;
+  }) => api.post('/platform/credentials/ssi/order', body),
   fastApiConfig: () => api.get('/platform/config/fastapi'),
   saveFastApi: (body: Record<string, string>) => api.post('/platform/config/fastapi', body),
 };

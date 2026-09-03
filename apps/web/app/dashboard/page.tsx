@@ -16,13 +16,14 @@ import {
   ShoppingCart,
   TrendingUp,
   WalletCards,
+  X,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { Button } from '../../components/ui/button';
 import { Card, CardContent } from '../../components/ui/card';
-import { NavigationDock } from '../../components/navigation/NavigationDock';
 import PlatformConfigTab from '../../components/config/PlatformConfigTab';
 import { useAuthStore, useDashboardStore } from '../../lib/store';
+import { platformApi } from '../../lib/api';
 
 type Tab = 'overview' | 'positions' | 'orders' | 'settings';
 type NavItem = {
@@ -45,6 +46,10 @@ export default function DashboardPage() {
   const { user, loading: authLoading, initialized, init, logout } = useAuthStore();
   const { data, loading, error, load } = useDashboardStore();
   const [tab, setTab] = useState<Tab>('overview');
+  const [tradePool, setTradePool] = useState<any | null>(null);
+  const [tradeError, setTradeError] = useState('');
+  const [tradeBusy, setTradeBusy] = useState(false);
+
   useEffect(() => {
     void init();
   }, [init]);
@@ -80,10 +85,46 @@ export default function DashboardPage() {
   const portfolioValue = account.totalValue ?? account.portfolioValue ?? account.equity;
   const visibleAccounts =
     Array.isArray(accounts) && accounts.length ? accounts : inferAccounts(positions);
+  const ssiAccountNo = findSsiAccountNo(visibleAccounts);
   const navigationItems = navigation.map(item => ({
     ...item,
     active: item.id !== 'engine' && item.id !== 'notifications' && tab === item.id,
   }));
+
+  const openTrade = (pool: any) => {
+    setTradeError('');
+    setTradePool({ ...pool, __ssiAccountNo: ssiAccountNo });
+  };
+  const submitTrade = async (payload: {
+    side: 'BUY' | 'SELL';
+    quantity: number;
+    orderType: 'LO' | 'MTL' | 'MP' | 'ATO' | 'ATC' | 'MOK' | 'MAK' | 'PLO';
+    price?: number;
+  }) => {
+    if (!tradePool) return;
+    setTradeBusy(true);
+    setTradeError('');
+    try {
+      const environment = String(tradePool.environment ?? 'production');
+      const accountNo = String(tradePool.__ssiAccountNo ?? tradePool.accountNo ?? '').trim();
+      if (!accountNo) throw new Error('SSI account is not configured. Connect SSI in Settings first.');
+      await platformApi.ssiOrder({
+        environment,
+        accountNo,
+        symbol: String(tradePool.symbol ?? tradePool.code ?? '').toUpperCase(),
+        ...payload,
+      });
+      setTradePool(null);
+      await load();
+    } catch (err: any) {
+      setTradeError(
+        err?.response?.data?.message ?? err?.response?.data?.error?.message ?? err?.message ?? 'Order failed'
+      );
+    } finally {
+      setTradeBusy(false);
+    }
+  };
+
   return (
     <main className="app-shell">
       <header className="app-header">
@@ -190,7 +231,7 @@ export default function DashboardPage() {
               <AssetList rows={positions} />
             </Panel>
             <Panel title="Shared Pools" caption={`${pools.length} watching`} icon={Layers3}>
-              <AssetList rows={pools} kind="pool" />
+              <AssetList rows={pools} kind="pool" onTrade={openTrade} />
             </Panel>
             <Panel
               title="Next Positions"
@@ -231,10 +272,24 @@ export default function DashboardPage() {
         {error && <div className="error-banner">{error}</div>}
       </div>
       <NavigationDock items={navigationItems} />
+      {tradePool && (
+        <TradeTicket
+          pool={tradePool}
+          busy={tradeBusy}
+          error={tradeError}
+          onClose={() => !tradeBusy && setTradePool(null)}
+          onSubmit={submitTrade}
+        />
+      )}
     </main>
   );
 }
 
+function findSsiAccountNo(accounts: any[]) {
+  const ssi = accounts.find(item => String(item.provider ?? item.broker ?? '').toLowerCase() === 'ssi');
+  const direct = ssi?.accountNo ?? ssi?.externalAccountNo;
+  return direct == null ? '' : String(direct).trim();
+}
 function inferAccounts(positions: any[]) {
   const map = new Map<string, any>();
   for (const row of positions) {
@@ -298,9 +353,11 @@ function Panel({
 function AssetList({
   rows,
   kind = 'default',
+  onTrade,
 }: {
   rows: any[];
   kind?: 'default' | 'pool' | 'candidate';
+  onTrade?: (row: any) => void;
 }) {
   if (!rows.length) return <Empty kind={kind} />;
   return (
@@ -360,10 +417,143 @@ function AssetList({
                   : money(row.marketValue ?? row.market_value ?? row.price)}
               </small>
             </div>
-            <ChevronRight className="size-4 shrink-0 text-[#675a70]" />
+            {isPool && onTrade ? (
+              <div className="flex shrink-0 items-center gap-1.5">
+                <button
+                  type="button"
+                  className="rounded-md border border-emerald-500/30 bg-emerald-500/10 px-2 py-1 text-xs font-semibold text-emerald-300 hover:bg-emerald-500/20"
+                  onClick={() => onTrade({ ...row, __defaultSide: 'BUY' })}
+                >
+                  Buy
+                </button>
+                <button
+                  type="button"
+                  className="rounded-md border border-rose-500/30 bg-rose-500/10 px-2 py-1 text-xs font-semibold text-rose-300 hover:bg-rose-500/20"
+                  onClick={() => onTrade({ ...row, __defaultSide: 'SELL' })}
+                >
+                  Sell
+                </button>
+              </div>
+            ) : (
+              <ChevronRight className="size-4 shrink-0 text-[#675a70]" />
+            )}
           </div>
         );
       })}
+    </div>
+  );
+}
+function TradeTicket({
+  pool,
+  busy,
+  error,
+  onClose,
+  onSubmit,
+}: {
+  pool: any;
+  busy: boolean;
+  error: string;
+  onClose: () => void;
+  onSubmit: (payload: {
+    side: 'BUY' | 'SELL';
+    quantity: number;
+    orderType: 'LO' | 'MTL' | 'MP' | 'ATO' | 'ATC' | 'MOK' | 'MAK' | 'PLO';
+    price?: number;
+  }) => Promise<void>;
+}) {
+  const [side, setSide] = useState<'BUY' | 'SELL'>(pool.__defaultSide ?? 'BUY');
+  const [quantity, setQuantity] = useState(String(pool.quantity ?? pool.targetQuantity ?? 100));
+  const [orderType, setOrderType] = useState<'LO' | 'MTL' | 'MP' | 'ATO' | 'ATC' | 'MOK' | 'MAK' | 'PLO'>('LO');
+  const defaultPrice = pool.currentPrice ?? pool.current_price ?? pool.entryHigh ?? pool.entry_high;
+  const [price, setPrice] = useState(defaultPrice == null ? '' : String(defaultPrice));
+  const symbol = String(pool.symbol ?? pool.code ?? '').toUpperCase();
+
+  const submit = () => {
+    const qty = Number(quantity);
+    const orderPrice = price === '' ? undefined : Number(price);
+    if (!Number.isInteger(qty) || qty <= 0) return;
+    if (orderType === 'LO' && (!Number.isFinite(orderPrice) || Number(orderPrice) <= 0)) return;
+    void onSubmit({ side, quantity: qty, orderType, price: orderPrice });
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-0 sm:items-center sm:p-4">
+      <div className="w-full max-w-lg rounded-t-2xl border border-white/10 bg-[#151019] p-5 shadow-2xl sm:rounded-2xl">
+        <div className="mb-5 flex items-center justify-between">
+          <div>
+            <p className="eyebrow">SSI order</p>
+            <h2 className="text-xl font-semibold">{symbol}</h2>
+          </div>
+          <button type="button" onClick={onClose} disabled={busy} aria-label="Close order ticket">
+            <X className="size-5" />
+          </button>
+        </div>
+        <div className="mb-4 grid grid-cols-2 gap-2">
+          <button
+            type="button"
+            className={`rounded-lg px-4 py-3 text-sm font-semibold ${side === 'BUY' ? 'bg-emerald-500/20 text-emerald-300 ring-1 ring-emerald-500/40' : 'bg-white/5 text-white/60'}`}
+            onClick={() => setSide('BUY')}
+            disabled={busy}
+          >
+            Buy
+          </button>
+          <button
+            type="button"
+            className={`rounded-lg px-4 py-3 text-sm font-semibold ${side === 'SELL' ? 'bg-rose-500/20 text-rose-300 ring-1 ring-rose-500/40' : 'bg-white/5 text-white/60'}`}
+            onClick={() => setSide('SELL')}
+            disabled={busy}
+          >
+            Sell
+          </button>
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <label className="text-sm">
+            <span className="mb-1 block text-white/60">Quantity</span>
+            <input
+              className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 outline-none"
+              inputMode="numeric"
+              value={quantity}
+              onChange={e => setQuantity(e.target.value.replace(/\D/g, ''))}
+              disabled={busy}
+            />
+          </label>
+          <label className="text-sm">
+            <span className="mb-1 block text-white/60">Order type</span>
+            <select
+              className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 outline-none"
+              value={orderType}
+              onChange={e => setOrderType(e.target.value as typeof orderType)}
+              disabled={busy}
+            >
+              <option value="LO">LO</option>
+              <option value="MTL">MTL</option>
+              <option value="MP">MP</option>
+              <option value="ATO">ATO</option>
+              <option value="ATC">ATC</option>
+              <option value="MOK">MOK</option>
+              <option value="MAK">MAK</option>
+              <option value="PLO">PLO</option>
+            </select>
+          </label>
+        </div>
+        <label className="mt-3 block text-sm">
+          <span className="mb-1 block text-white/60">Price {orderType === 'LO' ? '(required)' : '(optional)'}</span>
+          <input
+            className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 outline-none"
+            inputMode="decimal"
+            value={price}
+            onChange={e => setPrice(e.target.value)}
+            disabled={busy || orderType !== 'LO'}
+          />
+        </label>
+        {error && <div className="mt-3 rounded-lg border border-rose-500/30 bg-rose-500/10 p-3 text-sm text-rose-200">{error}</div>}
+        <div className="mt-5 flex justify-end gap-2">
+          <Button variant="outline" onClick={onClose} disabled={busy}>Cancel</Button>
+          <Button onClick={submit} disabled={busy || !symbol}>
+            {busy ? 'Submitting…' : `${side === 'BUY' ? 'Buy' : 'Sell'} ${symbol}`}
+          </Button>
+        </div>
+      </div>
     </div>
   );
 }
