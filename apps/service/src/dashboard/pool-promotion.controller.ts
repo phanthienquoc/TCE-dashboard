@@ -35,6 +35,9 @@ export class PoolPromotionController {
       .eq('account_id', account.id)
       .single();
     if (poolError || !pool) throw new BadRequestException('Pool entry not found');
+    if (String(pool.status ?? '').toUpperCase() === 'PROMOTED') {
+      throw new BadRequestException('This pool item is already in Next Positions');
+    }
 
     const { data: existing } = await this.supabase.db
       .from('tce_buy_candidates')
@@ -61,9 +64,8 @@ export class PoolPromotionController {
     if (!Number.isFinite(entry) || entry <= 0) throw new BadRequestException('Pool entry price is invalid');
 
     const maxQuantity = Math.floor(availableAmount / entry);
-    const quantity = body?.quantity != null
-      ? Math.floor(Number(body.quantity) / 100) * 100
-      : Math.floor(maxQuantity / 100) * 100;
+    const requestedQuantity = body?.quantity == null ? maxQuantity : Number(body.quantity);
+    const quantity = Math.floor(Math.max(0, requestedQuantity) / 100) * 100;
     const warning = quantity < 100;
     const targetPosition = quantity * entry;
 
@@ -86,6 +88,13 @@ export class PoolPromotionController {
       .select('id,account_id,symbol,rank,target_position,target_quantity,target_price,status,reason,score,pool_entry_id,promoted_at,created_at,updated_at')
       .single();
     if (insertError) throw new BadRequestException(insertError.message);
+
+    const { error: poolUpdateError } = await this.supabase.db
+      .from('tce_pool_entries')
+      .update({ status: 'PROMOTED', updated_at: new Date().toISOString() })
+      .eq('id', pool.id)
+      .eq('account_id', account.id);
+    if (poolUpdateError) throw new BadRequestException(poolUpdateError.message);
 
     return {
       ...candidate,
