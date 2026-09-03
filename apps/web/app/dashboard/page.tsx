@@ -458,7 +458,12 @@ function AssetList({
 }
 
 function Empty({ kind }: { kind: 'default' | 'pool' | 'candidate' }) {
-  const message = kind === 'pool' ? 'No shared pool items' : kind === 'candidate' ? 'No candidates yet' : 'No data yet';
+  const message =
+    kind === 'pool'
+      ? 'No shared pool items'
+      : kind === 'candidate'
+        ? 'No candidates yet'
+        : 'No data yet';
   return <div className="empty-state">{message}</div>;
 }
 
@@ -543,7 +548,9 @@ function TradeTicket({
 }) {
   const [side, setSide] = useState<'BUY' | 'SELL'>('BUY');
   const [quantity, setQuantity] = useState('100');
-  const [orderType, setOrderType] = useState<'LO' | 'MTL' | 'MP' | 'ATO' | 'ATC' | 'MOK' | 'MAK' | 'PLO'>('LO');
+  const [orderType, setOrderType] = useState<
+    'LO' | 'MTL' | 'MP' | 'ATO' | 'ATC' | 'MOK' | 'MAK' | 'PLO'
+  >('LO');
   const [price, setPrice] = useState(String(pool?.currentPrice ?? pool?.current_price ?? ''));
   const numericQuantity = Number(quantity);
   const numericPrice = Number(price);
@@ -556,39 +563,70 @@ function TradeTicket({
             <h2>Trade {String(pool?.symbol ?? pool?.code ?? 'asset').toUpperCase()}</h2>
             <p>SSI order</p>
           </div>
-          <button className="icon-button" onClick={onClose} aria-label="Close trade ticket" disabled={busy}>
+          <button
+            className="icon-button"
+            onClick={onClose}
+            aria-label="Close trade ticket"
+            disabled={busy}
+          >
             <X className="size-4" />
           </button>
         </div>
         <div className="trade-controls">
           <div className="trade-side-toggle">
-            <button className={side === 'BUY' ? 'active' : ''} onClick={() => setSide('BUY')} disabled={busy}>
+            <button
+              className={side === 'BUY' ? 'active' : ''}
+              onClick={() => setSide('BUY')}
+              disabled={busy}
+            >
               BUY
             </button>
-            <button className={side === 'SELL' ? 'active' : ''} onClick={() => setSide('SELL')} disabled={busy}>
+            <button
+              className={side === 'SELL' ? 'active' : ''}
+              onClick={() => setSide('SELL')}
+              disabled={busy}
+            >
               SELL
             </button>
           </div>
           <label>
             Quantity
-            <input value={quantity} onChange={event => setQuantity(event.target.value)} inputMode="numeric" disabled={busy} />
+            <input
+              value={quantity}
+              onChange={event => setQuantity(event.target.value)}
+              inputMode="numeric"
+              disabled={busy}
+            />
           </label>
           <label>
             Order type
-            <select value={orderType} onChange={event => setOrderType(event.target.value as typeof orderType)} disabled={busy}>
+            <select
+              value={orderType}
+              onChange={event => setOrderType(event.target.value as typeof orderType)}
+              disabled={busy}
+            >
               {['LO', 'MTL', 'MP', 'ATO', 'ATC', 'MOK', 'MAK', 'PLO'].map(type => (
-                <option key={type} value={type}>{type}</option>
+                <option key={type} value={type}>
+                  {type}
+                </option>
               ))}
             </select>
           </label>
           <label>
             Price
-            <input value={price} onChange={event => setPrice(event.target.value)} inputMode="decimal" disabled={busy} />
+            <input
+              value={price}
+              onChange={event => setPrice(event.target.value)}
+              inputMode="decimal"
+              disabled={busy}
+            />
           </label>
         </div>
         {error && <div className="error-banner">{error}</div>}
         <div className="trade-actions">
-          <button className="panel-action" onClick={onClose} disabled={busy}>Cancel</button>
+          <button className="panel-action" onClick={onClose} disabled={busy}>
+            Cancel
+          </button>
           <button
             className="primary-action"
             onClick={() =>
@@ -597,13 +635,17 @@ function TradeTicket({
                     side,
                     quantity: numericQuantity,
                     orderType,
-                    ...(orderType === 'LO' && Number.isFinite(numericPrice) ? { price: numericPrice } : {}),
+                    ...(orderType === 'LO' && Number.isFinite(numericPrice)
+                      ? { price: numericPrice }
+                      : {}),
                   })
                 : undefined
             }
             disabled={busy || !Number.isFinite(numericQuantity) || numericQuantity <= 0}
           >
-            {busy ? 'Submitting…' : `${side} ${String(pool?.symbol ?? pool?.code ?? '').toUpperCase()}`}
+            {busy
+              ? 'Submitting…'
+              : `${side} ${String(pool?.symbol ?? pool?.code ?? '').toUpperCase()}`}
           </button>
         </div>
       </Card>
