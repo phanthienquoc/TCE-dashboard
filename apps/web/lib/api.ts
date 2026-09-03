@@ -62,6 +62,8 @@ export const dashboardApi = {
   pools: (status?: string) =>
     api.get('/dashboard/pools', { params: status ? { status } : undefined }),
   nextPositions: () => api.get('/dashboard/next-positions'),
+  promotePool: (poolEntryId: string, body?: { entry?: number; quantity?: number }) =>
+    api.post(`/dashboard/pools/${encodeURIComponent(poolEntryId)}/promote`, body ?? {}),
   strategy: () => api.get('/dashboard/strategy'),
   sources: () => api.get('/dashboard/sources'),
   engines: () => api.get('/dashboard/engines'),
