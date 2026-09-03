@@ -76,12 +76,36 @@ export class DashboardService {
       .order('rank', { ascending: true })
       .limit(20);
     if (error) throw this.dbError('getNextPositionsForUser', error);
-    return (data ?? []).map(candidate => ({
+
+    const rows = data ?? [];
+    const poolIds = rows
+      .map(candidate => candidate.pool_entry_id)
+      .filter((id): id is string => Boolean(id));
+    const holdDaysByPoolId = new Map<string, number | null>();
+    if (poolIds.length) {
+      const { data: poolEntries, error: poolError } = await this.supabase.db
+        .from('tce_pool_entries')
+        .select('id,expected_hold_days')
+        .in('id', poolIds);
+      if (poolError) throw this.dbError('getNextPositionsForUser.poolHoldDays', poolError);
+      for (const pool of poolEntries ?? []) {
+        holdDaysByPoolId.set(
+          String(pool.id),
+          pool.expected_hold_days == null ? null : Number(pool.expected_hold_days)
+        );
+      }
+    }
+
+    return rows.map(candidate => ({
       ...candidate,
       targetPosition: candidate.target_position == null ? null : Number(candidate.target_position),
       targetQuantity: candidate.target_quantity == null ? null : Number(candidate.target_quantity),
       targetPrice: candidate.target_price == null ? null : Number(candidate.target_price),
       score: candidate.score == null ? null : Number(candidate.score),
+      expectedHoldDays:
+        candidate.pool_entry_id == null
+          ? null
+          : (holdDaysByPoolId.get(String(candidate.pool_entry_id)) ?? null),
     }));
   }
   async getOrdersForUser(userId: string) {
