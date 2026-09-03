@@ -6,7 +6,11 @@ import {
   FuturesTpSlInput,
   PlatformCredentialPort,
 } from '@tce/contracts';
-import { BinanceFuturesExecutionAdapter, BinanceFuturesStateAdapter } from '@tce/binance';
+import {
+  BinanceFuturesExecutionAdapter,
+  BinanceFuturesStateAdapter,
+  BinanceFuturesUserDataStream,
+} from '@tce/binance';
 
 type BinanceEnvironment = 'production' | 'testnet';
 
@@ -40,6 +44,11 @@ export class BinanceFuturesService {
   private async state(userId: string, environment = 'production') {
     const { selected, apiKey, apiSecret } = await this.credentialValues(userId, environment);
     return new BinanceFuturesStateAdapter({ apiKey, apiSecret }, selected);
+  }
+
+  async userDataStream(userId: string, environment = 'production') {
+    const { selected, apiKey, apiSecret } = await this.credentialValues(userId, environment);
+    return new BinanceFuturesUserDataStream({ apiKey, apiSecret }, selected);
   }
 
   async testConnection(userId: string, environment = 'production') {
