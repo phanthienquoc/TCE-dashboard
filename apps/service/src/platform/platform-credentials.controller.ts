@@ -243,8 +243,13 @@ export class PlatformCredentialsController {
     if (request.side !== 'BUY' && request.side !== 'SELL')
       throw new UnauthorizedException('SSI order side must be BUY or SELL');
     if (!request.symbol || !Number.isInteger(request.quantity) || request.quantity <= 0)
-      throw new UnauthorizedException('SSI order symbol and positive integer quantity are required');
-    if (request.orderType === 'LO' && (!Number.isFinite(request.price) || Number(request.price) <= 0))
+      throw new UnauthorizedException(
+        'SSI order symbol and positive integer quantity are required'
+      );
+    if (
+      request.orderType === 'LO' &&
+      (!Number.isFinite(request.price) || Number(request.price) <= 0)
+    )
       throw new UnauthorizedException('SSI LO orders require a positive price');
     return this.ssi.placeOrder(this.userId(auth), environment ?? 'production', request);
   }

@@ -107,7 +107,8 @@ export default function DashboardPage() {
     try {
       const environment = String(tradePool.environment ?? 'production');
       const accountNo = String(tradePool.__ssiAccountNo ?? tradePool.accountNo ?? '').trim();
-      if (!accountNo) throw new Error('SSI account is not configured. Connect SSI in Settings first.');
+      if (!accountNo)
+        throw new Error('SSI account is not configured. Connect SSI in Settings first.');
       await platformApi.ssiOrder({
         environment,
         accountNo,
@@ -118,7 +119,10 @@ export default function DashboardPage() {
       await load();
     } catch (err: any) {
       setTradeError(
-        err?.response?.data?.message ?? err?.response?.data?.error?.message ?? err?.message ?? 'Order failed'
+        err?.response?.data?.message ??
+          err?.response?.data?.error?.message ??
+          err?.message ??
+          'Order failed'
       );
     } finally {
       setTradeBusy(false);
@@ -286,7 +290,9 @@ export default function DashboardPage() {
 }
 
 function findSsiAccountNo(accounts: any[]) {
-  const ssi = accounts.find(item => String(item.provider ?? item.broker ?? '').toLowerCase() === 'ssi');
+  const ssi = accounts.find(
+    item => String(item.provider ?? item.broker ?? '').toLowerCase() === 'ssi'
+  );
   const direct = ssi?.accountNo ?? ssi?.externalAccountNo;
   return direct == null ? '' : String(direct).trim();
 }
@@ -463,7 +469,9 @@ function TradeTicket({
 }) {
   const [side, setSide] = useState<'BUY' | 'SELL'>(pool.__defaultSide ?? 'BUY');
   const [quantity, setQuantity] = useState(String(pool.quantity ?? pool.targetQuantity ?? 100));
-  const [orderType, setOrderType] = useState<'LO' | 'MTL' | 'MP' | 'ATO' | 'ATC' | 'MOK' | 'MAK' | 'PLO'>('LO');
+  const [orderType, setOrderType] = useState<
+    'LO' | 'MTL' | 'MP' | 'ATO' | 'ATC' | 'MOK' | 'MAK' | 'PLO'
+  >('LO');
   const defaultPrice = pool.currentPrice ?? pool.current_price ?? pool.entryHigh ?? pool.entry_high;
   const [price, setPrice] = useState(defaultPrice == null ? '' : String(defaultPrice));
   const symbol = String(pool.symbol ?? pool.code ?? '').toUpperCase();
@@ -537,7 +545,9 @@ function TradeTicket({
           </label>
         </div>
         <label className="mt-3 block text-sm">
-          <span className="mb-1 block text-white/60">Price {orderType === 'LO' ? '(required)' : '(optional)'}</span>
+          <span className="mb-1 block text-white/60">
+            Price {orderType === 'LO' ? '(required)' : '(optional)'}
+          </span>
           <input
             className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 outline-none"
             inputMode="decimal"
@@ -546,9 +556,15 @@ function TradeTicket({
             disabled={busy || orderType !== 'LO'}
           />
         </label>
-        {error && <div className="mt-3 rounded-lg border border-rose-500/30 bg-rose-500/10 p-3 text-sm text-rose-200">{error}</div>}
+        {error && (
+          <div className="mt-3 rounded-lg border border-rose-500/30 bg-rose-500/10 p-3 text-sm text-rose-200">
+            {error}
+          </div>
+        )}
         <div className="mt-5 flex justify-end gap-2">
-          <Button variant="outline" onClick={onClose} disabled={busy}>Cancel</Button>
+          <Button variant="outline" onClick={onClose} disabled={busy}>
+            Cancel
+          </Button>
           <Button onClick={submit} disabled={busy || !symbol}>
             {busy ? 'Submitting…' : `${side === 'BUY' ? 'Buy' : 'Sell'} ${symbol}`}
           </Button>
