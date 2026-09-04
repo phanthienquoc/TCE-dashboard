@@ -242,7 +242,7 @@ test('cancelOrder maps Binance cancel response', async () => {
     apiSecret: 's',
   }).cancelOrder({ symbol: 'btcusdt', orderId: '123' });
   assert.equal(result.ok, true);
-  assert.deepEqual(received, { symbol: 'BTCUSDT', orderId: 123, origClientOrderId: undefined });
+  assert.deepEqual(received, { symbol: 'BTCUSDT', orderId: 123 });
   if (result.ok)
     assert.deepEqual(result.data, {
       orderId: '123',
