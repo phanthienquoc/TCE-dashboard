@@ -19,7 +19,7 @@ export default function PlatformConfigTab() {
   );
   const props: PlatformConfigProps = { busy, setBusy };
   return (
-    <div className="min-w-0 space-y-4 overflow-hidden">
+    <div className="platform-config min-w-0 space-y-4 overflow-hidden">
       <div className="min-w-0">
         <p className="eyebrow">Platform configuration</p>
         <h2 className="mt-1 text-xl font-semibold text-foreground">Connections & environments</h2>
