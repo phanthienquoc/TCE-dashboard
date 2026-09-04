@@ -1,4 +1,9 @@
-import { Inject, Injectable, ServiceUnavailableException, UnauthorizedException } from '@nestjs/common';
+import {
+  Inject,
+  Injectable,
+  ServiceUnavailableException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import {
   CONTRACT_TOKENS,
   FuturesCancelOrderInput,
@@ -40,7 +45,10 @@ export class BinanceFuturesService {
     } catch (error) {
       if (error instanceof ServiceUnavailableException) throw error;
       const message = error instanceof Error ? error.message : String(error);
-      if (/credentials not configured/i.test(message) || /platform credentials not configured/i.test(message))
+      if (
+        /credentials not configured/i.test(message) ||
+        /platform credentials not configured/i.test(message)
+      )
         throw new ServiceUnavailableException({
           code: 'BINANCE_CREDENTIALS_MISSING',
           message: `Binance ${selected} credentials are missing. Configure your API Key and API Secret first.`,
