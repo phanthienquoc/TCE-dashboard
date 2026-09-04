@@ -102,7 +102,12 @@ export default function BinancePlatformConfig({ busy, setBusy }: PlatformConfigP
             className="hidden"
             onChange={event => void uploadJson(event.target.files?.[0])}
           />
-          <Button type="button" variant="outline" disabled={!!busy} onClick={() => fileInputRef.current?.click()}>
+          <Button
+            type="button"
+            variant="outline"
+            disabled={!!busy}
+            onClick={() => fileInputRef.current?.click()}
+          >
             <Upload className="size-4" /> Import JSON
           </Button>
           {fileName && (
