@@ -49,10 +49,19 @@ const invalidInput = (message: string): ContractResult<never> => ({
 const validateOrderInput = (input: FuturesEntryOrderInput | FuturesTpSlInput) => {
   const symbol = String(input.symbol ?? '').trim();
   if (!symbol) return 'Binance symbol is required';
-  if (!Number.isFinite(input.quantity) || input.quantity <= 0) return 'Binance quantity must be greater than 0';
-  if ('price' in input && input.price !== undefined && (!Number.isFinite(input.price) || input.price <= 0))
+  if (!Number.isFinite(input.quantity) || input.quantity <= 0)
+    return 'Binance quantity must be greater than 0';
+  if (
+    'price' in input &&
+    input.price !== undefined &&
+    (!Number.isFinite(input.price) || input.price <= 0)
+  )
     return 'Binance price must be greater than 0';
-  if ('limitPrice' in input && input.limitPrice !== undefined && (!Number.isFinite(input.limitPrice) || input.limitPrice <= 0))
+  if (
+    'limitPrice' in input &&
+    input.limitPrice !== undefined &&
+    (!Number.isFinite(input.limitPrice) || input.limitPrice <= 0)
+  )
     return 'Binance limitPrice must be greater than 0';
   if ('triggerPrice' in input && (!Number.isFinite(input.triggerPrice) || input.triggerPrice <= 0))
     return 'Binance triggerPrice must be greater than 0';
@@ -199,7 +208,8 @@ export class BinanceFuturesExecutionAdapter implements FuturesExecutionPort {
         price: input.price,
         stopPrice: input.triggerPrice,
         // Binance rejects reduceOnly in Hedge Mode; false is unnecessary for normal entries.
-        reduceOnly: input.positionSide === 'BOTH' && input.reduceOnly ? boolString(true) : undefined,
+        reduceOnly:
+          input.positionSide === 'BOTH' && input.reduceOnly ? boolString(true) : undefined,
         newClientOrderId: input.clientOrderId,
         // Binance New Order does not accept timeInForce for MARKET orders.
         timeInForce: input.price !== undefined ? (input.timeInForce ?? 'GTC') : undefined,

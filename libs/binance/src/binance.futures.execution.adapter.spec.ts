@@ -197,7 +197,10 @@ test('rejects invalid order input before making provider calls', async () => {
     called = true;
     return {} as any;
   };
-  const result = await new BinanceFuturesExecutionAdapter({ apiKey: 'k', apiSecret: 's' }).placeEntry({
+  const result = await new BinanceFuturesExecutionAdapter({
+    apiKey: 'k',
+    apiSecret: 's',
+  }).placeEntry({
     symbol: 'BTCUSDT',
     side: 'BUY',
     quantity: 0,
