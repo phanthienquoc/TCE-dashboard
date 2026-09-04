@@ -1,55 +1,186 @@
-html, body {
+html,
+body {
   color-scheme: normal !important;
   background: var(--background) !important;
   color: var(--foreground) !important;
 }
 
-.auth-shell { background: var(--background) !important; color: var(--foreground) !important; }
-.auth-brand, .auth-brand b, .auth-brand span, .auth-header, .auth-header h1, .auth-card label, .auth-footer { color: var(--foreground) !important; }
-.auth-header p, .auth-footer, .secure-badge { color: var(--muted) !important; }
-.auth-card { background: var(--surface-strong) !important; border-color: var(--border) !important; }
+.auth-shell {
+  background: var(--background) !important;
+  color: var(--foreground) !important;
+}
+.auth-brand,
+.auth-brand b,
+.auth-brand span,
+.auth-header,
+.auth-header h1,
+.auth-card label,
+.auth-footer {
+  color: var(--foreground) !important;
+}
+.auth-header p,
+.auth-footer,
+.secure-badge {
+  color: var(--muted) !important;
+}
+.auth-card {
+  background: var(--surface-strong) !important;
+  border-color: var(--border) !important;
+}
 
-.platform-config [role='tablist'] { background: var(--surface) !important; border-color: var(--border) !important; }
-.platform-config [role='tab'] { color: var(--muted) !important; transition: background-color 180ms ease, color 180ms ease, transform 180ms ease; }
-.platform-config [role='tab'][data-state='active'] { background: var(--surface-strong) !important; color: var(--foreground) !important; box-shadow: 0 1px 3px rgb(0 0 0 / 0.12); }
-.platform-config [role='tab']:active { transform: scale(.98); }
+.platform-config [role='tablist'] {
+  background: var(--surface) !important;
+  border-color: var(--border) !important;
+}
+.platform-config [role='tab'] {
+  color: var(--muted) !important;
+  transition:
+    background-color 180ms ease,
+    color 180ms ease,
+    transform 180ms ease;
+}
+.platform-config [role='tab'][data-state='active'] {
+  background: var(--surface-strong) !important;
+  color: var(--foreground) !important;
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.12);
+}
+.platform-config [role='tab']:active {
+  transform: scale(0.98);
+}
 
-.platform-config [class*='bg-[#150d1d]'], .platform-config [class*='bg-[#120b18]'] { background: var(--surface-strong) !important; }
-.platform-config [class*='bg-violet-'] { background: color-mix(in srgb, var(--primary) 9%, var(--surface)) !important; }
-.platform-config [class*='border-violet-'] { border-color: var(--border) !important; }
-.platform-config [class*='text-violet-'] { color: var(--primary) !important; }
-.platform-config [class*='bg-emerald-'] { background: color-mix(in srgb, var(--success) 9%, var(--surface-strong)) !important; }
-.platform-config [class*='border-emerald-'] { border-color: color-mix(in srgb, var(--success) 30%, var(--border)) !important; }
-.platform-config [class*='text-emerald-'] { color: var(--success) !important; }
-.platform-config [class*='bg-amber-'] { background: color-mix(in srgb, var(--warning) 9%, var(--surface-strong)) !important; }
-.platform-config [class*='border-amber-'] { border-color: color-mix(in srgb, var(--warning) 30%, var(--border)) !important; }
-.platform-config [class*='text-amber-'] { color: var(--warning) !important; }
-.platform-config [class*='text-[#81748a]'], .platform-config [class*='text-[#75697d]'] { color: var(--muted) !important; }
-.platform-config [class*='text-white'] { color: var(--foreground) !important; }
-.platform-config select, .platform-config input, .platform-config textarea { background: var(--surface) !important; color: var(--foreground) !important; border-color: var(--border) !important; }
-.platform-config input::placeholder, .platform-config textarea::placeholder { color: var(--subtle) !important; }
+.platform-config [class*='bg-[#150d1d]'],
+.platform-config [class*='bg-[#120b18]'] {
+  background: var(--surface-strong) !important;
+}
+.platform-config [class*='bg-violet-'] {
+  background: color-mix(in srgb, var(--primary) 9%, var(--surface)) !important;
+}
+.platform-config [class*='border-violet-'] {
+  border-color: var(--border) !important;
+}
+.platform-config [class*='text-violet-'] {
+  color: var(--primary) !important;
+}
+.platform-config [class*='bg-emerald-'] {
+  background: color-mix(in srgb, var(--success) 9%, var(--surface-strong)) !important;
+}
+.platform-config [class*='border-emerald-'] {
+  border-color: color-mix(in srgb, var(--success) 30%, var(--border)) !important;
+}
+.platform-config [class*='text-emerald-'] {
+  color: var(--success) !important;
+}
+.platform-config [class*='bg-amber-'] {
+  background: color-mix(in srgb, var(--warning) 9%, var(--surface-strong)) !important;
+}
+.platform-config [class*='border-amber-'] {
+  border-color: color-mix(in srgb, var(--warning) 30%, var(--border)) !important;
+}
+.platform-config [class*='text-amber-'] {
+  color: var(--warning) !important;
+}
+.platform-config [class*='text-[#81748a]'],
+.platform-config [class*='text-[#75697d]'] {
+  color: var(--muted) !important;
+}
+.platform-config [class*='text-white'] {
+  color: var(--foreground) !important;
+}
+.platform-config select,
+.platform-config input,
+.platform-config textarea {
+  background: var(--surface) !important;
+  color: var(--foreground) !important;
+  border-color: var(--border) !important;
+}
+.platform-config input::placeholder,
+.platform-config textarea::placeholder {
+  color: var(--subtle) !important;
+}
 
-[role='dialog'] > button:first-child { animation: tce-backdrop-in 220ms ease-out both; }
-[role='dialog'] aside { border-left-color: var(--border) !important; animation: tce-drawer-in 300ms cubic-bezier(.22,1,.36,1) both; }
-[role='dialog'] nav a, [role='dialog'] nav button { transition: background-color 160ms ease, color 160ms ease, transform 160ms ease; }
-[role='dialog'] nav a:active, [role='dialog'] nav button:active { transform: scale(.985); }
+[role='dialog'] > button:first-child {
+  animation: tce-backdrop-in 220ms ease-out both;
+}
+[role='dialog'] aside {
+  border-left-color: var(--border) !important;
+  animation: tce-drawer-in 300ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+[role='dialog'] nav a,
+[role='dialog'] nav button {
+  transition:
+    background-color 160ms ease,
+    color 160ms ease,
+    transform 160ms ease;
+}
+[role='dialog'] nav a:active,
+[role='dialog'] nav button:active {
+  transform: scale(0.985);
+}
 
-.app-container > * { animation: tce-fade-up 360ms cubic-bezier(.22,1,.36,1) both; }
-.app-container > *:nth-child(2) { animation-delay: 35ms; }
-.app-container > *:nth-child(3) { animation-delay: 70ms; }
-.app-container > *:nth-child(4) { animation-delay: 105ms; }
+.app-container > * {
+  animation: tce-fade-up 360ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.app-container > *:nth-child(2) {
+  animation-delay: 35ms;
+}
+.app-container > *:nth-child(3) {
+  animation-delay: 70ms;
+}
+.app-container > *:nth-child(4) {
+  animation-delay: 105ms;
+}
 
-@keyframes tce-fade-up { from { opacity: 0; transform: translate3d(0, 8px, 0); } to { opacity: 1; transform: translate3d(0, 0, 0); } }
-@keyframes tce-drawer-in { from { opacity: 0; transform: translate3d(24px, 0, 0); } to { opacity: 1; transform: translate3d(0, 0, 0); } }
-@keyframes tce-backdrop-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes tce-fade-up {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 8px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+@keyframes tce-drawer-in {
+  from {
+    opacity: 0;
+    transform: translate3d(24px, 0, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+@keyframes tce-backdrop-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
 
 @media (prefers-reduced-motion: reduce) {
-  .app-container > *, [role='dialog'] > button:first-child, [role='dialog'] aside { animation: none !important; }
+  .app-container > *,
+  [role='dialog'] > button:first-child,
+  [role='dialog'] aside {
+    animation: none !important;
+  }
 }
 
 @media (max-width: 430px) {
-  .app-container { width: calc(100% - 32px) !important; }
-  .app-content { padding-right: 0 !important; padding-left: 0 !important; }
-  .app-content > * { min-width: 0; max-width: 100%; }
-  .mobile-bottom-nav { padding-left: env(safe-area-inset-left); padding-right: env(safe-area-inset-right); }
+  .app-container {
+    width: calc(100% - 32px) !important;
+  }
+  .app-content {
+    padding-right: 0 !important;
+    padding-left: 0 !important;
+  }
+  .app-content > * {
+    min-width: 0;
+    max-width: 100%;
+  }
+  .mobile-bottom-nav {
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
+  }
 }
