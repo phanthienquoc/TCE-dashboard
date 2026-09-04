@@ -1,12 +1,20 @@
 'use client';
 
 import { useState } from 'react';
-import { ChevronRight, Layers3, ShoppingCart, TrendingUp, WalletCards, X } from 'lucide-react';
+import {
+  ChevronRight,
+  Layers3,
+  ShoppingCart,
+  TrendingUp,
+  WalletCards,
+  X,
+} from 'lucide-react';
 import { Button } from '../ui/button';
 import { Card, CardContent } from '../ui/card';
 import PlatformConfigTab from '../config/PlatformConfigTab';
 import { Table } from '../../shareComponent/table';
 import { ListView } from '../../shareComponent/list-view';
+import { AccountCard } from '../../shareComponent/account-card';
 import type { DashboardActions, DashboardData, TradePayload } from './DashboardShell';
 
 export function OverviewView({ data, actions }: { data: DashboardData; actions: DashboardActions }) {
@@ -26,87 +34,38 @@ export function OverviewView({ data, actions }: { data: DashboardData; actions: 
           </div>
         </CardContent>
       </Card>
-
       {visibleAccounts.length > 0 && (
         <section className="dashboard-accounts">
           <SectionHeader title="Connected accounts" caption={`${visibleAccounts.length} connected`} />
-          <div className="account-strip">
-            {visibleAccounts.map((item: any, index: number) => {
-              const provider = String(item.provider ?? item.broker ?? 'Account');
-              const identifier = String(item.accountNo ?? item.externalAccountNo ?? item.environment ?? 'Connected');
-              return (
-                <div key={item.id ?? item.accountNo ?? item.externalAccountNo ?? index} className="account-chip themed-account-card">
-                  <span className="account-chip-icon">{provider.slice(0, 1).toUpperCase()}</span>
-                  <span className="min-w-0"><strong>{provider}</strong><small>{identifier}</small></span>
-                  <span className="account-dot" />
-                </div>
-              );
-            })}
+          <div className="account-strip shared-account-strip">
+            {visibleAccounts.map((item: any, index: number) => (
+              <AccountCard key={item.id ?? item.accountNo ?? item.externalAccountNo ?? index}
+                provider={String(item.provider ?? item.broker ?? 'Account')}
+                identifier={String(item.accountNo ?? item.externalAccountNo ?? item.environment ?? 'Connected')}
+                status={String(item.status ?? 'Connected')}
+              />
+            ))}
           </div>
         </section>
       )}
-
-      <Panel title="Current Positions" caption={`${positions.length} assets`} icon={WalletCards} action={() => window.location.assign('/position')}>
-        <AssetList rows={positions} />
-      </Panel>
-      <Panel title="Next Positions" caption={next.length ? `${next.length} candidates` : 'Candidates'} icon={TrendingUp} action={next.length > 5 ? () => window.location.assign('/position') : undefined}>
-        <AssetList rows={next} kind="candidate" onTrade={actions.openNextPositionOrder} />
-      </Panel>
-      <Panel title="Shared Pools" caption={`${pools.length} watching`} icon={Layers3} action={pools.length > 5 ? () => window.location.assign('/position') : undefined}>
-        <AssetList rows={pools} kind="pool" onTrade={actions.openTrade} onPromote={actions.promotePool} promoteBusy={actions.promoteBusy} />
-      </Panel>
-      <Panel title="Recent Orders" caption={`${orders.length} orders`} icon={ShoppingCart} action={() => window.location.assign('/order')}>
-        <AssetList rows={orders} />
-      </Panel>
+      <Panel title="Current Positions" caption={`${positions.length} assets`} icon={WalletCards} action={() => window.location.assign('/position')}><AssetList rows={positions} /></Panel>
+      <Panel title="Next Positions" caption={next.length ? `${next.length} candidates` : 'Candidates'} icon={TrendingUp} action={next.length > 5 ? () => window.location.assign('/position') : undefined}><AssetList rows={next} kind="candidate" onTrade={actions.openNextPositionOrder} /></Panel>
+      <Panel title="Shared Pools" caption={`${pools.length} watching`} icon={Layers3} action={pools.length > 5 ? () => window.location.assign('/position') : undefined}><AssetList rows={pools} kind="pool" onTrade={actions.openTrade} onPromote={actions.promotePool} promoteBusy={actions.promoteBusy} /></Panel>
+      <Panel title="Recent Orders" caption={`${orders.length} orders`} icon={ShoppingCart} action={() => window.location.assign('/order')}><AssetList rows={orders} /></Panel>
     </div>
   );
 }
 
 export function PositionsView({ data }: { data: DashboardData }) {
-  return (
-    <section className="dashboard-data-section">
-      <SectionHeader title="Positions" caption={`${data.positions.length} ${data.positions.length === 1 ? 'item' : 'items'}`} />
-      <Table rows={data.positions} getRowKey={(row: any, index) => row.id ?? row.symbol ?? index} columns={[
-        { key: 'symbol', label: 'Symbol' },
-        { key: 'quantity', label: 'Quantity' },
-        { key: 'avgBuyCost', label: 'Avg Buy' },
-        { key: 'marketPrice', label: 'Market Price' },
-        { key: 'unrealizedPnl', label: 'Unrealized P&L' },
-      ]} />
-    </section>
-  );
+  return <section className="dashboard-data-section"><SectionHeader title="Positions" caption={`${data.positions.length} ${data.positions.length === 1 ? 'item' : 'items'}`} /><Table rows={data.positions} getRowKey={(row: any, index) => row.id ?? row.symbol ?? index} columns={[{ key: 'symbol', label: 'Symbol' }, { key: 'quantity', label: 'Quantity' }, { key: 'avgBuyCost', label: 'Avg Buy' }, { key: 'marketPrice', label: 'Market Price' }, { key: 'unrealizedPnl', label: 'Unrealized P&L' }]} /></section>;
 }
 
 export function OrdersView({ data }: { data: DashboardData }) {
-  return (
-    <section className="dashboard-data-section">
-      <SectionHeader title="Orders" caption={`${data.orders.length} ${data.orders.length === 1 ? 'item' : 'items'}`} />
-      <Table rows={data.orders} getRowKey={(row: any, index) => row.id ?? row.symbol ?? index} columns={[
-        { key: 'side', label: 'Side' },
-        { key: 'symbol', label: 'Symbol' },
-        { key: 'quantity', label: 'Quantity' },
-        { key: 'price', label: 'Price' },
-        { key: 'status', label: 'Status' },
-        { key: 'fee', label: 'Fee' },
-        { key: 'tax', label: 'Tax' },
-      ]} />
-    </section>
-  );
+  return <section className="dashboard-data-section"><SectionHeader title="Orders" caption={`${data.orders.length} ${data.orders.length === 1 ? 'item' : 'items'}`} /><Table rows={data.orders} getRowKey={(row: any, index) => row.id ?? row.symbol ?? index} columns={[{ key: 'side', label: 'Side' }, { key: 'symbol', label: 'Symbol' }, { key: 'quantity', label: 'Quantity' }, { key: 'price', label: 'Price' }, { key: 'status', label: 'Status' }, { key: 'fee', label: 'Fee' }, { key: 'tax', label: 'Tax' }]} /></section>;
 }
 
 export function SettingsView() {
-  return (
-    <div className="dashboard-view dashboard-view-settings">
-      <div className="settings-grid-intro">
-        <p className="eyebrow">Workspace</p>
-        <h1>Settings</h1>
-        <p className="page-subtitle">Manage platform connections and environments.</p>
-      </div>
-      <div className="settings-grid-items">
-        <PlatformConfigTab />
-      </div>
-    </div>
-  );
+  return <div className="dashboard-view dashboard-view-settings"><div className="settings-grid-intro"><p className="eyebrow">Workspace</p><h1>Settings</h1><p className="page-subtitle">Manage platform connections and environments.</p></div><div className="settings-grid-items"><PlatformConfigTab /></div></div>;
 }
 
 function Panel({ title, caption, icon: Icon, action, children }: { title: string; caption: string; icon: typeof Layers3; action?: () => void; children: React.ReactNode }) {
@@ -126,10 +85,7 @@ function AssetList({ rows, kind = 'default', onTrade, onPromote, promoteBusy }: 
     const secondary = isPool ? `#${rank ?? '—'} · ${score == null ? '—' : formatNumber(score)} · ${String(row.status ?? 'WATCHING')}` : isCandidate ? `#${rank ?? '—'} · ${String(row.status ?? 'CANDIDATE')}` : `${formatNumber(quantity ?? 0)} units · ${String(row.status ?? 'OPEN')}`;
     return { id: row.id ?? row.symbol ?? row.code ?? i, title: symbol, description: secondary, trailing: <span className="asset-value">{primaryValue}</span> };
   });
-  const actionable = items.map((item, index) => ({
-    ...item,
-    trailing: <div className="asset-actions flex items-center gap-2">{item.trailing}{kind === 'candidate' && onTrade ? <button type="button" className="primary-action" onClick={() => onTrade(rows[index])}>Create order</button> : null}{kind === 'pool' && onTrade ? <button type="button" className="panel-action" onClick={() => onTrade(rows[index])}>Trade</button> : null}{kind === 'pool' && onPromote && rows[index]?.id ? <button type="button" className="panel-action" onClick={() => onPromote(rows[index])} disabled={promoteBusy === String(rows[index].id)}>{promoteBusy === String(rows[index].id) ? '…' : 'Promote'}</button> : null}</div>
-  }));
+  const actionable = items.map((item, index) => ({ ...item, trailing: <div className="asset-actions flex items-center gap-2">{item.trailing}{kind === 'candidate' && onTrade ? <button type="button" className="primary-action" onClick={() => onTrade(rows[index])}>Create order</button> : null}{kind === 'pool' && onTrade ? <button type="button" className="panel-action" onClick={() => onTrade(rows[index])}>Trade</button> : null}{kind === 'pool' && onPromote && rows[index]?.id ? <button type="button" className="panel-action" onClick={() => onPromote(rows[index])} disabled={promoteBusy === String(rows[index].id)}>{promoteBusy === String(rows[index].id) ? '…' : 'Promote'}</button> : null}</div> }));
   return <ListView items={actionable} />;
 }
 
