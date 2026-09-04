@@ -61,6 +61,14 @@ export class BinanceEngineService implements OnModuleInit, OnModuleDestroy {
     return this.config(userId);
   }
 
+  async getLivePosition(userId: string, environment = 'production') {
+    return this.binance.positions(userId, environment, DEFAULT_SYMBOL);
+  }
+
+  async openOrdersForSymbol(userId: string, environment = 'production', symbol = DEFAULT_SYMBOL) {
+    return this.binance.openOrders(userId, environment, symbol);
+  }
+
   async setConfig(userId: string, input: Partial<BinanceEngineConfig>) {
     const quantity = Number(input.quantity ?? 0);
     const positionSide =
