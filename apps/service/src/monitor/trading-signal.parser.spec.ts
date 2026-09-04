@@ -15,7 +15,7 @@ describe('parseTradingSignal', () => {
     expect(parseTradingSignal('XAUUSD BUY ENTRY 4582 TP 4588 SL 4567').takeProfit).toBe(4588);
   });
 
-  it('parses the Telegram XAU multi-TP entry-zone template', () => {
+  it('optimizes Telegram SELL entry with +5 and uses the second TP', () => {
     const signal = parseTradingSignal(`#XAUUSD SELL 4485_4488
 
 TP 4482
@@ -29,8 +29,8 @@ SL 4499`);
     expect(signal).toEqual({
       symbol: 'XAUUSD',
       side: 'SELL',
-      entry: 4488,
-      takeProfit: 4482,
+      entry: 4493,
+      takeProfit: 4478,
       stopLoss: 4499,
       entryMin: 4485,
       entryMax: 4488,
@@ -40,7 +40,8 @@ SL 4499`);
 
   it('supports dash as an entry-zone separator', () => {
     const signal = parseTradingSignal('XAUUSD BUY 4485-4488\nTP 4492\nTP 4500\nSL 4478');
-    expect(signal.entry).toBe(4485);
+    expect(signal.entry).toBe(4490);
+    expect(signal.takeProfit).toBe(4500);
     expect(signal.takeProfits).toEqual([4492, 4500]);
   });
 
