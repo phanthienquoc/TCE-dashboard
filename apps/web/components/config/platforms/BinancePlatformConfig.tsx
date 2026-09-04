@@ -181,7 +181,7 @@ export default function BinancePlatformConfig({ busy, setBusy }: PlatformConfigP
             </p>
           </div>
           <Button type="button" variant="outline" disabled={!!busy} onClick={placeXauTestOrder}>
-            <Zap className="size-4" /> Place XAU 0.1 MARKET BUY
+            <Zap className="size-4" /> Test order
           </Button>
         </div>
 
