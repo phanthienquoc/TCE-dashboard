@@ -152,7 +152,12 @@ export function NavigationDock({ items, onSelect }: NavigationDockProps) {
       </div>
 
       {open && (
-        <div className="fixed inset-0 z-[80] md:hidden" role="dialog" aria-modal="true" aria-label="Services menu">
+        <div
+          className="fixed inset-0 z-[80] md:hidden"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Services menu"
+        >
           <button
             type="button"
             className="absolute inset-0 bg-black/25 backdrop-blur-[2px]"
@@ -162,8 +167,12 @@ export function NavigationDock({ items, onSelect }: NavigationDockProps) {
           <aside className="absolute right-0 top-0 h-full w-[min(86vw,340px)] border-l border-[#d2d2d7] bg-white p-5 shadow-[-18px_0_50px_rgba(0,0,0,0.16)]">
             <div className="flex items-center justify-between border-b border-[#e8e8ed] pb-4">
               <div>
-                <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#86868b]">TCE</p>
-                <p className="mt-1 text-[20px] font-semibold tracking-[-0.02em] text-[#1d1d1f]">Services</p>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#86868b]">
+                  TCE
+                </p>
+                <p className="mt-1 text-[20px] font-semibold tracking-[-0.02em] text-[#1d1d1f]">
+                  Services
+                </p>
               </div>
               <Button
                 type="button"
