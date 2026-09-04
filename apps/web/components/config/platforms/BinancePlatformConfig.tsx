@@ -176,15 +176,11 @@ export default function BinancePlatformConfig({ busy, setBusy }: PlatformConfigP
           <div className="mb-3">
             <p className="text-sm font-semibold text-white">XAU Futures test order</p>
             <p className="mt-1 text-xs leading-5 text-zinc-400">
-              Sends a real MARKET order through the configured Binance Futures credentials. Use Testnet first.
+              Sends a real MARKET order through the configured Binance Futures credentials. Use
+              Testnet first.
             </p>
           </div>
-          <Button
-            type="button"
-            variant="outline"
-            disabled={!!busy}
-            onClick={placeXauTestOrder}
-          >
+          <Button type="button" variant="outline" disabled={!!busy} onClick={placeXauTestOrder}>
             <Zap className="size-4" /> Place XAU 0.1 MARKET BUY
           </Button>
         </div>
