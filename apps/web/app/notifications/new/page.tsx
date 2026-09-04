@@ -2,6 +2,7 @@
 
 import dynamic from 'next/dynamic';
 import { ArrowLeft, Bell } from 'lucide-react';
+import { Suspense } from 'react';
 import { useRouter } from 'next/navigation';
 import { NavigationDock } from '../../../components/navigation/NavigationDock';
 
@@ -47,10 +48,12 @@ export default function NewNotificationPage() {
         </section>
         <TelegramBotConfig />
       </div>
-      <NavigationDock
-        items={[{ id: 'notifications', label: 'Notifications', icon: Bell, active: true }]}
-        onSelect={() => router.push('/notifications')}
-      />
+      <Suspense fallback={null}>
+        <NavigationDock
+          items={[{ id: 'notifications', label: 'Notifications', icon: Bell, active: true }]}
+          onSelect={() => router.push('/notifications')}
+        />
+      </Suspense>
     </main>
   );
 }
