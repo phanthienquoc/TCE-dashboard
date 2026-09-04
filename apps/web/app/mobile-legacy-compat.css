@@ -1,0 +1,19 @@
+/* Compatibility layer for legacy page utility classes during mobile migration. */
+.engine-page-content [class*='bg-black'],
+.engine-page-content [class*='bg-zinc-'],
+.engine-page-content [class*='bg-slate-'],
+.engine-page-content [class*='bg-violet-'] { background-color: var(--surface-strong) !important; }
+.engine-page-content [class*='border-zinc-'],
+.engine-page-content [class*='border-slate-'],
+.engine-page-content [class*='border-violet-'] { border-color: var(--border) !important; }
+.engine-page-content [class*='text-white'],
+.engine-page-content [class*='text-zinc-'],
+.engine-page-content [class*='text-slate-'] { color: var(--foreground) !important; }
+.engine-page-content [class*='text-violet-'] { color: var(--primary) !important; }
+.notification-section [class*='text-white'],
+.notification-section [class*='text-zinc-'] { color: var(--foreground) !important; }
+.notification-section [class*='bg-black'],
+.notification-section [class*='bg-zinc-'],
+.notification-section [class*='bg-violet-'] { background-color: var(--surface-strong) !important; }
+.notification-section [class*='border-zinc-'],
+.notification-section [class*='border-violet-'] { border-color: var(--border) !important; }
