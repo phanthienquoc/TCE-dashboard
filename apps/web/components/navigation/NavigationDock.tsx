@@ -175,7 +175,9 @@ export function NavigationDock({ items, onSelect }: NavigationDockProps) {
             <div className="flex items-center justify-between border-b border-border pb-4">
               <div>
                 <p className="eyebrow">TCE</p>
-                <p className="mt-1 text-xl font-semibold tracking-tight text-foreground">Services</p>
+                <p className="mt-1 text-xl font-semibold tracking-tight text-foreground">
+                  Services
+                </p>
               </div>
               <Button
                 type="button"
@@ -194,7 +196,10 @@ export function NavigationDock({ items, onSelect }: NavigationDockProps) {
             <section className="mt-5 border-t border-border pt-4" aria-labelledby="theme-heading">
               <div className="mb-3 flex items-center gap-2 px-3">
                 <Palette className="size-4 text-primary" />
-                <p id="theme-heading" className="text-xs font-bold uppercase tracking-[.08em] text-muted">
+                <p
+                  id="theme-heading"
+                  className="text-xs font-bold uppercase tracking-[.08em] text-muted"
+                >
                   Theme
                 </p>
               </div>
