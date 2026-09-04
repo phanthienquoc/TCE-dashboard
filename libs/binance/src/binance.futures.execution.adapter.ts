@@ -294,11 +294,13 @@ export class BinanceFuturesExecutionAdapter implements FuturesExecutionPort {
         };
     }
     try {
-      const data = (await this.client.cancelOrder({
-        symbol,
-        orderId: numericOrderId,
-        origClientOrderId: input.clientOrderId,
-      })) as BinanceCancelResponse;
+      const data = (await this.client.cancelOrder(
+        compactParams({
+          symbol,
+          orderId: numericOrderId,
+          origClientOrderId: input.clientOrderId,
+        })
+      )) as BinanceCancelResponse;
       return this.result({
         orderId: String(data.orderId),
         clientOrderId: data.clientOrderId,
