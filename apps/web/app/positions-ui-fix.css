@@ -1,0 +1,15 @@
+/* Position/overview mobile layout fixes. */
+.mobile-records {
+  max-height: none !important;
+  overflow-y: visible !important;
+}
+.list-footer {
+  display: none !important;
+}
+.dashboard-view-overview {
+  display: grid;
+  gap: 16px;
+}
+.mobile-data-view {
+  margin-bottom: 16px;
+}
