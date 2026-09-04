@@ -9,6 +9,8 @@ import './theme-input-fix.css';
 import './mobile-dashboard-polish.css';
 import './engine/form-controls.css';
 import './positions-ui-fix.css';
+import '../shareComponent/data-display.css';
+import '../shareComponent/account-card.css';
 import { AppProviders } from './providers';
 
 export const metadata: Metadata = {
@@ -25,11 +27,5 @@ export const viewport: Viewport = {
   themeColor: '#0b1020',
 };
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
-  return (
-    <html lang="en">
-      <body>
-        <AppProviders>{children}</AppProviders>
-      </body>
-    </html>
-  );
+  return <html lang="en"><body><AppProviders>{children}</AppProviders></body></html>;
 }
