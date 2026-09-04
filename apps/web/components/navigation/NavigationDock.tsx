@@ -137,19 +137,34 @@ export function NavigationDock({ items, onSelect }: NavigationDockProps) {
         </div>
       </aside>
 
-      <div className="fixed right-4 top-[max(12px,env(safe-area-inset-top))] z-[70] md:hidden">
-        <Button
-          type="button"
-          variant="outline"
-          size="icon"
-          className="touch-target rounded-full border-[#d2d2d7] bg-white/95 shadow-[0_8px_24px_rgba(0,0,0,0.10)] backdrop-blur-xl"
-          onClick={() => setOpen(true)}
-          aria-label="Open Services"
-          aria-expanded={open}
-        >
-          <Menu className="size-5" />
-        </Button>
-      </div>
+      <header className="fixed inset-x-0 top-0 z-[70] border-b border-[#e8e8ed]/80 bg-white/90 px-4 pt-[max(8px,env(safe-area-inset-top))] shadow-[0_4px_18px_rgba(0,0,0,0.05)] backdrop-blur-xl md:hidden">
+        <div className="flex h-12 items-center justify-between">
+          <Link
+            href="/dashboard"
+            aria-label="TCE Dashboard"
+            className="flex items-center gap-2 rounded-xl py-1.5 pr-3 transition-opacity active:opacity-70"
+          >
+            <span className="flex size-9 items-center justify-center rounded-[11px] bg-[#1d1d1f] text-[12px] font-bold tracking-[-0.02em] text-white shadow-sm">
+              TCE
+            </span>
+            <span className="text-[15px] font-semibold tracking-[-0.02em] text-[#1d1d1f]">
+              Treasury Cash Extraction
+            </span>
+          </Link>
+
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="touch-target size-10 shrink-0 rounded-xl text-[#1d1d1f] hover:bg-[#f5f5f7]"
+            onClick={() => setOpen(true)}
+            aria-label="Open Services"
+            aria-expanded={open}
+          >
+            <Menu className="size-[22px]" />
+          </Button>
+        </div>
+      </header>
 
       {open && (
         <div
