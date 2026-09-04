@@ -10,7 +10,7 @@ import { useToast } from '../../ui/toast';
 import type { PlatformConfigProps } from './types';
 
 type BinanceCredentials = { apiKey: string; apiSecret: string };
-type ApiResult = { ok?: boolean; data?: any; error?: { message?: string } };
+type ApiResult = { ok?: boolean; data?: any; error?: { message?: string; providerCode?: number } };
 
 const initialCredentials: BinanceCredentials = { apiKey: '', apiSecret: '' };
 
@@ -37,6 +37,24 @@ function credentialsFromJson(value: unknown): BinanceCredentials {
   };
 }
 
+function unwrapApiResult(value: unknown): ApiResult {
+  if (!value || typeof value !== 'object') return {};
+  const root = value as Record<string, unknown>;
+  if ('data' in root && root.data && typeof root.data === 'object') {
+    return root.data as ApiResult;
+  }
+  return root as ApiResult;
+}
+
+function errorMessage(error: any) {
+  return (
+    error?.response?.data?.error?.message ??
+    error?.response?.data?.message ??
+    error?.message ??
+    'Request failed'
+  );
+}
+
 export default function BinancePlatformConfig({ busy, setBusy }: PlatformConfigProps) {
   const [env, setEnv] = useState<'production' | 'testnet'>('testnet');
   const [credentials, setCredentials] = useState<BinanceCredentials>(initialCredentials);
@@ -47,13 +65,13 @@ export default function BinancePlatformConfig({ busy, setBusy }: PlatformConfigP
   const run = async (action: () => Promise<unknown>, success: string) => {
     setBusy('binance');
     try {
-      const response = (await action()) as ApiResult;
-      if (response?.ok === false) {
+      const response = unwrapApiResult(await action());
+      if (response.ok === false) {
         throw new Error(response.error?.message ?? 'Request failed');
       }
       toast(success, 'success');
     } catch (error: any) {
-      toast(error?.response?.data?.message ?? error?.message ?? 'Request failed', 'error');
+      toast(errorMessage(error), 'error');
     } finally {
       setBusy(null);
     }
