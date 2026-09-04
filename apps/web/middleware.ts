@@ -14,10 +14,15 @@ export function middleware(request: NextRequest) {
 
   if (pathname === '/dashboard' && searchTab) {
     const canonical =
-      searchTab === 'positions' ? '/position' :
-      searchTab === 'orders' ? '/order' :
-      searchTab === 'overview' ? '/overview' :
-      searchTab === 'settings' ? '/settings' : null;
+      searchTab === 'positions'
+        ? '/position'
+        : searchTab === 'orders'
+          ? '/order'
+          : searchTab === 'overview'
+            ? '/overview'
+            : searchTab === 'settings'
+              ? '/settings'
+              : null;
     if (canonical) return NextResponse.redirect(new URL(canonical, request.url));
   }
 
