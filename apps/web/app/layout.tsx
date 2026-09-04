@@ -7,7 +7,7 @@ import { AppProviders } from './providers';
 export const metadata: Metadata = {
   title: 'TCE Dashboard',
   description: 'TCE trading dashboard',
-  appleWebApp: { capable: true, statusBarStyle: 'black-translucent', title: 'TCE Dashboard' },
+  appleWebApp: { capable: true, statusBarStyle: 'default', title: 'TCE Dashboard' },
 };
 
 export const viewport: Viewport = {

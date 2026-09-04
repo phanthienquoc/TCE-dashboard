@@ -1,0 +1,74 @@
+/* Unified TCE light/iOS theme compatibility layer.
+ * Legacy dark utility classes are normalized here so every app surface follows the same light palette.
+ */
+:root {
+  color-scheme: light;
+  --tce-bg: #fff;
+  --tce-fg: #1d1d1f;
+  --tce-secondary: #6e6e73;
+  --tce-line: #d2d2d7;
+}
+html,
+body {
+  background: var(--tce-bg) !important;
+  color: var(--tce-fg) !important;
+  color-scheme: light !important;
+}
+[class*='bg-white/['] {
+  background-color: #fff !important;
+}
+[class*='bg-violet-300/['] {
+  background-color: #f3f0ff !important;
+}
+[class*='bg-emerald-400/['] {
+  background-color: #eefaf3 !important;
+}
+[class*='bg-[#120b18]'],
+[class*='bg-[#150d1d]'] {
+  background-color: #fff !important;
+}
+[class*='border-white/'] {
+  border-color: var(--tce-line) !important;
+}
+[class*='border-violet-200/'] {
+  border-color: #ece8f4 !important;
+}
+[class*='text-white'] {
+  color: var(--tce-fg) !important;
+}
+[class*='text-zinc-400'],
+[class*='text-zinc-500'],
+[class*='text-zinc-600'],
+[class*='text-[#75697d]'],
+[class*='text-[#81748a]'],
+[class*='text-[#66596e]'] {
+  color: var(--tce-secondary) !important;
+}
+[class*='text-violet-200'] {
+  color: #6f42c1 !important;
+}
+[class*='text-emerald-200'],
+[class*='text-emerald-300'] {
+  color: #1f7a4f !important;
+}
+select,
+input,
+textarea {
+  color: var(--tce-fg);
+  background: #fff;
+  border-color: var(--tce-line);
+}
+.data-card,
+.panel-card,
+.hero-card,
+.account-chip {
+  min-width: 0;
+  max-width: 100%;
+}
+a,
+button,
+input,
+select,
+textarea {
+  -webkit-tap-highlight-color: transparent;
+}
