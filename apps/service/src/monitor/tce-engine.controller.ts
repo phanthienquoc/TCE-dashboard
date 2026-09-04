@@ -51,6 +51,7 @@ export class TceEngineController {
       autoProtection?: boolean;
       tpPct?: number;
       slPct?: number;
+      notificationId?: string | null;
     }
   ) {
     return this.binance.setConfig(this.userId(auth), body ?? {});
