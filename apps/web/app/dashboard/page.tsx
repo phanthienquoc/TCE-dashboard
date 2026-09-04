@@ -3,7 +3,6 @@
 import { useEffect, useState } from 'react';
 import {
   Activity,
-  AlertTriangle,
   ArrowLeftRight,
   BarChart3,
   Bell,
@@ -79,6 +78,7 @@ export default function DashboardPage() {
         <Loading />
       </main>
     );
+
   const account = data?.account ?? {};
   const positions = data?.positions ?? data?.currentPositions ?? [];
   const pools = data?.pools ?? [];
@@ -94,7 +94,6 @@ export default function DashboardPage() {
     ...item,
     active: item.id !== 'engine' && item.id !== 'notifications' && tab === item.id,
   }));
-
   const openTrade = (pool: any) => {
     setTradeError('');
     setTradePool({ ...pool, __ssiAccountNo: ssiAccountNo });
@@ -118,7 +117,6 @@ export default function DashboardPage() {
       setPromoteBusy(null);
     }
   };
-
   const openNextPositionOrder = (candidate: any) => {
     setTradeError('');
     setTradePool({
@@ -130,7 +128,6 @@ export default function DashboardPage() {
       currentPrice: candidate?.targetPrice ?? candidate?.target_price ?? candidate?.currentPrice,
     });
   };
-
   const submitTrade = async (payload: {
     side: 'BUY' | 'SELL';
     quantity: number;
@@ -231,10 +228,10 @@ export default function DashboardPage() {
           </Card>
         )}
         {tab !== 'settings' && visibleAccounts.length > 0 && (
-          <section className="mb-5">
+          <section className="mb-4">
             <SectionHeader title="Connected accounts" caption="Multi-account asset view" />
             <div className="account-strip">
-              {visibleAccounts.slice(0, 6).map((item: any, index: number) => (
+              {visibleAccounts.slice(0, 5).map((item: any, index: number) => (
                 <div
                   key={item.id ?? item.accountNo ?? item.externalAccountNo ?? index}
                   className="account-chip"
@@ -264,9 +261,7 @@ export default function DashboardPage() {
               title="Current Positions"
               caption={`${positions.length} assets`}
               icon={WalletCards}
-              action={() => {
-                router.push('/dashboard?tab=positions');
-              }}
+              action={() => router.push('/dashboard?tab=positions')}
             >
               <AssetList rows={positions} />
             </Panel>
@@ -274,10 +269,16 @@ export default function DashboardPage() {
               title="Next Positions"
               caption={next.length ? `${next.length} candidates` : 'Candidates'}
               icon={TrendingUp}
+              action={next.length > 5 ? () => router.push('/dashboard?tab=positions') : undefined}
             >
               <AssetList rows={next} kind="candidate" onTrade={openNextPositionOrder} />
             </Panel>
-            <Panel title="Shared Pools" caption={`${pools.length} watching`} icon={Layers3}>
+            <Panel
+              title="Shared Pools"
+              caption={`${pools.length} watching`}
+              icon={Layers3}
+              action={pools.length > 5 ? () => router.push('/dashboard?tab=positions') : undefined}
+            >
               <AssetList
                 rows={pools}
                 kind="pool"
@@ -290,9 +291,7 @@ export default function DashboardPage() {
               title="Recent Orders"
               caption={`${orders.length} orders`}
               icon={ShoppingCart}
-              action={() => {
-                router.push('/dashboard?tab=orders');
-              }}
+              action={() => router.push('/dashboard?tab=orders')}
             >
               <AssetList rows={orders} />
             </Panel>
@@ -415,7 +414,7 @@ function AssetList({
   if (!rows.length) return <Empty kind={kind} />;
   return (
     <div className="asset-list">
-      {rows.slice(0, 6).map((row, i) => {
+      {rows.slice(0, 5).map((row, i) => {
         const symbol = String(row.symbol ?? row.code ?? row.name ?? `Item ${i + 1}`);
         const isPool = kind === 'pool';
         const isCandidate = kind === 'candidate';
@@ -506,13 +505,11 @@ function AssetList({
     </div>
   );
 }
-
 function formatHoldDays(value: any) {
   const days = Number(value);
   if (!Number.isFinite(days) || days <= 0) return '';
   return `Hold ~${Math.trunc(days)} day${Math.trunc(days) === 1 ? '' : 's'}`;
 }
-
 function Empty({ kind }: { kind: 'default' | 'pool' | 'candidate' }) {
   const message =
     kind === 'pool'
@@ -522,7 +519,6 @@ function Empty({ kind }: { kind: 'default' | 'pool' | 'candidate' }) {
         : 'No data yet';
   return <div className="empty-state">{message}</div>;
 }
-
 function MobileDataView({
   title,
   caption,
@@ -536,28 +532,28 @@ function MobileDataView({
 }) {
   return (
     <section className="mb-6">
-      <SectionHeader title={title} caption={caption} />
-      <Card className="panel-card">
-        <div className="overflow-x-auto">
-          <table className="data-table">
-            <thead>
-              <tr>
-                {columns.map(column => (
-                  <th key={column}>{column}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((row, index) => (
-                <tr key={row.id ?? row.symbol ?? index}>
-                  {columns.map(column => (
-                    <td key={column}>{String(getValue(row, column) ?? '—')}</td>
-                  ))}
-                </tr>
+      <SectionHeader
+        title={title}
+        caption={`${rows.length} ${rows.length === 1 ? 'item' : 'items'}`}
+      />
+      <Card className="data-card">
+        <div className="mobile-records">
+          {rows.map((row, index) => (
+            <div className="mobile-record" key={row.id ?? row.symbol ?? index}>
+              {columns.map((column, columnIndex) => (
+                <div key={column} className={columnIndex === 0 ? 'record-primary' : 'record-field'}>
+                  <span>{column}</span>
+                  <strong>{String(getValue(row, column) ?? '—')}</strong>
+                </div>
               ))}
-            </tbody>
-          </table>
+            </div>
+          ))}
         </div>
+        {rows.length > 5 && (
+          <div className="list-footer">
+            <span>Scroll to view all {rows.length}</span>
+          </div>
+        )}
       </Card>
     </section>
   );
@@ -568,22 +564,16 @@ function getValue(row: any, key: string) {
 function money(value: any) {
   const numeric = Number(value);
   if (!Number.isFinite(numeric)) return '—';
-  return new Intl.NumberFormat('en-US', {
-    maximumFractionDigits: 0,
-  }).format(numeric);
+  return new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 }).format(numeric);
 }
 function formatNumber(value: any) {
   const numeric = Number(value);
   if (!Number.isFinite(numeric)) return '—';
-  return new Intl.NumberFormat('en-US', {
-    maximumFractionDigits: 2,
-  }).format(numeric);
+  return new Intl.NumberFormat('en-US', { maximumFractionDigits: 2 }).format(numeric);
 }
-
 function Loading() {
   return <div className="loading-state">Loading dashboard…</div>;
 }
-
 function TradeTicket({
   pool,
   busy,
@@ -613,7 +603,6 @@ function TradeTicket({
   const numericQuantity = Number(quantity);
   const numericPrice = Number(price);
   const isNextPosition = pool?.__orderSource === 'next-position';
-
   return (
     <div className="trade-overlay" role="dialog" aria-modal="true">
       <Card className="trade-ticket">
@@ -657,9 +646,9 @@ function TradeTicket({
           <label>
             Quantity
             <input
+              inputMode="numeric"
               value={quantity}
               onChange={event => setQuantity(event.target.value)}
-              inputMode="numeric"
               disabled={busy}
             />
           </label>
@@ -670,53 +659,48 @@ function TradeTicket({
               onChange={event => setOrderType(event.target.value as typeof orderType)}
               disabled={busy}
             >
-              {['LO', 'MTL', 'MP', 'ATO', 'ATC', 'MOK', 'MAK', 'PLO'].map(type => (
-                <option key={type} value={type}>
-                  {type}
-                </option>
-              ))}
+              <option value="LO">LO</option>
+              <option value="MTL">MTL</option>
+              <option value="MP">MP</option>
+              <option value="ATO">ATO</option>
+              <option value="ATC">ATC</option>
+              <option value="MOK">MOK</option>
+              <option value="MAK">MAK</option>
+              <option value="PLO">PLO</option>
             </select>
           </label>
-          <label>
-            Price
-            <input
-              value={price}
-              onChange={event => setPrice(event.target.value)}
-              inputMode="decimal"
-              disabled={busy}
-            />
-          </label>
+          {orderType === 'LO' && (
+            <label>
+              Price
+              <input
+                inputMode="decimal"
+                value={price}
+                onChange={event => setPrice(event.target.value)}
+                disabled={busy}
+              />
+            </label>
+          )}
         </div>
+        <Button
+          type="button"
+          onClick={() =>
+            onSubmit({
+              side,
+              quantity: numericQuantity,
+              orderType,
+              price: orderType === 'LO' ? numericPrice : undefined,
+            })
+          }
+          disabled={
+            busy ||
+            !Number.isFinite(numericQuantity) ||
+            numericQuantity <= 0 ||
+            (orderType === 'LO' && (!Number.isFinite(numericPrice) || numericPrice <= 0))
+          }
+        >
+          {busy ? 'Submitting…' : 'Place order'}
+        </Button>
         {error && <div className="error-banner">{error}</div>}
-        <div className="trade-actions">
-          <button type="button" className="panel-action" onClick={onClose} disabled={busy}>
-            Cancel
-          </button>
-          <button
-            type="button"
-            className="primary-action"
-            onClick={() =>
-              Number.isInteger(numericQuantity) && numericQuantity > 0
-                ? onSubmit({
-                    side,
-                    quantity: numericQuantity,
-                    orderType,
-                    ...(orderType === 'LO' && Number.isFinite(numericPrice) && numericPrice > 0
-                      ? { price: numericPrice }
-                      : {}),
-                  })
-                : undefined
-            }
-            disabled={
-              busy ||
-              !Number.isInteger(numericQuantity) ||
-              numericQuantity <= 0 ||
-              (orderType === 'LO' && (!Number.isFinite(numericPrice) || numericPrice <= 0))
-            }
-          >
-            {busy ? 'Submitting…' : `BUY ${String(pool?.symbol ?? pool?.code ?? '').toUpperCase()}`}
-          </button>
-        </div>
       </Card>
     </div>
   );

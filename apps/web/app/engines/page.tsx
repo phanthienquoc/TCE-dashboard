@@ -30,7 +30,8 @@ export default function EnginesPage() {
   useEffect(() => {
     void init();
   }, [init]);
-  if (authLoading || !initialized || !user)
+
+  if (authLoading || !initialized || !user) {
     return (
       <main className="app-shell">
         <div className="loading-state">
@@ -44,6 +45,8 @@ export default function EnginesPage() {
         </div>
       </main>
     );
+  }
+
   return (
     <main className="app-shell">
       <header className="app-header">
@@ -65,13 +68,6 @@ export default function EnginesPage() {
         </div>
       </header>
       <div className="app-container app-content engine-page-content">
-        <section className="page-heading">
-          <div>
-            <p className="eyebrow">Runtime</p>
-            <h1>Engine</h1>
-            <p className="page-subtitle">Control and inspect TCE trading engines.</p>
-          </div>
-        </section>
         <EngineControlPanel />
       </div>
       <NavigationDock items={navigation.map(item => ({ ...item, active: item.id === 'engine' }))} />

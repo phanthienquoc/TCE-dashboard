@@ -54,7 +54,6 @@ export default function NotificationsPage() {
   useEffect(() => {
     void init();
   }, [init]);
-
   useEffect(() => {
     if (cachedBots !== null || cachedAssignments !== null) {
       setBots(Array.isArray(cachedBots) ? (cachedBots as BotRow[]) : []);
@@ -64,7 +63,6 @@ export default function NotificationsPage() {
     }
     void load();
   }, [cachedBots, cachedAssignments]);
-
   async function load() {
     setLoading(true);
     try {
@@ -119,55 +117,52 @@ export default function NotificationsPage() {
           </div>
         </div>
       </header>
-
       <div className="app-container app-content">
-        <section className="page-heading">
-          <div>
+        <section className="page-heading notification-heading">
+          <div className="min-w-0">
             <p className="eyebrow">Delivery</p>
             <h1>Notifications</h1>
             <p className="page-subtitle">
               Manage notification channels and their delivery routing.
             </p>
           </div>
-          <Button type="button" onClick={() => router.push('/notifications/new')}>
+          <Button
+            type="button"
+            onClick={() => router.push('/notifications/new')}
+            className="notification-add"
+          >
             <Plus className="size-4" />
             Add bot
           </Button>
         </section>
-
-        <section className="space-y-3">
-          <div className="flex items-center justify-between px-1">
+        <section className="notification-section">
+          <div className="notification-section-head">
             <div className="text-xs font-semibold uppercase tracking-[0.18em] text-zinc-500">
               Telegram bots
             </div>
             <div className="text-xs text-zinc-500">{bots.length} configured</div>
           </div>
-
           {loading ? (
-            <div className="min-h-[180px] animate-pulse rounded-2xl border border-violet-200/[0.07] bg-white/[0.02]" />
+            <div className="notification-skeleton" />
           ) : bots.length === 0 ? (
             <button
               type="button"
               onClick={() => router.push('/notifications/new')}
-              className="w-full rounded-2xl border border-dashed border-violet-200/10 bg-white/[0.02] p-6 text-left transition hover:border-violet-200/20 hover:bg-white/[0.035]"
+              className="notification-empty"
             >
-              <div className="flex items-center gap-3">
-                <div className="grid size-11 place-items-center rounded-xl border border-violet-200/10 bg-violet-300/[0.05] text-violet-200">
-                  <Bot className="size-5" />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <div className="text-sm font-semibold text-white">
-                    No Telegram bots configured
-                  </div>
-                  <div className="mt-1 text-xs text-zinc-500">
-                    Add a bot to start delivering TCE notifications.
-                  </div>
-                </div>
-                <ChevronRight className="size-4 text-zinc-600" />
+              <div className="notification-empty-icon">
+                <Bot className="size-5" />
               </div>
+              <div className="min-w-0 flex-1">
+                <div className="text-sm font-semibold text-white">No Telegram bots configured</div>
+                <div className="mt-1 text-xs text-zinc-500">
+                  Add a bot to start delivering TCE notifications.
+                </div>
+              </div>
+              <ChevronRight className="size-4 text-zinc-600" />
             </button>
           ) : (
-            <div className="space-y-2">
+            <div className="notification-list-scroll">
               {bots.map(bot => {
                 const routes = assignments.filter(item => item.telegram_credential_id === bot.id);
                 return (
@@ -175,33 +170,29 @@ export default function NotificationsPage() {
                     key={bot.id}
                     type="button"
                     onClick={() => router.push(`/notifications/${encodeURIComponent(bot.id)}`)}
-                    className="w-full rounded-2xl border border-white/10 bg-white/[0.02] p-4 text-left transition hover:border-violet-200/15 hover:bg-white/[0.035]"
+                    className="notification-row"
                   >
-                    <div className="flex items-center gap-3">
-                      <div className="grid size-11 shrink-0 place-items-center rounded-xl border border-violet-200/10 bg-violet-300/[0.05] text-violet-200">
-                        <Bot className="size-5" />
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2">
-                          <span className="truncate text-sm font-semibold text-white">
-                            {bot.name}
-                          </span>
-                          <span
-                            className={`rounded-full border px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wider ${bot.isActive ? 'border-emerald-300/20 text-emerald-300' : 'border-white/10 text-zinc-500'}`}
-                          >
-                            {bot.isActive ? 'Active' : 'Inactive'}
-                          </span>
-                        </div>
-                        <div className="mt-1 flex items-center gap-2 text-xs text-zinc-500">
-                          <span className="capitalize">{bot.environment}</span>
-                          <span>·</span>
-                          <span>
-                            {routes.length} debug route{routes.length === 1 ? '' : 's'}
-                          </span>
-                        </div>
-                      </div>
-                      <ChevronRight className="size-4 shrink-0 text-zinc-600" />
+                    <div className="notification-bot-icon">
+                      <Bot className="size-5" />
                     </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="notification-title">
+                        <span className="truncate text-sm font-semibold text-white">
+                          {bot.name}
+                        </span>
+                        <span className={`notification-status ${bot.isActive ? 'is-active' : ''}`}>
+                          {bot.isActive ? 'Active' : 'Inactive'}
+                        </span>
+                      </div>
+                      <div className="notification-meta">
+                        <span className="capitalize">{bot.environment}</span>
+                        <span>·</span>
+                        <span>
+                          {routes.length} debug route{routes.length === 1 ? '' : 's'}
+                        </span>
+                      </div>
+                    </div>
+                    <ChevronRight className="size-4 shrink-0 text-zinc-600" />
                   </button>
                 );
               })}
@@ -209,7 +200,6 @@ export default function NotificationsPage() {
           )}
         </section>
       </div>
-
       <NavigationDock
         items={navigation.map(item => ({ ...item, active: item.id === 'notifications' }))}
       />
