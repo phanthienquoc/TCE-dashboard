@@ -4,6 +4,7 @@ import './ios-mobile.css';
 import './ui-overrides.css';
 import './mobile-design-system.css';
 import './mobile-legacy-compat.css';
+import './theme-polish.css';
 import { AppProviders } from './providers';
 
 export const metadata: Metadata = {
@@ -17,7 +18,7 @@ export const viewport: Viewport = {
   viewportFit: 'cover',
   maximumScale: 1,
   userScalable: false,
-  themeColor: '#ffffff',
+  themeColor: 'var(--background)',
 };
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
