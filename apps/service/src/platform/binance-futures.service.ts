@@ -1,4 +1,4 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, ServiceUnavailableException, UnauthorizedException } from '@nestjs/common';
 import {
   CONTRACT_TOKENS,
   FuturesCancelOrderInput,
@@ -21,17 +21,32 @@ export class BinanceFuturesService {
   ) {}
   private environment(value = 'production'): BinanceEnvironment {
     if (value !== 'production' && value !== 'testnet')
-      throw new Error(`Unsupported Binance environment: ${value}`);
+      throw new UnauthorizedException(`Unsupported Binance environment: ${value}`);
     return value;
   }
   private async credentialValues(userId: string, environment = 'production') {
-    const selected = this.environment(environment),
-      credentials = await this.credentials.get(userId, 'binance', selected);
-    return {
-      selected,
-      apiKey: typeof credentials.apiKey === 'string' ? credentials.apiKey : undefined,
-      apiSecret: typeof credentials.apiSecret === 'string' ? credentials.apiSecret : undefined,
-    };
+    const selected = this.environment(environment);
+    try {
+      const credentials = await this.credentials.get(userId, 'binance', selected);
+      const apiKey = typeof credentials.apiKey === 'string' ? credentials.apiKey.trim() : '';
+      const apiSecret =
+        typeof credentials.apiSecret === 'string' ? credentials.apiSecret.trim() : '';
+      if (!apiKey || !apiSecret)
+        throw new ServiceUnavailableException({
+          code: 'BINANCE_CREDENTIALS_MISSING',
+          message: `Binance ${selected} credentials are missing. Configure your API Key and API Secret first.`,
+        });
+      return { selected, apiKey, apiSecret };
+    } catch (error) {
+      if (error instanceof ServiceUnavailableException) throw error;
+      const message = error instanceof Error ? error.message : String(error);
+      if (/credentials not configured/i.test(message) || /platform credentials not configured/i.test(message))
+        throw new ServiceUnavailableException({
+          code: 'BINANCE_CREDENTIALS_MISSING',
+          message: `Binance ${selected} credentials are missing. Configure your API Key and API Secret first.`,
+        });
+      throw error;
+    }
   }
   private async adapter(userId: string, environment = 'production') {
     const { selected, apiKey, apiSecret } = await this.credentialValues(userId, environment);
