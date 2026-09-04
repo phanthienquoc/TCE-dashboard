@@ -20,14 +20,26 @@ export class TceEngineController {
     private readonly binance: BinanceEngineService,
     private readonly jwt: JwtService
   ) {}
+
   private userId(auth?: string) {
     if (!auth?.startsWith('Bearer ')) throw new UnauthorizedException('Bearer token required');
     return this.jwt.verify(auth.slice(7)).sub;
   }
-  @Get('binance/config') getBinanceConfig(@Headers('authorization') auth?: string) {
+
+  private binanceEnvironment(value?: string): 'production' | 'testnet' {
+    const environment = value ?? 'production';
+    if (environment !== 'production' && environment !== 'testnet')
+      throw new UnauthorizedException(`Unsupported Binance environment: ${environment}`);
+    return environment;
+  }
+
+  @Get('binance/config')
+  getBinanceConfig(@Headers('authorization') auth?: string) {
     return this.binance.getConfig(this.userId(auth));
   }
-  @Patch('binance/config') setBinanceConfig(
+
+  @Patch('binance/config')
+  setBinanceConfig(
     @Headers('authorization') auth: string | undefined,
     @Body()
     body: {
@@ -43,19 +55,29 @@ export class TceEngineController {
   ) {
     return this.binance.setConfig(this.userId(auth), body ?? {});
   }
-  @Get('binance/positions') getBinancePositions(
+
+  @Get('binance/positions')
+  getBinancePositions(
     @Headers('authorization') auth?: string,
     @Headers('x-environment') environment = 'production'
   ) {
-    return this.binance.getLivePosition(this.userId(auth), environment);
+    return this.binance.getLivePosition(this.userId(auth), this.binanceEnvironment(environment));
   }
-  @Get('binance/orders') getBinanceOrders(
+
+  @Get('binance/orders')
+  getBinanceOrders(
     @Headers('authorization') auth?: string,
     @Headers('x-environment') environment = 'production'
   ) {
-    return this.binance.openOrdersForSymbol(this.userId(auth), environment, 'XAUUSDT');
+    return this.binance.openOrdersForSymbol(
+      this.userId(auth),
+      this.binanceEnvironment(environment),
+      'XAUUSDT'
+    );
   }
-  @Post('run') async run(@Req() req: any) {
+
+  @Post('run')
+  async run(@Req() req: any) {
     const accountId = String(
       req.user?.id ?? req.user?.accountId ?? req.headers['x-account-id'] ?? ''
     );
@@ -63,7 +85,9 @@ export class TceEngineController {
     if (!accountId) throw new Error('Authenticated account is required');
     return this.engine.run(accountId, environment, false);
   }
-  @Post('execute') async execute(@Req() req: any) {
+
+  @Post('execute')
+  async execute(@Req() req: any) {
     const accountId = String(
       req.user?.id ?? req.user?.accountId ?? req.headers['x-account-id'] ?? ''
     );
@@ -71,12 +95,16 @@ export class TceEngineController {
     if (!accountId) throw new Error('Authenticated account is required');
     return this.engine.run(accountId, environment, true);
   }
-  @Post('signal/parse') parseSignal(@Req() req: any) {
+
+  @Post('signal/parse')
+  parseSignal(@Req() req: any) {
     const text =
       typeof req.body?.text === 'string' ? req.body.text : String(req.body?.signal ?? '');
     return { ok: true, data: parseTradingSignal(text) };
   }
-  @Post('binance/scan') async scanBinance() {
+
+  @Post('binance/scan')
+  async scanBinance() {
     await this.binance.scan();
     return { ok: true };
   }
