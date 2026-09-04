@@ -123,7 +123,9 @@ export function parseTradingSignal(input: string): TradingSignal {
     if (!(stopLoss > entry && takeProfits.every(tp => tp < entryMin)))
       throw new Error('SELL entry zone requires every TP < entry zone < SL after +5 entry offset');
   } else if (!(stopLoss < entryMin && takeProfits.every(tp => tp > entry))) {
-    throw new Error('BUY entry zone requires SL < entry zone and every TP > entry after +5 entry offset');
+    throw new Error(
+      'BUY entry zone requires SL < entry zone and every TP > entry after +5 entry offset'
+    );
   }
 
   return {
