@@ -9,6 +9,7 @@ import { Input } from '../../ui/input';
 import type { PlatformConfigProps } from './types';
 
 type BinanceCredentials = { apiKey: string; apiSecret: string };
+type ApiResult = { ok?: boolean; data?: any; error?: { message?: string } };
 
 const initialCredentials: BinanceCredentials = { apiKey: '', apiSecret: '' };
 
@@ -44,8 +45,12 @@ export default function BinancePlatformConfig({ busy, setBusy }: PlatformConfigP
 
   const run = async (action: () => Promise<unknown>, success: string) => {
     setBusy('binance');
+    setStatus('');
     try {
-      await action();
+      const response = (await action()) as ApiResult;
+      if (response?.ok === false) {
+        throw new Error(response.error?.message ?? 'Request failed');
+      }
       setStatus(success);
     } catch (error: any) {
       setStatus(error?.response?.data?.message ?? error?.message ?? 'Request failed');
