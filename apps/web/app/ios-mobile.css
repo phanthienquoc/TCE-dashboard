@@ -16,7 +16,8 @@
       padding: calc(84px + env(safe-area-inset-top)) 16px calc(24px + env(safe-area-inset-bottom));
       place-items: start center;
       overflow: hidden;
-      background: #fff;
+      background: var(--background);
+      color: var(--foreground);
     }
 
     .auth-brand {
@@ -86,56 +87,15 @@
       line-height: 1.38;
     }
 
-    /* Dashboard list rows use explicit classes, not semantic p/small selectors. */
-    .asset-symbol {
-      margin: 0;
-      overflow: hidden;
-      color: #1d1d1f;
-      font-size: 15px;
-      line-height: 1.33;
-      font-weight: 600;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-
-    .asset-secondary {
-      margin-top: 3px;
-      overflow: hidden;
-      color: #6e6e73;
-      font-size: 12px;
-      line-height: 1.33;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-
-    .asset-value {
-      color: #1d1d1f;
-      font-size: 13px;
-      line-height: 1.38;
-      font-weight: 600;
-    }
-
+    .asset-symbol,
+    .asset-value,
     .panel-head h2,
     .metric-value,
-    .metric-secondary {
-      color: #1d1d1f;
-      opacity: 1;
-    }
-
-    .panel-head p,
-    .metric-label {
-      opacity: 1;
-    }
-
+    .metric-secondary,
     .panel-card,
     .hero-card,
     .data-card {
       opacity: 1;
-      color: #1d1d1f;
-    }
-
-    .mobile-bottom-nav {
-      background: rgb(255 255 255 / 0.96);
     }
   }
 }
