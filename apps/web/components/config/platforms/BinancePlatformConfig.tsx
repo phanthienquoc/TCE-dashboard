@@ -6,8 +6,8 @@ import { platformApi } from '../../../lib/api';
 import { Button } from '../../ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../ui/card';
 import { Input } from '../../ui/input';
-import type { PlatformConfigProps } from './types';
 import { useToast } from '../../ui/toast';
+import type { PlatformConfigProps } from './types';
 
 type BinanceCredentials = { apiKey: string; apiSecret: string };
 type ApiResult = { ok?: boolean; data?: any; error?: { message?: string } };
@@ -42,7 +42,7 @@ export default function BinancePlatformConfig({ busy, setBusy }: PlatformConfigP
   const [credentials, setCredentials] = useState<BinanceCredentials>(initialCredentials);
   const [fileName, setFileName] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const { toast } = useToast();
+  const toast = useToast();
 
   const run = async (action: () => Promise<unknown>, success: string) => {
     setBusy('binance');
@@ -51,13 +51,9 @@ export default function BinancePlatformConfig({ busy, setBusy }: PlatformConfigP
       if (response?.ok === false) {
         throw new Error(response.error?.message ?? 'Request failed');
       }
-      toast({ title: 'Success', description: success, variant: 'success' });
+      toast(success, 'success');
     } catch (error: any) {
-      toast({
-        title: 'Action failed',
-        description: error?.response?.data?.message ?? error?.message ?? 'Request failed',
-        variant: 'destructive',
-      });
+      toast(error?.response?.data?.message ?? error?.message ?? 'Request failed', 'error');
     } finally {
       setBusy(null);
     }
@@ -75,17 +71,9 @@ export default function BinancePlatformConfig({ busy, setBusy }: PlatformConfigP
         throw new Error('JSON must contain Binance API Key and API Secret');
       setCredentials(next);
       setFileName(file.name);
-      toast({
-        title: 'Credentials loaded',
-        description: `Loaded Binance credentials from ${file.name}.`,
-        variant: 'success',
-      });
+      toast(`Loaded Binance credentials from ${file.name}.`, 'success');
     } catch (error: any) {
-      toast({
-        title: 'Import failed',
-        description: error?.message ?? 'Unable to read credential JSON',
-        variant: 'destructive',
-      });
+      toast(error?.message ?? 'Unable to read credential JSON', 'error');
     } finally {
       if (fileInputRef.current) fileInputRef.current.value = '';
     }
