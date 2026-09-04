@@ -1,7 +1,17 @@
 'use client';
 
 import { useEffect, useState, type ReactNode } from 'react';
-import { Activity, ArrowLeftRight, BarChart3, Bell, Cpu, Home, LogOut, RefreshCw, Settings } from 'lucide-react';
+import {
+  Activity,
+  ArrowLeftRight,
+  BarChart3,
+  Bell,
+  Cpu,
+  Home,
+  LogOut,
+  RefreshCw,
+  Settings,
+} from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { Button } from '../ui/button';
 import { NavigationDock } from '../navigation/NavigationDock';
@@ -71,7 +81,11 @@ export default function DashboardShell({
   }, [user, load]);
 
   if (authLoading || !initialized || !user) {
-    return <main className="app-shell"><div className="loading-state">Loading dashboard…</div></main>;
+    return (
+      <main className="app-shell">
+        <div className="loading-state">Loading dashboard…</div>
+      </main>
+    );
   }
 
   const account = data?.account ?? {};
@@ -82,7 +96,8 @@ export default function DashboardShell({
   const accounts = data?.brokerAccounts ?? data?.accounts ?? [];
   const invested = account.capital_deployed ?? account.capitalDeployed ?? account.investedValue;
   const portfolioValue = account.totalValue ?? account.portfolioValue ?? account.equity;
-  const visibleAccounts = Array.isArray(accounts) && accounts.length ? accounts : inferAccounts(positions);
+  const visibleAccounts =
+    Array.isArray(accounts) && accounts.length ? accounts : inferAccounts(positions);
   const ssiAccountNo = findSsiAccountNo(visibleAccounts);
 
   const openTrade = (pool: any) => {
@@ -110,7 +125,10 @@ export default function DashboardShell({
       await load();
     } catch (err: any) {
       setPromoteError(
-        err?.response?.data?.message ?? err?.response?.data?.error?.message ?? err?.message ?? 'Unable to promote pool item'
+        err?.response?.data?.message ??
+          err?.response?.data?.error?.message ??
+          err?.message ??
+          'Unable to promote pool item'
       );
     } finally {
       setPromoteBusy(null);
@@ -123,7 +141,8 @@ export default function DashboardShell({
     try {
       const environment = String(tradePool.environment ?? 'production');
       const accountNo = String(tradePool.__ssiAccountNo ?? tradePool.accountNo ?? '').trim();
-      if (!accountNo) throw new Error('SSI account is not configured. Connect SSI in Settings first.');
+      if (!accountNo)
+        throw new Error('SSI account is not configured. Connect SSI in Settings first.');
       await platformApi.ssiOrder({
         environment,
         accountNo,
@@ -133,7 +152,12 @@ export default function DashboardShell({
       setTradePool(null);
       await load();
     } catch (err: any) {
-      setTradeError(err?.response?.data?.message ?? err?.response?.data?.error?.message ?? err?.message ?? 'Order failed');
+      setTradeError(
+        err?.response?.data?.message ??
+          err?.response?.data?.error?.message ??
+          err?.message ??
+          'Order failed'
+      );
     } finally {
       setTradeBusy(false);
     }
@@ -164,7 +188,9 @@ export default function DashboardShell({
       <header className="app-header">
         <div className="app-container app-header-inner">
           <div className="account-identity">
-            <div className="brand-orb"><Activity className="size-4" /></div>
+            <div className="brand-orb">
+              <Activity className="size-4" />
+            </div>
             <div className="min-w-0">
               <p className="eyebrow">TCE account</p>
               <p className="account-email">{user.email}</p>
@@ -175,7 +201,10 @@ export default function DashboardShell({
             variant="outline"
             size="icon"
             className="touch-target"
-            onClick={async () => { await logout(); router.replace('/login'); }}
+            onClick={async () => {
+              await logout();
+              router.replace('/login');
+            }}
             aria-label="Sign out"
           >
             <LogOut className="size-4" />
@@ -186,8 +215,24 @@ export default function DashboardShell({
       <div className="app-container app-content">
         {view !== 'settings' && (
           <section className="page-heading">
-            <div className="min-w-0"><p className="eyebrow">{view === 'overview' ? 'Portfolio' : view === 'positions' ? 'Exposure' : 'Execution'}</p></div>
-            <Button type="button" variant="outline" size="icon" className="touch-target shrink-0" onClick={() => void load()} disabled={loading} aria-label="Refresh">
+            <div className="min-w-0">
+              <p className="eyebrow">
+                {view === 'overview'
+                  ? 'Portfolio'
+                  : view === 'positions'
+                    ? 'Exposure'
+                    : 'Execution'}
+              </p>
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              className="touch-target shrink-0"
+              onClick={() => void load()}
+              disabled={loading}
+              aria-label="Refresh"
+            >
               <RefreshCw className={`size-4 ${loading ? 'animate-spin' : ''}`} />
             </Button>
           </section>
@@ -212,7 +257,9 @@ export default function DashboardShell({
 }
 
 function findSsiAccountNo(accounts: any[]) {
-  const ssi = accounts.find(item => String(item.provider ?? item.broker ?? '').toLowerCase() === 'ssi');
+  const ssi = accounts.find(
+    item => String(item.provider ?? item.broker ?? '').toLowerCase() === 'ssi'
+  );
   const direct = ssi?.accountNo ?? ssi?.externalAccountNo;
   return direct == null ? '' : String(direct).trim();
 }
