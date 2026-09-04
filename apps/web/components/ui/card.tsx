@@ -13,10 +13,19 @@ export const CardHeader = ({ className, ...props }: React.HTMLAttributes<HTMLDiv
 );
 
 export const CardTitle = ({ className, ...props }: React.HTMLAttributes<HTMLHeadingElement>) => (
-  <h3 className={cn('text-base font-semibold leading-tight tracking-tight text-foreground', className)} {...props} />
+  <h3
+    className={cn(
+      'text-base font-semibold leading-tight tracking-tight text-foreground',
+      className
+    )}
+    {...props}
+  />
 );
 
-export const CardDescription = ({ className, ...props }: React.HTMLAttributes<HTMLParagraphElement>) => (
+export const CardDescription = ({
+  className,
+  ...props
+}: React.HTMLAttributes<HTMLParagraphElement>) => (
   <p className={cn('text-sm leading-snug text-muted', className)} {...props} />
 );
 
