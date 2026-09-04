@@ -3,7 +3,175 @@
   display: none !important;
 }
 
-/* Keep dashboard content flush with the top edge after removing the header. */
+/* The mobile NavigationDock owns the fixed app header. Keep page content below it. */
 .app-content {
   padding-top: max(16px, env(safe-area-inset-top));
+}
+
+@media screen and (max-width: 767px) {
+  .app-content {
+    padding-top: calc(72px + env(safe-area-inset-top));
+  }
+
+  .auth-shell {
+    width: 100%;
+    min-height: 100dvh;
+    padding: calc(18px + env(safe-area-inset-top)) 24px calc(24px + env(safe-area-inset-bottom));
+    display: grid;
+    place-items: start center;
+    overflow-x: hidden;
+    background: #fff;
+  }
+
+  .auth-brand {
+    position: relative;
+    inset: auto;
+    width: 100%;
+    max-width: 390px;
+    margin: 0 0 54px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .auth-brand > div:last-child {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .auth-brand .eyebrow {
+    display: block;
+    font-size: 11px;
+    line-height: 1.2;
+    white-space: nowrap;
+  }
+
+  .auth-brand b {
+    display: block;
+    font-size: 17px;
+    line-height: 1.2;
+    letter-spacing: -0.02em;
+  }
+
+  .brand-mark {
+    flex: 0 0 auto;
+  }
+
+  .auth-card {
+    width: 100%;
+    max-width: 390px;
+    min-width: 0;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+  }
+
+  .auth-header {
+    margin-bottom: 28px;
+  }
+
+  .auth-header h1 {
+    margin: 6px 0 4px;
+    font-size: 34px;
+    line-height: 1.12;
+    letter-spacing: -0.03em;
+  }
+
+  .auth-header p {
+    margin: 0;
+    font-size: 17px;
+    line-height: 1.41176;
+    color: #6e6e73;
+  }
+
+  .auth-card form {
+    width: 100%;
+    min-width: 0;
+    display: grid;
+    gap: 20px;
+  }
+
+  .auth-card label {
+    display: grid;
+    gap: 7px;
+    width: 100%;
+    min-width: 0;
+    color: #1d1d1f;
+    font-size: 17px;
+    line-height: 1.3;
+  }
+
+  .auth-card input {
+    width: 100%;
+    min-width: 0;
+    min-height: 50px;
+    padding: 12px 14px;
+    border: 1px solid #d2d2d7;
+    border-radius: 12px;
+    outline: none;
+    background: #f5f5f7;
+    color: #1d1d1f;
+    font-size: 17px;
+    line-height: 1.3;
+    -webkit-appearance: none;
+    appearance: none;
+  }
+
+  .auth-card input:focus {
+    border-color: #0071e3;
+    box-shadow: 0 0 0 3px rgb(0 113 227 / 0.14);
+    background: #fff;
+  }
+
+  .auth-card input::placeholder {
+    color: #86868b;
+    opacity: 1;
+  }
+
+  .auth-options {
+    display: flex;
+    align-items: center;
+    min-width: 0;
+    margin-top: -2px;
+  }
+
+  .secure-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    color: #6e6e73;
+    font-size: 15px;
+  }
+
+  .auth-submit {
+    width: 100%;
+    min-height: 50px;
+    margin-top: 2px;
+    padding: 12px 14px;
+    border: 0;
+    border-radius: 14px;
+    background: #0071e3;
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 17px;
+    font-weight: 600;
+  }
+
+  .auth-submit:disabled {
+    opacity: 0.55;
+  }
+
+  .auth-footer {
+    margin-top: 26px;
+    color: #6e6e73;
+    font-size: 13px;
+    line-height: 1.38;
+  }
 }
