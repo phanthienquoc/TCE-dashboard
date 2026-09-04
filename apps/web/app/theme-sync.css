@@ -1,74 +1,87 @@
-/* Unified TCE light/iOS theme compatibility layer.
- * Legacy dark utility classes are normalized here so every app surface follows the same light palette.
- */
-:root {
+/* TCE theme compatibility layer. Legacy utility classes follow the active semantic palette. */
+:root,
+[data-theme='tce'] {
   color-scheme: light;
-  --tce-bg: #fff;
-  --tce-fg: #1d1d1f;
-  --tce-secondary: #6e6e73;
-  --tce-line: #d2d2d7;
+  --tce-bg: var(--background, #fff);
+  --tce-fg: var(--foreground, #1d1d1f);
+  --tce-secondary: var(--muted, #6e6e73);
+  --tce-tertiary: var(--subtle, #86868b);
+  --tce-line: var(--border, #d2d2d7);
+  --tce-surface: var(--surface, #f5f5f7);
+  --tce-surface-strong: var(--surface-strong, #fff);
+  --tce-accent: var(--primary, #0071e3);
+  --tce-accent-fg: var(--primary-foreground, #fff);
+  --tce-success: var(--success, #1f7a4f);
+  --tce-warning: var(--warning, #a15c00);
+  --tce-danger: var(--danger, #b4232f);
 }
+[data-theme='midnight'] { color-scheme: dark; }
+[data-theme='forest'] { color-scheme: light; }
+
 html,
-body {
-  background: var(--tce-bg) !important;
-  color: var(--tce-fg) !important;
-  color-scheme: light !important;
-}
-[class*='bg-white/['] {
-  background-color: #fff !important;
-}
-[class*='bg-violet-300/['] {
-  background-color: #f3f0ff !important;
-}
-[class*='bg-emerald-400/['] {
-  background-color: #eefaf3 !important;
-}
-[class*='bg-[#120b18]'],
-[class*='bg-[#150d1d]'] {
-  background-color: #fff !important;
-}
-[class*='border-white/'] {
-  border-color: var(--tce-line) !important;
-}
-[class*='border-violet-200/'] {
-  border-color: #ece8f4 !important;
-}
-[class*='text-white'] {
-  color: var(--tce-fg) !important;
-}
-[class*='text-zinc-400'],
-[class*='text-zinc-500'],
-[class*='text-zinc-600'],
-[class*='text-[#75697d]'],
-[class*='text-[#81748a]'],
-[class*='text-[#66596e]'] {
-  color: var(--tce-secondary) !important;
-}
-[class*='text-violet-200'] {
-  color: #6f42c1 !important;
-}
-[class*='text-emerald-200'],
-[class*='text-emerald-300'] {
-  color: #1f7a4f !important;
-}
+body { background: var(--tce-bg) !important; color: var(--tce-fg) !important; }
 select,
 input,
-textarea {
-  color: var(--tce-fg);
-  background: #fff;
-  border-color: var(--tce-line);
-}
-.data-card,
-.panel-card,
-.hero-card,
-.account-chip {
-  min-width: 0;
-  max-width: 100%;
-}
+textarea { color: var(--tce-fg); background: var(--tce-surface-strong); border-color: var(--tce-line); }
 a,
 button,
 input,
 select,
-textarea {
-  -webkit-tap-highlight-color: transparent;
-}
+textarea { -webkit-tap-highlight-color: transparent; }
+
+/* Legacy utility aliases used across the existing pages. */
+.bg-white,
+.bg-white\/5,
+.bg-white\/\[0\.05\],
+.bg-white\/10,
+.bg-white\/\[0\.1\] { background-color: var(--tce-surface-strong) !important; }
+.bg-black,
+.bg-\[\#120b18\],
+.bg-\[\#150d1d\] { background-color: var(--tce-bg) !important; }
+.bg-zinc-50,
+.bg-zinc-100,
+.bg-zinc-900,
+.bg-slate-50,
+.bg-slate-900 { background-color: var(--tce-surface) !important; }
+.text-white,
+.text-black,
+.text-zinc-900,
+.text-zinc-800,
+.text-slate-900 { color: var(--tce-fg) !important; }
+.text-zinc-400,
+.text-zinc-500,
+.text-zinc-600,
+.text-slate-400,
+.text-slate-500,
+.text-slate-600,
+.text-\[\#75697d\],
+.text-\[\#81748a\],
+.text-\[\#66596e\] { color: var(--tce-secondary) !important; }
+.border-white\/10,
+.border-white\/20,
+.border-zinc-200,
+.border-zinc-800,
+.border-slate-200,
+.border-slate-800 { border-color: var(--tce-line) !important; }
+.text-violet-200,
+.text-violet-300,
+.text-violet-400 { color: var(--tce-accent) !important; }
+.text-emerald-200,
+.text-emerald-300,
+.text-emerald-400 { color: var(--tce-success) !important; }
+.text-amber-200,
+.text-amber-300,
+.text-amber-400 { color: var(--tce-warning) !important; }
+.text-red-200,
+.text-red-300,
+.text-red-400 { color: var(--tce-danger) !important; }
+.bg-emerald-400\/10,
+.bg-emerald-400\/\[0\.1\] { background-color: color-mix(in srgb, var(--tce-success) 10%, transparent) !important; }
+.bg-red-400\/10,
+.bg-red-400\/\[0\.1\] { background-color: color-mix(in srgb, var(--tce-danger) 10%, transparent) !important; }
+.border-violet-200\/20,
+.border-violet-400\/20 { border-color: color-mix(in srgb, var(--tce-accent) 25%, var(--tce-line)) !important; }
+.data-card,
+.panel-card,
+.hero-card,
+.account-chip { min-width: 0; max-width: 100%; }
