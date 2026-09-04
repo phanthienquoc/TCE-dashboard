@@ -1,0 +1,7 @@
+.dashboard-data-section {
+  min-width: 0;
+  display: grid;
+  gap: 12px;
+}
+.dashboard-data-section .section-header { margin: 0; }
+.dashboard-data-section .shared-table-wrap { box-shadow: 0 1px 2px rgb(0 0 0 / .03); }
