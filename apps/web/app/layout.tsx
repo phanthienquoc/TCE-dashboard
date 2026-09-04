@@ -7,7 +7,7 @@ import { AppProviders } from './providers';
 export const metadata: Metadata = {
   title: 'TCE Dashboard',
   description: 'TCE trading dashboard',
-  appleWebApp: { capable: true, statusBarStyle: 'black-translucent', title: 'TCE Dashboard' },
+  appleWebApp: { capable: true, statusBarStyle: 'default', title: 'TCE Dashboard' },
 };
 
 export const viewport: Viewport = {
@@ -22,9 +22,7 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en" className="bg-white">
-      <body>
-        <AppProviders>{children}</AppProviders>
-      </body>
+      <body><AppProviders>{children}</AppProviders></body>
     </html>
   );
 }
