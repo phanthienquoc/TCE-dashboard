@@ -1,40 +1,40 @@
-/* Unified TCE light/iOS theme compatibility layer.
- * Legacy dark utility classes are normalized here so every app surface follows the same light palette.
+/* Unified TCE theme compatibility layer.
+ * Legacy utility classes are normalized to the active TCE semantic palette.
  */
 :root {
   color-scheme: light;
-  --tce-bg: #fff;
-  --tce-fg: #1d1d1f;
-  --tce-secondary: #6e6e73;
-  --tce-line: #d2d2d7;
+  --tce-bg: var(--background);
+  --tce-fg: var(--foreground);
+  --tce-secondary: var(--muted);
+  --tce-line: var(--border);
 }
 html,
 body {
-  background: var(--tce-bg) !important;
-  color: var(--tce-fg) !important;
-  color-scheme: light !important;
+  background: var(--background) !important;
+  color: var(--foreground) !important;
+  color-scheme: normal !important;
 }
 [class*='bg-white/['] {
-  background-color: #fff !important;
+  background-color: var(--surface) !important;
 }
 [class*='bg-violet-300/['] {
-  background-color: #f3f0ff !important;
+  background-color: color-mix(in srgb, var(--primary) 9%, var(--surface)) !important;
 }
 [class*='bg-emerald-400/['] {
-  background-color: #eefaf3 !important;
+  background-color: color-mix(in srgb, var(--success) 9%, var(--surface)) !important;
 }
 [class*='bg-[#120b18]'],
 [class*='bg-[#150d1d]'] {
-  background-color: #fff !important;
+  background-color: var(--surface-strong) !important;
 }
 [class*='border-white/'] {
-  border-color: var(--tce-line) !important;
+  border-color: var(--border) !important;
 }
 [class*='border-violet-200/'] {
-  border-color: #ece8f4 !important;
+  border-color: var(--border) !important;
 }
 [class*='text-white'] {
-  color: var(--tce-fg) !important;
+  color: var(--foreground) !important;
 }
 [class*='text-zinc-400'],
 [class*='text-zinc-500'],
@@ -42,28 +42,25 @@ body {
 [class*='text-[#75697d]'],
 [class*='text-[#81748a]'],
 [class*='text-[#66596e]'] {
-  color: var(--tce-secondary) !important;
+  color: var(--muted) !important;
 }
 [class*='text-violet-200'] {
-  color: #6f42c1 !important;
+  color: var(--primary) !important;
 }
 [class*='text-emerald-200'],
 [class*='text-emerald-300'] {
-  color: #1f7a4f !important;
+  color: var(--success) !important;
 }
 select,
 input,
 textarea {
-  color: var(--tce-fg);
-  background: #fff;
-  border-color: var(--tce-line);
+  color: var(--foreground) !important;
+  background-color: var(--surface) !important;
+  border-color: var(--border) !important;
 }
-.data-card,
-.panel-card,
-.hero-card,
-.account-chip {
-  min-width: 0;
-  max-width: 100%;
+select option {
+  color: var(--foreground);
+  background-color: var(--surface);
 }
 a,
 button,

@@ -1,0 +1,17 @@
+/* Theme-safe native form controls. Keep iOS/WebKit controls aligned with the active TCE theme. */
+input,
+select,
+textarea {
+  background-color: var(--surface) !important;
+  color: var(--foreground) !important;
+  border-color: var(--border) !important;
+  color-scheme: normal;
+}
+select option {
+  background-color: var(--surface);
+  color: var(--foreground);
+}
+input::placeholder,
+textarea::placeholder {
+  color: var(--subtle) !important;
+}
