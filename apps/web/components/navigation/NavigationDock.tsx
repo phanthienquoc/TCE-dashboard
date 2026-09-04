@@ -37,15 +37,12 @@ export function NavigationDock({ items, onSelect }: NavigationDockProps) {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [open]);
 
-  // Next.js soft navigation updates pathname/searchParams without remounting the dock.
-  // Derive the active item from the current URL so the menu always follows the route.
   useEffect(() => {
     setOpen(false);
   }, [pathname, searchParams]);
 
   const isActive = (item: NavigationItem) => {
     if (!item.href) return Boolean(item.active);
-
     try {
       const target = new URL(item.href, window.location.origin);
       if (target.pathname !== pathname) return false;
@@ -122,7 +119,7 @@ export function NavigationDock({ items, onSelect }: NavigationDockProps) {
       >
         <div className="mb-2 px-1 text-center text-[10px] font-semibold uppercase tracking-[0.08em] text-[#86868b]">
           Services
-n        </div>
+        </div>
         <nav className="grid gap-1" aria-label="Dashboard services">
           {items.map(renderItem)}
         </nav>
@@ -156,14 +153,26 @@ n        </div>
 
       {open && (
         <div className="fixed inset-0 z-[80] md:hidden" role="dialog" aria-modal="true" aria-label="Services menu">
-          <button type="button" className="absolute inset-0 bg-black/25 backdrop-blur-[2px]" onClick={() => setOpen(false)} aria-label="Close Services" />
+          <button
+            type="button"
+            className="absolute inset-0 bg-black/25 backdrop-blur-[2px]"
+            onClick={() => setOpen(false)}
+            aria-label="Close Services"
+          />
           <aside className="absolute right-0 top-0 h-full w-[min(86vw,340px)] border-l border-[#d2d2d7] bg-white p-5 shadow-[-18px_0_50px_rgba(0,0,0,0.16)]">
             <div className="flex items-center justify-between border-b border-[#e8e8ed] pb-4">
               <div>
                 <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#86868b]">TCE</p>
                 <p className="mt-1 text-[20px] font-semibold tracking-[-0.02em] text-[#1d1d1f]">Services</p>
               </div>
-              <Button type="button" variant="ghost" size="icon" className="touch-target rounded-full" onClick={() => setOpen(false)} aria-label="Close Services">
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="touch-target rounded-full"
+                onClick={() => setOpen(false)}
+                aria-label="Close Services"
+              >
                 <X className="size-5" />
               </Button>
             </div>
@@ -171,7 +180,12 @@ n        </div>
               {items.map(renderItem)}
             </nav>
             <div className="mt-5 border-t border-[#e8e8ed] pt-4">
-              <Button type="button" variant="ghost" onClick={() => void handleLogout()} className="h-12 w-full justify-start gap-3 rounded-xl px-3 text-sm font-semibold text-[#ff3b30] hover:bg-[#fff1f0] hover:text-[#d70015]">
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() => void handleLogout()}
+                className="h-12 w-full justify-start gap-3 rounded-xl px-3 text-sm font-semibold text-[#ff3b30] hover:bg-[#fff1f0] hover:text-[#d70015]"
+              >
                 <LogOut className="size-[19px]" />
                 <span>Logout</span>
               </Button>
