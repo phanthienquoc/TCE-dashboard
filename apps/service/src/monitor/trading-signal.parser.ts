@@ -55,8 +55,10 @@ function validateProtection(
 /**
  * Parse canonical TCE signals and Telegram entry-zone/multi-TP signals.
  * Telegram: #XAUUSD SELL 4485_4488 + one or more TP lines + one SL line.
- * For an entry zone, SELL uses the upper edge and BUY uses the lower edge
- * as the legacy single trigger price; all TP levels are preserved.
+ * For a two-price entry zone, the trigger entry is offset by +5 price units
+ * from the optimal edge: SELL uses entryMax + 5, BUY uses entryMin + 5.
+ * The legacy takeProfit is the second TP when multiple TP levels are supplied;
+ * all TP levels are preserved in takeProfits.
  */
 export function parseTradingSignal(input: string): TradingSignal {
   const text = String(input ?? '')
@@ -113,21 +115,22 @@ export function parseTradingSignal(input: string): TradingSignal {
   if (new Set(takeProfits).size !== takeProfits.length)
     throw new Error('Duplicate TP values are not allowed');
 
-  const entry = side === 'SELL' ? entryMax : entryMin;
+  const entry = side === 'SELL' ? entryMax + 5 : entryMin + 5;
+  const takeProfit = takeProfits.length >= 2 ? takeProfits[1] : takeProfits[0];
   validateProtection(side, entry, takeProfits, stopLoss);
 
   if (side === 'SELL') {
-    if (!(stopLoss > entryMax && takeProfits.every(tp => tp < entryMin)))
-      throw new Error('SELL entry zone requires every TP < entry zone < SL');
-  } else if (!(stopLoss < entryMin && takeProfits.every(tp => tp > entryMax))) {
-    throw new Error('BUY entry zone requires SL < entry zone < every TP');
+    if (!(stopLoss > entry && takeProfits.every(tp => tp < entryMin)))
+      throw new Error('SELL entry zone requires every TP < entry zone < SL after +5 entry offset');
+  } else if (!(stopLoss < entryMin && takeProfits.every(tp => tp > entry))) {
+    throw new Error('BUY entry zone requires SL < entry zone and every TP > entry after +5 entry offset');
   }
 
   return {
     symbol,
     side,
     entry,
-    takeProfit: takeProfits[0],
+    takeProfit,
     stopLoss,
     entryMin,
     entryMax,
