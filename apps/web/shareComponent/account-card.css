@@ -21,9 +21,26 @@
   font-size: 14px;
   font-weight: 700;
 }
-.shared-account-copy { min-width: 0; display: grid; gap: 2px; }
-.shared-account-copy strong { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; }
-.shared-account-copy span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted); font-size: 11px; }
+.shared-account-copy {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+.shared-account-copy strong {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+}
+.shared-account-copy span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--muted);
+  font-size: 11px;
+}
 .shared-account-status {
   padding: 4px 7px;
   border-radius: 999px;
@@ -35,5 +52,7 @@
   white-space: nowrap;
 }
 @media (max-width: 640px) {
-  .shared-account-card { min-width: 160px; }
+  .shared-account-card {
+    min-width: 160px;
+  }
 }
