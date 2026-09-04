@@ -3,6 +3,7 @@
 import type { LucideIcon } from 'lucide-react';
 import { LogOut, Menu, X } from 'lucide-react';
 import Link from 'next/link';
+import { usePathname, useSearchParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -23,6 +24,8 @@ type NavigationDockProps = {
 
 export function NavigationDock({ items, onSelect }: NavigationDockProps) {
   const logout = useAuthStore(s => s.logout);
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const [open, setOpen] = useState(false);
 
   useEffect(() => {
@@ -33,6 +36,25 @@ export function NavigationDock({ items, onSelect }: NavigationDockProps) {
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [open]);
+
+  // Next.js soft navigation updates pathname/searchParams without remounting the dock.
+  // Derive the active item from the current URL so the menu always follows the route.
+  useEffect(() => {
+    setOpen(false);
+  }, [pathname, searchParams]);
+
+  const isActive = (item: NavigationItem) => {
+    if (!item.href) return Boolean(item.active);
+
+    try {
+      const target = new URL(item.href, window.location.origin);
+      if (target.pathname !== pathname) return false;
+      const targetTab = target.searchParams.get('tab');
+      return targetTab ? searchParams.get('tab') === targetTab : true;
+    } catch {
+      return Boolean(item.active);
+    }
+  };
 
   const handleLogout = async () => {
     setOpen(false);
@@ -45,7 +67,9 @@ export function NavigationDock({ items, onSelect }: NavigationDockProps) {
     onSelect?.(id);
   };
 
-  const renderItem = ({ id, label, icon: Icon, active, href }: NavigationItem) => {
+  const renderItem = (item: NavigationItem) => {
+    const { id, label, icon: Icon, href } = item;
+    const active = isActive(item);
     const className = cn(
       'flex min-h-11 w-full items-center gap-3 rounded-xl px-3 text-sm font-semibold',
       'text-[#6e6e73] transition-colors hover:bg-[#f5f5f7] hover:text-[#1d1d1f]',
@@ -98,7 +122,7 @@ export function NavigationDock({ items, onSelect }: NavigationDockProps) {
       >
         <div className="mb-2 px-1 text-center text-[10px] font-semibold uppercase tracking-[0.08em] text-[#86868b]">
           Services
-        </div>
+n        </div>
         <nav className="grid gap-1" aria-label="Dashboard services">
           {items.map(renderItem)}
         </nav>
@@ -131,51 +155,23 @@ export function NavigationDock({ items, onSelect }: NavigationDockProps) {
       </div>
 
       {open && (
-        <div
-          className="fixed inset-0 z-[80] md:hidden"
-          role="dialog"
-          aria-modal="true"
-          aria-label="Services menu"
-        >
-          <button
-            type="button"
-            className="absolute inset-0 bg-black/25 backdrop-blur-[2px]"
-            onClick={() => setOpen(false)}
-            aria-label="Close Services"
-          />
+        <div className="fixed inset-0 z-[80] md:hidden" role="dialog" aria-modal="true" aria-label="Services menu">
+          <button type="button" className="absolute inset-0 bg-black/25 backdrop-blur-[2px]" onClick={() => setOpen(false)} aria-label="Close Services" />
           <aside className="absolute right-0 top-0 h-full w-[min(86vw,340px)] border-l border-[#d2d2d7] bg-white p-5 shadow-[-18px_0_50px_rgba(0,0,0,0.16)]">
             <div className="flex items-center justify-between border-b border-[#e8e8ed] pb-4">
               <div>
-                <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#86868b]">
-                  TCE
-                </p>
-                <p className="mt-1 text-[20px] font-semibold tracking-[-0.02em] text-[#1d1d1f]">
-                  Services
-                </p>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#86868b]">TCE</p>
+                <p className="mt-1 text-[20px] font-semibold tracking-[-0.02em] text-[#1d1d1f]">Services</p>
               </div>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                className="touch-target rounded-full"
-                onClick={() => setOpen(false)}
-                aria-label="Close Services"
-              >
+              <Button type="button" variant="ghost" size="icon" className="touch-target rounded-full" onClick={() => setOpen(false)} aria-label="Close Services">
                 <X className="size-5" />
               </Button>
             </div>
-
             <nav className="mt-5 grid gap-1" aria-label="Mobile dashboard services">
               {items.map(renderItem)}
             </nav>
-
             <div className="mt-5 border-t border-[#e8e8ed] pt-4">
-              <Button
-                type="button"
-                variant="ghost"
-                onClick={() => void handleLogout()}
-                className="h-12 w-full justify-start gap-3 rounded-xl px-3 text-sm font-semibold text-[#ff3b30] hover:bg-[#fff1f0] hover:text-[#d70015]"
-              >
+              <Button type="button" variant="ghost" onClick={() => void handleLogout()} className="h-12 w-full justify-start gap-3 rounded-xl px-3 text-sm font-semibold text-[#ff3b30] hover:bg-[#fff1f0] hover:text-[#d70015]">
                 <LogOut className="size-[19px]" />
                 <span>Logout</span>
               </Button>
