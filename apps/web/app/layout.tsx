@@ -22,7 +22,9 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en" className="bg-white">
-      <body><AppProviders>{children}</AppProviders></body>
+      <body>
+        <AppProviders>{children}</AppProviders>
+      </body>
     </html>
   );
 }
