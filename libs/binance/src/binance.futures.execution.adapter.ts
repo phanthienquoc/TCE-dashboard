@@ -30,6 +30,9 @@ type BinanceCancelResponse = {
   status: string;
 };
 
+type BinanceSubmitOrderParams = Parameters<USDMClient['submitNewOrder']>[0];
+type BinanceFuturesOrderType = BinanceSubmitOrderParams['type'];
+
 const boolString = (value: boolean | undefined) =>
   value === undefined ? undefined : value ? 'true' : 'false';
 
@@ -49,7 +52,7 @@ const invalidInput = (message: string): ContractResult<never> => ({
 const validateOrderInput = (input: FuturesEntryOrderInput | FuturesTpSlInput) => {
   const symbol = String(input.symbol ?? '').trim();
   if (!symbol) return 'Binance symbol is required';
-  if (!Number.isFinite(input.quantity) || input.quantity <= 0)
+  if (!Number.isFinite(input.quantity) || input.quantity == null || input.quantity <= 0)
     return 'Binance quantity must be greater than 0';
   if (
     'price' in input &&
@@ -63,7 +66,10 @@ const validateOrderInput = (input: FuturesEntryOrderInput | FuturesTpSlInput) =>
     (!Number.isFinite(input.limitPrice) || input.limitPrice <= 0)
   )
     return 'Binance limitPrice must be greater than 0';
-  if ('triggerPrice' in input && (!Number.isFinite(input.triggerPrice) || input.triggerPrice <= 0))
+  if (
+    'triggerPrice' in input &&
+    (input.triggerPrice == null || !Number.isFinite(input.triggerPrice) || input.triggerPrice <= 0)
+  )
     return 'Binance triggerPrice must be greater than 0';
   return null;
 };
@@ -163,7 +169,7 @@ export class BinanceFuturesExecutionAdapter implements FuturesExecutionPort {
   }
 
   private async order(
-    params: Parameters<USDMClient['submitNewOrder']>[0]
+    params: BinanceSubmitOrderParams
   ): Promise<ContractResult<FuturesOrderResult>> {
     const missing = this.missingCredentials();
     if (missing) return missing;
@@ -187,24 +193,27 @@ export class BinanceFuturesExecutionAdapter implements FuturesExecutionPort {
     }
   }
 
-  placeEntry(input: FuturesEntryOrderInput) {
+  async placeEntry(input: FuturesEntryOrderInput): Promise<ContractResult<FuturesOrderResult>> {
     const validationError = validateOrderInput(input);
     if (validationError) return invalidInput(validationError);
-    const type =
+
+    const type: BinanceFuturesOrderType = (
       input.triggerPrice !== undefined
         ? input.price !== undefined
           ? 'STOP'
           : 'STOP_MARKET'
         : input.price !== undefined
           ? 'LIMIT'
-          : 'MARKET';
+          : 'MARKET'
+    ) as BinanceFuturesOrderType;
+
     return this.order(
       compactParams({
-        symbol: input.symbol.trim().toUpperCase(),
+        symbol: String(input.symbol).trim().toUpperCase(),
         side: input.side,
         positionSide: input.positionSide,
         type,
-        quantity: input.quantity,
+        quantity: Number(input.quantity),
         price: input.price,
         stopPrice: input.triggerPrice,
         // Binance rejects reduceOnly in Hedge Mode; false is unnecessary for normal entries.
@@ -217,19 +226,23 @@ export class BinanceFuturesExecutionAdapter implements FuturesExecutionPort {
     );
   }
 
-  placeTakeProfit(input: FuturesTpSlInput) {
+  async placeTakeProfit(input: FuturesTpSlInput): Promise<ContractResult<FuturesOrderResult>> {
     const validationError = validateOrderInput(input);
     if (validationError) return invalidInput(validationError);
-    const type = input.limitPrice !== undefined ? 'TAKE_PROFIT' : 'TAKE_PROFIT_MARKET';
+
+    const type: BinanceFuturesOrderType = (
+      input.limitPrice !== undefined ? 'TAKE_PROFIT' : 'TAKE_PROFIT_MARKET'
+    ) as BinanceFuturesOrderType;
+
     return this.order(
       compactParams({
-        symbol: input.symbol.trim().toUpperCase(),
+        symbol: String(input.symbol).trim().toUpperCase(),
         side: input.side,
         positionSide: input.positionSide,
         type,
-        quantity: type === 'TAKE_PROFIT' ? input.quantity : undefined,
+        quantity: type === 'TAKE_PROFIT' ? Number(input.quantity) : undefined,
         price: input.limitPrice,
-        stopPrice: input.triggerPrice,
+        stopPrice: Number(input.triggerPrice),
         // Binance rejects reduceOnly in Hedge Mode. Opposite side + positionSide closes it.
         reduceOnly:
           input.positionSide === 'BOTH' ? boolString(input.reduceOnly ?? true) : undefined,
@@ -239,19 +252,23 @@ export class BinanceFuturesExecutionAdapter implements FuturesExecutionPort {
     );
   }
 
-  placeStopLoss(input: FuturesTpSlInput) {
+  async placeStopLoss(input: FuturesTpSlInput): Promise<ContractResult<FuturesOrderResult>> {
     const validationError = validateOrderInput(input);
     if (validationError) return invalidInput(validationError);
-    const type = input.limitPrice !== undefined ? 'STOP' : 'STOP_MARKET';
+
+    const type: BinanceFuturesOrderType = (
+      input.limitPrice !== undefined ? 'STOP' : 'STOP_MARKET'
+    ) as BinanceFuturesOrderType;
+
     return this.order(
       compactParams({
-        symbol: input.symbol.trim().toUpperCase(),
+        symbol: String(input.symbol).trim().toUpperCase(),
         side: input.side,
         positionSide: input.positionSide,
         type,
-        quantity: type === 'STOP' ? input.quantity : undefined,
+        quantity: type === 'STOP' ? Number(input.quantity) : undefined,
         price: input.limitPrice,
-        stopPrice: input.triggerPrice,
+        stopPrice: Number(input.triggerPrice),
         // Binance rejects reduceOnly in Hedge Mode. Opposite side + positionSide closes it.
         reduceOnly:
           input.positionSide === 'BOTH' ? boolString(input.reduceOnly ?? true) : undefined,
