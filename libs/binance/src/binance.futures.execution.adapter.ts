@@ -32,8 +32,10 @@ type BinanceCancelResponse = {
 
 type BinanceSubmitOrderParams = Parameters<USDMClient['submitNewOrder']>[0];
 type BinanceFuturesOrderType = BinanceSubmitOrderParams['type'];
+type BinanceBooleanString = NonNullable<BinanceSubmitOrderParams['reduceOnly']>;
+type BinanceOrderTimeInForce = NonNullable<BinanceSubmitOrderParams['timeInForce']>;
 
-const boolString = (value: boolean | undefined) =>
+const boolString = (value: boolean | undefined): BinanceBooleanString | undefined =>
   value === undefined ? undefined : value ? 'true' : 'false';
 
 const compactParams = <T extends Record<string, unknown>>(params: T) =>
@@ -51,9 +53,9 @@ const invalidInput = (message: string): ContractResult<never> => ({
 
 const validateOrderInput = (input: FuturesEntryOrderInput | FuturesTpSlInput) => {
   const symbol = String(input.symbol ?? '').trim();
-  if (!symbol) return 'Binance symbol is required';
   if (!Number.isFinite(input.quantity) || input.quantity == null || input.quantity <= 0)
     return 'Binance quantity must be greater than 0';
+  if (!symbol) return 'Binance symbol is required';
   if (
     'price' in input &&
     input.price !== undefined &&
@@ -221,7 +223,10 @@ export class BinanceFuturesExecutionAdapter implements FuturesExecutionPort {
           input.positionSide === 'BOTH' && input.reduceOnly ? boolString(true) : undefined,
         newClientOrderId: input.clientOrderId,
         // Binance New Order does not accept timeInForce for MARKET orders.
-        timeInForce: input.price !== undefined ? (input.timeInForce ?? 'GTC') : undefined,
+        timeInForce:
+          input.price !== undefined
+            ? ((input.timeInForce ?? 'GTC') as BinanceOrderTimeInForce)
+            : undefined,
       })
     );
   }
@@ -247,7 +252,8 @@ export class BinanceFuturesExecutionAdapter implements FuturesExecutionPort {
         reduceOnly:
           input.positionSide === 'BOTH' ? boolString(input.reduceOnly ?? true) : undefined,
         newClientOrderId: input.clientOrderId,
-        timeInForce: input.limitPrice !== undefined ? 'GTC' : undefined,
+        timeInForce:
+          input.limitPrice !== undefined ? ('GTC' as BinanceOrderTimeInForce) : undefined,
       })
     );
   }
@@ -273,7 +279,8 @@ export class BinanceFuturesExecutionAdapter implements FuturesExecutionPort {
         reduceOnly:
           input.positionSide === 'BOTH' ? boolString(input.reduceOnly ?? true) : undefined,
         newClientOrderId: input.clientOrderId,
-        timeInForce: input.limitPrice !== undefined ? 'GTC' : undefined,
+        timeInForce:
+          input.limitPrice !== undefined ? ('GTC' as BinanceOrderTimeInForce) : undefined,
       })
     );
   }
