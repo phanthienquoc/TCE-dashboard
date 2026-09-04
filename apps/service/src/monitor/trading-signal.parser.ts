@@ -38,9 +38,17 @@ function validateProtection(
 
   if (side === 'BUY') {
     if (!(stopLoss < entry && takeProfits.every(tp => tp > entry)))
-      throw new Error('BUY signal requires SL < ENTRY < every TP');
+      throw new Error(
+        takeProfits.length === 1
+          ? 'BUY signal requires SL < ENTRY < TP'
+          : 'BUY signal requires SL < ENTRY < every TP'
+      );
   } else if (!(takeProfits.every(tp => tp < entry) && entry < stopLoss)) {
-    throw new Error('SELL signal requires every TP < ENTRY < SL');
+    throw new Error(
+      takeProfits.length === 1
+        ? 'SELL signal requires TP < ENTRY < SL'
+        : 'SELL signal requires every TP < ENTRY < SL'
+    );
   }
 }
 
