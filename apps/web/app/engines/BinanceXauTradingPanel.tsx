@@ -142,7 +142,9 @@ export default function BinanceXauTradingPanel() {
               <strong>
                 {config.enabled && config.xauEnabled ? 'Engine ACTIVE' : 'Engine INACTIVE'}
               </strong>
-              <span className="mt-0.5 block text-[11px] opacity-70">Single-position signal guard</span>
+              <span className="mt-0.5 block text-[11px] opacity-70">
+                Single-position signal guard
+              </span>
             </button>
             <button
               type="button"
@@ -152,7 +154,9 @@ export default function BinanceXauTradingPanel() {
               className={`rounded-xl border px-3 py-2 text-left text-sm ${config.autoProtection ? 'border-violet-300/20 bg-violet-300/[0.05] text-violet-200' : 'border-white/10 text-zinc-400'}`}
             >
               <strong>{config.autoProtection ? 'Auto TP/SL ON' : 'Auto TP/SL OFF'}</strong>
-              <span className="mt-0.5 block text-[11px] opacity-70">Protection fallback from fill</span>
+              <span className="mt-0.5 block text-[11px] opacity-70">
+                Protection fallback from fill
+              </span>
             </button>
           </div>
 
@@ -261,11 +265,28 @@ export default function BinanceXauTradingPanel() {
             <div className="text-sm text-zinc-500">No open XAU position.</div>
           ) : (
             <div className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-5">
-              <div><span className="text-xs text-zinc-500">Side</span><div className="font-semibold">{Number(position.positionAmt) > 0 ? 'LONG' : 'SHORT'}</div></div>
-              <div><span className="text-xs text-zinc-500">Size</span><div>{Math.abs(Number(position.positionAmt))}</div></div>
-              <div><span className="text-xs text-zinc-500">Entry</span><div>{position.entryPrice}</div></div>
-              <div><span className="text-xs text-zinc-500">Mark</span><div>{position.markPrice}</div></div>
-              <div><span className="text-xs text-zinc-500">PnL</span><div>{position.unrealizedProfit}</div></div>
+              <div>
+                <span className="text-xs text-zinc-500">Side</span>
+                <div className="font-semibold">
+                  {Number(position.positionAmt) > 0 ? 'LONG' : 'SHORT'}
+                </div>
+              </div>
+              <div>
+                <span className="text-xs text-zinc-500">Size</span>
+                <div>{Math.abs(Number(position.positionAmt))}</div>
+              </div>
+              <div>
+                <span className="text-xs text-zinc-500">Entry</span>
+                <div>{position.entryPrice}</div>
+              </div>
+              <div>
+                <span className="text-xs text-zinc-500">Mark</span>
+                <div>{position.markPrice}</div>
+              </div>
+              <div>
+                <span className="text-xs text-zinc-500">PnL</span>
+                <div>{position.unrealizedProfit}</div>
+              </div>
             </div>
           )}
         </CardContent>
