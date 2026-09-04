@@ -1,7 +1,7 @@
 'use client';
 
 import { useRef, useState } from 'react';
-import { FileJson, Upload, Wifi } from 'lucide-react';
+import { FileJson, Upload, Wifi, Zap } from 'lucide-react';
 import { platformApi } from '../../../lib/api';
 import { Button } from '../../ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../ui/card';
@@ -74,6 +74,19 @@ export default function BinancePlatformConfig({ busy, setBusy }: PlatformConfigP
       if (fileInputRef.current) fileInputRef.current.value = '';
     }
   };
+
+  const placeXauTestOrder = () =>
+    void run(
+      () =>
+        platformApi.binanceOrder({
+          environment: env,
+          symbol: 'XAUUSDT',
+          side: 'BUY',
+          type: 'MARKET',
+          quantity: 0.1,
+        }),
+      `XAUUSDT market BUY 0.1 submitted on ${env}.`
+    );
 
   return (
     <Card>
@@ -158,6 +171,24 @@ export default function BinancePlatformConfig({ busy, setBusy }: PlatformConfigP
             <Wifi className="size-4" /> Test connection
           </Button>
         </div>
+
+        <div className="rounded-xl border border-amber-300/15 bg-amber-300/[0.04] p-4">
+          <div className="mb-3">
+            <p className="text-sm font-semibold text-white">XAU Futures test order</p>
+            <p className="mt-1 text-xs leading-5 text-zinc-400">
+              Sends a real MARKET order through the configured Binance Futures credentials. Use Testnet first.
+            </p>
+          </div>
+          <Button
+            type="button"
+            variant="outline"
+            disabled={!!busy}
+            onClick={placeXauTestOrder}
+          >
+            <Zap className="size-4" /> Place XAU 0.1 MARKET BUY
+          </Button>
+        </div>
+
         {status && <p className="text-sm text-zinc-300">{status}</p>}
       </CardContent>
     </Card>
