@@ -1,0 +1,15 @@
+/* Position/overview mobile layout fixes. Keep all records visible and separate dashboard cards. */
+.mobile-records {
+  max-height: none !important;
+  overflow-y: visible !important;
+}
+.list-footer {
+  display: none !important;
+}
+.dashboard-view-overview {
+  display: grid;
+  gap: 16px;
+}
+.mobile-data-view {
+  margin-bottom: 16px;
+}
