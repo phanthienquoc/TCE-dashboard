@@ -59,7 +59,9 @@ function validateProtection(
  * as the legacy single trigger price; all TP levels are preserved.
  */
 export function parseTradingSignal(input: string): TradingSignal {
-  const text = String(input ?? '').replace(/[\u2013\u2014]/g, '-').trim();
+  const text = String(input ?? '')
+    .replace(/[\u2013\u2014]/g, '-')
+    .trim();
   const canonical = CANONICAL_RE.exec(text);
   if (canonical) {
     const [, rawSymbol, rawSide, rawEntry, rawTp, rawSl] = canonical;
@@ -72,7 +74,10 @@ export function parseTradingSignal(input: string): TradingSignal {
     return { symbol, side, entry, takeProfit, stopLoss };
   }
 
-  const lines = text.split(/\r?\n/).map(line => line.trim()).filter(Boolean);
+  const lines = text
+    .split(/\r?\n/)
+    .map(line => line.trim())
+    .filter(Boolean);
   const head = lines.length ? TELEGRAM_HEAD_RE.exec(lines[0]) : null;
   if (!head)
     throw new Error(

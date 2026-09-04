@@ -162,9 +162,10 @@ export class TelegramBotService implements OnModuleInit {
               const tpText = signal.takeProfits?.length
                 ? `TPs ${signal.takeProfits.join(', ')}`
                 : `TP ${signal.tp}`;
-              const entryText = signal.entryMin != null && signal.entryMax != null
-                ? `ENTRY ${signal.entryMin}_${signal.entryMax} (trigger ${signal.entry})`
-                : `ENTRY ${signal.entry}`;
+              const entryText =
+                signal.entryMin != null && signal.entryMax != null
+                  ? `ENTRY ${signal.entryMin}_${signal.entryMax} (trigger ${signal.entry})`
+                  : `ENTRY ${signal.entry}`;
               await this.send(
                 botToken!,
                 String(message.chat.id),
