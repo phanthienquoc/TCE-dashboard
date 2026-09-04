@@ -60,7 +60,7 @@ test('rejects unsupported Binance environment before making provider calls', () 
   );
 });
 
-test('entry order maps market payload correctly and never calls a real Binance API', async () => {
+test('entry market order sends no timeInForce or other undefined parameters', async () => {
   let received: Record<string, unknown> | undefined;
   USDMClient.prototype.submitNewOrder = async function (params: any) {
     received = params as Record<string, unknown>;
@@ -72,6 +72,7 @@ test('entry order maps market payload correctly and never calls a real Binance A
       side: 'BUY',
       type: 'MARKET',
       origQty: '0.001',
+      positionSide: 'LONG',
     } as any;
   } as any;
   const result = await new BinanceFuturesExecutionAdapter({
@@ -85,11 +86,6 @@ test('entry order maps market payload correctly and never calls a real Binance A
     positionSide: 'LONG',
     type: 'MARKET',
     quantity: 0.001,
-    price: undefined,
-    stopPrice: undefined,
-    reduceOnly: 'false',
-    newClientOrderId: undefined,
-    timeInForce: undefined,
   });
 });
 
@@ -139,7 +135,7 @@ test('entry order maps limit and stop trigger fields', async () => {
   assert.equal(received?.timeInForce, 'GTC');
 });
 
-test('take profit defaults to reduceOnly and uses TAKE_PROFIT_MARKET', async () => {
+test('take profit omits reduceOnly in hedge mode', async () => {
   let received: Record<string, unknown> | undefined;
   USDMClient.prototype.submitNewOrder = async function (params: any) {
     received = params as Record<string, unknown>;
@@ -150,6 +146,7 @@ test('take profit defaults to reduceOnly and uses TAKE_PROFIT_MARKET', async () 
       side: 'SELL',
       type: 'TAKE_PROFIT_MARKET',
       stopPrice: '4000',
+      positionSide: 'LONG',
     } as any;
   } as any;
   await new BinanceFuturesExecutionAdapter({ apiKey: 'k', apiSecret: 's' }).placeTakeProfit({
@@ -161,11 +158,12 @@ test('take profit defaults to reduceOnly and uses TAKE_PROFIT_MARKET', async () 
   });
   assert.equal(received?.type, 'TAKE_PROFIT_MARKET');
   assert.equal(received?.stopPrice, 4000);
-  assert.equal(received?.reduceOnly, 'true');
+  assert.equal(received?.reduceOnly, undefined);
+  assert.equal(received?.timeInForce, undefined);
   assert.equal(received?.quantity, undefined);
 });
 
-test('stop loss defaults to reduceOnly and uses STOP_MARKET', async () => {
+test('stop loss omits reduceOnly in hedge mode', async () => {
   let received: Record<string, unknown> | undefined;
   USDMClient.prototype.submitNewOrder = async function (params: any) {
     received = params as Record<string, unknown>;
@@ -176,6 +174,7 @@ test('stop loss defaults to reduceOnly and uses STOP_MARKET', async () => {
       side: 'SELL',
       type: 'STOP_MARKET',
       stopPrice: '3500',
+      positionSide: 'LONG',
     } as any;
   } as any;
   await new BinanceFuturesExecutionAdapter({ apiKey: 'k', apiSecret: 's' }).placeStopLoss({
@@ -187,8 +186,29 @@ test('stop loss defaults to reduceOnly and uses STOP_MARKET', async () => {
   });
   assert.equal(received?.type, 'STOP_MARKET');
   assert.equal(received?.stopPrice, 3500);
-  assert.equal(received?.reduceOnly, 'true');
+  assert.equal(received?.reduceOnly, undefined);
+  assert.equal(received?.timeInForce, undefined);
   assert.equal(received?.quantity, undefined);
+});
+
+test('rejects invalid order input before making provider calls', async () => {
+  let called = false;
+  USDMClient.prototype.submitNewOrder = async function () {
+    called = true;
+    return {} as any;
+  };
+  const result = await new BinanceFuturesExecutionAdapter({ apiKey: 'k', apiSecret: 's' }).placeEntry({
+    symbol: 'BTCUSDT',
+    side: 'BUY',
+    quantity: 0,
+    positionSide: 'BOTH',
+  });
+  assert.equal(result.ok, false);
+  if (!result.ok) {
+    assert.equal(result.error.code, 'INVALID_INPUT');
+    assert.equal(result.error.message, 'Binance quantity must be greater than 0');
+  }
+  assert.equal(called, false);
 });
 
 test('cancelOrder requires order id or client order id', async () => {
