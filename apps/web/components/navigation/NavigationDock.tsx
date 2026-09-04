@@ -20,6 +20,32 @@ type NavigationItem = {
 };
 type NavigationDockProps = { items: NavigationItem[]; onSelect?: (id: string) => void };
 
+const iconTones: Record<string, string> = {
+  overview: 'text-blue-500',
+  positions: 'text-violet-500',
+  orders: 'text-amber-500',
+  engine: 'text-cyan-500',
+  notifications: 'text-rose-500',
+  settings: 'text-emerald-500',
+};
+
+function normalizeNavigationHref(href?: string) {
+  if (!href) return href;
+  try {
+    const target = new URL(href, 'https://tce.local');
+    const tab = target.searchParams.get('tab');
+    const paths: Record<string, string> = {
+      positions: '/dashboard/positions',
+      orders: '/dashboard/orders',
+      settings: '/dashboard/settings',
+    };
+    if (target.pathname === '/dashboard' && tab && paths[tab]) return paths[tab];
+  } catch {
+    // Preserve malformed/relative URLs so the existing caller behavior is unchanged.
+  }
+  return href;
+}
+
 export function NavigationDock({ items, onSelect }: NavigationDockProps) {
   const logout = useAuthStore(s => s.logout);
   const pathname = usePathname();
@@ -38,9 +64,10 @@ export function NavigationDock({ items, onSelect }: NavigationDockProps) {
     setOpen(false);
   }, [pathname, searchParams]);
   const isActive = (item: NavigationItem) => {
-    if (!item.href) return Boolean(item.active);
+    const href = normalizeNavigationHref(item.href);
+    if (!href) return Boolean(item.active);
     try {
-      const target = new URL(item.href, window.location.origin);
+      const target = new URL(href, window.location.origin);
       if (target.pathname !== pathname) return false;
       const targetTab = target.searchParams.get('tab');
       const currentTab = searchParams.get('tab');
@@ -59,21 +86,23 @@ export function NavigationDock({ items, onSelect }: NavigationDockProps) {
   const renderItem = (item: NavigationItem) => {
     const Icon = item.icon;
     const active = isActive(item);
+    const href = normalizeNavigationHref(item.href);
+    const iconTone = iconTones[item.id] ?? 'text-muted';
     const className = cn(
       'flex min-h-11 w-full items-center gap-3 rounded-xl px-3 text-sm font-semibold transition-all duration-200 ease-out active:scale-[.98]',
       active ? 'bg-primary/10 text-primary' : 'text-muted hover:bg-surface hover:text-foreground'
     );
     const content = (
       <>
-        <Icon className="size-[19px] shrink-0 transition-transform duration-200" />
+        <Icon className={cn('size-[19px] shrink-0 transition-transform duration-200', iconTone)} />
         <span className="truncate">{item.label}</span>
       </>
     );
-    if (item.href)
+    if (href)
       return (
         <Link
           key={item.id}
-          href={item.href}
+          href={href}
           prefetch
           aria-current={active ? 'page' : undefined}
           aria-label={item.label}
@@ -125,7 +154,7 @@ export function NavigationDock({ items, onSelect }: NavigationDockProps) {
             aria-label="Open Services"
             aria-expanded={open}
           >
-            <Menu className="size-[22px]" />
+            <Menu className="size-[22px] text-primary" />
           </Button>
         </div>
       </header>
@@ -158,7 +187,7 @@ export function NavigationDock({ items, onSelect }: NavigationDockProps) {
                 onClick={() => setOpen(false)}
                 aria-label="Close Services"
               >
-                <X className="size-5" />
+                <X className="size-5 text-primary" />
               </Button>
             </div>
             <nav className="mt-5 grid gap-1" aria-label="Mobile dashboard services">
@@ -201,7 +230,7 @@ export function NavigationDock({ items, onSelect }: NavigationDockProps) {
                 onClick={() => void handleLogout()}
                 className="h-12 w-full justify-start gap-3 rounded-xl px-3 text-sm font-semibold text-danger transition-all duration-200 active:scale-[.98] hover:bg-danger/10"
               >
-                <LogOut className="size-[19px]" />
+                <LogOut className="size-[19px] text-danger" />
                 <span>Logout</span>
               </Button>
             </div>
