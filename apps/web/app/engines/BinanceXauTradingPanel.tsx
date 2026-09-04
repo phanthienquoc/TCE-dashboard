@@ -16,6 +16,7 @@ type Config = {
   autoProtection: boolean;
   tpPct: number;
   slPct: number;
+  notificationId: string | null;
 };
 type Position = {
   symbol: string;
@@ -41,13 +42,13 @@ export default function BinanceXauTradingPanel() {
     autoProtection: true,
     tpPct: 5,
     slPct: 5,
+    notificationId: null,
   });
   const [position, setPosition] = useState<Position | null>(null);
   const [bots, setBots] = useState<BotRow[]>([]);
   const [token, setToken] = useState('');
   const [chatId, setChatId] = useState('');
   const [botName, setBotName] = useState('xau-trading');
-  const [notificationId, setNotificationId] = useState('');
   const [environment, setEnvironment] = useState<'production' | 'testnet'>('production');
   const [busy, setBusy] = useState(true);
   const [message, setMessage] = useState('');
@@ -70,12 +71,19 @@ export default function BinanceXauTradingPanel() {
         platformApi.binanceXauConfig(),
         platformApi.telegramBots(),
       ]);
-      if (configResponse.data) setConfig(current => ({ ...current, ...configResponse.data }));
+      if (configResponse.data)
+        setConfig(current => ({ ...current, ...configResponse.data }));
       const rows = botsResponse.data?.bots ?? botsResponse.data ?? [];
-      setBots(Array.isArray(rows) ? rows : []);
-      setNotificationId(
-        current => current || (Array.isArray(rows) && rows[0]?.id ? rows[0].id : '')
-      );
+      const telegramBots = Array.isArray(rows) ? rows : [];
+      setBots(telegramBots);
+      setConfig(current => ({
+        ...current,
+        notificationId:
+          configResponse.data?.notificationId ??
+          current.notificationId ??
+          telegramBots[0]?.id ??
+          null,
+      }));
       await refreshPosition();
     } catch (error: any) {
       setMessage(
@@ -211,11 +219,13 @@ export default function BinanceXauTradingPanel() {
               <div className="relative">
                 <Bell className="pointer-events-none absolute left-3 top-3 size-4 text-zinc-500" />
                 <select
-                  value={notificationId}
-                  onChange={e => setNotificationId(e.target.value)}
+                  value={config.notificationId ?? ''}
+                  onChange={e =>
+                    setConfig(current => ({ ...current, notificationId: e.target.value || null }))
+                  }
                   className={`${selectClass} pl-9`}
                 >
-                  <option value="">Select Telegram bot</option>
+                  <option value="">No notification</option>
                   {bots.map(bot => (
                     <option key={bot.id} value={bot.id}>
                       {bot.name} · {bot.environment}
