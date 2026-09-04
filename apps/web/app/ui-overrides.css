@@ -1,0 +1,9 @@
+/* Global shell cleanup: account identity / sign-out are no longer shown in the app header. */
+.app-header {
+  display: none !important;
+}
+
+/* Keep dashboard content flush with the top edge after removing the header. */
+.app-content {
+  padding-top: max(16px, env(safe-area-inset-top));
+}
