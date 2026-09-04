@@ -33,6 +33,26 @@ body {
   border-color: var(--border) !important;
 }
 
+.platform-config [role='tablist'] {
+  background: var(--surface) !important;
+  border-color: var(--border) !important;
+}
+
+.platform-config [role='tab'] {
+  color: var(--muted) !important;
+  transition: background-color 180ms ease, color 180ms ease, transform 180ms ease;
+}
+
+.platform-config [role='tab'][data-state='active'] {
+  background: var(--surface-strong) !important;
+  color: var(--foreground) !important;
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.12);
+}
+
+.platform-config [role='tab']:active {
+  transform: scale(.98);
+}
+
 .platform-config [class*='bg-[#150d1d]'],
 .platform-config [class*='bg-[#120b18]'] {
   background: var(--surface-strong) !important;
@@ -72,7 +92,6 @@ body {
   color: var(--foreground) !important;
 }
 
-/* Native controls must follow the active theme instead of the browser color scheme. */
 .platform-config select,
 .platform-config input,
 .platform-config textarea {
@@ -86,7 +105,27 @@ body {
   color: var(--subtle) !important;
 }
 
-/* Stable, lightweight motion; users who prefer less motion get a static UI. */
+/* Drawer motion and a subtle native-feeling press response. */
+[role='dialog'] > button:first-child {
+  animation: tce-backdrop-in 220ms ease-out both;
+}
+
+[role='dialog'] aside {
+  border-left-color: var(--border) !important;
+  animation: tce-drawer-in 300ms cubic-bezier(.22,1,.36,1) both;
+}
+
+[role='dialog'] nav a,
+[role='dialog'] nav button {
+  transition: background-color 160ms ease, color 160ms ease, transform 160ms ease;
+}
+
+[role='dialog'] nav a:active,
+[role='dialog'] nav button:active {
+  transform: scale(.985);
+}
+
+/* Stable, lightweight page motion; users who prefer less motion get a static UI. */
 .tce-motion,
 .app-container > * {
   animation: tce-fade-up 360ms cubic-bezier(.22,1,.36,1) both;
@@ -104,9 +143,21 @@ body {
   to { opacity: 1; transform: translate3d(0, 0, 0); }
 }
 
+@keyframes tce-drawer-in {
+  from { opacity: 0; transform: translate3d(24px, 0, 0); }
+  to { opacity: 1; transform: translate3d(0, 0, 0); }
+}
+
+@keyframes tce-backdrop-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .tce-motion,
-  .app-container > * {
+  .app-container > *,
+  [role='dialog'] > button:first-child,
+  [role='dialog'] aside {
     animation: none !important;
   }
 }
