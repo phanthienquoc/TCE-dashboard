@@ -29,6 +29,7 @@ export type BinanceEngineConfig = {
   autoProtection: boolean;
   tpPct: number;
   slPct: number;
+  notificationId: string | null;
 };
 
 @Injectable()
@@ -69,22 +70,51 @@ export class BinanceEngineService implements OnModuleInit, OnModuleDestroy {
     return this.binance.openOrders(userId, environment, symbol);
   }
 
+  private async accountIdForUser(userId: string) {
+    const { data, error } = await this.supabase.db
+      .from('tce_accounts')
+      .select('id')
+      .eq('user_id', userId)
+      .limit(1)
+      .maybeSingle();
+    if (error) throw error;
+    if (!data?.id) throw new Error('TCE account is not configured for this user.');
+    return String(data.id);
+  }
+
   async setConfig(userId: string, input: Partial<BinanceEngineConfig>) {
+    const accountId = await this.accountIdForUser(userId);
     const quantity = Number(input.quantity ?? 0);
     const positionSide =
       input.positionSide === 'LONG' || input.positionSide === 'SHORT' ? input.positionSide : 'BOTH';
     if (!Number.isFinite(quantity) || quantity <= 0)
       throw new Error('Binance order quantity must be greater than zero.');
-    const tpPct = Number(input.tpPct ?? DEFAULT_TP_SL_PCT),
-      slPct = Number(input.slPct ?? DEFAULT_TP_SL_PCT);
+    const tpPct = Number(input.tpPct ?? DEFAULT_TP_SL_PCT);
+    const slPct = Number(input.slPct ?? DEFAULT_TP_SL_PCT);
     if (![tpPct, slPct].every(value => Number.isFinite(value) && value > 0))
       throw new Error('XAU TP/SL percentages must be greater than zero.');
     const xauSymbol =
       String(input.xauSymbol ?? DEFAULT_SYMBOL)
         .trim()
         .toUpperCase() || DEFAULT_SYMBOL;
+
+    let notificationId: string | null = input.notificationId ? String(input.notificationId) : null;
+    if (notificationId) {
+      const { data: telegram, error: telegramError } = await this.supabase.db
+        .from('platform_credentials')
+        .select('id')
+        .eq('id', notificationId)
+        .eq('user_id', userId)
+        .eq('provider', 'telegram')
+        .eq('is_active', true)
+        .maybeSingle();
+      if (telegramError) throw telegramError;
+      if (!telegram) throw new Error('Selected Telegram notification channel is not available.');
+      notificationId = telegram.id;
+    }
+
     const payload = {
-      account_id: userId,
+      account_id: accountId,
       binance_engine_enabled: Boolean(input.enabled),
       binance_order_quantity: quantity,
       binance_position_side: positionSide,
@@ -93,14 +123,13 @@ export class BinanceEngineService implements OnModuleInit, OnModuleDestroy {
       binance_xau_tp_pct: tpPct,
       binance_xau_sl_pct: slPct,
       binance_xau_auto_protection: Boolean(input.autoProtection ?? true),
+      binance_xau_notification_id: notificationId,
       updated_at: new Date().toISOString(),
     };
     const { error } = await this.supabase.db
       .from('tce_strategy_config')
       .upsert(payload, { onConflict: 'account_id' });
     if (error) throw error;
-    if (payload.binance_engine_enabled && payload.binance_xau_enabled)
-      await this.ensureStream(userId, 'production');
     return {
       enabled: payload.binance_engine_enabled,
       quantity,
@@ -111,6 +140,7 @@ export class BinanceEngineService implements OnModuleInit, OnModuleDestroy {
       autoProtection: payload.binance_xau_auto_protection,
       tpPct,
       slPct,
+      notificationId,
     };
   }
 
@@ -167,17 +197,18 @@ export class BinanceEngineService implements OnModuleInit, OnModuleDestroy {
   }
 
   private async config(userId: string): Promise<BinanceEngineConfig> {
+    const accountId = await this.accountIdForUser(userId);
     const { data, error } = await this.supabase.db
       .from('tce_strategy_config')
       .select(
-        'binance_engine_enabled,binance_order_quantity,binance_position_side,binance_xau_enabled,binance_xau_symbol,binance_xau_tp_pct,binance_xau_sl_pct,binance_xau_auto_protection'
+        'binance_engine_enabled,binance_order_quantity,binance_position_side,binance_xau_enabled,binance_xau_symbol,binance_xau_tp_pct,binance_xau_sl_pct,binance_xau_auto_protection,binance_xau_notification_id'
       )
-      .eq('account_id', userId)
+      .eq('account_id', accountId)
       .maybeSingle();
     if (error) throw error;
     return {
       enabled: Boolean(data?.binance_engine_enabled ?? false),
-      quantity: Number(data?.binance_order_quantity ?? 0),
+      quantity: Number(data?.binance_order_quantity ?? 0.01),
       positionSide:
         data?.binance_position_side === 'LONG' || data?.binance_position_side === 'SHORT'
           ? data.binance_position_side
@@ -191,6 +222,7 @@ export class BinanceEngineService implements OnModuleInit, OnModuleDestroy {
       autoProtection: Boolean(data?.binance_xau_auto_protection ?? true),
       tpPct: Number(data?.binance_xau_tp_pct ?? DEFAULT_TP_SL_PCT),
       slPct: Number(data?.binance_xau_sl_pct ?? DEFAULT_TP_SL_PCT),
+      notificationId: data?.binance_xau_notification_id ?? null,
     };
   }
 

@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Activity, Bot, Loader2, Save, ShieldCheck, Wifi } from 'lucide-react';
+import { Activity, Bell, Loader2, Save, Wifi } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
@@ -16,6 +16,7 @@ type Config = {
   autoProtection: boolean;
   tpPct: number;
   slPct: number;
+  notificationId: string | null;
 };
 type Position = {
   symbol: string;
@@ -25,6 +26,11 @@ type Position = {
   unrealizedProfit: number;
   positionSide?: string;
 };
+type BotRow = { id: string; name: string; environment: string; isActive: boolean };
+
+const fieldClass = 'mt-1 h-10 w-full';
+const selectClass =
+  'mt-1 h-10 w-full rounded-xl border border-white/10 bg-[#120b18] px-3 text-sm text-white outline-none';
 
 export default function BinanceXauTradingPanel() {
   const [config, setConfig] = useState<Config>({
@@ -36,12 +42,10 @@ export default function BinanceXauTradingPanel() {
     autoProtection: true,
     tpPct: 5,
     slPct: 5,
+    notificationId: null,
   });
   const [position, setPosition] = useState<Position | null>(null);
-  const [bots, setBots] = useState<any[]>([]);
-  const [token, setToken] = useState('');
-  const [chatId, setChatId] = useState('');
-  const [botName, setBotName] = useState('xau-trading');
+  const [bots, setBots] = useState<BotRow[]>([]);
   const [environment, setEnvironment] = useState<'production' | 'testnet'>('production');
   const [busy, setBusy] = useState(true);
   const [message, setMessage] = useState('');
@@ -64,7 +68,8 @@ export default function BinanceXauTradingPanel() {
         platformApi.binanceXauConfig(),
         platformApi.telegramBots(),
       ]);
-      if (configResponse.data) setConfig(current => ({ ...current, ...configResponse.data }));
+      const nextConfig = configResponse.data ?? {};
+      setConfig(current => ({ ...current, ...nextConfig }));
       const rows = botsResponse.data?.bots ?? botsResponse.data ?? [];
       setBots(Array.isArray(rows) ? rows : []);
       await refreshPosition();
@@ -103,36 +108,6 @@ export default function BinanceXauTradingPanel() {
     }
   }
 
-  async function saveTelegramBot() {
-    if (!token.trim()) {
-      setMessage('Telegram bot token is required.');
-      return;
-    }
-    setBusy(true);
-    setMessage('');
-    try {
-      const response = await platformApi.telegramSave({
-        token: token.trim(),
-        chatId: chatId.trim() || undefined,
-        environment,
-        name: botName.trim() || 'xau-trading',
-      });
-      if (!response.data?.ok)
-        throw new Error(response.data?.message ?? 'Telegram bot setup failed.');
-      setToken('');
-      setMessage(
-        `Telegram connected: @${response.data.bot?.username ?? response.data.bot?.first_name ?? 'bot'}`
-      );
-      await load();
-    } catch (error: any) {
-      setMessage(
-        error?.response?.data?.message ?? error?.message ?? 'Unable to connect Telegram bot.'
-      );
-    } finally {
-      setBusy(false);
-    }
-  }
-
   return (
     <div className="space-y-4">
       <Card className="panel-card">
@@ -151,76 +126,8 @@ export default function BinanceXauTradingPanel() {
             </span>
           </div>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid gap-3 sm:grid-cols-3">
-            <label className="text-xs text-zinc-400">
-              Environment
-              <select
-                value={environment}
-                onChange={e => setEnvironment(e.target.value as 'production' | 'testnet')}
-                className="mt-1 h-10 w-full rounded-xl border border-white/10 bg-[#120b18] px-3 text-sm text-white"
-              >
-                <option value="production">Production</option>
-                <option value="testnet">Testnet</option>
-              </select>
-            </label>
-            <label className="text-xs text-zinc-400">
-              Symbol
-              <Input
-                value={config.xauSymbol}
-                onChange={e => setConfig({ ...config, xauSymbol: e.target.value.toUpperCase() })}
-                className="mt-1"
-              />
-            </label>
-            <label className="text-xs text-zinc-400">
-              Quantity
-              <Input
-                type="number"
-                step="0.001"
-                min="0"
-                value={config.quantity}
-                onChange={e => setConfig({ ...config, quantity: Number(e.target.value) })}
-                className="mt-1"
-              />
-            </label>
-            <label className="text-xs text-zinc-400">
-              Position side
-              <select
-                value={config.positionSide}
-                onChange={e =>
-                  setConfig({ ...config, positionSide: e.target.value as Config['positionSide'] })
-                }
-                className="mt-1 h-10 w-full rounded-xl border border-white/10 bg-[#120b18] px-3 text-sm text-white"
-              >
-                <option>BOTH</option>
-                <option>LONG</option>
-                <option>SHORT</option>
-              </select>
-            </label>
-            <label className="text-xs text-zinc-400">
-              Auto TP %
-              <Input
-                type="number"
-                min="0.1"
-                step="0.1"
-                value={config.tpPct}
-                onChange={e => setConfig({ ...config, tpPct: Number(e.target.value) })}
-                className="mt-1"
-              />
-            </label>
-            <label className="text-xs text-zinc-400">
-              Auto SL %
-              <Input
-                type="number"
-                min="0.1"
-                step="0.1"
-                value={config.slPct}
-                onChange={e => setConfig({ ...config, slPct: Number(e.target.value) })}
-                className="mt-1"
-              />
-            </label>
-          </div>
-          <div className="grid gap-2 sm:grid-cols-2">
+        <CardContent className="space-y-3">
+          <div className="grid grid-cols-2 gap-3">
             <button
               type="button"
               onClick={() =>
@@ -235,8 +142,8 @@ export default function BinanceXauTradingPanel() {
               <strong>
                 {config.enabled && config.xauEnabled ? 'Engine ACTIVE' : 'Engine INACTIVE'}
               </strong>
-              <span className="mt-0.5 block text-xs opacity-70">
-                Ignore signals while XAU position already exists
+              <span className="mt-0.5 block text-[11px] opacity-70">
+                Single-position signal guard
               </span>
             </button>
             <button
@@ -247,64 +154,105 @@ export default function BinanceXauTradingPanel() {
               className={`rounded-xl border px-3 py-2 text-left text-sm ${config.autoProtection ? 'border-violet-300/20 bg-violet-300/[0.05] text-violet-200' : 'border-white/10 text-zinc-400'}`}
             >
               <strong>{config.autoProtection ? 'Auto TP/SL ON' : 'Auto TP/SL OFF'}</strong>
-              <span className="mt-0.5 block text-xs opacity-70">
-                Fallback uses ± configured percentage from fill
+              <span className="mt-0.5 block text-[11px] opacity-70">
+                Protection fallback from fill
               </span>
             </button>
           </div>
-          <Button type="button" disabled={busy} onClick={() => void saveConfig()}>
-            {busy ? <Loader2 className="size-4 animate-spin" /> : <Save className="size-4" />} Save
-            engine
-          </Button>
-        </CardContent>
-      </Card>
 
-      <Card className="panel-card">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-base">
-            <Bot className="size-4" /> Telegram signal bot
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <div className="grid gap-3 sm:grid-cols-3">
+          <div className="grid grid-cols-2 gap-3">
             <label className="text-xs text-zinc-400">
-              Bot name
-              <Input value={botName} onChange={e => setBotName(e.target.value)} className="mt-1" />
+              Environment
+              <select
+                value={environment}
+                onChange={e => setEnvironment(e.target.value as 'production' | 'testnet')}
+                className={selectClass}
+              >
+                <option value="production">Production</option>
+                <option value="testnet">Testnet</option>
+              </select>
             </label>
             <label className="text-xs text-zinc-400">
-              Bot token
+              Notification
+              <div className="relative">
+                <Bell className="pointer-events-none absolute left-3 top-3 size-4 text-zinc-500" />
+                <select
+                  value={config.notificationId ?? ''}
+                  onChange={e =>
+                    setConfig(current => ({ ...current, notificationId: e.target.value || null }))
+                  }
+                  className={`${selectClass} pl-9`}
+                >
+                  <option value="">No notification</option>
+                  {bots.map(bot => (
+                    <option key={bot.id} value={bot.id}>
+                      {bot.name} · {bot.environment}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </label>
+            <label className="text-xs text-zinc-400">
+              Symbol
               <Input
-                type="password"
-                value={token}
-                onChange={e => setToken(e.target.value)}
-                autoComplete="new-password"
-                className="mt-1"
+                value={config.xauSymbol}
+                onChange={e => setConfig({ ...config, xauSymbol: e.target.value.toUpperCase() })}
+                className={fieldClass}
               />
             </label>
             <label className="text-xs text-zinc-400">
-              Allowed chat ID
+              Quantity
               <Input
-                value={chatId}
-                onChange={e => setChatId(e.target.value)}
-                placeholder="Optional"
-                className="mt-1"
+                type="number"
+                step="0.001"
+                min="0"
+                value={config.quantity}
+                onChange={e => setConfig({ ...config, quantity: Number(e.target.value) })}
+                className={fieldClass}
+              />
+            </label>
+            <label className="text-xs text-zinc-400">
+              Position side
+              <select
+                value={config.positionSide}
+                onChange={e =>
+                  setConfig({ ...config, positionSide: e.target.value as Config['positionSide'] })
+                }
+                className={selectClass}
+              >
+                <option>BOTH</option>
+                <option>LONG</option>
+                <option>SHORT</option>
+              </select>
+            </label>
+            <label className="text-xs text-zinc-400">
+              Auto TP %
+              <Input
+                type="number"
+                min="0.1"
+                step="0.1"
+                value={config.tpPct}
+                onChange={e => setConfig({ ...config, tpPct: Number(e.target.value) })}
+                className={fieldClass}
+              />
+            </label>
+            <label className="text-xs text-zinc-400">
+              Auto SL %
+              <Input
+                type="number"
+                min="0.1"
+                step="0.1"
+                value={config.slPct}
+                onChange={e => setConfig({ ...config, slPct: Number(e.target.value) })}
+                className={fieldClass}
               />
             </label>
           </div>
-          <div className="flex flex-wrap gap-2">
-            <Button type="button" disabled={busy} onClick={() => void saveTelegramBot()}>
-              <Bot className="size-4" /> Add / update Telegram bot
-            </Button>
-            <span className="self-center text-xs text-zinc-500">
-              {bots.length
-                ? `${bots.length} connected bot${bots.length > 1 ? 's' : ''}`
-                : 'No bots connected'}
-            </span>
-          </div>
-          <div className="rounded-xl border border-white/10 bg-white/[0.02] p-3 text-xs leading-5 text-zinc-400">
-            <ShieldCheck className="mr-2 inline size-4" /> Telegram parsing and duplicate protection
-            remain server-side.
-          </div>
+
+          <Button type="button" disabled={busy} onClick={() => void saveConfig()}>
+            {busy ? <Loader2 className="size-4 animate-spin" /> : <Save className="size-4" />}
+            Save engine
+          </Button>
         </CardContent>
       </Card>
 
@@ -316,7 +264,7 @@ export default function BinanceXauTradingPanel() {
           {!position ? (
             <div className="text-sm text-zinc-500">No open XAU position.</div>
           ) : (
-            <div className="grid gap-3 sm:grid-cols-5 text-sm">
+            <div className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-5">
               <div>
                 <span className="text-xs text-zinc-500">Side</span>
                 <div className="font-semibold">
