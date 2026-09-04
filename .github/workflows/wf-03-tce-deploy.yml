@@ -13,7 +13,7 @@ env:
 
 jobs:
   detect:
-    name: Detect deployment scope
+    name: Resolve production image tag and scope
     runs-on: ubuntu-latest
     outputs:
       image_tag: ${{ steps.version.outputs.image_tag }}
@@ -23,20 +23,24 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 2
+          fetch-depth: 0
 
       - id: version
+        name: Resolve immutable production version
         run: |
           set -euo pipefail
           VERSION="$(node -p "require('./package.json').version")"
           SHA="${GITHUB_SHA::7}"
           IMAGE_TAG="prod-v${VERSION}-${SHA}"
+          test -n "$VERSION"
+          test -n "$IMAGE_TAG"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "image_tag=$IMAGE_TAG" >> "$GITHUB_OUTPUT"
           echo "$IMAGE_TAG" > /tmp/image-tag.txt
-          echo "Image tag: $IMAGE_TAG"
+          echo "Production image tag: $IMAGE_TAG"
 
       - id: changes
-        name: Classify changed files
+        name: Detect changed production scope
         shell: bash
         run: |
           set -euo pipefail
@@ -49,8 +53,19 @@ jobs:
             exit 0
           fi
 
-          mapfile -t CHANGED < <(git diff --name-only HEAD^ HEAD)
-          printf 'Changed files:\n%s\n' "${CHANGED[*]:-<none>}"
+          BEFORE="${{ github.event.before }}"
+          AFTER="${{ github.sha }}"
+          if [ -z "$BEFORE" ] || [ "$BEFORE" = "0000000000000000000000000000000000000000" ]; then
+            echo "No usable push base SHA => full deployment"
+            echo "deploy_scope=full" >> "$GITHUB_OUTPUT"
+            echo "build_frontend=true" >> "$GITHUB_OUTPUT"
+            echo "build_backend=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          mapfile -t CHANGED < <(git diff --name-only "$BEFORE" "$AFTER")
+          printf 'Changed files:\n'
+          printf ' - %s\n' "${CHANGED[@]:-<none>}"
 
           frontend=false
           backend=false
@@ -58,53 +73,29 @@ jobs:
 
           for file in "${CHANGED[@]}"; do
             case "$file" in
-              # Repository / CI / container / deployment configuration can affect both images
               .github/*|Dockerfile|docker-compose*.yml|docker-compose*.yaml|infra/*|nx.json|tsconfig*.json|package.json|package-lock.json|npm-shrinkwrap.json|pnpm-lock.yaml|yarn.lock)
-                full=true
-                ;;
-
-              # Shared libraries/packages are consumed by both applications.
+                full=true ;;
               libs/*|packages/*)
-                full=true
-                ;;
-
-              # Frontend application and frontend-specific assets/config.
+                full=true ;;
               apps/web/*|next.config.*|postcss.config.*|tailwind.config.*|components.json)
-                frontend=true
-                ;;
-
-              # Backend application and backend-specific files.
+                frontend=true ;;
               apps/service/*)
-                backend=true
-                ;;
-
-              # Documentation / unrelated source files do not require a production rebuild.
+                backend=true ;;
               docs/*|README*|*.md|*.txt|.gitignore|.gitattributes)
                 ;;
-
               *)
-                # Conservative fallback: unknown top-level changes rebuild everything.
-                full=true
-                ;;
+                full=true ;;
             esac
           done
 
           if $full || { $frontend && $backend; }; then
-            scope=full
-            build_frontend=true
-            build_backend=true
+            scope=full; build_frontend=true; build_backend=true
           elif $frontend; then
-            scope=frontend
-            build_frontend=true
-            build_backend=false
+            scope=frontend; build_frontend=true; build_backend=false
           elif $backend; then
-            scope=backend
-            build_frontend=false
-            build_backend=true
+            scope=backend; build_frontend=false; build_backend=true
           else
-            scope=none
-            build_frontend=false
-            build_backend=false
+            scope=none; build_frontend=false; build_backend=false
           fi
 
           echo "deploy_scope=$scope" >> "$GITHUB_OUTPUT"
@@ -142,13 +133,10 @@ jobs:
           IMAGE_TAG: ${{ needs.detect.outputs.image_tag }}
         run: |
           set -euo pipefail
-          rm -f /tmp/tce-frontend.tar /tmp/tce-frontend.sha256
           docker save "tce-frontend:$IMAGE_TAG" -o /tmp/tce-frontend.tar
-          test -s /tmp/tce-frontend.tar
           (cd /tmp && sha256sum tce-frontend.tar > tce-frontend.sha256)
           (cd /tmp && sha256sum -c tce-frontend.sha256)
           tar -tf /tmp/tce-frontend.tar >/dev/null
-          ls -lh /tmp/tce-frontend.tar /tmp/tce-frontend.sha256
       - uses: actions/upload-artifact@v4
         with:
           name: tce-frontend-image
@@ -189,13 +177,10 @@ jobs:
           IMAGE_TAG: ${{ needs.detect.outputs.image_tag }}
         run: |
           set -euo pipefail
-          rm -f /tmp/tce-service.tar /tmp/tce-service.sha256
           docker save "tce-service:$IMAGE_TAG" -o /tmp/tce-service.tar
-          test -s /tmp/tce-service.tar
           (cd /tmp && sha256sum tce-service.tar > tce-service.sha256)
           (cd /tmp && sha256sum -c tce-service.sha256)
           tar -tf /tmp/tce-service.tar >/dev/null
-          ls -lh /tmp/tce-service.tar /tmp/tce-service.sha256
       - uses: actions/upload-artifact@v4
         with:
           name: tce-service-image
@@ -228,8 +213,7 @@ jobs:
           test -f infra/k3s/frontend-prod.yaml
           test -f infra/k3s/service-prod.yaml
           for name in SUPABASE_URL SUPABASE_SERVICE_ROLE_KEY JWT_SECRET MFA_ENCRYPTION_KEY VPS_SSH_PRIVATE_KEY; do
-            value="${!name:-}"
-            test -n "$value" || { echo "Missing GitHub secret: $name"; exit 1; }
+            test -n "${!name:-}" || { echo "Missing GitHub secret: $name"; exit 1; }
           done
       - uses: actions/download-artifact@v4
         with:
@@ -240,7 +224,7 @@ jobs:
         run: |
           set -euo pipefail
           IMAGE_TAG="$(tr -d '\r\n' < /tmp/release/image-tag.txt)"
-          test -n "$IMAGE_TAG"
+          test "$IMAGE_TAG" = "prod-v$(node -p "require('./package.json').version")-${GITHUB_SHA::7}"
           echo "image_tag=$IMAGE_TAG" >> "$GITHUB_OUTPUT"
           echo "Deploying immutable release: $IMAGE_TAG"
       - name: Download frontend image
@@ -263,15 +247,11 @@ jobs:
           set -euo pipefail
           if [ "$BUILD_FRONTEND" = "true" ]; then
             cd /tmp/images/frontend
-            test -s tce-frontend.tar
-            test -s tce-frontend.sha256
             sha256sum -c tce-frontend.sha256
             tar -tf tce-frontend.tar >/dev/null
           fi
           if [ "$BUILD_BACKEND" = "true" ]; then
             cd /tmp/images/backend
-            test -s tce-service.tar
-            test -s tce-service.sha256
             sha256sum -c tce-service.sha256
             tar -tf tce-service.tar >/dev/null
           fi
@@ -293,8 +273,7 @@ jobs:
         run: |
           set -euo pipefail
           SSH_OPTS=(-i ~/.ssh/tce_vps_key -o IdentitiesOnly=yes -o StrictHostKeyChecking=no -o BatchMode=yes -o ConnectTimeout=15 -o ServerAliveInterval=15 -o ServerAliveCountMax=3)
-          echo "=== SSH PREFLIGHT ==="
-          ssh "${SSH_OPTS[@]}" "$USERNAME@$HOST" 'set -euo pipefail; echo "SSH_OK"; hostname; uname -m; whoami; sudo -n true; sudo kubectl get nodes'
+          ssh "${SSH_OPTS[@]}" "$USERNAME@$HOST" 'set -euo pipefail; echo SSH_OK; hostname; uname -m; whoami; sudo -n true; sudo kubectl get nodes'
       - name: Upload production bundle
         env:
           BUILD_FRONTEND: ${{ needs.detect.outputs.build_frontend }}
@@ -303,12 +282,8 @@ jobs:
           set -euo pipefail
           SSH_OPTS=(-i ~/.ssh/tce_vps_key -o IdentitiesOnly=yes -o StrictHostKeyChecking=no -o BatchMode=yes -o ConnectTimeout=15 -o ServerAliveInterval=15 -o ServerAliveCountMax=3)
           FILES=(/tmp/frontend-prod.yaml /tmp/service-prod.yaml)
-          if [ "$BUILD_FRONTEND" = "true" ]; then
-            FILES+=(/tmp/images/frontend/tce-frontend.tar /tmp/images/frontend/tce-frontend.sha256)
-          fi
-          if [ "$BUILD_BACKEND" = "true" ]; then
-            FILES+=(/tmp/images/backend/tce-service.tar /tmp/images/backend/tce-service.sha256)
-          fi
+          if [ "$BUILD_FRONTEND" = "true" ]; then FILES+=(/tmp/images/frontend/tce-frontend.tar /tmp/images/frontend/tce-frontend.sha256); fi
+          if [ "$BUILD_BACKEND" = "true" ]; then FILES+=(/tmp/images/backend/tce-service.tar /tmp/images/backend/tce-service.sha256); fi
           scp "${SSH_OPTS[@]}" "${FILES[@]}" "$USERNAME@$HOST:/tmp/"
       - name: Deploy production to k3s
         env:
@@ -317,120 +292,57 @@ jobs:
           BUILD_BACKEND: ${{ needs.detect.outputs.build_backend }}
         run: |
           set -euo pipefail
-
           SUPABASE_URL_B64="$(printf '%s' "$SUPABASE_URL" | base64 -w0)"
           SUPABASE_KEY_B64="$(printf '%s' "$SUPABASE_SERVICE_ROLE_KEY" | base64 -w0)"
           JWT_SECRET_B64="$(printf '%s' "$JWT_SECRET" | base64 -w0)"
           MFA_KEY_B64="$(printf '%s' "$MFA_ENCRYPTION_KEY" | base64 -w0)"
-
           SSH_OPTS=(-i ~/.ssh/tce_vps_key -o IdentitiesOnly=yes -o StrictHostKeyChecking=no -o BatchMode=yes -o ConnectTimeout=15 -o ServerAliveInterval=15 -o ServerAliveCountMax=3)
-
-          ssh "${SSH_OPTS[@]}" "$USERNAME@$HOST" \
-            "SUPABASE_URL_B64='$SUPABASE_URL_B64' SUPABASE_KEY_B64='$SUPABASE_KEY_B64' JWT_SECRET_B64='$JWT_SECRET_B64' MFA_KEY_B64='$MFA_KEY_B64' IMAGE_TAG='$IMAGE_TAG' BUILD_FRONTEND='$BUILD_FRONTEND' BUILD_BACKEND='$BUILD_BACKEND' bash -s" <<'REMOTE'
+          ssh "${SSH_OPTS[@]}" "$USERNAME@$HOST" "SUPABASE_URL_B64='$SUPABASE_URL_B64' SUPABASE_KEY_B64='$SUPABASE_KEY_B64' JWT_SECRET_B64='$JWT_SECRET_B64' MFA_KEY_B64='$MFA_KEY_B64' IMAGE_TAG='$IMAGE_TAG' BUILD_FRONTEND='$BUILD_FRONTEND' BUILD_BACKEND='$BUILD_BACKEND' bash -s" <<'REMOTE'
           set -euo pipefail
-
           decode_secret() { printf '%s' "$1" | base64 -d; }
           SUPABASE_URL="$(decode_secret "$SUPABASE_URL_B64")"
           SUPABASE_KEY="$(decode_secret "$SUPABASE_KEY_B64")"
           JWT_SECRET="$(decode_secret "$JWT_SECRET_B64")"
           MFA_KEY="$(decode_secret "$MFA_KEY_B64")"
-
-          cleanup() {
-            rm -f /tmp/tce-frontend.tar /tmp/tce-frontend.sha256 /tmp/tce-service.tar /tmp/tce-service.sha256 /tmp/service-prod.yaml /tmp/frontend-prod.yaml
-          }
+          NS=tce-prod
+          cleanup() { rm -f /tmp/tce-frontend.tar /tmp/tce-frontend.sha256 /tmp/tce-service.tar /tmp/tce-service.sha256 /tmp/service-prod.yaml /tmp/frontend-prod.yaml; }
           diagnostics() {
-            echo "=== DEPLOY DIAGNOSTICS ==="
             sudo kubectl -n "$NS" get deployments,pods,svc,ingress -o wide || true
             sudo kubectl -n "$NS" get events --sort-by='.lastTimestamp' | tail -100 || true
             for deployment in tce-service tce-frontend; do
-              echo "=== $deployment ==="
               sudo kubectl -n "$NS" describe deployment "$deployment" || true
               sudo kubectl -n "$NS" logs "deployment/$deployment" --all-containers=true --tail=200 || true
               sudo kubectl -n "$NS" logs "deployment/$deployment" --all-containers=true --previous --tail=200 || true
             done
           }
           trap 'status=$?; if [ "$status" -ne 0 ]; then diagnostics; fi; cleanup; exit "$status"' EXIT
-
-          NS=tce-prod
-          echo "=== REMOTE PREFLIGHT ==="
-          hostname
-          uname -m
-          whoami
           sudo -n true
           sudo kubectl get nodes
           sudo kubectl get namespace "$NS" >/dev/null 2>&1 || sudo kubectl create namespace "$NS"
-
-          echo "=== VERIFY REMOTE ARTIFACTS ==="
           if [ "$BUILD_FRONTEND" = "true" ]; then
             test -s /tmp/tce-frontend.tar
-            test -s /tmp/tce-frontend.sha256
             (cd /tmp && sha256sum -c tce-frontend.sha256)
-            tar -tf /tmp/tce-frontend.tar >/dev/null
+            sudo k3s ctr images import /tmp/tce-frontend.tar
+            sudo k3s ctr images inspect "docker.io/library/tce-frontend:$IMAGE_TAG" >/dev/null
           fi
           if [ "$BUILD_BACKEND" = "true" ]; then
             test -s /tmp/tce-service.tar
-            test -s /tmp/tce-service.sha256
             (cd /tmp && sha256sum -c tce-service.sha256)
-            tar -tf /tmp/tce-service.tar >/dev/null
-          fi
-          test -s /tmp/frontend-prod.yaml
-          test -s /tmp/service-prod.yaml
-
-          verify_image() {
-            local image="$1"
-            echo "Checking k3s image: $image"
-            if ! sudo k3s ctr images inspect "$image" >/dev/null 2>&1; then
-              echo "ERROR: image not found: $image"
-              sudo k3s ctr images list | grep 'tce-' || true
-              exit 1
-            fi
-          }
-
-          if [ "$BUILD_FRONTEND" = "true" ]; then
-            echo "=== IMPORT FRONTEND IMAGE ==="
-            sudo k3s ctr images import /tmp/tce-frontend.tar
-            verify_image "docker.io/library/tce-frontend:$IMAGE_TAG"
-          fi
-
-          if [ "$BUILD_BACKEND" = "true" ]; then
-            echo "=== IMPORT BACKEND IMAGE ==="
             sudo k3s ctr images import /tmp/tce-service.tar
-            verify_image "docker.io/library/tce-service:$IMAGE_TAG"
+            sudo k3s ctr images inspect "docker.io/library/tce-service:$IMAGE_TAG" >/dev/null
           fi
-
-          echo "=== UPDATE SECRETS ==="
-          sudo kubectl -n "$NS" create secret generic tce-app-secrets \
-            --from-literal=SUPABASE_URL="$SUPABASE_URL" \
-            --from-literal=SUPABASE_SERVICE_ROLE_KEY="$SUPABASE_KEY" \
-            --from-literal=JWT_SECRET="$JWT_SECRET" \
-            --dry-run=client -o yaml | sudo kubectl apply -f -
-
+          sudo kubectl -n "$NS" create secret generic tce-app-secrets --from-literal=SUPABASE_URL="$SUPABASE_URL" --from-literal=SUPABASE_SERVICE_ROLE_KEY="$SUPABASE_KEY" --from-literal=JWT_SECRET="$JWT_SECRET" --dry-run=client -o yaml | sudo kubectl apply -f -
           CREDENTIAL_KEY="$(sudo kubectl -n "$NS" get secret tce-auth -o jsonpath='{.data.TCE_CREDENTIAL_ENCRYPTION_KEY}' 2>/dev/null | base64 -d || true)"
-          if [ -z "$CREDENTIAL_KEY" ]; then
-            CREDENTIAL_KEY="$(openssl rand -hex 32)"
-            echo "Generated persistent TCE credential encryption key for production."
-          else
-            echo "Reusing existing TCE credential encryption key."
-          fi
-
-          sudo kubectl -n "$NS" create secret generic tce-auth \
-            --from-literal=MFA_ENCRYPTION_KEY="$MFA_KEY" \
-            --from-literal=TCE_CREDENTIAL_ENCRYPTION_KEY="$CREDENTIAL_KEY" \
-            --dry-run=client -o yaml | sudo kubectl apply -f -
-
+          if [ -z "$CREDENTIAL_KEY" ]; then CREDENTIAL_KEY="$(openssl rand -hex 32)"; fi
+          sudo kubectl -n "$NS" create secret generic tce-auth --from-literal=MFA_ENCRYPTION_KEY="$MFA_KEY" --from-literal=TCE_CREDENTIAL_ENCRYPTION_KEY="$CREDENTIAL_KEY" --dry-run=client -o yaml | sudo kubectl apply -f -
           if [ "$BUILD_BACKEND" = "true" ]; then
-            echo "=== DEPLOY SERVICE ==="
             sudo kubectl apply -f /tmp/service-prod.yaml
             sudo kubectl -n "$NS" rollout status deployment/tce-service --timeout=180s
           fi
-
           if [ "$BUILD_FRONTEND" = "true" ]; then
-            echo "=== DEPLOY FRONTEND ==="
             sudo kubectl apply -f /tmp/frontend-prod.yaml
             sudo kubectl -n "$NS" rollout status deployment/tce-frontend --timeout=180s
           fi
-
-          echo "=== PRODUCTION STATUS ==="
           sudo kubectl -n "$NS" get pods,svc,ingress
           sudo kubectl -n "$NS" get certificate,secret 2>/dev/null || true
           cleanup
