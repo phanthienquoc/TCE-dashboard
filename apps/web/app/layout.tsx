@@ -7,6 +7,7 @@ import './mobile-legacy-compat.css';
 import './theme-polish.css';
 import './theme-input-fix.css';
 import './mobile-dashboard-polish.css';
+import './engine/form-controls.css';
 import { AppProviders } from './providers';
 
 export const metadata: Metadata = {
