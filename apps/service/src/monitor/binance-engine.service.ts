@@ -76,14 +76,12 @@ export class BinanceEngineService implements OnModuleInit, OnModuleDestroy {
       input.positionSide === 'LONG' || input.positionSide === 'SHORT' ? input.positionSide : 'BOTH';
     if (!Number.isFinite(quantity) || quantity <= 0)
       throw new Error('Binance order quantity must be greater than zero.');
-    const tpPct = Number(input.tpPct ?? DEFAULT_TP_SL_PCT),
-      slPct = Number(input.slPct ?? DEFAULT_TP_SL_PCT);
+    const tpPct = Number(input.tpPct ?? DEFAULT_TP_SL_PCT);
+    const slPct = Number(input.slPct ?? DEFAULT_TP_SL_PCT);
     if (![tpPct, slPct].every(value => Number.isFinite(value) && value > 0))
       throw new Error('XAU TP/SL percentages must be greater than zero.');
     const xauSymbol =
-      String(input.xauSymbol ?? DEFAULT_SYMBOL)
-        .trim()
-        .toUpperCase() || DEFAULT_SYMBOL;
+      String(input.xauSymbol ?? DEFAULT_SYMBOL).trim().toUpperCase() || DEFAULT_SYMBOL;
 
     let notificationId: string | null = input.notificationId ? String(input.notificationId) : null;
     if (notificationId) {
@@ -113,12 +111,22 @@ export class BinanceEngineService implements OnModuleInit, OnModuleDestroy {
       binance_xau_notification_id: notificationId,
       updated_at: new Date().toISOString(),
     };
+
     const { error } = await this.supabase.db
       .from('tce_strategy_config')
       .upsert(payload, { onConflict: 'account_id' });
     if (error) throw error;
+
+    const streamKey = `${userId}:production`;
     if (payload.binance_engine_enabled && payload.binance_xau_enabled)
       await this.ensureStream(userId, 'production');
+    else if (this.streams.has(streamKey)) {
+      const stream = this.streams.get(streamKey)!;
+      stream.unsubscribe();
+      await stream.stop();
+      this.streams.delete(streamKey);
+    }
+
     return {
       enabled: payload.binance_engine_enabled,
       quantity,
@@ -204,9 +212,7 @@ export class BinanceEngineService implements OnModuleInit, OnModuleDestroy {
       scanIntervalMs: 5000,
       xauEnabled: Boolean(data?.binance_xau_enabled ?? data?.binance_engine_enabled ?? false),
       xauSymbol:
-        String(data?.binance_xau_symbol ?? DEFAULT_SYMBOL)
-          .trim()
-          .toUpperCase() || DEFAULT_SYMBOL,
+        String(data?.binance_xau_symbol ?? DEFAULT_SYMBOL).trim().toUpperCase() || DEFAULT_SYMBOL,
       autoProtection: Boolean(data?.binance_xau_auto_protection ?? true),
       tpPct: Number(data?.binance_xau_tp_pct ?? DEFAULT_TP_SL_PCT),
       slPct: Number(data?.binance_xau_sl_pct ?? DEFAULT_TP_SL_PCT),
@@ -340,11 +346,7 @@ export class BinanceEngineService implements OnModuleInit, OnModuleDestroy {
       );
       if (!result.ok) return this.fail(signal.id, `Unable to create TP: ${result.error.message}`);
     }
-    const verified = await this.binance.openOrders(
-      signal.user_id,
-      signal.environment,
-      signal.symbol
-    );
+    const verified = await this.binance.openOrders(signal.user_id, signal.environment, signal.symbol);
     if (
       verified.some(order => order.clientOrderId === this.tpClientId(signal.id)) &&
       verified.some(order => order.clientOrderId === this.slClientId(signal.id))
