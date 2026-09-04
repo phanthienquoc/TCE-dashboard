@@ -69,14 +69,9 @@ export default function BinanceXauTradingPanel() {
         platformApi.telegramBots(),
       ]);
       const nextConfig = configResponse.data ?? {};
+      setConfig(current => ({ ...current, ...nextConfig }));
       const rows = botsResponse.data?.bots ?? botsResponse.data ?? [];
-      const telegramBots = Array.isArray(rows) ? rows : [];
-      setConfig(current => ({
-        ...current,
-        ...nextConfig,
-        notificationId: nextConfig.notificationId ?? current.notificationId ?? null,
-      }));
-      setBots(telegramBots);
+      setBots(Array.isArray(rows) ? rows : []);
       await refreshPosition();
     } catch (error: any) {
       setMessage(
@@ -266,28 +261,11 @@ export default function BinanceXauTradingPanel() {
             <div className="text-sm text-zinc-500">No open XAU position.</div>
           ) : (
             <div className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-5">
-              <div>
-                <span className="text-xs text-zinc-500">Side</span>
-                <div className="font-semibold">
-                  {Number(position.positionAmt) > 0 ? 'LONG' : 'SHORT'}
-                </div>
-              </div>
-              <div>
-                <span className="text-xs text-zinc-500">Size</span>
-                <div>{Math.abs(Number(position.positionAmt))}</div>
-              </div>
-              <div>
-                <span className="text-xs text-zinc-500">Entry</span>
-                <div>{position.entryPrice}</div>
-              </div>
-              <div>
-                <span className="text-xs text-zinc-500">Mark</span>
-                <div>{position.markPrice}</div>
-              </div>
-              <div>
-                <span className="text-xs text-zinc-500">PnL</span>
-                <div>{position.unrealizedProfit}</div>
-              </div>
+              <div><span className="text-xs text-zinc-500">Side</span><div className="font-semibold">{Number(position.positionAmt) > 0 ? 'LONG' : 'SHORT'}</div></div>
+              <div><span className="text-xs text-zinc-500">Size</span><div>{Math.abs(Number(position.positionAmt))}</div></div>
+              <div><span className="text-xs text-zinc-500">Entry</span><div>{position.entryPrice}</div></div>
+              <div><span className="text-xs text-zinc-500">Mark</span><div>{position.markPrice}</div></div>
+              <div><span className="text-xs text-zinc-500">PnL</span><div>{position.unrealizedProfit}</div></div>
             </div>
           )}
         </CardContent>
