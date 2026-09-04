@@ -44,7 +44,9 @@ export function Table<T>({
               <tr key={getRowKey?.(row, index) ?? index}>
                 {columns.map(column => (
                   <td key={column.key} className={column.className}>
-                    {column.render ? column.render(row, index) : String((row as Record<string, unknown>)[column.key] ?? '—')}
+                    {column.render
+                      ? column.render(row, index)
+                      : String((row as Record<string, unknown>)[column.key] ?? '—')}
                   </td>
                 ))}
               </tr>
