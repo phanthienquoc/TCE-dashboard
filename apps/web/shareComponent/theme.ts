@@ -1,0 +1,7 @@
+export const TCE_THEMES = {
+  tce: { label: 'TCE Classic', tokens: { background: '#ffffff', foreground: '#1d1d1f', muted: '#6e6e73', subtle: '#86868b', surface: '#f5f5f7', surfaceStrong: '#ffffff', border: '#d2d2d7', primary: '#0071e3', primaryForeground: '#ffffff', success: '#1f7a4f', warning: '#a15c00', danger: '#b4232f' } },
+  midnight: { label: 'Midnight', tokens: { background: '#0b1020', foreground: '#f7f9fc', muted: '#a9b2c3', subtle: '#7d8798', surface: '#131b2e', surfaceStrong: '#172138', border: '#283650', primary: '#6ea8fe', primaryForeground: '#07101f', success: '#54d28c', warning: '#f4b860', danger: '#ff7a8a' } },
+  forest: { label: 'Forest', tokens: { background: '#f4f8f4', foreground: '#17231b', muted: '#5d6d62', subtle: '#7b8a80', surface: '#e8f0e9', surfaceStrong: '#ffffff', border: '#cbd8cf', primary: '#217a4a', primaryForeground: '#ffffff', success: '#217a4a', warning: '#9b6a17', danger: '#b53a43' } },
+} as const;
+export type ThemeName = keyof typeof TCE_THEMES;
+export const themeNames = Object.keys(TCE_THEMES) as ThemeName[];

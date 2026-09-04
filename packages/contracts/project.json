@@ -1,6 +1,0 @@
-{
-  "name": "contracts-pkg",
-  "projectType": "library",
-  "sourceRoot": "packages/contracts/src",
-  "targets": { "lint": {}, "lint:fix": {} }
-}

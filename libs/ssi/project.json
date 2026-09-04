@@ -1,6 +1,0 @@
-{
-  "name": "ssi",
-  "projectType": "library",
-  "sourceRoot": "libs/ssi/src",
-  "targets": { "lint": {}, "lint:fix": {} }
-}
