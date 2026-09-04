@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Activity, Bell, Bot, Loader2, Save, Wifi } from 'lucide-react';
+import { Activity, Bell, Loader2, Save, Wifi } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
@@ -46,9 +46,6 @@ export default function BinanceXauTradingPanel() {
   });
   const [position, setPosition] = useState<Position | null>(null);
   const [bots, setBots] = useState<BotRow[]>([]);
-  const [token, setToken] = useState('');
-  const [chatId, setChatId] = useState('');
-  const [botName, setBotName] = useState('xau-trading');
   const [environment, setEnvironment] = useState<'production' | 'testnet'>('production');
   const [busy, setBusy] = useState(true);
   const [message, setMessage] = useState('');
@@ -71,19 +68,15 @@ export default function BinanceXauTradingPanel() {
         platformApi.binanceXauConfig(),
         platformApi.telegramBots(),
       ]);
-      if (configResponse.data)
-        setConfig(current => ({ ...current, ...configResponse.data }));
+      const nextConfig = configResponse.data ?? {};
       const rows = botsResponse.data?.bots ?? botsResponse.data ?? [];
       const telegramBots = Array.isArray(rows) ? rows : [];
-      setBots(telegramBots);
       setConfig(current => ({
         ...current,
-        notificationId:
-          configResponse.data?.notificationId ??
-          current.notificationId ??
-          telegramBots[0]?.id ??
-          null,
+        ...nextConfig,
+        notificationId: nextConfig.notificationId ?? current.notificationId ?? null,
       }));
+      setBots(telegramBots);
       await refreshPosition();
     } catch (error: any) {
       setMessage(
@@ -114,36 +107,6 @@ export default function BinanceXauTradingPanel() {
     } catch (error: any) {
       setMessage(
         error?.response?.data?.message ?? error?.message ?? 'Unable to save Binance XAU config.'
-      );
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function saveTelegramBot() {
-    if (!token.trim()) {
-      setMessage('Telegram bot token is required.');
-      return;
-    }
-    setBusy(true);
-    setMessage('');
-    try {
-      const response = await platformApi.telegramSave({
-        token: token.trim(),
-        chatId: chatId.trim() || undefined,
-        environment,
-        name: botName.trim() || 'xau-trading',
-      });
-      if (!response.data?.ok)
-        throw new Error(response.data?.message ?? 'Telegram bot setup failed.');
-      setToken('');
-      setMessage(
-        `Telegram connected: @${response.data.bot?.username ?? response.data.bot?.first_name ?? 'bot'}`
-      );
-      await load();
-    } catch (error: any) {
-      setMessage(
-        error?.response?.data?.message ?? error?.message ?? 'Unable to connect Telegram bot.'
       );
     } finally {
       setBusy(false);
@@ -184,9 +147,7 @@ export default function BinanceXauTradingPanel() {
               <strong>
                 {config.enabled && config.xauEnabled ? 'Engine ACTIVE' : 'Engine INACTIVE'}
               </strong>
-              <span className="mt-0.5 block text-[11px] opacity-70">
-                Single-position signal guard
-              </span>
+              <span className="mt-0.5 block text-[11px] opacity-70">Single-position signal guard</span>
             </button>
             <button
               type="button"
@@ -196,9 +157,7 @@ export default function BinanceXauTradingPanel() {
               className={`rounded-xl border px-3 py-2 text-left text-sm ${config.autoProtection ? 'border-violet-300/20 bg-violet-300/[0.05] text-violet-200' : 'border-white/10 text-zinc-400'}`}
             >
               <strong>{config.autoProtection ? 'Auto TP/SL ON' : 'Auto TP/SL OFF'}</strong>
-              <span className="mt-0.5 block text-[11px] opacity-70">
-                Protection fallback from fill
-              </span>
+              <span className="mt-0.5 block text-[11px] opacity-70">Protection fallback from fill</span>
             </button>
           </div>
 
@@ -295,56 +254,6 @@ export default function BinanceXauTradingPanel() {
             {busy ? <Loader2 className="size-4 animate-spin" /> : <Save className="size-4" />}
             Save engine
           </Button>
-        </CardContent>
-      </Card>
-
-      <Card className="panel-card">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-base">
-            <Bot className="size-4" /> Telegram connection
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <div className="grid grid-cols-2 gap-3">
-            <label className="text-xs text-zinc-400">
-              Bot name
-              <Input
-                value={botName}
-                onChange={e => setBotName(e.target.value)}
-                className="mt-1 h-10"
-              />
-            </label>
-            <label className="text-xs text-zinc-400">
-              Allowed chat ID
-              <Input
-                value={chatId}
-                onChange={e => setChatId(e.target.value)}
-                className="mt-1 h-10"
-                placeholder="Optional"
-              />
-            </label>
-            <label className="col-span-2 text-xs text-zinc-400">
-              Bot token
-              <Input
-                type="password"
-                value={token}
-                onChange={e => setToken(e.target.value)}
-                autoComplete="new-password"
-                className="mt-1 h-10"
-              />
-            </label>
-          </div>
-          <div className="flex justify-end">
-            <Button type="button" disabled={busy} onClick={() => void saveTelegramBot()}>
-              <Bot className="size-4" /> Connect Telegram
-            </Button>
-          </div>
-          {bots.length > 0 && (
-            <div className="text-xs text-zinc-500">
-              {bots.length} Telegram bot{bots.length > 1 ? 's' : ''} configured. Select the
-              notification above.
-            </div>
-          )}
         </CardContent>
       </Card>
 
