@@ -9,6 +9,7 @@ import './theme-input-fix.css';
 import './mobile-dashboard-polish.css';
 import './engine/form-controls.css';
 import './positions-ui-fix.css';
+import '../shareComponent/data-display.css';
 import { AppProviders } from './providers';
 
 export const metadata: Metadata = {
