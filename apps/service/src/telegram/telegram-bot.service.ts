@@ -1,8 +1,9 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { Inject } from '@nestjs/common';
 import { CONTRACT_TOKENS, PlatformCredentialPort } from '@tce/contracts';
-import { SupabaseClientService } from '../db/supabase.client';
 import { TceSignalService } from '../monitor/tce-signal.service';
+import { parseTradingSignal } from '../monitor/trading-signal.parser';
+import { SupabaseClientService } from '../db/supabase.client';
 
 export type TceTelegramSignal = {
   symbol: string;
@@ -10,6 +11,9 @@ export type TceTelegramSignal = {
   entry: number;
   tp: number;
   sl: number;
+  entryMin?: number;
+  entryMax?: number;
+  takeProfits?: number[];
 };
 export type TelegramDebugLevel = 'DEBUG' | 'INFO' | 'WARN' | 'ERROR';
 const LEVEL_WEIGHT: Record<TelegramDebugLevel, number> = {
@@ -58,32 +62,17 @@ export class TelegramBotService implements OnModuleInit {
   }
 
   parseSignal(text: string): TceTelegramSignal {
-    const normalized = text.replace(/[\u2013\u2014]/g, '-').trim();
-    const head = normalized.match(/^\s*([A-Z0-9._-]+)\s+(BUY|SELL)\b/im);
-    const entry = normalized.match(/\bENTRY\s+([0-9]+(?:\.[0-9]+)?)\b/gi) ?? [];
-    const tp = normalized.match(/\bTP\s+([0-9]+(?:\.[0-9]+)?)\b/gi) ?? [];
-    const sl = normalized.match(/\bSL\s+([0-9]+(?:\.[0-9]+)?)\b/gi) ?? [];
-    if (!head || entry.length !== 1 || tp.length !== 1 || sl.length !== 1)
-      throw new Error(
-        'Invalid TCE signal. Expected exactly SYMBOL SIDE, ENTRY price, TP price and SL price.'
-      );
-    if (/\bENTRY\s+[0-9.]+\s*[-_]\s*[0-9.]+/i.test(normalized))
-      throw new Error('Entry must contain exactly one price; ranges are not accepted.');
-    const value = (match: string) => Number(match.match(/[0-9]+(?:\.[0-9]+)?/)?.[0]);
-    const signal = {
-      symbol: head[1].toUpperCase(),
-      side: head[2].toUpperCase() as 'BUY' | 'SELL',
-      entry: value(entry[0]),
-      tp: value(tp[0]),
-      sl: value(sl[0]),
+    const parsed = parseTradingSignal(text);
+    return {
+      symbol: parsed.symbol,
+      side: parsed.side,
+      entry: parsed.entry,
+      tp: parsed.takeProfit,
+      sl: parsed.stopLoss,
+      entryMin: parsed.entryMin,
+      entryMax: parsed.entryMax,
+      takeProfits: parsed.takeProfits,
     };
-    if (![signal.entry, signal.tp, signal.sl].every(Number.isFinite))
-      throw new Error('Entry, TP and SL must be valid prices.');
-    if (signal.side === 'BUY' && !(signal.sl < signal.entry && signal.entry < signal.tp))
-      throw new Error('BUY requires SL < ENTRY < TP.');
-    if (signal.side === 'SELL' && !(signal.tp < signal.entry && signal.entry < signal.sl))
-      throw new Error('SELL requires TP < ENTRY < SL.');
-    return signal;
   }
 
   async configure(
@@ -170,17 +159,33 @@ export class TelegramBotService implements OnModuleInit {
                 telegramUpdateId: Number(update.update_id),
                 telegramChatId: String(message.chat?.id ?? ''),
               });
+              const tpText = signal.takeProfits?.length
+                ? `TPs ${signal.takeProfits.join(', ')}`
+                : `TP ${signal.tp}`;
+              const entryText = signal.entryMin != null && signal.entryMax != null
+                ? `ENTRY ${signal.entryMin}_${signal.entryMax} (trigger ${signal.entry})`
+                : `ENTRY ${signal.entry}`;
               await this.send(
                 botToken!,
                 String(message.chat.id),
-                `TCE ${signal.symbol} ${signal.side} accepted\nENTRY ${signal.entry}\nTP ${signal.tp}\nSL ${signal.sl}\nStatus: ${accepted.status}`
+                `TCE ${signal.symbol} ${signal.side} accepted\n${entryText}\n${tpText}\nSL ${signal.sl}\nStatus: ${accepted.status}`
               );
               await this.debug(
                 userId,
                 'telegram',
                 'INFO',
                 `Signal ${signal.symbol} ${signal.side} accepted`,
-                { environment, bot: name, status: accepted.status }
+                {
+                  environment,
+                  bot: name,
+                  status: accepted.status,
+                  entry: signal.entry,
+                  entryMin: signal.entryMin,
+                  entryMax: signal.entryMax,
+                  takeProfits: signal.takeProfits,
+                  tp: signal.tp,
+                  sl: signal.sl,
+                }
               );
             } catch (error) {
               const reason = error instanceof Error ? error.message : 'Invalid signal';
