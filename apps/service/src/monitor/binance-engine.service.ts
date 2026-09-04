@@ -29,6 +29,7 @@ export type BinanceEngineConfig = {
   autoProtection: boolean;
   tpPct: number;
   slPct: number;
+  notificationId: string | null;
 };
 
 @Injectable()
@@ -83,6 +84,22 @@ export class BinanceEngineService implements OnModuleInit, OnModuleDestroy {
       String(input.xauSymbol ?? DEFAULT_SYMBOL)
         .trim()
         .toUpperCase() || DEFAULT_SYMBOL;
+
+    let notificationId: string | null = input.notificationId ? String(input.notificationId) : null;
+    if (notificationId) {
+      const { data: telegram, error: telegramError } = await this.supabase.db
+        .from('platform_credentials')
+        .select('id')
+        .eq('id', notificationId)
+        .eq('user_id', userId)
+        .eq('provider', 'telegram')
+        .eq('is_active', true)
+        .maybeSingle();
+      if (telegramError) throw telegramError;
+      if (!telegram) throw new Error('Selected Telegram notification channel is not available.');
+      notificationId = telegram.id;
+    }
+
     const payload = {
       account_id: userId,
       binance_engine_enabled: Boolean(input.enabled),
@@ -93,6 +110,7 @@ export class BinanceEngineService implements OnModuleInit, OnModuleDestroy {
       binance_xau_tp_pct: tpPct,
       binance_xau_sl_pct: slPct,
       binance_xau_auto_protection: Boolean(input.autoProtection ?? true),
+      binance_xau_notification_id: notificationId,
       updated_at: new Date().toISOString(),
     };
     const { error } = await this.supabase.db
@@ -111,6 +129,7 @@ export class BinanceEngineService implements OnModuleInit, OnModuleDestroy {
       autoProtection: payload.binance_xau_auto_protection,
       tpPct,
       slPct,
+      notificationId,
     };
   }
 
@@ -170,7 +189,7 @@ export class BinanceEngineService implements OnModuleInit, OnModuleDestroy {
     const { data, error } = await this.supabase.db
       .from('tce_strategy_config')
       .select(
-        'binance_engine_enabled,binance_order_quantity,binance_position_side,binance_xau_enabled,binance_xau_symbol,binance_xau_tp_pct,binance_xau_sl_pct,binance_xau_auto_protection'
+        'binance_engine_enabled,binance_order_quantity,binance_position_side,binance_xau_enabled,binance_xau_symbol,binance_xau_tp_pct,binance_xau_sl_pct,binance_xau_auto_protection,binance_xau_notification_id'
       )
       .eq('account_id', userId)
       .maybeSingle();
@@ -191,6 +210,7 @@ export class BinanceEngineService implements OnModuleInit, OnModuleDestroy {
       autoProtection: Boolean(data?.binance_xau_auto_protection ?? true),
       tpPct: Number(data?.binance_xau_tp_pct ?? DEFAULT_TP_SL_PCT),
       slPct: Number(data?.binance_xau_sl_pct ?? DEFAULT_TP_SL_PCT),
+      notificationId: data?.binance_xau_notification_id ?? null,
     };
   }
 
