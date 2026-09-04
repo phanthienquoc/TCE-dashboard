@@ -33,6 +33,32 @@ type BinanceCancelResponse = {
 const boolString = (value: boolean | undefined) =>
   value === undefined ? undefined : value ? 'true' : 'false';
 
+const compactParams = <T extends Record<string, unknown>>(params: T) =>
+  Object.fromEntries(Object.entries(params).filter(([, value]) => value !== undefined)) as T;
+
+const invalidInput = (message: string): ContractResult<never> => ({
+  ok: false,
+  error: {
+    code: 'INVALID_INPUT',
+    message,
+    retryable: false,
+    provider: 'binance',
+  },
+});
+
+const validateOrderInput = (input: FuturesEntryOrderInput | FuturesTpSlInput) => {
+  const symbol = String(input.symbol ?? '').trim();
+  if (!symbol) return 'Binance symbol is required';
+  if (!Number.isFinite(input.quantity) || input.quantity <= 0) return 'Binance quantity must be greater than 0';
+  if ('price' in input && input.price !== undefined && (!Number.isFinite(input.price) || input.price <= 0))
+    return 'Binance price must be greater than 0';
+  if ('limitPrice' in input && input.limitPrice !== undefined && (!Number.isFinite(input.limitPrice) || input.limitPrice <= 0))
+    return 'Binance limitPrice must be greater than 0';
+  if ('triggerPrice' in input && (!Number.isFinite(input.triggerPrice) || input.triggerPrice <= 0))
+    return 'Binance triggerPrice must be greater than 0';
+  return null;
+};
+
 export class BinanceFuturesExecutionAdapter implements FuturesExecutionPort {
   readonly provider = 'binance' as const;
   private readonly client: USDMClient;
@@ -153,6 +179,8 @@ export class BinanceFuturesExecutionAdapter implements FuturesExecutionPort {
   }
 
   placeEntry(input: FuturesEntryOrderInput) {
+    const validationError = validateOrderInput(input);
+    if (validationError) return invalidInput(validationError);
     const type =
       input.triggerPrice !== undefined
         ? input.price !== undefined
@@ -161,50 +189,66 @@ export class BinanceFuturesExecutionAdapter implements FuturesExecutionPort {
         : input.price !== undefined
           ? 'LIMIT'
           : 'MARKET';
-    return this.order({
-      symbol: input.symbol.toUpperCase(),
-      side: input.side,
-      positionSide: input.positionSide,
-      type,
-      quantity: input.quantity,
-      price: input.price,
-      stopPrice: input.triggerPrice,
-      reduceOnly: boolString(input.reduceOnly ?? false),
-      newClientOrderId: input.clientOrderId,
-      timeInForce: input.price !== undefined ? (input.timeInForce ?? 'GTC') : undefined,
-    });
+    return this.order(
+      compactParams({
+        symbol: input.symbol.trim().toUpperCase(),
+        side: input.side,
+        positionSide: input.positionSide,
+        type,
+        quantity: input.quantity,
+        price: input.price,
+        stopPrice: input.triggerPrice,
+        // Binance rejects reduceOnly in Hedge Mode; false is unnecessary for normal entries.
+        reduceOnly: input.positionSide === 'BOTH' && input.reduceOnly ? boolString(true) : undefined,
+        newClientOrderId: input.clientOrderId,
+        // Binance New Order does not accept timeInForce for MARKET orders.
+        timeInForce: input.price !== undefined ? (input.timeInForce ?? 'GTC') : undefined,
+      })
+    );
   }
 
   placeTakeProfit(input: FuturesTpSlInput) {
+    const validationError = validateOrderInput(input);
+    if (validationError) return invalidInput(validationError);
     const type = input.limitPrice !== undefined ? 'TAKE_PROFIT' : 'TAKE_PROFIT_MARKET';
-    return this.order({
-      symbol: input.symbol.toUpperCase(),
-      side: input.side,
-      positionSide: input.positionSide,
-      type,
-      quantity: type === 'TAKE_PROFIT' ? input.quantity : undefined,
-      price: input.limitPrice,
-      stopPrice: input.triggerPrice,
-      reduceOnly: boolString(input.reduceOnly ?? true),
-      newClientOrderId: input.clientOrderId,
-      timeInForce: input.limitPrice !== undefined ? 'GTC' : undefined,
-    });
+    return this.order(
+      compactParams({
+        symbol: input.symbol.trim().toUpperCase(),
+        side: input.side,
+        positionSide: input.positionSide,
+        type,
+        quantity: type === 'TAKE_PROFIT' ? input.quantity : undefined,
+        price: input.limitPrice,
+        stopPrice: input.triggerPrice,
+        // Binance rejects reduceOnly in Hedge Mode. Opposite side + positionSide closes it.
+        reduceOnly:
+          input.positionSide === 'BOTH' ? boolString(input.reduceOnly ?? true) : undefined,
+        newClientOrderId: input.clientOrderId,
+        timeInForce: input.limitPrice !== undefined ? 'GTC' : undefined,
+      })
+    );
   }
 
   placeStopLoss(input: FuturesTpSlInput) {
+    const validationError = validateOrderInput(input);
+    if (validationError) return invalidInput(validationError);
     const type = input.limitPrice !== undefined ? 'STOP' : 'STOP_MARKET';
-    return this.order({
-      symbol: input.symbol.toUpperCase(),
-      side: input.side,
-      positionSide: input.positionSide,
-      type,
-      quantity: type === 'STOP' ? input.quantity : undefined,
-      price: input.limitPrice,
-      stopPrice: input.triggerPrice,
-      reduceOnly: boolString(input.reduceOnly ?? true),
-      newClientOrderId: input.clientOrderId,
-      timeInForce: input.limitPrice !== undefined ? 'GTC' : undefined,
-    });
+    return this.order(
+      compactParams({
+        symbol: input.symbol.trim().toUpperCase(),
+        side: input.side,
+        positionSide: input.positionSide,
+        type,
+        quantity: type === 'STOP' ? input.quantity : undefined,
+        price: input.limitPrice,
+        stopPrice: input.triggerPrice,
+        // Binance rejects reduceOnly in Hedge Mode. Opposite side + positionSide closes it.
+        reduceOnly:
+          input.positionSide === 'BOTH' ? boolString(input.reduceOnly ?? true) : undefined,
+        newClientOrderId: input.clientOrderId,
+        timeInForce: input.limitPrice !== undefined ? 'GTC' : undefined,
+      })
+    );
   }
 
   async cancelOrder(
