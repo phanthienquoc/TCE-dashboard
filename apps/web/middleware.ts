@@ -5,37 +5,30 @@ const dashboardPaths: Record<string, string | null> = {
   '/overview': null,
   '/position': 'positions',
   '/order': 'orders',
+  '/settings': 'settings',
 };
 
 export function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
   const searchTab = request.nextUrl.searchParams.get('tab');
 
-  // Canonical dashboard URLs. Keep the existing dashboard implementation
-  // behind clean public paths while removing query-string navigation.
   if (pathname === '/dashboard' && searchTab) {
     const canonical =
-      searchTab === 'positions'
-        ? '/position'
-        : searchTab === 'orders'
-          ? '/order'
-          : searchTab === 'overview'
-            ? '/overview'
-            : searchTab === 'settings'
-              ? '/settings'
-              : null;
+      searchTab === 'positions' ? '/position' :
+      searchTab === 'orders' ? '/order' :
+      searchTab === 'overview' ? '/overview' :
+      searchTab === 'settings' ? '/settings' : null;
     if (canonical) return NextResponse.redirect(new URL(canonical, request.url));
   }
 
-  if (pathname === '/overview' || pathname === '/position' || pathname === '/order') {
-    const tab = dashboardPaths[pathname];
+  if (dashboardPaths[pathname] !== undefined) {
     const url = request.nextUrl.clone();
     url.pathname = '/dashboard';
+    const tab = dashboardPaths[pathname];
     url.search = tab ? `?tab=${tab}` : '';
     return NextResponse.rewrite(url);
   }
 
-  // Stable singular alias for the engine area.
   if (pathname === '/engine') {
     const url = request.nextUrl.clone();
     url.pathname = '/engines';
@@ -46,5 +39,5 @@ export function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/dashboard', '/overview', '/position', '/order', '/engine'],
+  matcher: ['/dashboard', '/overview', '/position', '/order', '/settings', '/engine'],
 };
