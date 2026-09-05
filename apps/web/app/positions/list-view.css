@@ -1,5 +1,5 @@
 .dashboard-data-section .shared-list-view {
-  gap: 10px;
+  gap: 0;
 }
 .dashboard-data-section .shared-list-item {
   min-height: 68px;
@@ -11,11 +11,198 @@
   letter-spacing: 0.05em;
   text-transform: uppercase;
 }
+
+.position-portfolio-page {
+  display: grid;
+  gap: 12px;
+}
+.position-summary-card,
+.position-list-card {
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--panel-strong);
+  overflow: hidden;
+}
+.position-summary-card {
+  padding: 18px 16px 16px;
+}
+.position-summary-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+.position-summary-kicker {
+  margin: 0 0 2px;
+  color: var(--accent);
+  font-size: 13px;
+  font-weight: 700;
+}
+.position-summary-header h1 {
+  margin: 0;
+  font-size: 24px;
+  line-height: 1.12;
+  letter-spacing: -0.025em;
+}
+.position-summary-header .panel-action {
+  text-decoration: underline;
+  color: var(--secondary);
+  font-size: 16px;
+}
+.position-summary-metrics {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px 22px;
+}
+.position-summary-metrics > div {
+  min-width: 0;
+}
+.position-summary-metrics span {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--secondary);
+  font-size: 13px;
+}
+.position-summary-metrics strong {
+  display: block;
+  font-size: 22px;
+  line-height: 1.05;
+  letter-spacing: -0.025em;
+  font-weight: 700;
+}
+.position-summary-metrics .is-positive strong,
+.position-pnl.is-positive strong,
+.position-pnl.is-positive span {
+  color: #52c41a;
+}
+.position-summary-metrics .is-negative strong,
+.position-pnl.is-negative strong,
+.position-pnl.is-negative span {
+  color: #d72f2f;
+}
+.position-list-header {
+  display: none;
+}
+.position-list-card .shared-list-item {
+  border: 0;
+  border-radius: 0;
+  border-bottom: 1px solid var(--line);
+  padding: 16px 14px;
+  background: var(--panel-strong);
+}
+.position-list-card .shared-list-item:last-child {
+  border-bottom: 0;
+}
+.position-list-card .shared-list-title {
+  font-size: 17px;
+  font-weight: 650;
+}
+.position-list-card .shared-list-description {
+  color: var(--foreground);
+  font-size: 13px;
+}
+.position-list-card .shared-list-meta {
+  color: var(--secondary);
+}
+.position-list-card .shared-list-trailing {
+  min-width: 96px;
+}
+.position-pnl {
+  display: grid;
+  justify-items: end;
+  gap: 4px;
+  white-space: nowrap;
+}
+.position-pnl strong {
+  font-size: 16px;
+  line-height: 1.05;
+}
+.position-pnl span {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+@media (min-width: 700px) {
+  .position-summary-card {
+    padding: 22px 24px 20px;
+  }
+  .position-summary-metrics {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+  .position-list-header {
+    display: grid;
+    grid-template-columns: minmax(90px, 1.1fr) minmax(100px, 1fr) minmax(100px, 1fr) minmax(150px, 1.2fr) minmax(110px, 1fr);
+    align-items: center;
+    gap: 0;
+    padding: 14px 16px;
+    background: var(--panel);
+    border-bottom: 1px solid var(--line);
+    color: var(--secondary);
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  .position-list-card .shared-list-item {
+    display: grid;
+    grid-template-columns: minmax(90px, 1.1fr) minmax(100px, 1fr) minmax(100px, 1fr) minmax(150px, 1.2fr) minmax(110px, 1fr);
+    gap: 0;
+    align-items: center;
+    padding: 13px 16px;
+  }
+  .position-list-card .shared-list-copy {
+    display: contents;
+  }
+  .position-list-card .shared-list-title,
+  .position-list-card .shared-list-description,
+  .position-list-card .shared-list-meta {
+    overflow: visible;
+    white-space: normal;
+  }
+  .position-list-card .shared-list-title {
+    grid-column: 1;
+    font-size: 16px;
+  }
+  .position-list-card .shared-list-description {
+    grid-column: 2 / span 2;
+    grid-row: 1;
+    margin: 0;
+    padding-left: 18px;
+  }
+  .position-list-card .shared-list-meta {
+    grid-column: 4;
+    grid-row: 1;
+    margin: 0;
+    padding-left: 18px;
+  }
+  .position-list-card .shared-list-trailing {
+    grid-column: 5;
+    grid-row: 1;
+    padding-left: 18px;
+  }
+}
+
 @media (max-width: 640px) {
   .dashboard-data-section .shared-list-item {
     padding: 12px;
   }
   .dashboard-data-section .shared-list-description {
     white-space: normal;
+  }
+  .position-summary-card {
+    padding: 16px 14px;
+  }
+  .position-summary-header h1 {
+    font-size: 21px;
+  }
+  .position-summary-metrics {
+    gap: 14px 12px;
+  }
+  .position-summary-metrics strong {
+    font-size: 19px;
+  }
+  .position-list-card .shared-list-trailing {
+    min-width: 78px;
   }
 }

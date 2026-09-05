@@ -97,6 +97,95 @@ export function OverviewView({
   );
 }
 
+function rowsToPositionListItems(rows: any[]) {
+  return rows.map((row, index) => {
+    const symbol = String(row.symbol ?? row.code ?? row.name ?? `Item ${index + 1}`);
+    const quantity = Number(row.quantity ?? 0);
+    const avgCost = Number(row.avgBuyCost ?? row.avg_cost ?? 0);
+    const marketPrice = row.marketPrice ?? row.market_price;
+    const marketValue = row.marketValue ?? row.market_value;
+    const pnl = row.unrealizedPnl ?? row.unrealized_pnl;
+    const investedValue =
+      row.costBasis ?? row.cost_basis ?? (Number.isFinite(quantity) && Number.isFinite(avgCost) ? quantity * avgCost : null);
+    const pnlPct =
+      investedValue != null && Number(investedValue) !== 0 && pnl != null
+        ? (Number(pnl) / Number(investedValue)) * 100
+        : null;
+
+    return {
+      id: row.id ?? row.symbol ?? row.code ?? index,
+      title: symbol,
+      description: `${formatNumber(quantity)} shares · Avg ${formatNumber(avgCost)} · Mkt ${formatNumber(marketPrice)}`,
+      meta: `${String(row.status ?? 'OPEN')} · ${String(row.cycle_no ?? row.cycleNo ?? '—') === '—' ? 'Cycle —' : `Cycle ${row.cycle_no ?? row.cycleNo}`} · MV ${money(marketValue)}`,
+      trailing: (
+        <div className={`position-pnl ${Number(pnl ?? 0) >= 0 ? 'is-positive' : 'is-negative'}`}>
+          <strong>{signedMoney(pnl)}</strong>
+          <span>{pnlPct == null ? '—' : `${pnlPct >= 0 ? '+' : ''}${pnlPct.toFixed(2)}%`}</span>
+        </div>
+      ),
+    };
+  });
+}
+
+export function PositionsView({ data }: { data: DashboardData }) {
+  const rows = data.positions;
+  const totalInvest = rows.reduce((sum, row) => {
+    const value = row.costBasis ?? row.cost_basis ?? (Number(row.quantity ?? 0) * Number(row.avgBuyCost ?? row.avg_cost ?? 0));
+    return sum + (Number.isFinite(Number(value)) ? Number(value) : 0);
+  }, 0);
+  const totalMarket = rows.reduce((sum, row) => {
+    const value = row.marketValue ?? row.market_value;
+    return sum + (Number.isFinite(Number(value)) ? Number(value) : 0);
+  }, 0);
+  const totalPnl = totalMarket - totalInvest;
+  const totalPnlPct = totalInvest ? (totalPnl / totalInvest) * 100 : null;
+
+  return (
+    <section className="dashboard-data-section position-portfolio-page">
+      <div className="position-summary-card">
+        <div className="position-summary-header">
+          <div>
+            <p className="position-summary-kicker">Stock Balance</p>
+            <h1>Portfolio Positions</h1>
+          </div>
+          <button type="button" className="panel-action" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>
+            Sell All
+          </button>
+        </div>
+        <div className="position-summary-metrics">
+          <div>
+            <span>Total Invest Value</span>
+            <strong>{money(totalInvest)}</strong>
+          </div>
+          <div>
+            <span>Total Market Value</span>
+            <strong>{money(totalMarket)}</strong>
+          </div>
+          <div className={totalPnl >= 0 ? 'is-positive' : 'is-negative'}>
+            <span>Profit / Loss</span>
+            <strong>{signedMoney(totalPnl)}</strong>
+          </div>
+          <div className={totalPnl >= 0 ? 'is-positive' : 'is-negative'}>
+            <span>% Profit / Loss</span>
+            <strong>{totalPnlPct == null ? '—' : `${totalPnlPct >= 0 ? '+' : ''}${totalPnlPct.toFixed(2)}%`}</strong>
+          </div>
+        </div>
+      </div>
+
+      <div className="position-list-card">
+        <div className="position-list-header">
+          <div>Code</div>
+          <div>Volume</div>
+          <div>Avg Price</div>
+          <div>Invest Value</div>
+          <div>Profit Loss</div>
+        </div>
+        <ListView items={rowsToPositionListItems(rows)} empty="No open positions" />
+      </div>
+    </section>
+  );
+}
+
 function rowsToListItems(rows: any[], type: 'position' | 'order') {
   return rows.map((row, index) => {
     const symbol = String(row.symbol ?? row.code ?? row.name ?? `Item ${index + 1}`);
@@ -123,18 +212,6 @@ function rowsToListItems(rows: any[], type: 'position' | 'order') {
       meta: type === 'position' ? 'POSITION' : 'ORDER',
     };
   });
-}
-
-export function PositionsView({ data }: { data: DashboardData }) {
-  return (
-    <section className="dashboard-data-section">
-      <SectionHeader
-        title="Positions"
-        caption={`${data.positions.length} ${data.positions.length === 1 ? 'item' : 'items'}`}
-      />
-      <ListView items={rowsToListItems(data.positions, 'position')} />
-    </section>
-  );
 }
 
 export function OrdersView({ data }: { data: DashboardData }) {
@@ -306,6 +383,11 @@ function money(value: any) {
   return Number.isFinite(numeric)
     ? new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 }).format(numeric)
     : '—';
+}
+function signedMoney(value: any) {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) return '—';
+  return `${numeric >= 0 ? '+' : ''}${money(Math.abs(numeric))}`;
 }
 function formatNumber(value: any) {
   const numeric = Number(value);
