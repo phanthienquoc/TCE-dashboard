@@ -17,8 +17,7 @@ const variantClass: Record<ToastVariant, string> = {
     'border-emerald-300/20 bg-emerald-300/[0.08] text-emerald-100 shadow-[0_12px_40px_rgba(16,185,129,0.12)]',
   error:
     'border-rose-300/20 bg-rose-300/[0.08] text-rose-100 shadow-[0_12px_40px_rgba(244,63,94,0.12)]',
-  info:
-    'border-sky-300/20 bg-sky-300/[0.08] text-sky-100 shadow-[0_12px_40px_rgba(14,165,233,0.12)]',
+  info: 'border-sky-300/20 bg-sky-300/[0.08] text-sky-100 shadow-[0_12px_40px_rgba(14,165,233,0.12)]',
 };
 
 const variantIconClass: Record<ToastVariant, string> = {
@@ -52,7 +51,9 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
               className={`pointer-events-auto flex items-start gap-3 rounded-2xl border px-4 py-3 text-sm backdrop-blur-xl ${variantClass[item.variant]}`}
             >
               {item.variant === 'success' ? (
-                <CheckCircle2 className={`mt-0.5 size-5 shrink-0 ${variantIconClass[item.variant]}`} />
+                <CheckCircle2
+                  className={`mt-0.5 size-5 shrink-0 ${variantIconClass[item.variant]}`}
+                />
               ) : item.variant === 'error' ? (
                 <XCircle className={`mt-0.5 size-5 shrink-0 ${variantIconClass[item.variant]}`} />
               ) : (
