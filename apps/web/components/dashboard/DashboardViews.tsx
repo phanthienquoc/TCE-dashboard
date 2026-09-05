@@ -7,12 +7,7 @@ import { ListView } from '../../shareComponent/list-view';
 import { PortfolioComponent } from '../../shareComponent/portfolio-component';
 import type { DashboardActions, DashboardData } from './DashboardShell';
 
-export function OverviewView({
-  data,
-}: {
-  data: DashboardData;
-  actions: DashboardActions;
-}) {
+export function OverviewView({ data }: { data: DashboardData; actions: DashboardActions }) {
   return (
     <div className="dashboard-view dashboard-view-overview">
       <PortfolioComponent
@@ -92,18 +87,10 @@ export function PositionsView({
         caption={data.next.length ? `${data.next.length} candidates` : 'Candidates'}
         icon={TrendingUp}
       >
-        <AssetList
-          rows={data.next}
-          kind="candidate"
-          onTrade={actions.openNextPositionOrder}
-        />
+        <AssetList rows={data.next} kind="candidate" onTrade={actions.openNextPositionOrder} />
       </Panel>
 
-      <Panel
-        title="Shared Pools"
-        caption={`${data.pools.length} watching`}
-        icon={Layers3}
-      >
+      <Panel title="Shared Pools" caption={`${data.pools.length} watching`} icon={Layers3}>
         <AssetList
           rows={data.pools}
           kind="pool"
@@ -119,11 +106,7 @@ export function PositionsView({
 export function OrdersView({ data }: { data: DashboardData }) {
   return (
     <div className="dashboard-view dashboard-view-orders">
-      <Panel
-        title="Recent Orders"
-        caption={`${data.orders.length} orders`}
-        icon={ShoppingCart}
-      >
+      <Panel title="Recent Orders" caption={`${data.orders.length} orders`} icon={ShoppingCart}>
         <AssetList rows={data.orders} />
       </Panel>
     </div>
