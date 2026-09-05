@@ -123,6 +123,53 @@
   font-weight: 600;
 }
 
+.portfolio-overview-card {
+  overflow: hidden;
+}
+.portfolio-metric-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px 16px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+}
+.portfolio-metric {
+  min-width: 0;
+}
+.portfolio-metric span {
+  display: block;
+  margin-bottom: 5px;
+  color: var(--secondary);
+  font-size: var(--text-caption-1);
+}
+.portfolio-metric strong {
+  display: block;
+  color: var(--foreground);
+  font-size: 19px;
+  line-height: 1.08;
+  letter-spacing: -0.025em;
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.portfolio-metric.positive strong {
+  color: #52c41a;
+}
+.portfolio-metric.negative strong {
+  color: #d72f2f;
+}
+.portfolio-connected-account {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+}
+.portfolio-connected-account .shared-account-card {
+  width: 100%;
+  min-width: 0;
+}
+
 @media (min-width: 700px) {
   .position-summary-card {
     padding: 22px 24px 20px;
@@ -187,6 +234,9 @@
     grid-row: 1;
     padding-left: 18px;
   }
+  .portfolio-metric-grid {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+  }
 }
 
 @media (max-width: 640px) {
@@ -210,5 +260,12 @@
   }
   .position-list-card .shared-list-trailing {
     min-width: 78px;
+  }
+  .portfolio-metric-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 13px 12px;
+  }
+  .portfolio-metric strong {
+    font-size: 17px;
   }
 }

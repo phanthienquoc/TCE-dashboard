@@ -1,13 +1,12 @@
 'use client';
 
-import { useState } from 'react';
-import { ChevronRight, Layers3, ShoppingCart, TrendingUp, WalletCards, X } from 'lucide-react';
+import { ChevronRight, Layers3, ShoppingCart, TrendingUp, WalletCards } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Card, CardContent } from '../ui/card';
 import PlatformConfigTab from '../config/PlatformConfigTab';
 import { ListView } from '../../shareComponent/list-view';
 import { AccountCard } from '../../shareComponent/account-card';
-import type { DashboardActions, DashboardData, TradePayload } from './DashboardShell';
+import type { DashboardActions, DashboardData } from './DashboardShell';
 
 export function OverviewView({
   data,
@@ -16,45 +15,72 @@ export function OverviewView({
   data: DashboardData;
   actions: DashboardActions;
 }) {
-  const { positions, pools, next, orders, visibleAccounts, portfolioValue, invested } = data;
+  const { positions, pools, next, orders, visibleAccounts, portfolioValue } = data;
+  const totalInvest = positions.reduce((sum, row) => {
+    const value =
+      row.costBasis ??
+      row.cost_basis ??
+      Number(row.quantity ?? 0) * Number(row.avgBuyCost ?? row.avg_cost ?? 0);
+    return sum + (Number.isFinite(Number(value)) ? Number(value) : 0);
+  }, 0);
+  const totalMarket = positions.reduce((sum, row) => {
+    const value = row.marketValue ?? row.market_value;
+    return sum + (Number.isFinite(Number(value)) ? Number(value) : 0);
+  }, 0);
+  const totalPnl = positions.reduce((sum, row) => {
+    const value = row.unrealizedPnl ?? row.unrealized_pnl;
+    return sum + (Number.isFinite(Number(value)) ? Number(value) : 0);
+  }, 0);
+  const calculatedPnl = totalMarket - totalInvest;
+  const pnl = Number.isFinite(totalPnl) && totalPnl !== 0 ? totalPnl : calculatedPnl;
+  const pnlPct = totalInvest ? (pnl / totalInvest) * 100 : null;
+
   return (
     <div className="dashboard-view dashboard-view-overview">
-      <Card className="hero-card">
+      <Card className="hero-card portfolio-overview-card">
         <CardContent className="p-4">
           <div className="hero-card-top">
             <div>
               <p className="metric-label">Total portfolio value</p>
-              <p className="metric-value">{money(portfolioValue)}</p>
+              <p className="metric-value">{money(portfolioValue ?? totalMarket)}</p>
             </div>
             <div className="hero-status">LIVE</div>
           </div>
-          <div className="metric-grid">
-            <Metric label="Invested" value={money(invested)} />
-            <Metric label="Positions" value={String(positions.length)} />
-            <Metric label="Accounts" value={String(visibleAccounts.length || '—')} />
+
+          <div className="portfolio-metric-grid">
+            <PortfolioMetric label="Invested" value={money(totalInvest)} />
+            <PortfolioMetric label="Market Value" value={money(totalMarket)} />
+            <PortfolioMetric
+              label="Profit / Loss"
+              value={signedMoney(pnl)}
+              tone={pnl >= 0 ? 'positive' : 'negative'}
+            />
+            <PortfolioMetric
+              label="% Profit / Loss"
+              value={pnlPct == null ? '—' : `${pnlPct >= 0 ? '+' : ''}${pnlPct.toFixed(2)}%`}
+              tone={pnl >= 0 ? 'positive' : 'negative'}
+            />
+            <PortfolioMetric label="Positions" value={String(positions.length)} />
+            <PortfolioMetric label="Accounts" value={String(visibleAccounts.length || '—')} />
           </div>
+
+          {visibleAccounts.length > 0 && (
+            <div className="portfolio-connected-account">
+              {visibleAccounts.map((item: any, index: number) => (
+                <AccountCard
+                  key={item.id ?? item.accountNo ?? item.externalAccountNo ?? index}
+                  provider={String(item.provider ?? item.broker ?? 'Account')}
+                  identifier={String(
+                    item.accountNo ?? item.externalAccountNo ?? item.environment ?? 'Connected'
+                  )}
+                  status={String(item.status ?? 'Connected')}
+                />
+              ))}
+            </div>
+          )}
         </CardContent>
       </Card>
-      {visibleAccounts.length > 0 && (
-        <section className="dashboard-accounts">
-          <SectionHeader
-            title="Connected accounts"
-            caption={`${visibleAccounts.length} connected`}
-          />
-          <div className="account-strip shared-account-strip">
-            {visibleAccounts.map((item: any, index: number) => (
-              <AccountCard
-                key={item.id ?? item.accountNo ?? item.externalAccountNo ?? index}
-                provider={String(item.provider ?? item.broker ?? 'Account')}
-                identifier={String(
-                  item.accountNo ?? item.externalAccountNo ?? item.environment ?? 'Connected'
-                )}
-                status={String(item.status ?? 'Connected')}
-              />
-            ))}
-          </div>
-        </section>
-      )}
+
       <Panel
         title="Current Positions"
         caption={`${positions.length} assets`}
@@ -131,60 +157,9 @@ function rowsToPositionListItems(rows: any[]) {
 
 export function PositionsView({ data }: { data: DashboardData }) {
   const rows = data.positions;
-  const totalInvest = rows.reduce((sum, row) => {
-    const value =
-      row.costBasis ??
-      row.cost_basis ??
-      Number(row.quantity ?? 0) * Number(row.avgBuyCost ?? row.avg_cost ?? 0);
-    return sum + (Number.isFinite(Number(value)) ? Number(value) : 0);
-  }, 0);
-  const totalMarket = rows.reduce((sum, row) => {
-    const value = row.marketValue ?? row.market_value;
-    return sum + (Number.isFinite(Number(value)) ? Number(value) : 0);
-  }, 0);
-  const totalPnl = totalMarket - totalInvest;
-  const totalPnlPct = totalInvest ? (totalPnl / totalInvest) * 100 : null;
 
   return (
     <section className="dashboard-data-section position-portfolio-page">
-      <div className="position-summary-card">
-        <div className="position-summary-header">
-          <div>
-            <p className="position-summary-kicker">Stock Balance</p>
-            <h1>Portfolio Positions</h1>
-          </div>
-          <button
-            type="button"
-            className="panel-action"
-            onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
-          >
-            Sell All
-          </button>
-        </div>
-        <div className="position-summary-metrics">
-          <div>
-            <span>Total Invest Value</span>
-            <strong>{money(totalInvest)}</strong>
-          </div>
-          <div>
-            <span>Total Market Value</span>
-            <strong>{money(totalMarket)}</strong>
-          </div>
-          <div className={totalPnl >= 0 ? 'is-positive' : 'is-negative'}>
-            <span>Profit / Loss</span>
-            <strong>{signedMoney(totalPnl)}</strong>
-          </div>
-          <div className={totalPnl >= 0 ? 'is-positive' : 'is-negative'}>
-            <span>% Profit / Loss</span>
-            <strong>
-              {totalPnlPct == null
-                ? '—'
-                : `${totalPnlPct >= 0 ? '+' : ''}${totalPnlPct.toFixed(2)}%`}
-            </strong>
-          </div>
-        </div>
-      </div>
-
       <div className="position-list-card">
         <div className="position-list-header">
           <div>Code</div>
@@ -382,6 +357,22 @@ function Metric({ label, value }: { label: string; value: string }) {
     </div>
   );
 }
+function PortfolioMetric({
+  label,
+  value,
+  tone,
+}: {
+  label: string;
+  value: string;
+  tone?: 'positive' | 'negative';
+}) {
+  return (
+    <div className={tone ? `portfolio-metric ${tone}` : 'portfolio-metric'}>
+      <span>{label}</span>
+      <strong>{value}</strong>
+    </div>
+  );
+}
 function Empty({ kind }: { kind: 'default' | 'pool' | 'candidate' }) {
   const message =
     kind === 'pool'
@@ -407,129 +398,4 @@ function formatNumber(value: any) {
   return Number.isFinite(numeric)
     ? new Intl.NumberFormat('en-US', { maximumFractionDigits: 2 }).format(numeric)
     : '—';
-}
-
-export function TradeTicket({
-  pool,
-  busy,
-  error,
-  onClose,
-  onSubmit,
-}: {
-  pool: any;
-  busy: boolean;
-  error: string;
-  onClose: () => void;
-  onSubmit: (payload: TradePayload) => void;
-}) {
-  const [side, setSide] = useState<'BUY' | 'SELL'>((pool?.side ?? 'BUY') as 'BUY' | 'SELL');
-  const [quantity, setQuantity] = useState(
-    String(pool?.quantity ?? pool?.targetQuantity ?? pool?.target_quantity ?? 100)
-  );
-  const [orderType, setOrderType] = useState<TradePayload['orderType']>('LO');
-  const [price, setPrice] = useState(String(pool?.currentPrice ?? pool?.current_price ?? ''));
-  const numericQuantity = Number(quantity);
-  const numericPrice = Number(price);
-  const isNextPosition = pool?.__orderSource === 'next-position';
-  return (
-    <div className="trade-overlay" role="dialog" aria-modal="true">
-      <Card className="trade-ticket">
-        <div className="panel-head">
-          <div>
-            <h2>
-              {isNextPosition ? 'Create order' : 'Trade'}{' '}
-              {String(pool?.symbol ?? pool?.code ?? 'asset').toUpperCase()}
-            </h2>
-            <p>{isNextPosition ? 'Create SSI buy order from Next Position' : 'SSI order'}</p>
-          </div>
-          <button
-            type="button"
-            className="icon-button"
-            onClick={onClose}
-            aria-label="Close trade ticket"
-            disabled={busy}
-          >
-            <X className="size-4" />
-          </button>
-        </div>
-        <div className="trade-controls">
-          <div className="trade-side-toggle">
-            <button
-              type="button"
-              className={side === 'BUY' ? 'active' : ''}
-              onClick={() => setSide('BUY')}
-              disabled={busy || isNextPosition}
-            >
-              BUY
-            </button>
-            <button
-              type="button"
-              className={side === 'SELL' ? 'active' : ''}
-              onClick={() => setSide('SELL')}
-              disabled={busy || isNextPosition}
-            >
-              SELL
-            </button>
-          </div>
-          <label>
-            Quantity
-            <input
-              inputMode="numeric"
-              value={quantity}
-              onChange={event => setQuantity(event.target.value)}
-              disabled={busy}
-            />
-          </label>
-          <label>
-            Order type
-            <select
-              value={orderType}
-              onChange={event => setOrderType(event.target.value as TradePayload['orderType'])}
-              disabled={busy}
-            >
-              <option value="LO">LO</option>
-              <option value="MTL">MTL</option>
-              <option value="MP">MP</option>
-              <option value="ATO">ATO</option>
-              <option value="ATC">ATC</option>
-              <option value="MOK">MOK</option>
-              <option value="MAK">MAK</option>
-              <option value="PLO">PLO</option>
-            </select>
-          </label>
-          {orderType === 'LO' && (
-            <label>
-              Price
-              <input
-                inputMode="decimal"
-                value={price}
-                onChange={event => setPrice(event.target.value)}
-                disabled={busy}
-              />
-            </label>
-          )}
-        </div>
-        <Button
-          type="button"
-          onClick={() =>
-            onSubmit({
-              side,
-              quantity: numericQuantity,
-              orderType,
-              price: orderType === 'LO' ? numericPrice : undefined,
-            })
-          }
-          disabled={
-            busy ||
-            !Number.isFinite(numericQuantity) ||
-            numericQuantity <= 0 ||
-            (orderType === 'LO' && (!Number.isFinite(numericPrice) || numericPrice <= 0))
-          }
-        >
-          {busy ? 'Submitting…' : 'Place order'}
-        </Button>
-        {error && <div className="error-banner">{error}</div>}
-      </Card>
-    </div>
-  );
 }
