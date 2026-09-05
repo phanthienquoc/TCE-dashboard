@@ -102,7 +102,13 @@ export function PortfolioMetricCard({
   tone?: 'positive' | 'negative';
 }) {
   return (
-    <Card className={tone ? `portfolio-metric portfolio-metric-card ${tone}` : 'portfolio-metric portfolio-metric-card'}>
+    <Card
+      className={
+        tone
+          ? `portfolio-metric portfolio-metric-card ${tone}`
+          : 'portfolio-metric portfolio-metric-card'
+      }
+    >
       <CardContent className="p-4">
         <span>{label}</span>
         <strong>{value}</strong>
