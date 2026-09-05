@@ -14,6 +14,7 @@ import './position-theme.css';
 import '../shareComponent/data-display.css';
 import '../shareComponent/account-card.css';
 import './order-theme.css';
+import './app-spacing.css';
 import { AppProviders } from './providers';
 
 export const metadata: Metadata = {

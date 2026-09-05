@@ -1,0 +1,58 @@
+/* Shared app spacing: keep cards separated and list items vertically balanced. */
+:root {
+  --app-section-gap: 16px;
+  --app-card-gap: 12px;
+  --app-item-pad-block: 14px;
+}
+
+.app-spacing-stack,
+.dashboard-sections,
+.position-portfolio-page,
+.dashboard-view-overview,
+.dashboard-view-positions,
+.dashboard-view-orders {
+  gap: var(--app-section-gap);
+}
+
+.dashboard-data-section,
+.position-list-card,
+.position-summary-card,
+.panel-card,
+.data-card,
+.hero-card {
+  margin: 0;
+}
+
+.dashboard-data-section > * + *,
+.position-list-card > * + *,
+.position-summary-card > * + *,
+.panel-card > * + *,
+.data-card > * + *,
+.hero-card > * + * {
+  margin-top: var(--app-card-gap);
+}
+
+.shared-list-item {
+  padding-block: var(--app-item-pad-block);
+}
+
+.asset-row,
+.mobile-record {
+  padding-block: var(--app-item-pad-block);
+}
+
+@media (max-width: 767px) {
+  :root {
+    --app-section-gap: 16px;
+    --app-card-gap: 12px;
+    --app-item-pad-block: 14px;
+  }
+}
+
+@media (min-width: 768px) {
+  :root {
+    --app-section-gap: 20px;
+    --app-card-gap: 16px;
+    --app-item-pad-block: 16px;
+  }
+}
