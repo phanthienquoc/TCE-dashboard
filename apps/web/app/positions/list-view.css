@@ -1,7 +1,21 @@
-.dashboard-data-section .shared-list-view { gap: 10px; }
-.dashboard-data-section .shared-list-item { min-height: 68px; }
-.dashboard-data-section .shared-list-meta { margin-top: 5px; font-size: 10px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; }
+.dashboard-data-section .shared-list-view {
+  gap: 10px;
+}
+.dashboard-data-section .shared-list-item {
+  min-height: 68px;
+}
+.dashboard-data-section .shared-list-meta {
+  margin-top: 5px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
 @media (max-width: 640px) {
-  .dashboard-data-section .shared-list-item { padding: 12px; }
-  .dashboard-data-section .shared-list-description { white-space: normal; }
+  .dashboard-data-section .shared-list-item {
+    padding: 12px;
+  }
+  .dashboard-data-section .shared-list-description {
+    white-space: normal;
+  }
 }

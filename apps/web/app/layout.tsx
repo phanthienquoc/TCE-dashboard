@@ -20,8 +20,19 @@ export const metadata: Metadata = {
   appleWebApp: { capable: true, statusBarStyle: 'default', title: 'TCE Dashboard' },
 };
 export const viewport: Viewport = {
-  width: 'device-width', initialScale: 1, viewportFit: 'cover', maximumScale: 1, userScalable: false, themeColor: '#0b1020',
+  width: 'device-width',
+  initialScale: 1,
+  viewportFit: 'cover',
+  maximumScale: 1,
+  userScalable: false,
+  themeColor: '#0b1020',
 };
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
-  return <html lang="en"><body><AppProviders>{children}</AppProviders></body></html>;
+  return (
+    <html lang="en">
+      <body>
+        <AppProviders>{children}</AppProviders>
+      </body>
+    </html>
+  );
 }
