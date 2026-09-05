@@ -106,7 +106,9 @@ function rowsToPositionListItems(rows: any[]) {
     const marketValue = row.marketValue ?? row.market_value;
     const pnl = row.unrealizedPnl ?? row.unrealized_pnl;
     const investedValue =
-      row.costBasis ?? row.cost_basis ?? (Number.isFinite(quantity) && Number.isFinite(avgCost) ? quantity * avgCost : null);
+      row.costBasis ??
+      row.cost_basis ??
+      (Number.isFinite(quantity) && Number.isFinite(avgCost) ? quantity * avgCost : null);
     const pnlPct =
       investedValue != null && Number(investedValue) !== 0 && pnl != null
         ? (Number(pnl) / Number(investedValue)) * 100
@@ -130,7 +132,10 @@ function rowsToPositionListItems(rows: any[]) {
 export function PositionsView({ data }: { data: DashboardData }) {
   const rows = data.positions;
   const totalInvest = rows.reduce((sum, row) => {
-    const value = row.costBasis ?? row.cost_basis ?? (Number(row.quantity ?? 0) * Number(row.avgBuyCost ?? row.avg_cost ?? 0));
+    const value =
+      row.costBasis ??
+      row.cost_basis ??
+      Number(row.quantity ?? 0) * Number(row.avgBuyCost ?? row.avg_cost ?? 0);
     return sum + (Number.isFinite(Number(value)) ? Number(value) : 0);
   }, 0);
   const totalMarket = rows.reduce((sum, row) => {
@@ -148,7 +153,11 @@ export function PositionsView({ data }: { data: DashboardData }) {
             <p className="position-summary-kicker">Stock Balance</p>
             <h1>Portfolio Positions</h1>
           </div>
-          <button type="button" className="panel-action" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>
+          <button
+            type="button"
+            className="panel-action"
+            onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+          >
             Sell All
           </button>
         </div>
@@ -167,7 +176,11 @@ export function PositionsView({ data }: { data: DashboardData }) {
           </div>
           <div className={totalPnl >= 0 ? 'is-positive' : 'is-negative'}>
             <span>% Profit / Loss</span>
-            <strong>{totalPnlPct == null ? '—' : `${totalPnlPct >= 0 ? '+' : ''}${totalPnlPct.toFixed(2)}%`}</strong>
+            <strong>
+              {totalPnlPct == null
+                ? '—'
+                : `${totalPnlPct >= 0 ? '+' : ''}${totalPnlPct.toFixed(2)}%`}
+            </strong>
           </div>
         </div>
       </div>
