@@ -69,18 +69,13 @@ export function PositionsView({
 }) {
   return (
     <div className="dashboard-view dashboard-view-positions">
-      <section className="dashboard-data-section position-portfolio-page">
-        <div className="position-list-card">
-          <div className="position-list-header">
-            <div>Code</div>
-            <div>Volume</div>
-            <div>Avg Price</div>
-            <div>Invest Value</div>
-            <div>Profit Loss</div>
-          </div>
-          <ListView items={rowsToPositionListItems(data.positions)} empty="No open positions" />
-        </div>
-      </section>
+      <Panel
+        title="Current Positions"
+        caption={`${data.positions.length} assets`}
+        icon={WalletCards}
+      >
+        <ListView items={rowsToPositionListItems(data.positions)} empty="No open positions" />
+      </Panel>
 
       <Panel
         title="Next Positions"
