@@ -82,7 +82,7 @@ export function PortfolioComponent({
 
 export function PortfolioValueCard({ value }: { value: string }) {
   return (
-    <div className="portfolio-value-card">
+    <div className="hero-card-top portfolio-value-card">
       <div>
         <p className="metric-label">Total portfolio value</p>
         <p className="metric-value">{value}</p>
@@ -102,8 +102,8 @@ export function PortfolioMetricCard({
   tone?: 'positive' | 'negative';
 }) {
   return (
-    <Card className={tone ? `portfolio-metric-card ${tone}` : 'portfolio-metric-card'}>
-      <CardContent className="portfolio-metric-card-content">
+    <Card className={tone ? `portfolio-metric portfolio-metric-card ${tone}` : 'portfolio-metric portfolio-metric-card'}>
+      <CardContent className="p-4">
         <span>{label}</span>
         <strong>{value}</strong>
       </CardContent>
@@ -120,13 +120,7 @@ export function PortfolioAccountCard({
   identifier: string;
   status: string;
 }) {
-  return (
-    <Card className="portfolio-account-card">
-      <CardContent className="p-0">
-        <AccountCard provider={provider} identifier={identifier} status={status} />
-      </CardContent>
-    </Card>
-  );
+  return <AccountCard provider={provider} identifier={identifier} status={status} />;
 }
 
 function money(value: any) {
