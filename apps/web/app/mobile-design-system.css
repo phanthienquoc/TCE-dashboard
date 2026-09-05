@@ -480,3 +480,42 @@ tbody td {
     grid-column: 2;
   }
 }
+
+/* Order route: keep the shared panel/list primitives on the active TCE theme. */
+.dashboard-view-orders .panel-card {
+  background: var(--surface-strong) !important;
+  border-color: var(--border) !important;
+  color: var(--foreground) !important;
+}
+.dashboard-view-orders .panel-head,
+.dashboard-view-orders .panel-body {
+  border-color: var(--border) !important;
+}
+.dashboard-view-orders .panel-icon {
+  background: var(--surface) !important;
+  color: var(--foreground) !important;
+  border-color: var(--border) !important;
+}
+.dashboard-view-orders .panel-head h2,
+.dashboard-view-orders .panel-head p,
+.dashboard-view-orders .shared-list-title,
+.dashboard-view-orders .shared-list-description,
+.dashboard-view-orders .shared-list-meta,
+.dashboard-view-orders .shared-list-item,
+.dashboard-view-orders .asset-value {
+  color: var(--foreground) !important;
+}
+.dashboard-view-orders .panel-head p,
+.dashboard-view-orders .shared-list-description,
+.dashboard-view-orders .shared-list-meta {
+  color: var(--muted) !important;
+}
+.dashboard-view-orders .shared-list-item {
+  background: var(--surface-strong) !important;
+  border-color: var(--border) !important;
+}
+.dashboard-view-orders .shared-list-empty {
+  background: var(--surface) !important;
+  border-color: var(--border) !important;
+  color: var(--muted) !important;
+}
