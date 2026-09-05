@@ -1,0 +1,39 @@
+.dashboard-view-positions {
+  color: var(--foreground);
+}
+
+.dashboard-view-positions .position-list-card {
+  border: 1px solid var(--border) !important;
+  background: var(--surface-strong) !important;
+  color: var(--foreground) !important;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.04), 0 8px 24px rgb(0 0 0 / 0.045);
+}
+
+.dashboard-view-positions .position-list-header {
+  background: var(--surface) !important;
+  border-color: var(--border) !important;
+  color: var(--muted) !important;
+}
+
+.dashboard-view-positions .position-list-card .shared-list-item {
+  background: var(--surface-strong) !important;
+  border-color: var(--border) !important;
+  color: var(--foreground) !important;
+}
+
+.dashboard-view-positions .position-list-card .shared-list-item:hover {
+  background: color-mix(in srgb, var(--primary) 4%, var(--surface-strong)) !important;
+}
+
+.dashboard-view-positions .position-list-card .shared-list-title {
+  color: var(--foreground) !important;
+}
+
+.dashboard-view-positions .position-list-card .shared-list-description,
+.dashboard-view-positions .position-list-card .shared-list-meta {
+  color: var(--muted) !important;
+}
+
+.dashboard-view-positions .position-list-card .shared-list-trailing {
+  color: var(--foreground) !important;
+}
