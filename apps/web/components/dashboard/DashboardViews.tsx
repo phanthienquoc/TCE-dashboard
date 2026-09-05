@@ -2,10 +2,10 @@
 
 import { ChevronRight, Layers3, ShoppingCart, TrendingUp, WalletCards } from 'lucide-react';
 import { Button } from '../ui/button';
-import { Card, CardContent } from '../ui/card';
+import { Card } from '../ui/card';
 import PlatformConfigTab from '../config/PlatformConfigTab';
 import { ListView } from '../../shareComponent/list-view';
-import { AccountCard } from '../../shareComponent/account-card';
+import { PortfolioComponent } from '../../shareComponent/portfolio-component';
 import type { DashboardActions, DashboardData } from './DashboardShell';
 
 export function OverviewView({
@@ -15,71 +15,15 @@ export function OverviewView({
   data: DashboardData;
   actions: DashboardActions;
 }) {
-  const { positions, pools, next, orders, visibleAccounts, portfolioValue } = data;
-  const totalInvest = positions.reduce((sum, row) => {
-    const value =
-      row.costBasis ??
-      row.cost_basis ??
-      Number(row.quantity ?? 0) * Number(row.avgBuyCost ?? row.avg_cost ?? 0);
-    return sum + (Number.isFinite(Number(value)) ? Number(value) : 0);
-  }, 0);
-  const totalMarket = positions.reduce((sum, row) => {
-    const value = row.marketValue ?? row.market_value;
-    return sum + (Number.isFinite(Number(value)) ? Number(value) : 0);
-  }, 0);
-  const totalPnl = positions.reduce((sum, row) => {
-    const value = row.unrealizedPnl ?? row.unrealized_pnl;
-    return sum + (Number.isFinite(Number(value)) ? Number(value) : 0);
-  }, 0);
-  const calculatedPnl = totalMarket - totalInvest;
-  const pnl = Number.isFinite(totalPnl) && totalPnl !== 0 ? totalPnl : calculatedPnl;
-  const pnlPct = totalInvest ? (pnl / totalInvest) * 100 : null;
+  const { positions, pools, next, orders } = data;
 
   return (
     <div className="dashboard-view dashboard-view-overview">
-      <Card className="hero-card portfolio-overview-card">
-        <CardContent className="p-4">
-          <div className="hero-card-top">
-            <div>
-              <p className="metric-label">Total portfolio value</p>
-              <p className="metric-value">{money(portfolioValue ?? totalMarket)}</p>
-            </div>
-            <div className="hero-status">LIVE</div>
-          </div>
-
-          <div className="portfolio-metric-grid">
-            <PortfolioMetric label="Invested" value={money(totalInvest)} />
-            <PortfolioMetric label="Market Value" value={money(totalMarket)} />
-            <PortfolioMetric
-              label="Profit / Loss"
-              value={signedMoney(pnl)}
-              tone={pnl >= 0 ? 'positive' : 'negative'}
-            />
-            <PortfolioMetric
-              label="% Profit / Loss"
-              value={pnlPct == null ? '—' : `${pnlPct >= 0 ? '+' : ''}${pnlPct.toFixed(2)}%`}
-              tone={pnl >= 0 ? 'positive' : 'negative'}
-            />
-            <PortfolioMetric label="Positions" value={String(positions.length)} />
-            <PortfolioMetric label="Accounts" value={String(visibleAccounts.length || '—')} />
-          </div>
-
-          {visibleAccounts.length > 0 && (
-            <div className="portfolio-connected-account">
-              {visibleAccounts.map((item: any, index: number) => (
-                <AccountCard
-                  key={item.id ?? item.accountNo ?? item.externalAccountNo ?? index}
-                  provider={String(item.provider ?? item.broker ?? 'Account')}
-                  identifier={String(
-                    item.accountNo ?? item.externalAccountNo ?? item.environment ?? 'Connected'
-                  )}
-                  status={String(item.status ?? 'Connected')}
-                />
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+      <PortfolioComponent
+        positions={positions}
+        accounts={data.visibleAccounts}
+        portfolioValue={data.portfolioValue}
+      />
 
       <Panel
         title="Current Positions"
@@ -346,30 +290,6 @@ function SectionHeader({ title, caption }: { title: string; caption: string }) {
     <div className="section-header">
       <h2>{title}</h2>
       <span>{caption}</span>
-    </div>
-  );
-}
-function Metric({ label, value }: { label: string; value: string }) {
-  return (
-    <div>
-      <p className="metric-label">{label}</p>
-      <p className="metric-secondary">{value}</p>
-    </div>
-  );
-}
-function PortfolioMetric({
-  label,
-  value,
-  tone,
-}: {
-  label: string;
-  value: string;
-  tone?: 'positive' | 'negative';
-}) {
-  return (
-    <div className={tone ? `portfolio-metric ${tone}` : 'portfolio-metric'}>
-      <span>{label}</span>
-      <strong>{value}</strong>
     </div>
   );
 }
