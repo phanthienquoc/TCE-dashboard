@@ -179,10 +179,9 @@
   }
   .position-list-header {
     display: grid;
-    grid-template-columns: minmax(90px, 1.1fr) minmax(100px, 1fr) minmax(100px, 1fr) minmax(
-        150px,
-        1.2fr
-      ) minmax(110px, 1fr);
+    grid-template-columns:
+      minmax(90px, 1.1fr) minmax(100px, 1fr) minmax(100px, 1fr) minmax(150px, 1.2fr)
+      minmax(110px, 1fr);
     align-items: center;
     gap: 0;
     padding: 14px 16px;
@@ -196,10 +195,9 @@
   }
   .position-list-card .shared-list-item {
     display: grid;
-    grid-template-columns: minmax(90px, 1.1fr) minmax(100px, 1fr) minmax(100px, 1fr) minmax(
-        150px,
-        1.2fr
-      ) minmax(110px, 1fr);
+    grid-template-columns:
+      minmax(90px, 1.1fr) minmax(100px, 1fr) minmax(100px, 1fr) minmax(150px, 1.2fr)
+      minmax(110px, 1fr);
     gap: 0;
     align-items: center;
     padding: 13px 16px;
