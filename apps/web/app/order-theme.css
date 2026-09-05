@@ -3,17 +3,22 @@
 }
 
 .dashboard-view-orders .panel-card {
-  border-color: var(--border) !important;
+  border: 1px solid var(--border) !important;
   background: var(--surface-strong) !important;
   color: var(--foreground) !important;
+  box-shadow:
+    0 1px 2px rgb(0 0 0 / 0.04),
+    0 8px 24px rgb(0 0 0 / 0.045);
 }
 
 .dashboard-view-orders .panel-head,
 .dashboard-view-orders .panel-body {
   border-color: var(--border) !important;
+  background: var(--surface-strong) !important;
 }
 
-.dashboard-view-orders .panel-icon {
+.dashboard-view-orders .panel-icon,
+.dashboard-view-orders .asset-mark {
   background: var(--surface) !important;
   color: var(--foreground) !important;
   border-color: var(--border) !important;
@@ -21,14 +26,23 @@
 
 .dashboard-view-orders .panel-head h2,
 .dashboard-view-orders .shared-list-title,
+.dashboard-view-orders .asset-symbol,
+.dashboard-view-orders .asset-main p,
 .dashboard-view-orders .asset-value {
   color: var(--foreground) !important;
 }
 
 .dashboard-view-orders .panel-head p,
 .dashboard-view-orders .shared-list-description,
-.dashboard-view-orders .shared-list-meta {
+.dashboard-view-orders .shared-list-meta,
+.dashboard-view-orders .asset-secondary,
+.dashboard-view-orders .asset-hold,
+.dashboard-view-orders .asset-main small {
   color: var(--muted) !important;
+}
+
+.dashboard-view-orders .shared-list-view {
+  background: var(--surface-strong) !important;
 }
 
 .dashboard-view-orders .shared-list-item {
@@ -37,8 +51,19 @@
   color: var(--foreground) !important;
 }
 
-.dashboard-view-orders .shared-list-empty {
+.dashboard-view-orders .shared-list-item:hover,
+.dashboard-view-orders .shared-list-item.is-action:hover {
+  border-color: var(--primary) !important;
+  background: color-mix(in srgb, var(--primary) 4%, var(--surface-strong)) !important;
+}
+
+.dashboard-view-orders .shared-list-empty,
+.dashboard-view-orders .empty-state {
   border-color: var(--border) !important;
   background: var(--surface) !important;
   color: var(--muted) !important;
+}
+
+.dashboard-view-orders .asset-row {
+  border-color: var(--border) !important;
 }
