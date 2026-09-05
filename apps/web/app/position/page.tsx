@@ -6,7 +6,7 @@ import { PositionsView } from '../../components/dashboard/DashboardViews';
 export default function PositionPage() {
   return (
     <DashboardShell view="positions">
-      {data => <PositionsView data={data} actions={data.actions} />}
+      {(data, actions) => <PositionsView data={data} actions={actions} />}
     </DashboardShell>
   );
 }
