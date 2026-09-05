@@ -10,6 +10,7 @@ import './mobile-dashboard-polish.css';
 import './engine/form-controls.css';
 import './positions-ui-fix.css';
 import './positions/list-view.css';
+import './position-theme.css';
 import '../shareComponent/data-display.css';
 import '../shareComponent/account-card.css';
 import './order-theme.css';
