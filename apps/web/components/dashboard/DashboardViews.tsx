@@ -1,7 +1,6 @@
 'use client';
 
 import { ChevronRight, Layers3, ShoppingCart, TrendingUp, WalletCards } from 'lucide-react';
-import { Button } from '../ui/button';
 import { Card } from '../ui/card';
 import PlatformConfigTab from '../config/PlatformConfigTab';
 import { ListView } from '../../shareComponent/list-view';
@@ -10,58 +9,25 @@ import type { DashboardActions, DashboardData } from './DashboardShell';
 
 export function OverviewView({
   data,
-  actions,
 }: {
   data: DashboardData;
   actions: DashboardActions;
 }) {
-  const { positions, pools, next, orders } = data;
-
   return (
     <div className="dashboard-view dashboard-view-overview">
       <PortfolioComponent
-        positions={positions}
+        positions={data.positions}
         accounts={data.visibleAccounts}
         portfolioValue={data.portfolioValue}
       />
 
       <Panel
         title="Current Positions"
-        caption={`${positions.length} assets`}
+        caption={`${data.positions.length} assets`}
         icon={WalletCards}
         action={() => window.location.assign('/position')}
       >
-        <AssetList rows={positions} />
-      </Panel>
-      <Panel
-        title="Next Positions"
-        caption={next.length ? `${next.length} candidates` : 'Candidates'}
-        icon={TrendingUp}
-        action={next.length > 5 ? () => window.location.assign('/position') : undefined}
-      >
-        <AssetList rows={next} kind="candidate" onTrade={actions.openNextPositionOrder} />
-      </Panel>
-      <Panel
-        title="Shared Pools"
-        caption={`${pools.length} watching`}
-        icon={Layers3}
-        action={pools.length > 5 ? () => window.location.assign('/position') : undefined}
-      >
-        <AssetList
-          rows={pools}
-          kind="pool"
-          onTrade={actions.openTrade}
-          onPromote={actions.promotePool}
-          promoteBusy={actions.promoteBusy}
-        />
-      </Panel>
-      <Panel
-        title="Recent Orders"
-        caption={`${orders.length} orders`}
-        icon={ShoppingCart}
-        action={() => window.location.assign('/order')}
-      >
-        <AssetList rows={orders} />
+        <AssetList rows={data.positions} />
       </Panel>
     </div>
   );
@@ -99,62 +65,68 @@ function rowsToPositionListItems(rows: any[]) {
   });
 }
 
-export function PositionsView({ data }: { data: DashboardData }) {
-  const rows = data.positions;
-
+export function PositionsView({
+  data,
+  actions,
+}: {
+  data: DashboardData;
+  actions: DashboardActions;
+}) {
   return (
-    <section className="dashboard-data-section position-portfolio-page">
-      <div className="position-list-card">
-        <div className="position-list-header">
-          <div>Code</div>
-          <div>Volume</div>
-          <div>Avg Price</div>
-          <div>Invest Value</div>
-          <div>Profit Loss</div>
+    <div className="dashboard-view dashboard-view-positions">
+      <section className="dashboard-data-section position-portfolio-page">
+        <div className="position-list-card">
+          <div className="position-list-header">
+            <div>Code</div>
+            <div>Volume</div>
+            <div>Avg Price</div>
+            <div>Invest Value</div>
+            <div>Profit Loss</div>
+          </div>
+          <ListView items={rowsToPositionListItems(data.positions)} empty="No open positions" />
         </div>
-        <ListView items={rowsToPositionListItems(rows)} empty="No open positions" />
-      </div>
-    </section>
-  );
-}
+      </section>
 
-function rowsToListItems(rows: any[], type: 'position' | 'order') {
-  return rows.map((row, index) => {
-    const symbol = String(row.symbol ?? row.code ?? row.name ?? `Item ${index + 1}`);
-    const values =
-      type === 'position'
-        ? [
-            `Qty ${formatNumber(row.quantity ?? 0)}`,
-            `Avg ${formatNumber(row.avgBuyCost)}`,
-            `Mkt ${formatNumber(row.marketPrice)}`,
-            `P&L ${formatNumber(row.unrealizedPnl)}`,
-          ]
-        : [
-            String(row.side ?? '—'),
-            `Qty ${formatNumber(row.quantity ?? 0)}`,
-            `Price ${formatNumber(row.price)}`,
-            String(row.status ?? '—'),
-            `Fee ${formatNumber(row.fee)}`,
-            `Tax ${formatNumber(row.tax)}`,
-          ];
-    return {
-      id: row.id ?? row.symbol ?? row.code ?? index,
-      title: symbol,
-      description: values.join(' · '),
-      meta: type === 'position' ? 'POSITION' : 'ORDER',
-    };
-  });
+      <Panel
+        title="Next Positions"
+        caption={data.next.length ? `${data.next.length} candidates` : 'Candidates'}
+        icon={TrendingUp}
+      >
+        <AssetList
+          rows={data.next}
+          kind="candidate"
+          onTrade={actions.openNextPositionOrder}
+        />
+      </Panel>
+
+      <Panel
+        title="Shared Pools"
+        caption={`${data.pools.length} watching`}
+        icon={Layers3}
+      >
+        <AssetList
+          rows={data.pools}
+          kind="pool"
+          onTrade={actions.openTrade}
+          onPromote={actions.promotePool}
+          promoteBusy={actions.promoteBusy}
+        />
+      </Panel>
+    </div>
+  );
 }
 
 export function OrdersView({ data }: { data: DashboardData }) {
   return (
-    <section className="dashboard-data-section">
-      <SectionHeader
-        title="Orders"
-        caption={`${data.orders.length} ${data.orders.length === 1 ? 'item' : 'items'}`}
-      />
-      <ListView items={rowsToListItems(data.orders, 'order')} />
-    </section>
+    <div className="dashboard-view dashboard-view-orders">
+      <Panel
+        title="Recent Orders"
+        caption={`${data.orders.length} orders`}
+        icon={ShoppingCart}
+      >
+        <AssetList rows={data.orders} />
+      </Panel>
+    </div>
   );
 }
 
@@ -223,6 +195,7 @@ function AssetList({
   promoteBusy?: string | null;
 }) {
   if (!rows.length) return <Empty kind={kind} />;
+
   const items = rows.slice(0, 4).map((row, i) => {
     const symbol = String(row.symbol ?? row.code ?? row.name ?? `Item ${i + 1}`);
     const isPool = kind === 'pool';
@@ -247,6 +220,7 @@ function AssetList({
       : isCandidate
         ? `#${rank ?? '—'} · ${String(row.status ?? 'CANDIDATE')}`
         : `${formatNumber(quantity ?? 0)} units · ${String(row.status ?? 'OPEN')}`;
+
     return {
       id: row.id ?? row.symbol ?? row.code ?? i,
       title: symbol,
@@ -254,6 +228,7 @@ function AssetList({
       trailing: <span className="asset-value">{primaryValue}</span>,
     };
   });
+
   const actionable = items.map((item, index) => ({
     ...item,
     trailing: (
@@ -282,6 +257,7 @@ function AssetList({
       </div>
     ),
   }));
+
   return <ListView items={actionable} />;
 }
 
@@ -293,6 +269,7 @@ function SectionHeader({ title, caption }: { title: string; caption: string }) {
     </div>
   );
 }
+
 function Empty({ kind }: { kind: 'default' | 'pool' | 'candidate' }) {
   const message =
     kind === 'pool'
@@ -302,17 +279,20 @@ function Empty({ kind }: { kind: 'default' | 'pool' | 'candidate' }) {
         : 'No data yet';
   return <div className="empty-state">{message}</div>;
 }
+
 function money(value: any) {
   const numeric = Number(value);
   return Number.isFinite(numeric)
     ? new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 }).format(numeric)
     : '—';
 }
+
 function signedMoney(value: any) {
   const numeric = Number(value);
   if (!Number.isFinite(numeric)) return '—';
   return `${numeric >= 0 ? '+' : ''}${money(Math.abs(numeric))}`;
 }
+
 function formatNumber(value: any) {
   const numeric = Number(value);
   return Number.isFinite(numeric)
