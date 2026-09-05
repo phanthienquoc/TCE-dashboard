@@ -58,7 +58,7 @@
 .shared-list-view {
   width: 100%;
   display: grid;
-  gap: 8px;
+  gap: var(--app-card-gap, 12px);
 }
 .shared-list-item {
   width: 100%;
