@@ -12,6 +12,7 @@ import {
   XCircle,
   Clock3,
   RotateCcw,
+  Zap,
 } from 'lucide-react';
 import { platformApi } from '../../../lib/api';
 
@@ -245,6 +246,49 @@ export default function SSIPlatform({ onMessage }: Props) {
     }
   };
 
+  const testOrder = async () => {
+    if (!tested || !accountNo) {
+      setResult({
+        ok: false,
+        message: 'Test Connection must succeed and return an SSI account before placing the test order.',
+      });
+      return;
+    }
+    const confirmed = window.confirm(
+      `Place a REAL SSI production test order: BUY 100 DPM using MTL on account ${accountNo}?`
+    );
+    if (!confirmed) return;
+
+    setBusy(true);
+    setResult(null);
+    try {
+      const response = await platformApi.ssiOrder({
+        environment: ENVIRONMENT,
+        accountNo,
+        symbol: 'DPM',
+        side: 'BUY',
+        quantity: 100,
+        orderType: 'MTL',
+      });
+      const data = response.data;
+      if (!data?.ok) throw new Error(data?.error?.message ?? 'SSI test order failed');
+      const orderId = data?.data?.orderId;
+      setResult({
+        ok: true,
+        message: orderId
+          ? `SSI test order submitted successfully — DPM BUY 100, order ${orderId}.`
+          : 'SSI test order submitted successfully — DPM BUY 100.',
+      });
+      onMessage?.('SSI test order submitted');
+    } catch (error) {
+      const message = messageFrom(error);
+      setResult({ ok: false, message: `SSI test order failed: ${message}` });
+      onMessage?.(`SSI test order failed: ${message}`);
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const save = async () => {
     if (!tested || !accountNo) {
       setResult({
@@ -469,6 +513,13 @@ export default function SSIPlatform({ onMessage }: Props) {
                     <ShieldCheck className="size-4" />
                   )}{' '}
                   Test Connection
+                </ActionButton>
+                <ActionButton
+                  disabled={busy || !tested || !accountNo}
+                  onClick={() => void testOrder()}
+                >
+                  {busy ? <Loader2 className="size-4 animate-spin" /> : <Zap className="size-4" />}{' '}
+                  Test Order
                 </ActionButton>
                 <ActionButton disabled={busy || !tested || !accountNo} onClick={save}>
                   Save
