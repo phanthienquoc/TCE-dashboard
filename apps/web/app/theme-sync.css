@@ -62,6 +62,48 @@ select option {
   color: var(--foreground);
   background-color: var(--surface);
 }
+
+/* Trade ticket must use the same semantic palette as the rest of TCE. */
+.trade-overlay {
+  background: rgb(0 0 0 / 0.58) !important;
+}
+.trade-ticket {
+  background: var(--surface-strong) !important;
+  color: var(--foreground) !important;
+  border-color: var(--border) !important;
+  box-shadow: 0 16px 48px rgb(0 0 0 / 0.28) !important;
+}
+.trade-ticket .panel-head {
+  border-color: var(--border) !important;
+}
+.trade-ticket .panel-head h2,
+.trade-ticket .trade-controls label {
+  color: var(--foreground) !important;
+}
+.trade-ticket .panel-head p,
+.trade-ticket .field-hint {
+  color: var(--muted) !important;
+}
+.trade-ticket .trade-controls input,
+.trade-ticket .trade-controls select {
+  background: var(--surface) !important;
+  color: var(--foreground) !important;
+  border-color: var(--border) !important;
+}
+.trade-ticket .icon-button {
+  background: var(--surface) !important;
+  color: var(--foreground) !important;
+  border-color: var(--border) !important;
+}
+.trade-ticket .icon-button:hover {
+  background: var(--surface-strong) !important;
+}
+.trade-ticket > button {
+  background: var(--primary) !important;
+  color: var(--primary-foreground) !important;
+}
+
+
 a,
 button,
 input,
