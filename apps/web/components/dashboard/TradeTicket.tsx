@@ -24,6 +24,8 @@ export default function TradeTicket({
   const side = (pool?.side ?? 'BUY') as TradeSide;
   const symbol = String(pool?.symbol ?? pool?.code ?? '').toUpperCase();
   const maxQuantity = side === 'SELL' ? Number(pool?.quantity ?? 0) : undefined;
+  const availableQuantity = Number(maxQuantity ?? 0);
+  const hasMaxQuantity = Number.isFinite(availableQuantity) && availableQuantity > 0;
   const [quantity, setQuantity] = useState(
     String(pool?.quantity ?? pool?.targetQuantity ?? pool?.target_quantity ?? 100)
   );
@@ -45,7 +47,7 @@ export default function TradeTicket({
   const quantityValid =
     Number.isFinite(numericQuantity) &&
     numericQuantity > 0 &&
-    (!isSell || numericQuantity <= maxQuantity);
+    (!isSell || (hasMaxQuantity && numericQuantity <= availableQuantity));
   const priceValid = orderType !== 'LO' || (Number.isFinite(numericPrice) && numericPrice > 0);
 
   return (
@@ -80,13 +82,13 @@ export default function TradeTicket({
             <input
               inputMode="numeric"
               min="1"
-              max={isSell && Number.isFinite(maxQuantity) ? maxQuantity : undefined}
+              max={hasMaxQuantity ? availableQuantity : undefined}
               value={quantity}
               onChange={event => setQuantity(event.target.value)}
               disabled={busy}
             />
-            {isSell && Number.isFinite(maxQuantity) && (
-              <span className="field-hint">Available: {maxQuantity}</span>
+            {isSell && hasMaxQuantity && (
+              <span className="field-hint">Available: {availableQuantity}</span>
             )}
           </label>
 
