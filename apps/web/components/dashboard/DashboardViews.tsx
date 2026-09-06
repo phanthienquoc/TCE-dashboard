@@ -74,7 +74,7 @@ export function PositionsView({
         caption={`${data.positions.length} assets`}
         icon={WalletCards}
       >
-        <ListView items={rowsToPositionListItems(data.positions)} empty="No open positions" />
+        <AssetList rows={data.positions} kind="position" onTrade={actions.openPositionSell} />
       </Panel>
 
       <Panel
@@ -167,17 +167,18 @@ function AssetList({
   promoteBusy,
 }: {
   rows: any[];
-  kind?: 'default' | 'pool' | 'candidate';
+  kind?: 'default' | 'pool' | 'candidate' | 'position';
   onTrade?: (row: any) => void;
   onPromote?: (row: any) => void;
   promoteBusy?: string | null;
 }) {
-  if (!rows.length) return <Empty kind={kind} />;
+  if (!rows.length) return <Empty kind={kind === 'position' ? 'default' : kind} />;
 
   const items = rows.slice(0, 4).map((row, i) => {
     const symbol = String(row.symbol ?? row.code ?? row.name ?? `Item ${i + 1}`);
     const isPool = kind === 'pool';
     const isCandidate = kind === 'candidate';
+    const isPosition = kind === 'position';
     const rank = row.rank == null ? null : Number(row.rank);
     const score = row.score == null ? null : Number(row.score);
     const currentPrice = row.currentPrice ?? row.current_price;
@@ -204,6 +205,8 @@ function AssetList({
       title: symbol,
       description: secondary,
       trailing: <span className="asset-value">{primaryValue}</span>,
+      quantity,
+      isPosition,
     };
   });
 
@@ -214,12 +217,17 @@ function AssetList({
         {item.trailing}
         {kind === 'candidate' && onTrade ? (
           <button type="button" className="primary-action" onClick={() => onTrade(rows[index])}>
-            Create order
+            BUY
           </button>
         ) : null}
         {kind === 'pool' && onTrade ? (
           <button type="button" className="panel-action" onClick={() => onTrade(rows[index])}>
-            Trade
+            BUY
+          </button>
+        ) : null}
+        {kind === 'position' && onTrade ? (
+          <button type="button" className="panel-action" onClick={() => onTrade(rows[index])}>
+            SELL
           </button>
         ) : null}
         {kind === 'pool' && onPromote && rows[index]?.id ? (
