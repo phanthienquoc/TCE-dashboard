@@ -40,6 +40,7 @@ export type DashboardData = {
 export type DashboardActions = {
   refresh: () => void;
   openTrade: (row: any) => void;
+  openPositionSell: (row: any) => void;
   openNextPositionOrder: (row: any) => void;
   promotePool: (row: any) => Promise<void>;
   promoteBusy: string | null;
@@ -102,7 +103,17 @@ export default function DashboardShell({
 
   const openTrade = (pool: any) => {
     setTradeError('');
-    setTradePool({ ...pool, __ssiAccountNo: ssiAccountNo });
+    setTradePool({ ...pool, __ssiAccountNo: ssiAccountNo, side: 'BUY' });
+  };
+  const openPositionSell = (position: any) => {
+    setTradeError('');
+    setTradePool({
+      ...position,
+      __ssiAccountNo: ssiAccountNo,
+      side: 'SELL',
+      quantity: Number(position?.quantity ?? 0),
+      currentPrice: position?.marketPrice ?? position?.market_price,
+    });
   };
   const openNextPositionOrder = (candidate: any) => {
     setTradeError('');
@@ -178,6 +189,7 @@ export default function DashboardShell({
   const actions: DashboardActions = {
     refresh: () => void load(),
     openTrade,
+    openPositionSell,
     openNextPositionOrder,
     promotePool,
     promoteBusy,
