@@ -6,6 +6,8 @@ import { Button } from '../ui/button';
 import { Card } from '../ui/card';
 import type { TradePayload } from './DashboardShell';
 
+type TradeSide = 'BUY' | 'SELL';
+
 export default function TradeTicket({
   pool,
   busy,
@@ -19,26 +21,32 @@ export default function TradeTicket({
   onClose: () => void;
   onSubmit: (payload: TradePayload) => void;
 }) {
-  const [side, setSide] = useState<'BUY' | 'SELL'>((pool?.side ?? 'BUY') as 'BUY' | 'SELL');
+  const side = (pool?.side ?? 'BUY') as TradeSide;
+  const symbol = String(pool?.symbol ?? pool?.code ?? '').toUpperCase();
+  const maxQuantity = side === 'SELL' ? Number(pool?.quantity ?? 0) : undefined;
   const [quantity, setQuantity] = useState(
     String(pool?.quantity ?? pool?.targetQuantity ?? pool?.target_quantity ?? 100)
   );
   const [orderType, setOrderType] = useState<TradePayload['orderType']>('LO');
-  const [price, setPrice] = useState(String(pool?.currentPrice ?? pool?.current_price ?? ''));
+  const [price, setPrice] = useState(
+    String(pool?.currentPrice ?? pool?.current_price ?? pool?.marketPrice ?? pool?.market_price ?? pool?.price ?? '')
+  );
+
   const numericQuantity = Number(quantity);
   const numericPrice = Number(price);
-  const isNextPosition = pool?.__orderSource === 'next-position';
+  const isSell = side === 'SELL';
+  const quantityValid =
+    Number.isFinite(numericQuantity) && numericQuantity > 0 && (!isSell || numericQuantity <= maxQuantity);
+  const priceValid =
+    orderType !== 'LO' || (Number.isFinite(numericPrice) && numericPrice > 0);
 
   return (
     <div className="trade-overlay" role="dialog" aria-modal="true">
       <Card className="trade-ticket">
         <div className="panel-head">
           <div>
-            <h2>
-              {isNextPosition ? 'Create order' : 'Trade'}{' '}
-              {String(pool?.symbol ?? pool?.code ?? 'asset').toUpperCase()}
-            </h2>
-            <p>{isNextPosition ? 'Create SSI buy order from Next Position' : 'SSI order'}</p>
+            <h2>{side} {symbol || 'asset'}</h2>
+            <p>{isSell ? 'Sell open position through SSI' : 'Buy from TCE pool through SSI'}</p>
           </div>
           <button
             type="button"
@@ -50,34 +58,28 @@ export default function TradeTicket({
             <X className="size-4" />
           </button>
         </div>
+
         <div className="trade-controls">
-          <div className="trade-side-toggle">
-            <button
-              type="button"
-              className={side === 'BUY' ? 'active' : ''}
-              onClick={() => setSide('BUY')}
-              disabled={busy || isNextPosition}
-            >
-              BUY
-            </button>
-            <button
-              type="button"
-              className={side === 'SELL' ? 'active' : ''}
-              onClick={() => setSide('SELL')}
-              disabled={busy || isNextPosition}
-            >
-              SELL
-            </button>
-          </div>
+          <label>
+            Symbol
+            <input value={symbol} readOnly aria-readonly="true" disabled={busy} />
+          </label>
+
           <label>
             Quantity
             <input
               inputMode="numeric"
+              min="1"
+              max={isSell && Number.isFinite(maxQuantity) ? maxQuantity : undefined}
               value={quantity}
               onChange={event => setQuantity(event.target.value)}
               disabled={busy}
             />
+            {isSell && Number.isFinite(maxQuantity) && (
+              <span className="field-hint">Available: {maxQuantity}</span>
+            )}
           </label>
+
           <label>
             Order type
             <select
@@ -95,11 +97,13 @@ export default function TradeTicket({
               <option value="PLO">PLO</option>
             </select>
           </label>
+
           {orderType === 'LO' && (
             <label>
               Price
               <input
                 inputMode="decimal"
+                min="0"
                 value={price}
                 onChange={event => setPrice(event.target.value)}
                 disabled={busy}
@@ -107,6 +111,7 @@ export default function TradeTicket({
             </label>
           )}
         </div>
+
         <Button
           type="button"
           onClick={() =>
@@ -117,15 +122,11 @@ export default function TradeTicket({
               price: orderType === 'LO' ? numericPrice : undefined,
             })
           }
-          disabled={
-            busy ||
-            !Number.isFinite(numericQuantity) ||
-            numericQuantity <= 0 ||
-            (orderType === 'LO' && (!Number.isFinite(numericPrice) || numericPrice <= 0))
-          }
+          disabled={busy || !symbol || !quantityValid || !priceValid}
         >
-          {busy ? 'Submitting…' : 'Place order'}
+          {busy ? 'Submitting…' : `Place ${side}`}
         </Button>
+
         {error && <div className="error-banner">{error}</div>}
       </Card>
     </div>
