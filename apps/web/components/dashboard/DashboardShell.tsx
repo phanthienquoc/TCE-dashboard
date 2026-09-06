@@ -17,6 +17,7 @@ import { Button } from '../ui/button';
 import { NavigationDock } from '../navigation/NavigationDock';
 import { useAuthStore, useDashboardStore } from '../../lib/store';
 import { dashboardApi, platformApi } from '../../lib/api';
+import { useToast } from '../ui/toast';
 import TradeTicket from './TradeTicket';
 
 export type DashboardView = 'overview' | 'positions' | 'orders' | 'settings';
@@ -63,6 +64,7 @@ export default function DashboardShell({
   children: (data: DashboardData, actions: DashboardActions) => ReactNode;
 }) {
   const router = useRouter();
+  const toast = useToast();
   const { user, loading: authLoading, initialized, init, logout } = useAuthStore();
   const { data, loading, error, load } = useDashboardStore();
   const [tradePool, setTradePool] = useState<any | null>(null);
@@ -133,14 +135,16 @@ export default function DashboardShell({
     setPromoteError('');
     try {
       await dashboardApi.promotePool(poolId);
+      toast(`Promoted ${String(pool?.symbol ?? '').toUpperCase()} to Next Positions.`, 'success');
       await load();
     } catch (err: any) {
-      setPromoteError(
+      const message =
         err?.response?.data?.message ??
-          err?.response?.data?.error?.message ??
-          err?.message ??
-          'Unable to promote pool item'
-      );
+        err?.response?.data?.error?.message ??
+        err?.message ??
+        'Unable to promote pool item';
+      setPromoteError(message);
+      toast(message, 'error');
     } finally {
       setPromoteBusy(null);
     }
@@ -154,21 +158,35 @@ export default function DashboardShell({
       const accountNo = String(tradePool.__ssiAccountNo ?? tradePool.accountNo ?? '').trim();
       if (!accountNo)
         throw new Error('SSI account is not configured. Connect SSI in Settings first.');
-      await platformApi.ssiOrder({
+      const response = await platformApi.ssiOrder({
         environment,
         accountNo,
         symbol: String(tradePool.symbol ?? tradePool.code ?? '').toUpperCase(),
         ...payload,
       });
+      const result = response.data;
+      if (result?.ok === false) {
+        throw new Error(result?.error?.message ?? result?.message ?? 'SSI order failed');
+      }
+      const symbol = String(tradePool.symbol ?? tradePool.code ?? '').toUpperCase();
+      const confirmed = result?.data?.confirmed;
+      const providerStatus = result?.data?.providerStatus;
+      toast(
+        confirmed
+          ? `${payload.side} ${symbol} accepted by SSI (${providerStatus ?? 'confirmed'}).`
+          : `${payload.side} ${symbol} submitted to SSI${providerStatus ? ` (${providerStatus})` : ''}.`,
+        'success'
+      );
       setTradePool(null);
       await load();
     } catch (err: any) {
-      setTradeError(
+      const message =
+        err?.response?.data?.error?.message ??
         err?.response?.data?.message ??
-          err?.response?.data?.error?.message ??
-          err?.message ??
-          'Order failed'
-      );
+        err?.message ??
+        'Order failed';
+      setTradeError(message);
+      toast(message, 'error');
     } finally {
       setTradeBusy(false);
     }
