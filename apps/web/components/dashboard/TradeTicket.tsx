@@ -29,23 +29,33 @@ export default function TradeTicket({
   );
   const [orderType, setOrderType] = useState<TradePayload['orderType']>('LO');
   const [price, setPrice] = useState(
-    String(pool?.currentPrice ?? pool?.current_price ?? pool?.marketPrice ?? pool?.market_price ?? pool?.price ?? '')
+    String(
+      pool?.currentPrice ??
+        pool?.current_price ??
+        pool?.marketPrice ??
+        pool?.market_price ??
+        pool?.price ??
+        ''
+    )
   );
 
   const numericQuantity = Number(quantity);
   const numericPrice = Number(price);
   const isSell = side === 'SELL';
   const quantityValid =
-    Number.isFinite(numericQuantity) && numericQuantity > 0 && (!isSell || numericQuantity <= maxQuantity);
-  const priceValid =
-    orderType !== 'LO' || (Number.isFinite(numericPrice) && numericPrice > 0);
+    Number.isFinite(numericQuantity) &&
+    numericQuantity > 0 &&
+    (!isSell || numericQuantity <= maxQuantity);
+  const priceValid = orderType !== 'LO' || (Number.isFinite(numericPrice) && numericPrice > 0);
 
   return (
     <div className="trade-overlay" role="dialog" aria-modal="true">
       <Card className="trade-ticket">
         <div className="panel-head">
           <div>
-            <h2>{side} {symbol || 'asset'}</h2>
+            <h2>
+              {side} {symbol || 'asset'}
+            </h2>
             <p>{isSell ? 'Sell open position through SSI' : 'Buy from TCE pool through SSI'}</p>
           </div>
           <button
