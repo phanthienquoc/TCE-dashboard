@@ -250,7 +250,8 @@ export default function SSIPlatform({ onMessage }: Props) {
     if (!tested || !accountNo) {
       setResult({
         ok: false,
-        message: 'Test Connection must succeed and return an SSI account before placing the test order.',
+        message:
+          'Test Connection must succeed and return an SSI account before placing the test order.',
       });
       return;
     }
