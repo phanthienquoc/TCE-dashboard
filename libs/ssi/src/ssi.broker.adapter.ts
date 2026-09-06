@@ -614,10 +614,7 @@ export class SsiBrokerAdapter implements BrokerPort, SsiConnectionPort {
       },
     } as const;
   }
-  async startOrderStatusStream(
-    accountNo: string,
-    onEvent: (event: SsiOrderStatusEvent) => void
-  ) {
+  async startOrderStatusStream(accountNo: string, onEvent: (event: SsiOrderStatusEvent) => void) {
     await this.authenticate();
     this.streamClient ??= new Stream(this.auth!);
     this.streamClient.streaming.onTrading = message => {
