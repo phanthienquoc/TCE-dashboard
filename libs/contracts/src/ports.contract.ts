@@ -39,7 +39,6 @@ export interface BrokerPort {
   positions(accountNo: string): Promise<ContractResult<AccountPosition[]>>;
   orders(accountNo: string): Promise<ContractResult<AccountOrder[]>>;
   placeOrder(request: BrokerOrderRequest): Promise<ContractResult<BrokerOrderResult>>;
-  disconnect(input: ConnectInput): Promise<ContractResult<void>>;
 }
 
 export interface MarketProviderPort {
