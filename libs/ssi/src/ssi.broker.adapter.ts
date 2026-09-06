@@ -209,8 +209,12 @@ export class SsiBrokerAdapter implements BrokerPort, SsiConnectionPort {
       const message = error instanceof Error ? error.message : String(error);
       if (!message.startsWith('SSI_REAUTH_REQUIRED')) throw error;
       const marketAuth = this.createAuth(false);
-      const marketToken = await marketAuth.authenticate();
-      await this.persistToken(marketAuth, marketToken);
+      // A market-data token is intentionally NOT persisted through the trading
+      // credential callback. SSI issues market-data tokens without OTP, and
+      // persisting one here would overwrite the OTP-authorized trading token.
+      // The next trading call would then refresh/reuse a non-trading token and
+      // eventually surface SSI_REAUTH_REQUIRED or a trading authorization error.
+      await marketAuth.authenticate();
       return marketAuth;
     }
   }
@@ -313,6 +317,8 @@ export class SsiBrokerAdapter implements BrokerPort, SsiConnectionPort {
         equity: Number(balance?.accountBalance ?? 0),
         withdrawable: Number(balance?.withdrawal ?? balance?.withdrawable ?? 0),
         availableCash: Number(balance?.availableCash ?? balance?.accountBalance ?? 0),
+        totalDebt: Number(balance?.totalDebt ?? balance?.accountBalance ?? 0),
+        availableCash: Number(balance?.availableCash ?? balance?.accountBalance ?? 0),
         totalDebt: Number(balance?.totalDebt ?? 0),
         interestLoan: Number(balance?.interestLoan ?? 0),
         overdueFeeLoan: Number(balance?.overdueFeeLoan ?? 0),
@@ -340,7 +346,6 @@ export class SsiBrokerAdapter implements BrokerPort, SsiConnectionPort {
       } as AccountBalance;
     });
   }
-
   async positions(accountNo: string) {
     return this.result(async () => {
       const normalizedAccountNo = accountNo.trim();
@@ -367,7 +372,6 @@ export class SsiBrokerAdapter implements BrokerPort, SsiConnectionPort {
       })) as AccountPosition[];
     });
   }
-
   async orders(accountNo: string) {
     return this.result(async () => {
       const orders = await this.trading().portfolio.getTodayOrders(accountNo);
@@ -395,7 +399,6 @@ export class SsiBrokerAdapter implements BrokerPort, SsiConnectionPort {
         })) as AccountOrder[];
     });
   }
-
   async placeOrder(request: BrokerOrderRequest): Promise<ContractResult<BrokerOrderResult>> {
     return this.result(async () => {
       if (!request.accountNo) throw new Error('SSI account number is required');
@@ -429,7 +432,6 @@ export class SsiBrokerAdapter implements BrokerPort, SsiConnectionPort {
       };
     });
   }
-
   private latestDate() {
     return new Intl.DateTimeFormat('en-CA', {
       timeZone: 'Asia/Ho_Chi_Minh',
@@ -444,7 +446,6 @@ export class SsiBrokerAdapter implements BrokerPort, SsiConnectionPort {
       .replaceAll('/', '-');
     return /^\d{4}-\d{2}-\d{2}$/.test(normalized) ? normalized : '';
   }
-
   async marketPrices(
     symbols: string[]
   ): Promise<ContractResult<Array<{ symbol: string; price: number; tradingDate: string }>>> {
@@ -471,7 +472,6 @@ export class SsiBrokerAdapter implements BrokerPort, SsiConnectionPort {
       return results;
     });
   }
-
   async dailyCloses(
     symbols: string[],
     tradingDate: string
@@ -493,7 +493,6 @@ export class SsiBrokerAdapter implements BrokerPort, SsiConnectionPort {
       return results;
     });
   }
-
   private async marginBalance(accountNo: string): Promise<ContractResult<AccountBalance>> {
     return this.result(async () => {
       const ppmmr = await this.trading().portfolio.getEquityPpmmr(accountNo);
@@ -530,7 +529,6 @@ export class SsiBrokerAdapter implements BrokerPort, SsiConnectionPort {
       } as AccountBalance;
     });
   }
-
   async accountSnapshots(
     input: SsiAuthInput
   ): Promise<
@@ -553,7 +551,6 @@ export class SsiBrokerAdapter implements BrokerPort, SsiConnectionPort {
         throw new Error(
           `SSI_EQUITY_ACCOUNTS_NOT_FOUND: ${accounts.map(account => `${account.accountNo}:${account.accountType}`).join(', ') || 'no accounts returned'}`
         );
-
       const snapshots: Array<{
         account: SsiAccount;
         balance: AccountBalance;
@@ -571,7 +568,6 @@ export class SsiBrokerAdapter implements BrokerPort, SsiConnectionPort {
           );
           continue;
         }
-
         let balance = await this.balance(account.accountNo);
         if (!balance.ok && (type === 'MARGIN' || type === 'EQUITY_MARGIN')) {
           console.warn('[SSI_MARGIN_BALANCE_FALLBACK]', {
@@ -589,7 +585,6 @@ export class SsiBrokerAdapter implements BrokerPort, SsiConnectionPort {
         }
         snapshots.push({ account, balance: balance.data, positions: positions.data });
       }
-
       if (!snapshots.length) throw new Error(`SSI_EQUITY_SNAPSHOTS_FAILED: ${failures.join('; ')}`);
       if (failures.length) console.warn('[SSI_PARTIAL_PORTFOLIO_SYNC]', { failures });
       return snapshots;
@@ -611,7 +606,7 @@ export class SsiBrokerAdapter implements BrokerPort, SsiConnectionPort {
     if (!positions.ok) return { ok: false, error: positions.error } as const;
     if (!orders.ok) return { ok: false, error: orders.error } as const;
     return {
-      ok: true,
+      ok: true as const,
       data: {
         positions: positions.data.filter(position => position.quantity > 0),
         orders: orders.data.filter(order => order.quantity > 0),
@@ -619,31 +614,20 @@ export class SsiBrokerAdapter implements BrokerPort, SsiConnectionPort {
       },
     } as const;
   }
-  async startOrderStatusStream(accountNo: string, onEvent: (event: SsiOrderStatusEvent) => void) {
+  async startOrderStatusStream(
+    accountNo: string,
+    onEvent: (event: SsiOrderStatusEvent) => void
+  ) {
     await this.authenticate();
-    if (this.streamClient) return;
-    this.streamClient = new Stream(this.auth!);
+    this.streamClient ??= new Stream(this.auth!);
     this.streamClient.streaming.onTrading = message => {
-      const event = message as unknown as SsiOrderStatusEvent;
-      if (
-        event.type === 'orderEvent' &&
-        (!accountNo || !event.accountNo || event.accountNo === accountNo)
-      )
-        onEvent(event);
+      const event = (message?.data ?? message) as SsiOrderStatusEvent;
+      if (!event || event.type !== 'orderEvent') return;
+      if (event.accountNo && String(event.accountNo) !== String(accountNo)) return;
+      onEvent(event);
     };
-    await this.streamClient.streaming.connect();
-    this.streamClient.streaming.subscribeOrderStatus(accountNo);
+    if (!this.streamClient.streaming.isConnected()) await this.streamClient.streaming.connect();
+    this.streamClient.streaming.subscribeOrderStatus();
     this.streamClient.streaming.ping(undefined, 30000);
-  }
-  async stopOrderStatusStream() {
-    this.streamClient?.streaming.disconnect();
-    this.streamClient = undefined;
-  }
-  async disconnect(_input: ConnectInput) {
-    await this.stopOrderStatusStream();
-    this.auth = undefined;
-    this.tradingClient = undefined;
-    this.authenticatePromise = undefined;
-    return { ok: true, data: undefined } as const;
   }
 }
