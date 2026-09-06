@@ -632,12 +632,12 @@ export class SsiBrokerAdapter implements BrokerPort, SsiConnectionPort {
     await this.authenticate();
     this.streamClient ??= new Stream(this.auth!);
     this.streamClient.streaming.onTrading = message => {
-      const event = (message?.data ?? message) as SsiOrderStatusEvent;
+      const event = message as SsiOrderStatusEvent;
       if (!event || event.type !== 'orderEvent') return;
       if (event.accountNo && String(event.accountNo) !== String(accountNo)) return;
       onEvent(event);
     };
-    if (!this.streamClient.streaming.isConnected()) await this.streamClient.streaming.connect();
+    await this.streamClient.streaming.connect();
     this.streamClient.streaming.subscribeOrderStatus();
     this.streamClient.streaming.ping(undefined, 30000);
   }
