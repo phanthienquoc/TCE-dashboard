@@ -205,8 +205,6 @@ function AssetList({
       title: symbol,
       description: secondary,
       trailing: <span className="asset-value">{primaryValue}</span>,
-      quantity,
-      isPosition,
     };
   });
 
@@ -245,15 +243,6 @@ function AssetList({
   }));
 
   return <ListView items={actionable} />;
-}
-
-function SectionHeader({ title, caption }: { title: string; caption: string }) {
-  return (
-    <div className="section-header">
-      <h2>{title}</h2>
-      <span>{caption}</span>
-    </div>
-  );
 }
 
 function Empty({ kind }: { kind: 'default' | 'pool' | 'candidate' }) {
