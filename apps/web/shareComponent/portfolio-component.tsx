@@ -39,7 +39,6 @@ export function PortfolioComponent({
 
   const calculatedPnl = totalMarket - totalInvest;
   const pnl = Number.isFinite(totalPnl) && totalPnl !== 0 ? totalPnl : calculatedPnl;
-  const pnlPct = totalInvest ? (pnl / totalInvest) * 100 : null;
 
   return (
     <Card className="hero-card portfolio-overview-card">
@@ -48,20 +47,13 @@ export function PortfolioComponent({
 
         <div className="portfolio-metric-grid">
           <PortfolioMetricCard label="Invested" value={money(totalInvest)} />
-          <PortfolioMetricCard label="Market Value" value={money(totalMarket)} />
           <PortfolioMetricCard label="Cash" value={money(cash)} />
           <PortfolioMetricCard
             label="Profit / Loss"
             value={signedMoney(pnl)}
             tone={pnl >= 0 ? 'positive' : 'negative'}
           />
-          <PortfolioMetricCard
-            label="% Profit / Loss"
-            value={pnlPct == null ? '—' : `${pnlPct >= 0 ? '+' : ''}${pnlPct.toFixed(2)}%`}
-            tone={pnl >= 0 ? 'positive' : 'negative'}
-          />
           <PortfolioMetricCard label="Positions" value={String(positions.length)} />
-          <PortfolioMetricCard label="Accounts" value={String(accounts.length || '—')} />
         </div>
 
         {accounts.length > 0 && (
