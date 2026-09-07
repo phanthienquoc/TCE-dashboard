@@ -4,6 +4,7 @@ import type {
   DividendEventRef,
   RollingPosition,
   TceDecision,
+  DrePositionState,
 } from './dre.types';
 
 /** Read-only boundary from TCE Core into DRE. */
@@ -18,7 +19,10 @@ export interface DreRepositoryPort {
   listCampaigns(status?: DreCampaign['status']): Promise<DreCampaign[]>;
   updateCampaignStatus(id: string, status: DreCampaign['status'], updatedAt: string): Promise<DreCampaign | null>;
   listPositions(campaignId: string): Promise<RollingPosition[]>;
+  findPosition(campaignId: string, sequence: number): Promise<RollingPosition | null>;
+  findPositionById(id: string): Promise<RollingPosition | null>;
   savePosition(position: RollingPosition): Promise<void>;
+  updatePositionState(id: string, state: DrePositionState): Promise<RollingPosition | null>;
 }
 
 /** Cash/portfolio read boundary. Execution is deliberately absent in P0. */
