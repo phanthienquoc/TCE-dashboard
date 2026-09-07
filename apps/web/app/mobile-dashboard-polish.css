@@ -33,62 +33,96 @@
     line-height: 1.15;
   }
 
-  /* Do not add an extra gap between the panel header and its list content. */
   .panel-body {
     padding: 0 10px;
   }
 
-  .asset-list {
-    width: 100%;
+  /* Dashboard ListView rows: compact, stable geometry while preserving key metrics. */
+  .dashboard-view-positions .shared-list-view {
+    gap: 0;
   }
 
-  .asset-row {
+  .dashboard-view-positions .shared-list-item {
     min-height: 46px;
     height: 46px;
     gap: 7px;
     padding: 4px 0;
+    border: 0;
+    border-bottom: 1px solid var(--border);
+    border-radius: 0;
+    background: transparent;
   }
 
-  .asset-main {
+  .dashboard-view-positions .shared-list-item:last-child {
+    border-bottom: 0;
+  }
+
+  .dashboard-view-positions .shared-list-copy {
     min-width: 0;
-    padding-block: 0;
+    overflow: hidden;
   }
 
-  .asset-main p,
-  .asset-symbol {
+  .dashboard-view-positions .shared-list-title {
     font-size: 13px;
     line-height: 1.15;
   }
 
-  .asset-secondary,
-  .asset-hold,
-  .asset-main small,
-  .asset-value small {
-    font-size: 10px;
+  .dashboard-view-positions .shared-list-description {
+    margin-top: 2px;
+    color: var(--muted);
+    font-size: 9.5px;
     line-height: 1.15;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
-  .asset-value {
-    min-width: 42px;
-    font-size: 12px;
+  .dashboard-view-positions .shared-list-meta {
+    margin-top: 1px;
+    color: var(--muted);
+    font-size: 8.5px;
+    line-height: 1.05;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
-  .asset-actions {
+  .dashboard-view-positions .shared-list-trailing {
+    flex: 0 0 auto;
+    min-width: 0;
     gap: 1px;
   }
 
-  .panel-action {
+  .dashboard-view-positions .asset-value {
+    min-width: 42px;
+    font-size: 12px;
+    white-space: nowrap;
+  }
+
+  .dashboard-view-positions .asset-actions {
+    gap: 1px;
+    min-width: 0;
+  }
+
+  .dashboard-view-positions .panel-action {
     min-height: 27px;
     padding: 0 5px;
     font-size: 11px;
     white-space: nowrap;
   }
 
-  .primary-action {
+  .dashboard-view-positions .primary-action {
     min-height: 28px;
     padding: 0 7px;
     border-radius: 7px;
     font-size: 11px;
+  }
+
+  /* Pool rows intentionally keep three compact information levels:
+     symbol / entry+target+hold / rank+score+status. Current price stays in trailing. */
+  .dashboard-view-positions .shared-list-item:has(.shared-list-meta) {
+    min-height: 48px;
+    height: 48px;
   }
 
   .empty-state {
@@ -100,8 +134,7 @@
     padding: 8px 0;
   }
 
-  /* Keep repeated refreshes visually stable: fixed row/header geometry means text/data
-     can update without changing the card's internal height while the request is loading. */
+  /* Fixed row/header geometry reduces layout reflow and visible jumping on refresh. */
   .dashboard-view-positions .panel-card {
     contain: layout paint;
   }
@@ -137,7 +170,6 @@
     flex: 0 0 auto;
   }
 
-  /* Keep data cards inside the viewport and give every field a readable gutter. */
   .mobile-data-view,
   .mobile-record,
   .mobile-record-grid {
