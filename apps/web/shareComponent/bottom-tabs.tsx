@@ -59,7 +59,8 @@ export function BottomTabs({ items, onSelect }: BottomTabsProps) {
       <div className="tce-bottom-tabs-inner">
         {navigationItems.map(item => {
           const href = normalizeBottomTabHref(item.href);
-          const active = item.active || (!!href && (pathname === href || pathname.startsWith(`${href}/`)));
+          const active =
+            item.active || (!!href && (pathname === href || pathname.startsWith(`${href}/`)));
           const Icon = item.icon;
           const className = cn('tce-bottom-tab', active && 'tce-bottom-tab-active');
           const content = (
