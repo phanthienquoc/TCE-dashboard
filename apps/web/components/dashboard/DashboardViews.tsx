@@ -58,17 +58,12 @@ export function PositionsView({
           .map(event => event.exDividendDate)
           .filter(Boolean)
           .sort((a, b) => new Date(a).getTime() - new Date(b).getTime())[0],
-        events,
       }));
   }, [stockEvents]);
 
   return (
     <div className="dashboard-view dashboard-view-positions">
-      <Panel
-        title="Current Positions"
-        caption={`${data.positions.length} assets`}
-        icon={WalletCards}
-      >
+      <Panel title="Current Positions" caption={`${data.positions.length} assets`} icon={WalletCards}>
         <AssetList rows={data.positions} kind="position" onTrade={actions.openPositionSell} />
       </Panel>
 
@@ -219,8 +214,7 @@ function AssetList({
     const isPosition = kind === 'position';
     const rank = row.rank == null ? null : Number(row.rank);
     const score = row.score == null ? null : Number(row.score);
-    const currentPrice =
-      row.currentPrice ?? row.current_price ?? row.marketPrice ?? row.market_price;
+    const currentPrice = row.currentPrice ?? row.current_price ?? row.marketPrice ?? row.market_price;
     const targetPrice = row.targetPrice ?? row.target_price;
     const entryLow = row.entryLow ?? row.entry_low;
     const entryHigh = row.entryHigh ?? row.entry_high;
@@ -311,12 +305,7 @@ function AssetList({
 }
 
 function Empty({ kind }: { kind: 'default' | 'pool' | 'candidate' }) {
-  const message =
-    kind === 'pool'
-      ? 'No shared pool items'
-      : kind === 'candidate'
-        ? 'No candidates yet'
-        : 'No data yet';
+  const message = kind === 'pool' ? 'No shared pool items' : kind === 'candidate' ? 'No candidates yet' : 'No data yet';
   return <div className="empty-state">{message}</div>;
 }
 
@@ -336,13 +325,9 @@ function formatHoldDays(value: any) {
 }
 function money(value: any) {
   const numeric = Number(value);
-  return Number.isFinite(numeric)
-    ? new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 }).format(numeric)
-    : '—';
+  return Number.isFinite(numeric) ? new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 }).format(numeric) : '—';
 }
 function formatNumber(value: any) {
   const numeric = Number(value);
-  return Number.isFinite(numeric)
-    ? new Intl.NumberFormat('en-US', { maximumFractionDigits: 2 }).format(numeric)
-    : '—';
+  return Number.isFinite(numeric) ? new Intl.NumberFormat('en-US', { maximumFractionDigits: 2 }).format(numeric) : '—';
 }
