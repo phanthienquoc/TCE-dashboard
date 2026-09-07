@@ -2,11 +2,13 @@ import { Module } from '@nestjs/common';
 import { AuthModule } from '../auth/auth.module';
 import { StockEventsController } from './stock-events.controller';
 import { StockEventsService } from './stock-events.service';
+import { StockDividendPoolController } from './stock-dividend-pool.controller';
+import { StockDividendPoolService } from './stock-dividend-pool.service';
 
 @Module({
   imports: [AuthModule],
-  controllers: [StockEventsController],
-  providers: [StockEventsService],
-  exports: [StockEventsService],
+  controllers: [StockEventsController, StockDividendPoolController],
+  providers: [StockEventsService, StockDividendPoolService],
+  exports: [StockEventsService, StockDividendPoolService],
 })
 export class StockEventsModule {}
