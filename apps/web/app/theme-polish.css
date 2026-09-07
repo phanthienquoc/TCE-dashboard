@@ -48,9 +48,25 @@ body {
   transform: scale(0.98);
 }
 
+/* Legacy platform renderers still carry hard-coded dark palette classes.
+   Keep their surfaces and inherited text aligned with the active TCE theme. */
+.platform-config section {
+  background: var(--surface-strong) !important;
+  border-color: var(--border) !important;
+  color: var(--foreground) !important;
+}
+.platform-config section button {
+  color: var(--foreground);
+}
 .platform-config [class*='bg-[#150d1d]'],
 .platform-config [class*='bg-[#120b18]'] {
   background: var(--surface-strong) !important;
+}
+.platform-config [class*='bg-[#1b1123]'] {
+  background: var(--surface) !important;
+}
+.platform-config [class*='text-[#ddd2e5]'] {
+  color: var(--foreground) !important;
 }
 .platform-config [class*='bg-violet-'] {
   background: color-mix(in srgb, var(--primary) 9%, var(--surface)) !important;
