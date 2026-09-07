@@ -1,17 +1,7 @@
 'use client';
 
 import { useEffect, useState, type ReactNode } from 'react';
-import {
-  Activity,
-  ArrowLeftRight,
-  BarChart3,
-  Bell,
-  Cpu,
-  Home,
-  LogOut,
-  RefreshCw,
-  Settings,
-} from 'lucide-react';
+import { ArrowLeftRight, BarChart3, Bell, Cpu, Home, RefreshCw, Settings } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { Button } from '../ui/button';
 import { NavigationDock } from '../navigation/NavigationDock';
@@ -55,7 +45,7 @@ const navigation = [
   { id: 'positions' as const, label: 'Positions', icon: BarChart3, href: '/position' },
   { id: 'orders' as const, label: 'Orders', icon: ArrowLeftRight, href: '/order' },
   { id: 'engine' as const, label: 'Engine', icon: Cpu, href: '/engine' },
-  { id: 'notifications' as const, label: 'Notifications', icon: Bell, href: '/notifications' },
+  { id: 'notifications' as const, label: 'Alerts', icon: Bell, href: '/notifications' },
   { id: 'settings' as const, label: 'Settings', icon: Settings, href: '/settings' },
 ];
 
@@ -68,7 +58,7 @@ export default function DashboardShell({
 }) {
   const router = useRouter();
   const toast = useToast();
-  const { user, loading: authLoading, initialized, init, logout } = useAuthStore();
+  const { user, loading: authLoading, initialized, init } = useAuthStore();
   const { data, loading, error, load } = useDashboardStore();
   const [tradePool, setTradePool] = useState<any | null>(null);
   const [tradeError, setTradeError] = useState('');
@@ -246,32 +236,6 @@ export default function DashboardShell({
 
   return (
     <main className="app-shell">
-      <header className="app-header">
-        <div className="app-container app-header-inner">
-          <div className="account-identity">
-            <div className="brand-orb">
-              <Activity className="size-4" />
-            </div>
-            <div className="min-w-0">
-              <p className="eyebrow">TCE account</p>
-              <p className="account-email">{user.email}</p>
-            </div>
-          </div>
-          <Button
-            type="button"
-            variant="outline"
-            size="icon"
-            className="touch-target"
-            onClick={async () => {
-              await logout();
-              router.replace('/login');
-            }}
-            aria-label="Sign out"
-          >
-            <LogOut className="size-4" />
-          </Button>
-        </div>
-      </header>
       <div className="app-container app-content">
         {view !== 'settings' && (
           <section className="page-heading">
