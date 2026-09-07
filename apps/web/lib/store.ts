@@ -2,6 +2,7 @@
 import { create } from 'zustand';
 import { authApi, setAccessToken, dashboardApi } from './api';
 import { useTCEDataStore } from './tce-data-store';
+import { useStockEventStore } from './stock-event-store';
 
 type User = { id: string; email: string; role: string; mfaEnabled: boolean };
 type AuthStatus = 'loading' | 'authenticated' | 'anonymous';
@@ -17,7 +18,10 @@ type AuthState = {
   logout: () => Promise<void>;
 };
 
-const prefetchAfterAuth = () => void useTCEDataStore.getState().prefetch();
+const prefetchAfterAuth = () => {
+  void useTCEDataStore.getState().prefetch();
+  void useStockEventStore.getState().load();
+};
 
 export const useAuthStore = create<AuthState>((set, get) => ({
   user: null,
@@ -88,6 +92,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     } finally {
       setAccessToken(null);
       useTCEDataStore.getState().clear();
+      useStockEventStore.getState().clear();
       set({ user: null, status: 'anonymous', initialized: true });
     }
   },
