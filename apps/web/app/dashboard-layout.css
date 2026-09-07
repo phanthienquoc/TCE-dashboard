@@ -13,8 +13,6 @@
     padding-bottom: 0 !important;
   }
 
-  /* Pages using the shared DashboardLayout keep its internal layout as the
-     single flex context; standalone pages use the same shell rules directly. */
   .app-shell:has(.tce-bottom-tabs) > .dashboard-layout {
     width: 100%;
     height: 100%;
