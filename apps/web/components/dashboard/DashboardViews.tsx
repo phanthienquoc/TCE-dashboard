@@ -5,7 +5,9 @@ import { Card } from '../ui/card';
 import PlatformConfigTab from '../config/PlatformConfigTab';
 import { ListView } from '../../shareComponent/list-view';
 import { PortfolioComponent } from '../../shareComponent/portfolio-component';
+import { useStockEventStore, type StockEvent } from '../../lib/stock-event-store';
 import type { DashboardActions, DashboardData } from './DashboardShell';
+import { useEffect, useMemo } from 'react';
 
 export function OverviewView({ data }: { data: DashboardData; actions: DashboardActions }) {
   return (
@@ -16,14 +18,6 @@ export function OverviewView({ data }: { data: DashboardData; actions: Dashboard
         portfolioValue={data.portfolioValue}
         cash={data.cash}
       />
-      <Panel
-        title="Current Positions"
-        caption={`${data.positions.length} assets`}
-        icon={WalletCards}
-        action={() => window.location.assign('/position')}
-      >
-        <AssetList rows={data.positions} />
-      </Panel>
     </div>
   );
 }
@@ -35,6 +29,39 @@ export function PositionsView({
   data: DashboardData;
   actions: DashboardActions;
 }) {
+  const stockEvents = useStockEventStore(s => s.events);
+  const stockEventsLoading = useStockEventStore(s => s.loading);
+  const stockEventsError = useStockEventStore(s => s.error);
+  const loadStockEvents = useStockEventStore(s => s.load);
+
+  useEffect(() => {
+    void loadStockEvents();
+  }, [loadStockEvents]);
+
+  const dividendPools = useMemo(() => {
+    const eventsByTicker = new Map<string, StockEvent[]>();
+    for (const event of stockEvents) {
+      const ticker = String(event.ticker ?? '').trim().toUpperCase();
+      if (!ticker) continue;
+      const current = eventsByTicker.get(ticker) ?? [];
+      current.push(event);
+      eventsByTicker.set(ticker, current);
+    }
+
+    return [...eventsByTicker.entries()]
+      .sort((a, b) => a[0].localeCompare(b[0]))
+      .map(([ticker, events]) => ({
+        id: `dividend-${ticker}`,
+        symbol: ticker,
+        eventCount: events.length,
+        nextExDate: events
+          .map(event => event.exDividendDate)
+          .filter(Boolean)
+          .sort((a, b) => new Date(a).getTime() - new Date(b).getTime())[0],
+        events,
+      }));
+  }, [stockEvents]);
+
   return (
     <div className="dashboard-view dashboard-view-positions">
       <Panel
@@ -44,6 +71,7 @@ export function PositionsView({
       >
         <AssetList rows={data.positions} kind="position" onTrade={actions.openPositionSell} />
       </Panel>
+
       <Panel
         title="Next Positions"
         caption={data.next.length ? `${data.next.length} candidates` : 'Candidates'}
@@ -57,6 +85,25 @@ export function PositionsView({
           returnBusy={actions.returnBusy}
         />
       </Panel>
+
+      <Panel
+        title="Stock Dividend Pools"
+        caption={
+          stockEventsLoading
+            ? 'Loading…'
+            : dividendPools.length
+              ? `${dividendPools.length} stocks`
+              : 'Upcoming dividend events'
+        }
+        icon={Layers3}
+      >
+        {stockEventsError ? (
+          <div className="empty-state">{stockEventsError}</div>
+        ) : (
+          <DividendPoolList rows={dividendPools} />
+        )}
+      </Panel>
+
       <Panel title="Shared Pools" caption={`${data.pools.length} watching`} icon={Layers3}>
         <AssetList
           rows={data.pools}
@@ -128,6 +175,21 @@ function Panel({
       </div>
       <div className="panel-body">{children}</div>
     </Card>
+  );
+}
+
+function DividendPoolList({ rows }: { rows: Array<{ id: string; symbol: string; eventCount: number; nextExDate?: string }> }) {
+  if (!rows.length) return <div className="empty-state">No upcoming stock dividend pools</div>;
+
+  return (
+    <ListView
+      items={rows.slice(0, 5).map(row => ({
+        id: row.id,
+        title: row.symbol,
+        description: `${row.eventCount} dividend event${row.eventCount === 1 ? '' : 's'}${row.nextExDate ? ` · Next ex-date ${formatDate(row.nextExDate)}` : ''}`,
+        trailing: <span className="asset-value">DIV</span>,
+      }))}
+    />
   );
 }
 
@@ -258,6 +320,11 @@ function Empty({ kind }: { kind: 'default' | 'pool' | 'candidate' }) {
   return <div className="empty-state">{message}</div>;
 }
 
+function formatDate(value: string) {
+  if (!value) return '—';
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? value : date.toLocaleDateString('vi-VN');
+}
 function formatEntry(low: any, high: any) {
   if (low == null && high == null) return '—';
   if (low != null && high != null) return `${formatNumber(low)}–${formatNumber(high)}`;
@@ -272,11 +339,6 @@ function money(value: any) {
   return Number.isFinite(numeric)
     ? new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 }).format(numeric)
     : '—';
-}
-function signedMoney(value: any) {
-  const numeric = Number(value);
-  if (!Number.isFinite(numeric)) return '—';
-  return `${numeric >= 0 ? '+' : ''}${money(Math.abs(numeric))}`;
 }
 function formatNumber(value: any) {
   const numeric = Number(value);
