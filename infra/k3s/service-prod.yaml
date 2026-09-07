@@ -30,6 +30,12 @@ spec:
                 name: JWT_SECRET,
                 valueFrom: { secretKeyRef: { name: tce-app-secrets, key: JWT_SECRET } },
               }
+            - {
+                name: MONGO_URI,
+                valueFrom: { secretKeyRef: { name: tce-app-secrets, key: MONGO_URI } },
+              }
+            - { name: MONGO_DB_NAME, value: vietstock }
+            - { name: MONGO_EVENTS_COLLECTION, value: events }
             - { name: JWT_REFRESH_TTL_SECONDS, value: '2592000' }
             - {
                 name: MFA_ENCRYPTION_KEY,
