@@ -1,15 +1,11 @@
 'use client';
 
-import dynamic from 'next/dynamic';
 import { Cpu } from 'lucide-react';
 import { useEffect } from 'react';
 import DashboardLayout from '../../components/dashboard/DashboardLayout';
+import EngineControlPanel from './EngineControlPanel';
 import { useAuthStore } from '../../lib/store';
 import './engine-cards.css';
-
-const EngineControlPanel = dynamic(() => import('./EngineControlPanel'), {
-  loading: () => <div className="loading-state min-h-[180px] animate-pulse rounded-2xl p-4" />,
-});
 
 export default function EnginesPage() {
   const user = useAuthStore(s => s.user);
