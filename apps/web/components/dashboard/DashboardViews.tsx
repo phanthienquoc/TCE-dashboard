@@ -27,37 +27,6 @@ export function OverviewView({ data }: { data: DashboardData; actions: Dashboard
   );
 }
 
-function rowsToPositionListItems(rows: any[]) {
-  return rows.map((row, index) => {
-    const symbol = String(row.symbol ?? row.code ?? row.name ?? `Item ${index + 1}`);
-    const quantity = Number(row.quantity ?? 0);
-    const avgCost = Number(row.avgBuyCost ?? row.avg_cost ?? 0);
-    const marketPrice = row.marketPrice ?? row.market_price;
-    const marketValue = row.marketValue ?? row.market_value;
-    const pnl = row.unrealizedPnl ?? row.unrealized_pnl;
-    const investedValue =
-      row.costBasis ??
-      row.cost_basis ??
-      (Number.isFinite(quantity) && Number.isFinite(avgCost) ? quantity * avgCost : null);
-    const pnlPct =
-      investedValue != null && Number(investedValue) !== 0 && pnl != null
-        ? (Number(pnl) / Number(investedValue)) * 100
-        : null;
-    return {
-      id: row.id ?? row.symbol ?? row.code ?? index,
-      title: symbol,
-      description: `Pos ${formatNumber(avgCost)} · Mkt ${formatNumber(marketPrice)}`,
-      meta: `${formatNumber(quantity)} shares · ${String(row.status ?? 'OPEN')} · MV ${money(marketValue)}`,
-      trailing: (
-        <div className={`position-pnl ${Number(pnl ?? 0) >= 0 ? 'is-positive' : 'is-negative'}`}>
-          <strong>{signedMoney(pnl)}</strong>
-          <span>{pnlPct == null ? '—' : `${pnlPct >= 0 ? '+' : ''}${pnlPct.toFixed(2)}%`}</span>
-        </div>
-      ),
-    };
-  });
-}
-
 export function PositionsView({
   data,
   actions,
@@ -109,6 +78,7 @@ export function OrdersView({ data }: { data: DashboardData }) {
     </div>
   );
 }
+
 export function SettingsView() {
   return (
     <div className="dashboard-view dashboard-view-settings">
@@ -178,6 +148,7 @@ function AssetList({
   returnBusy?: string | null;
 }) {
   if (!rows.length) return <Empty kind={kind === 'position' ? 'default' : kind} />;
+
   const items = rows.slice(0, 4).map((row, i) => {
     const symbol = String(row.symbol ?? row.code ?? row.name ?? `Item ${i + 1}`);
     const isPool = kind === 'pool';
@@ -185,8 +156,7 @@ function AssetList({
     const isPosition = kind === 'position';
     const rank = row.rank == null ? null : Number(row.rank);
     const score = row.score == null ? null : Number(row.score);
-    const currentPrice =
-      row.currentPrice ?? row.current_price ?? row.marketPrice ?? row.market_price;
+    const currentPrice = row.currentPrice ?? row.current_price ?? row.marketPrice ?? row.market_price;
     const targetPrice = row.targetPrice ?? row.target_price;
     const entryLow = row.entryLow ?? row.entry_low;
     const entryHigh = row.entryHigh ?? row.entry_high;
@@ -200,12 +170,13 @@ function AssetList({
       row.hold_days ??
       row.expectedHoldDays ??
       row.expected_hold_days;
-    const primaryValue =
-      isCandidate && targetPrice != null
-        ? `TP ${formatNumber(targetPrice)}`
-        : isPool
-          ? formatNumber(currentPrice)
-          : money(row.marketValue ?? row.market_value ?? row.price);
+
+    const primaryValue = isCandidate && targetPrice != null
+      ? `TP ${formatNumber(targetPrice)}`
+      : isPool
+        ? `Mkt ${formatNumber(currentPrice)}`
+        : money(row.marketValue ?? row.market_value ?? row.price);
+
     const secondary = isPool
       ? `Entry ${formatEntry(entryLow, entryHigh)} · TP ${formatNumber(targetPrice)} · ${formatHoldDays(holdDays)}`
       : isCandidate
@@ -213,9 +184,11 @@ function AssetList({
         : isPosition
           ? `Pos ${formatNumber(positionPrice)} · Mkt ${formatNumber(marketPrice)}`
           : `${formatNumber(quantity ?? 0)} units · ${String(row.status ?? 'OPEN')}`;
+
     const poolMeta = isPool
       ? `#${rank ?? '—'} · ${score == null ? '—' : formatNumber(score)} · ${String(row.status ?? 'WATCHING')}`
       : null;
+
     return {
       id: row.id ?? row.symbol ?? row.code ?? i,
       title: symbol,
@@ -224,6 +197,7 @@ function AssetList({
       trailing: <span className="asset-value">{primaryValue}</span>,
     };
   });
+
   const actionable = items.map((item, index) => ({
     ...item,
     trailing: (
@@ -267,6 +241,7 @@ function AssetList({
       </div>
     ),
   }));
+
   return <ListView items={actionable} />;
 }
 
@@ -279,6 +254,7 @@ function Empty({ kind }: { kind: 'default' | 'pool' | 'candidate' }) {
         : 'No data yet';
   return <div className="empty-state">{message}</div>;
 }
+
 function formatEntry(low: any, high: any) {
   if (low == null && high == null) return '—';
   if (low != null && high != null) return `${formatNumber(low)}–${formatNumber(high)}`;
