@@ -63,9 +63,11 @@ export class NextPositionController {
       throw new BadRequestException('Linked pool item does not match the Next Position');
     }
 
+    // `skipped` is the existing terminal state allowed by
+    // tce_buy_candidates_status_check. Do not invent a `returned` state.
     const { error: candidateUpdateError } = await this.supabase.db
       .from('tce_buy_candidates')
-      .update({ status: 'returned', updated_at: now })
+      .update({ status: 'skipped', updated_at: now })
       .eq('id', candidate.id)
       .eq('account_id', account.id)
       .in('status', ['queued', 'ready']);
