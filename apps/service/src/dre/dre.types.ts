@@ -1,0 +1,69 @@
+export type DreCampaignStatus =
+  | 'ACTIVE'
+  | 'PAUSED'
+  | 'GAP'
+  | 'COMPLETED'
+  | 'INVALIDATED';
+
+export type DrePositionState =
+  | 'PLANNED'
+  | 'NEXT'
+  | 'BUY_PENDING'
+  | 'BOUGHT'
+  | 'T+2_PENDING'
+  | 'AVAILABLE'
+  | 'TP_REACHED'
+  | 'SELL_PENDING'
+  | 'SOLD'
+  | 'COMPLETED'
+  | 'MISSED';
+
+export type DreActionType = 'BUY' | 'SELL';
+
+/** Strategy output owned by TCE Core. DRE may consume, never redefine it. */
+export interface TceDecision {
+  symbol: string;
+  entryPrice: number;
+  takeProfitPrice: number;
+  riskPercent: number;
+  quantity: number;
+  generatedAt: string;
+}
+
+/** Dividend event identity. The same symbol may have multiple distinct events. */
+export interface DividendEventRef {
+  symbol: string;
+  eventId: string;
+  eventDate: string;
+  source?: string;
+}
+
+export interface DreCampaign {
+  id: string;
+  event: DividendEventRef;
+  status: DreCampaignStatus;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface RollingPosition {
+  id: string;
+  campaignId: string;
+  sequence: number;
+  symbol: string;
+  state: DrePositionState;
+  tceDecision?: TceDecision;
+  entryAt?: string;
+  settlementAt?: string;
+  availableAt?: string;
+  soldAt?: string;
+}
+
+export interface DreAction {
+  idempotencyKey: string;
+  campaignId: string;
+  positionId: string;
+  type: DreActionType;
+  quantity: number;
+  reason: string;
+}
