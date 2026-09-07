@@ -98,7 +98,7 @@ export function PositionsView({
         {error ? (
           <div className="empty-state">{error}</div>
         ) : (
-          <DividendPoolList rows={dividendPools} />
+          <DividendPoolList rows={dividendPools} pools={data.pools} />
         )}
       </Panel>
       <Panel title="Shared Pools" caption={`${data.pools.length} watching`} icon={Layers3}>
@@ -177,20 +177,45 @@ function Panel({
 
 function DividendPoolList({
   rows,
+  pools,
 }: {
   rows: Array<{ id: string; symbol: string; events: StockEvent[] }>;
+  pools: any[];
 }) {
   if (!rows.length) return <div className="empty-state">No upcoming stock dividend pools</div>;
 
   return (
     <ListView
-      items={rows.slice(0, 5).map(row => ({
-        id: row.id,
-        title: row.symbol,
-        description: `${row.events.length} event${row.events.length === 1 ? '' : 's'} · Next ex-date ${formatDate(row.events[0]?.exDividendDate)}`,
-        meta: row.events[0]?.dividendRate || undefined,
-        trailing: <span className="asset-value">DIV</span>,
-      }))}
+      items={rows.slice(0, 5).map(row => {
+        const pool = pools.find(
+          item => String(item.symbol ?? item.code ?? '').trim().toUpperCase() === row.symbol
+        );
+        const currentPrice =
+          pool?.currentPrice ??
+          pool?.current_price ??
+          pool?.marketPrice ??
+          pool?.market_price;
+        const targetPrice = pool?.targetPrice ?? pool?.target_price;
+        const entryLow = pool?.entryLow ?? pool?.entry_low;
+        const entryHigh = pool?.entryHigh ?? pool?.entry_high;
+        const holdDays =
+          pool?.estimateHoldDays ??
+          pool?.estimate_hold_days ??
+          pool?.holdDays ??
+          pool?.hold_days ??
+          pool?.expectedHoldDays ??
+          pool?.expected_hold_days;
+        const rank = pool?.rank == null ? null : Number(pool.rank);
+        const score = pool?.score == null ? null : Number(pool.score);
+
+        return {
+          id: row.id,
+          title: row.symbol,
+          description: `Entry ${formatEntry(entryLow, entryHigh)} · TP ${formatNumber(targetPrice)} · ${formatHoldDays(holdDays)} · ${row.events.length} event${row.events.length === 1 ? '' : 's'} · Next ex-date ${formatDate(row.events[0]?.exDividendDate)}`,
+          meta: `${row.events[0]?.dividendRate || 'DIV'} · #${rank ?? '—'} · ${score == null ? '—' : formatNumber(score)} · ${String(pool?.status ?? 'WATCHING')}`,
+          trailing: <span className="asset-value">Mkt {formatNumber(currentPrice)}</span>,
+        };
+      })}
     />
   );
 }
