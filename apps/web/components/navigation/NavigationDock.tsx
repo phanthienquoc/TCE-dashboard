@@ -74,10 +74,7 @@ export function NavigationDock({ items }: NavigationDockProps) {
               className={cn('tce-bottom-tab', active && 'tce-bottom-tab-active')}
             >
               <span
-                className={cn(
-                  'tce-bottom-tab-icon',
-                  active ? 'bg-primary/10' : 'bg-transparent'
-                )}
+                className={cn('tce-bottom-tab-icon', active ? 'bg-primary/10' : 'bg-transparent')}
               >
                 <Icon className={cn('size-[19px]', iconTone)} />
               </span>
