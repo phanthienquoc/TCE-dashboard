@@ -82,7 +82,13 @@ export function PositionsView({
         caption={data.next.length ? `${data.next.length} candidates` : 'Candidates'}
         icon={TrendingUp}
       >
-        <AssetList rows={data.next} kind="candidate" onTrade={actions.openNextPositionOrder} />
+        <AssetList
+          rows={data.next}
+          kind="candidate"
+          onTrade={actions.openNextPositionOrder}
+          onReturn={actions.returnNextPositionToPool}
+          returnBusy={actions.returnBusy}
+        />
       </Panel>
 
       <Panel title="Shared Pools" caption={`${data.pools.length} watching`} icon={Layers3}>
@@ -165,12 +171,16 @@ function AssetList({
   onTrade,
   onPromote,
   promoteBusy,
+  onReturn,
+  returnBusy,
 }: {
   rows: any[];
   kind?: 'default' | 'pool' | 'candidate' | 'position';
   onTrade?: (row: any) => void;
   onPromote?: (row: any) => void;
   promoteBusy?: string | null;
+  onReturn?: (row: any) => void;
+  returnBusy?: string | null;
 }) {
   if (!rows.length) return <Empty kind={kind === 'position' ? 'default' : kind} />;
 
@@ -216,6 +226,16 @@ function AssetList({
         {kind === 'candidate' && onTrade ? (
           <button type="button" className="primary-action" onClick={() => onTrade(rows[index])}>
             BUY
+          </button>
+        ) : null}
+        {kind === 'candidate' && onReturn && rows[index]?.id ? (
+          <button
+            type="button"
+            className="panel-action"
+            onClick={() => onReturn(rows[index])}
+            disabled={returnBusy === String(rows[index].id)}
+          >
+            {returnBusy === String(rows[index].id) ? '…' : 'To Pool'}
           </button>
         ) : null}
         {kind === 'pool' && onTrade ? (
