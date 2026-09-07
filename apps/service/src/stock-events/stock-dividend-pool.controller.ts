@@ -6,7 +6,7 @@ import { StockDividendPoolService } from './stock-dividend-pool.service';
 export class StockDividendPoolController {
   constructor(
     private readonly pool: StockDividendPoolService,
-    private readonly jwt: JwtService,
+    private readonly jwt: JwtService
   ) {}
 
   @Get()
