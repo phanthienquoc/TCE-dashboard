@@ -20,8 +20,14 @@ import { AppProviders } from './providers';
 export const metadata: Metadata = {
   title: 'TCE Dashboard',
   description: 'TCE trading dashboard',
-  appleWebApp: { capable: true, statusBarStyle: 'default', title: 'TCE Dashboard' },
+  manifest: '/manifest.webmanifest',
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'default',
+    title: 'TCE Dashboard',
+  },
 };
+
 export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
@@ -30,6 +36,7 @@ export const viewport: Viewport = {
   userScalable: false,
   themeColor: '#0b1020',
 };
+
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en">

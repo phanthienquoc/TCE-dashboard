@@ -525,3 +525,35 @@ tbody td {
     font-size: 9px;
   }
 }
+
+/* Keep the mobile app viewport and bottom navigation in one layout context.
+   The content scrolls inside the shell while the navigation remains at the
+   actual bottom edge, matching the Order/Position dashboard layout. */
+@media screen and (max-width: 767px) {
+  .app-shell:has(.tce-bottom-tabs) {
+    height: 100dvh;
+    min-height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .app-shell:has(.tce-bottom-tabs) > .app-content,
+  .app-shell:has(.tce-bottom-tabs) > .app-container.app-content {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-x: clip;
+    overflow-y: auto;
+    padding-bottom: calc(24px + env(safe-area-inset-bottom));
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-y: contain;
+  }
+
+  .app-shell:has(.tce-bottom-tabs) > .tce-bottom-tabs {
+    position: static;
+    inset-inline: auto;
+    bottom: auto;
+    flex: 0 0 auto;
+    width: 100%;
+  }
+}
