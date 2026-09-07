@@ -191,29 +191,44 @@ function AssetList({
     const isPosition = kind === 'position';
     const rank = row.rank == null ? null : Number(row.rank);
     const score = row.score == null ? null : Number(row.score);
-    const currentPrice = row.currentPrice ?? row.current_price;
+    const currentPrice = row.currentPrice ?? row.current_price ?? row.marketPrice ?? row.market_price;
     const targetPrice = row.targetPrice ?? row.target_price;
     const entryLow = row.entryLow ?? row.entry_low;
     const entryHigh = row.entryHigh ?? row.entry_high;
     const quantity = row.quantity ?? row.targetQuantity ?? row.target_quantity ?? row.total;
+    const positionPrice = row.positionPrice ?? row.position_price ?? row.avgBuyCost ?? row.avg_cost;
+    const marketPrice = row.marketPrice ?? row.market_price ?? currentPrice;
+    const holdDays =
+      row.estimateHoldDays ??
+      row.estimate_hold_days ??
+      row.holdDays ??
+      row.hold_days ??
+      row.expectedHoldDays ??
+      row.expected_hold_days;
     const primaryValue =
-      isPool && currentPrice != null
-        ? formatNumber(currentPrice)
-        : isCandidate && targetPrice != null
-          ? `TP ${formatNumber(targetPrice)}`
-          : isPool && entryLow != null && entryHigh != null
-            ? `${formatNumber(entryLow)}–${formatNumber(entryHigh)}`
-            : money(row.marketValue ?? row.market_value ?? row.price);
+      isCandidate && targetPrice != null
+        ? `TP ${formatNumber(targetPrice)}`
+        : isPool && currentPrice != null
+          ? formatNumber(currentPrice)
+          : money(row.marketValue ?? row.market_value ?? row.price);
+
     const secondary = isPool
-      ? `#${rank ?? '—'} · ${score == null ? '—' : formatNumber(score)} · ${String(row.status ?? 'WATCHING')}`
+      ? `Now ${formatNumber(currentPrice)} · Entry ${formatEntry(entryLow, entryHigh)} · TP ${formatNumber(targetPrice)} · ${formatHoldDays(holdDays)}`
       : isCandidate
         ? `#${rank ?? '—'} · ${String(row.status ?? 'CANDIDATE')}`
-        : `${formatNumber(quantity ?? 0)} units · ${String(row.status ?? 'OPEN')}`;
+        : isPosition
+          ? `${formatNumber(quantity ?? 0)} units · Pos ${formatNumber(positionPrice)} · Mkt ${formatNumber(marketPrice)}`
+          : `${formatNumber(quantity ?? 0)} units · ${String(row.status ?? 'OPEN')}`;
+
+    const poolMeta = isPool
+      ? `#${rank ?? '—'} · ${score == null ? '—' : formatNumber(score)} · ${String(row.status ?? 'WATCHING')}`
+      : null;
 
     return {
       id: row.id ?? row.symbol ?? row.code ?? i,
       title: symbol,
       description: secondary,
+      meta: poolMeta,
       trailing: <span className="asset-value">{primaryValue}</span>,
     };
   });
@@ -273,6 +288,17 @@ function Empty({ kind }: { kind: 'default' | 'pool' | 'candidate' }) {
         ? 'No candidates yet'
         : 'No data yet';
   return <div className="empty-state">{message}</div>;
+}
+
+function formatEntry(low: any, high: any) {
+  if (low == null && high == null) return '—';
+  if (low != null && high != null) return `${formatNumber(low)}–${formatNumber(high)}`;
+  return formatNumber(low ?? high);
+}
+
+function formatHoldDays(value: any) {
+  const numeric = Number(value);
+  return Number.isFinite(numeric) ? `~${numeric}d` : 'Hold —';
 }
 
 function money(value: any) {
