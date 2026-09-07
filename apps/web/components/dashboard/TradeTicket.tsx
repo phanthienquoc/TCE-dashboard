@@ -26,9 +26,8 @@ export default function TradeTicket({
   const maxQuantity = side === 'SELL' ? Number(pool?.quantity ?? 0) : undefined;
   const availableQuantity = Number(maxQuantity ?? 0);
   const hasMaxQuantity = Number.isFinite(availableQuantity) && availableQuantity > 0;
-  const [quantity, setQuantity] = useState(
-    String(pool?.quantity ?? pool?.targetQuantity ?? pool?.target_quantity ?? 100)
-  );
+  const initialQuantity = pool?.quantity ?? pool?.targetQuantity ?? pool?.target_quantity ?? 100;
+  const [quantity, setQuantity] = useState(String(initialQuantity));
   const [orderType, setOrderType] = useState<TradePayload['orderType']>('LO');
   const [price, setPrice] = useState(
     String(
@@ -82,11 +81,15 @@ export default function TradeTicket({
             <input
               inputMode="numeric"
               min="1"
+              step="100"
               max={hasMaxQuantity ? availableQuantity : undefined}
               value={quantity}
               onChange={event => setQuantity(event.target.value)}
               disabled={busy}
             />
+            {side === 'BUY' && pool?.targetQuantity != null && (
+              <span className="field-hint">Auto-calculated quantity · editable</span>
+            )}
             {isSell && hasMaxQuantity && (
               <span className="field-hint">Available: {availableQuantity}</span>
             )}

@@ -37,6 +37,7 @@ export type DashboardData = {
   visibleAccounts: any[];
   portfolioValue: any;
   invested: any;
+  cash: any;
 };
 export type DashboardActions = {
   refresh: () => void;
@@ -101,6 +102,7 @@ export default function DashboardShell({
   const orders = data?.orders ?? data?.recentOrders ?? [];
   const accounts = data?.brokerAccounts ?? data?.accounts ?? [];
   const invested = account.capital_deployed ?? account.capitalDeployed ?? account.investedValue;
+  const cash = account.capital_available ?? account.capitalAvailable ?? data?.balance?.cash;
   const portfolioValue = account.totalValue ?? account.portfolioValue ?? account.equity;
   const visibleAccounts =
     Array.isArray(accounts) && accounts.length ? accounts : inferAccounts(positions);
@@ -229,6 +231,7 @@ export default function DashboardShell({
     visibleAccounts,
     portfolioValue,
     invested,
+    cash,
   };
   const actions: DashboardActions = {
     refresh: () => void load(),

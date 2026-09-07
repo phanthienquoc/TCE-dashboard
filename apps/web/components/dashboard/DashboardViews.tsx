@@ -14,6 +14,7 @@ export function OverviewView({ data }: { data: DashboardData; actions: Dashboard
         positions={data.positions}
         accounts={data.visibleAccounts}
         portfolioValue={data.portfolioValue}
+        cash={data.cash}
       />
       <Panel
         title="Current Positions"

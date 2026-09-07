@@ -10,12 +10,14 @@ export interface PortfolioComponentProps {
   positions: PortfolioPosition[];
   accounts: PortfolioAccount[];
   portfolioValue?: number | null;
+  cash?: number | null;
 }
 
 export function PortfolioComponent({
   positions,
   accounts,
   portfolioValue,
+  cash,
 }: PortfolioComponentProps) {
   const totalInvest = positions.reduce((sum, row) => {
     const value =
@@ -47,6 +49,7 @@ export function PortfolioComponent({
         <div className="portfolio-metric-grid">
           <PortfolioMetricCard label="Invested" value={money(totalInvest)} />
           <PortfolioMetricCard label="Market Value" value={money(totalMarket)} />
+          <PortfolioMetricCard label="Cash" value={money(cash)} />
           <PortfolioMetricCard
             label="Profit / Loss"
             value={signedMoney(pnl)}
