@@ -1,11 +1,11 @@
 import { Module } from '@nestjs/common';
+import { DbModule } from '../db/db.module';
+import { DividendCampaignRepository } from './dividend-campaign.repository';
+import { DividendCampaignService } from './dividend-campaign.service';
 
-/**
- * Dividend Rolling Engine composition boundary.
- *
- * P0 intentionally registers no TCE Core or broker implementation. Later
- * phases may wire adapters through the ports in dre.contracts.ts without
- * making TCE Core depend on DRE.
- */
-@Module({})
+@Module({
+  imports: [DbModule],
+  providers: [DividendCampaignRepository, DividendCampaignService],
+  exports: [DividendCampaignRepository, DividendCampaignService],
+})
 export class DreModule {}

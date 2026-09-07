@@ -37,6 +37,9 @@ export interface DreCampaign {
   id: string;
   event: DividendEventRef;
   status: DreCampaignStatus;
+  /** Reference/configuration only; TCE Core remains authoritative for TP. */
+  targetTpMinPercent: number;
+  targetTpMaxPercent: number;
   createdAt: string;
   updatedAt: string;
 }

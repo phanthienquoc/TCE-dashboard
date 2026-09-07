@@ -15,6 +15,8 @@ export interface TceCorePort {
 export interface DreRepositoryPort {
   findCampaignByEvent(event: DividendEventRef): Promise<DreCampaign | null>;
   saveCampaign(campaign: DreCampaign): Promise<void>;
+  listCampaigns(status?: DreCampaign['status']): Promise<DreCampaign[]>;
+  updateCampaignStatus(id: string, status: DreCampaign['status'], updatedAt: string): Promise<DreCampaign | null>;
   listPositions(campaignId: string): Promise<RollingPosition[]>;
   savePosition(position: RollingPosition): Promise<void>;
 }
