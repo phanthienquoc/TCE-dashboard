@@ -1,0 +1,53 @@
+/* Shared mobile dashboard layout: every page gets one viewport and one bottom-nav context. */
+@media screen and (max-width: 767px) {
+  /* The shell owns the viewport. Do not leave legacy app-shell/app-content
+     bottom padding underneath the navigation. */
+  .app-shell:has(.tce-bottom-tabs) {
+    width: 100%;
+    height: 100dvh;
+    min-height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    padding-bottom: 0 !important;
+  }
+
+  /* Pages using the shared DashboardLayout keep its internal layout as the
+     single flex context; standalone pages (e.g. XAU/notification detail)
+     use the same shell rules directly. */
+  .app-shell:has(.tce-bottom-tabs) > .dashboard-layout {
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+    flex: 1 1 auto;
+  }
+
+  .dashboard-layout {
+    width: 100%;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .dashboard-layout > .app-content,
+  .app-shell:has(.tce-bottom-tabs) > .app-content {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-x: clip;
+    overflow-y: auto;
+    padding-top: calc(16px + env(safe-area-inset-top)) !important;
+    padding-bottom: calc(12px + env(safe-area-inset-bottom)) !important;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-y: contain;
+  }
+
+  .dashboard-layout > .tce-bottom-tabs,
+  .app-shell:has(.tce-bottom-tabs) > .tce-bottom-tabs {
+    position: static;
+    inset-inline: auto;
+    bottom: auto;
+    flex: 0 0 auto;
+    width: 100%;
+  }
+}

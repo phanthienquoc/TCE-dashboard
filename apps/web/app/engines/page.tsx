@@ -1,25 +1,15 @@
 'use client';
 
 import dynamic from 'next/dynamic';
-import Link from 'next/link';
-import { ArrowLeft, BarChart3, Bell, Cpu, Home, Settings, ArrowLeftRight } from 'lucide-react';
+import { Cpu } from 'lucide-react';
 import { useEffect } from 'react';
-import { NavigationDock } from '../../components/navigation/NavigationDock';
+import DashboardLayout from '../../components/dashboard/DashboardLayout';
 import { useAuthStore } from '../../lib/store';
 import './engine-cards.css';
 
 const EngineControlPanel = dynamic(() => import('./EngineControlPanel'), {
   loading: () => <div className="loading-state min-h-[180px] animate-pulse rounded-2xl p-4" />,
 });
-
-const navigation = [
-  { id: 'overview', label: 'Overview', icon: Home, href: '/dashboard' },
-  { id: 'positions', label: 'Positions', icon: BarChart3, href: '/dashboard?tab=positions' },
-  { id: 'orders', label: 'Orders', icon: ArrowLeftRight, href: '/dashboard?tab=orders' },
-  { id: 'engine', label: 'Engine', icon: Cpu, href: '/engines' },
-  { id: 'notifications', label: 'Notifications', icon: Bell, href: '/notifications' },
-  { id: 'settings', label: 'Settings', icon: Settings, href: '/dashboard?tab=settings' },
-];
 
 export default function EnginesPage() {
   const user = useAuthStore(s => s.user);
@@ -49,25 +39,8 @@ export default function EnginesPage() {
   }
 
   return (
-    <main className="app-shell">
-      <div className="app-container app-content engine-page-content">
-        <div className="mb-3 flex items-center gap-2">
-          <Link
-            href="/dashboard"
-            prefetch
-            className="grid size-11 shrink-0 place-items-center rounded-xl border border-border bg-surface text-foreground"
-            aria-label="Back to dashboard"
-          >
-            <ArrowLeft className="size-4" />
-          </Link>
-          <div className="min-w-0">
-            <p className="eyebrow">TCE</p>
-            <p className="account-email">Engine runtime</p>
-          </div>
-        </div>
-        <EngineControlPanel />
-      </div>
-      <NavigationDock items={navigation.map(item => ({ ...item, active: item.id === 'engine' }))} />
-    </main>
+    <DashboardLayout activeId="engine">
+      <EngineControlPanel />
+    </DashboardLayout>
   );
 }

@@ -1,10 +1,10 @@
 'use client';
 
 import { useEffect, useState, type ReactNode } from 'react';
-import { ArrowLeftRight, BarChart3, Bell, Cpu, Home, RefreshCw, Settings } from 'lucide-react';
+import { RefreshCw } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { Button } from '../ui/button';
-import { NavigationDock } from '../navigation/NavigationDock';
+import DashboardLayout from './DashboardLayout';
 import { useAuthStore, useDashboardStore } from '../../lib/store';
 import { dashboardApi, platformApi } from '../../lib/api';
 import { useToast } from '../ui/toast';
@@ -39,15 +39,6 @@ export type DashboardActions = {
   promoteBusy: string | null;
   returnBusy: string | null;
 };
-
-const navigation = [
-  { id: 'overview' as const, label: 'Overview', icon: Home, href: '/overview' },
-  { id: 'positions' as const, label: 'Positions', icon: BarChart3, href: '/position' },
-  { id: 'orders' as const, label: 'Orders', icon: ArrowLeftRight, href: '/order' },
-  { id: 'engine' as const, label: 'Engine', icon: Cpu, href: '/engine' },
-  { id: 'notifications' as const, label: 'Alerts', icon: Bell, href: '/notifications' },
-  { id: 'settings' as const, label: 'Settings', icon: Settings, href: '/settings' },
-];
 
 export default function DashboardShell({
   view,
@@ -210,7 +201,6 @@ export default function DashboardShell({
     }
   };
 
-  const navigationItems = navigation.map(item => ({ ...item, active: item.id === view }));
   const viewData: DashboardData = {
     account,
     positions,
@@ -235,48 +225,45 @@ export default function DashboardShell({
   };
 
   return (
-    <main className="app-shell">
-      <div className="app-container app-content">
-        {view !== 'settings' && (
-          <section className="page-heading">
-            <div className="min-w-0">
-              <p className="eyebrow">
-                {view === 'overview'
-                  ? 'Portfolio'
-                  : view === 'positions'
-                    ? 'Exposure'
-                    : 'Execution'}
-              </p>
-            </div>
-            <Button
-              type="button"
-              variant="outline"
-              size="icon"
-              className="touch-target shrink-0"
-              onClick={() => void load()}
-              disabled={loading}
-              aria-label="Refresh"
-            >
-              <RefreshCw className={`size-4 ${loading ? 'animate-spin' : ''}`} />
-            </Button>
-          </section>
-        )}
-        {error && <div className="error-banner">{error}</div>}
-        {promoteError && <div className="error-banner">{promoteError}</div>}
-        {returnError && <div className="error-banner">{returnError}</div>}
-        {children(viewData, actions)}
-      </div>
-      <NavigationDock items={navigationItems} />
-      {tradePool && (
-        <TradeTicket
-          pool={tradePool}
-          busy={tradeBusy}
-          error={tradeError}
-          onClose={() => !tradeBusy && setTradePool(null)}
-          onSubmit={submitTrade}
-        />
+    <DashboardLayout
+      activeId={view}
+      overlay={
+        tradePool ? (
+          <TradeTicket
+            pool={tradePool}
+            busy={tradeBusy}
+            error={tradeError}
+            onClose={() => !tradeBusy && setTradePool(null)}
+            onSubmit={submitTrade}
+          />
+        ) : null
+      }
+    >
+      {view !== 'settings' && (
+        <section className="page-heading">
+          <div className="min-w-0">
+            <p className="eyebrow">
+              {view === 'overview' ? 'Portfolio' : view === 'positions' ? 'Exposure' : 'Execution'}
+            </p>
+          </div>
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            className="touch-target shrink-0"
+            onClick={() => void load()}
+            disabled={loading}
+            aria-label="Refresh"
+          >
+            <RefreshCw className={`size-4 ${loading ? 'animate-spin' : ''}`} />
+          </Button>
+        </section>
       )}
-    </main>
+      {error && <div className="error-banner">{error}</div>}
+      {promoteError && <div className="error-banner">{promoteError}</div>}
+      {returnError && <div className="error-banner">{returnError}</div>}
+      {children(viewData, actions)}
+    </DashboardLayout>
   );
 }
 

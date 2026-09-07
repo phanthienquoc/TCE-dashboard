@@ -1,24 +1,13 @@
 'use client';
 
-import {
-  ArrowLeftRight,
-  BarChart3,
-  Bell,
-  Bot,
-  ChevronRight,
-  Cpu,
-  Home,
-  Plus,
-  Settings,
-} from 'lucide-react';
+import { Bell, Bot, ChevronRight, Plus } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { NavigationDock } from '../../components/navigation/NavigationDock';
 import { Button } from '../../components/ui/button';
 import { useAuthStore } from '../../lib/store';
 import { platformApi } from '../../lib/api';
 import { useTCEDataStore } from '../../lib/tce-data-store';
+import DashboardLayout from '../../components/dashboard/DashboardLayout';
 
 type BotRow = { id: string; name: string; environment: string; isActive: boolean };
 type Assignment = {
@@ -28,14 +17,6 @@ type Assignment = {
   min_level: string;
   enabled: boolean;
 };
-const navigation = [
-  { id: 'overview', label: 'Overview', icon: Home, href: '/dashboard' },
-  { id: 'positions', label: 'Positions', icon: BarChart3, href: '/dashboard?tab=positions' },
-  { id: 'orders', label: 'Orders', icon: ArrowLeftRight, href: '/dashboard?tab=orders' },
-  { id: 'engine', label: 'Engine', icon: Cpu, href: '/engines' },
-  { id: 'notifications', label: 'Notifications', icon: Bell, href: '/notifications' },
-  { id: 'settings', label: 'Settings', icon: Settings, href: '/dashboard?tab=settings' },
-];
 
 export default function NotificationsPage() {
   const router = useRouter();
@@ -48,6 +29,7 @@ export default function NotificationsPage() {
   const [bots, setBots] = useState<BotRow[]>([]);
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [loading, setLoading] = useState(true);
+
   useEffect(() => {
     void init();
   }, [init]);
@@ -78,6 +60,7 @@ export default function NotificationsPage() {
       setLoading(false);
     }
   }
+
   if (authLoading || !initialized || !user)
     return (
       <main className="app-shell">
@@ -94,99 +77,81 @@ export default function NotificationsPage() {
         </div>
       </main>
     );
+
   return (
-    <main className="app-shell">
-      <div className="app-container app-content">
-        <div className="mb-3 flex items-center gap-2">
-          <Link
-            href="/dashboard"
-            prefetch
-            className="grid size-11 shrink-0 place-items-center rounded-xl border border-border bg-surface text-foreground"
-            aria-label="Back to dashboard"
-          >
-            <ChevronRight className="size-4 rotate-180" />
-          </Link>
-          <div className="min-w-0">
-            <p className="eyebrow">Delivery</p>
-            <h1 className="text-[28px] font-bold tracking-tight text-foreground">Notifications</h1>
-          </div>
+    <DashboardLayout activeId="notifications">
+      <section className="notification-section">
+        <div className="notification-section-head">
+          <span>Telegram bots</span>
+          <span>{bots.length} configured</span>
         </div>
-        <section className="notification-section">
-          <div className="notification-section-head">
-            <span>Telegram bots</span>
-            <span>{bots.length} configured</span>
-          </div>
-          {loading ? (
-            <div className="loading-state m-3 min-h-20 animate-pulse" />
-          ) : bots.length === 0 ? (
-            <button
-              type="button"
-              onClick={() => router.push('/notifications/new')}
-              className="notification-empty p-4"
-            >
-              <div className="notification-empty-icon">
-                <Bot className="size-5" />
-              </div>
-              <div className="min-w-0 flex-1">
-                <div className="text-sm font-semibold text-foreground">
-                  No Telegram bots configured
-                </div>
-                <div className="mt-1 text-xs text-muted">
-                  Add a bot to start delivering TCE notifications.
-                </div>
-              </div>
-              <ChevronRight className="size-4 text-muted" />
-            </button>
-          ) : (
-            <div className="notification-list-scroll">
-              {bots.map(bot => {
-                const routes = assignments.filter(item => item.telegram_credential_id === bot.id);
-                return (
-                  <button
-                    key={bot.id}
-                    type="button"
-                    onClick={() => router.push(`/notifications/${encodeURIComponent(bot.id)}`)}
-                    className="notification-row"
-                  >
-                    <div className="notification-bot-icon">
-                      <Bot className="size-5" />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="notification-title">
-                        <span className="truncate text-sm font-semibold text-foreground">
-                          {bot.name}
-                        </span>
-                        <span className={`notification-status ${bot.isActive ? 'is-active' : ''}`}>
-                          {bot.isActive ? 'Active' : 'Inactive'}
-                        </span>
-                      </div>
-                      <div className="notification-meta">
-                        <span className="capitalize">{bot.environment}</span>
-                        <span>·</span>
-                        <span>
-                          {routes.length} debug route{routes.length === 1 ? '' : 's'}
-                        </span>
-                      </div>
-                    </div>
-                    <ChevronRight className="size-4 shrink-0 text-muted" />
-                  </button>
-                );
-              })}
+        {loading ? (
+          <div className="loading-state m-3 min-h-20 animate-pulse" />
+        ) : bots.length === 0 ? (
+          <button
+            type="button"
+            onClick={() => router.push('/notifications/new')}
+            className="notification-empty p-4"
+          >
+            <div className="notification-empty-icon">
+              <Bot className="size-5" />
             </div>
-          )}
-        </section>
-        <Button
-          type="button"
-          onClick={() => router.push('/notifications/new')}
-          className="mt-3 w-full"
-        >
-          <Plus className="size-4" />
-          Add bot
-        </Button>
-      </div>
-      <NavigationDock
-        items={navigation.map(item => ({ ...item, active: item.id === 'notifications' }))}
-      />
-    </main>
+            <div className="min-w-0 flex-1">
+              <div className="text-sm font-semibold text-foreground">
+                No Telegram bots configured
+              </div>
+              <div className="mt-1 text-xs text-muted">
+                Add a bot to start delivering TCE notifications.
+              </div>
+            </div>
+            <ChevronRight className="size-4 text-muted" />
+          </button>
+        ) : (
+          <div className="notification-list-scroll">
+            {bots.map(bot => {
+              const routes = assignments.filter(item => item.telegram_credential_id === bot.id);
+              return (
+                <button
+                  key={bot.id}
+                  type="button"
+                  onClick={() => router.push(`/notifications/${encodeURIComponent(bot.id)}`)}
+                  className="notification-row"
+                >
+                  <div className="notification-bot-icon">
+                    <Bot className="size-5" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="notification-title">
+                      <span className="truncate text-sm font-semibold text-foreground">
+                        {bot.name}
+                      </span>
+                      <span className={`notification-status ${bot.isActive ? 'is-active' : ''}`}>
+                        {bot.isActive ? 'Active' : 'Inactive'}
+                      </span>
+                    </div>
+                    <div className="notification-meta">
+                      <span className="capitalize">{bot.environment}</span>
+                      <span>·</span>
+                      <span>
+                        {routes.length} debug route{routes.length === 1 ? '' : 's'}
+                      </span>
+                    </div>
+                  </div>
+                  <ChevronRight className="size-4 shrink-0 text-muted" />
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </section>
+      <Button
+        type="button"
+        onClick={() => router.push('/notifications/new')}
+        className="mt-3 w-full"
+      >
+        <Plus className="size-4" />
+        Add bot
+      </Button>
+    </DashboardLayout>
   );
 }
