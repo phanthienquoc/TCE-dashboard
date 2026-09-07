@@ -156,7 +156,8 @@ function AssetList({
     const isPosition = kind === 'position';
     const rank = row.rank == null ? null : Number(row.rank);
     const score = row.score == null ? null : Number(row.score);
-    const currentPrice = row.currentPrice ?? row.current_price ?? row.marketPrice ?? row.market_price;
+    const currentPrice =
+      row.currentPrice ?? row.current_price ?? row.marketPrice ?? row.market_price;
     const targetPrice = row.targetPrice ?? row.target_price;
     const entryLow = row.entryLow ?? row.entry_low;
     const entryHigh = row.entryHigh ?? row.entry_high;
@@ -171,11 +172,12 @@ function AssetList({
       row.expectedHoldDays ??
       row.expected_hold_days;
 
-    const primaryValue = isCandidate && targetPrice != null
-      ? `TP ${formatNumber(targetPrice)}`
-      : isPool
-        ? `Mkt ${formatNumber(currentPrice)}`
-        : money(row.marketValue ?? row.market_value ?? row.price);
+    const primaryValue =
+      isCandidate && targetPrice != null
+        ? `TP ${formatNumber(targetPrice)}`
+        : isPool
+          ? `Mkt ${formatNumber(currentPrice)}`
+          : money(row.marketValue ?? row.market_value ?? row.price);
 
     const secondary = isPool
       ? `Entry ${formatEntry(entryLow, entryHigh)} · TP ${formatNumber(targetPrice)} · ${formatHoldDays(holdDays)}`
