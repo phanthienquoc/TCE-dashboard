@@ -1,11 +1,12 @@
 /* Shared mobile dashboard layout: every page gets one viewport and one bottom-nav context. */
 @media screen and (max-width: 767px) {
-  /* The shell owns the viewport. Do not leave legacy app-shell/app-content
-     bottom padding underneath the navigation. */
+  /* Use the stable viewport for the app frame. iOS Safari can report a
+     transient dynamic viewport during client-side navigation, which makes
+     a 100dvh shell end above the actual screen and leaves a blank tail. */
   .app-shell:has(.tce-bottom-tabs) {
     width: 100%;
-    height: 100dvh;
-    min-height: 100dvh;
+    height: 100vh;
+    min-height: 100vh;
     display: flex;
     flex-direction: column;
     overflow: hidden;
@@ -13,8 +14,7 @@
   }
 
   /* Pages using the shared DashboardLayout keep its internal layout as the
-     single flex context; standalone pages (e.g. XAU/notification detail)
-     use the same shell rules directly. */
+     single flex context; standalone pages use the same shell rules directly. */
   .app-shell:has(.tce-bottom-tabs) > .dashboard-layout {
     width: 100%;
     height: 100%;
