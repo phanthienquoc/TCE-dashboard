@@ -5,7 +5,9 @@ import { Card } from '../ui/card';
 import PlatformConfigTab from '../config/PlatformConfigTab';
 import { ListView } from '../../shareComponent/list-view';
 import { PortfolioComponent } from '../../shareComponent/portfolio-component';
+import { useStockEventStore, type StockEvent } from '../../lib/stock-event-store';
 import type { DashboardActions, DashboardData } from './DashboardShell';
+import { useEffect, useMemo } from 'react';
 
 export function OverviewView({ data }: { data: DashboardData; actions: DashboardActions }) {
   return (
@@ -16,6 +18,35 @@ export function OverviewView({ data }: { data: DashboardData; actions: Dashboard
 }
 
 export function PositionsView({ data, actions }: { data: DashboardData; actions: DashboardActions }) {
+  const events = useStockEventStore(s => s.events);
+  const loading = useStockEventStore(s => s.loading);
+  const error = useStockEventStore(s => s.error);
+  const load = useStockEventStore(s => s.load);
+
+  useEffect(() => { void load(); }, [load]);
+
+  const dividendPools = useMemo(() => {
+    const grouped = new Map<string, StockEvent[]>();
+    for (const event of events) {
+      const ticker = String(event.ticker ?? '').trim().toUpperCase();
+      if (!ticker) continue;
+      const bucket = grouped.get(ticker) ?? [];
+      bucket.push(event);
+      grouped.set(ticker, bucket);
+    }
+    return [...grouped.entries()]
+      .map(([symbol, tickerEvents]) => ({
+        id: `dividend-${symbol}`,
+        symbol,
+        events: tickerEvents.sort((a, b) => new Date(a.exDividendDate).getTime() - new Date(b.exDividendDate).getTime()),
+      }))
+      .sort((a, b) => {
+        const aDate = a.events[0]?.exDividendDate ?? '';
+        const bDate = b.events[0]?.exDividendDate ?? '';
+        return new Date(aDate).getTime() - new Date(bDate).getTime() || a.symbol.localeCompare(b.symbol);
+      });
+  }, [events]);
+
   return (
     <div className="dashboard-view dashboard-view-positions">
       <Panel title="Current Positions" caption={`${data.positions.length} assets`} icon={WalletCards}>
@@ -24,7 +55,9 @@ export function PositionsView({ data, actions }: { data: DashboardData; actions:
       <Panel title="Next Positions" caption={data.next.length ? `${data.next.length} candidates` : 'Candidates'} icon={TrendingUp}>
         <AssetList rows={data.next} kind="candidate" onTrade={actions.openNextPositionOrder} onReturn={actions.returnNextPositionToPool} returnBusy={actions.returnBusy} />
       </Panel>
-      <StockDividendPools />
+      <Panel title="Stock Dividend Pools" caption={loading ? 'Loading…' : `${dividendPools.length} stocks`} icon={Layers3}>
+        {error ? <div className="empty-state">{error}</div> : <DividendPoolList rows={dividendPools} />}
+      </Panel>
       <Panel title="Shared Pools" caption={`${data.pools.length} watching`} icon={Layers3}>
         <AssetList rows={data.pools} kind="pool" onTrade={actions.openTrade} onPromote={actions.promotePool} promoteBusy={actions.promoteBusy} />
       </Panel>
@@ -40,12 +73,19 @@ export function SettingsView() {
   return <div className="dashboard-view dashboard-view-settings"><div className="settings-grid-intro"><p className="eyebrow">Workspace</p><h1>Settings</h1><p className="page-subtitle">Manage platform connections and environments.</p></div><div className="settings-grid-items"><PlatformConfigTab /></div></div>;
 }
 
-function StockDividendPools() {
-  return <Panel title="Stock Dividend Pools" caption="Open stock dividend pool" icon={Layers3}><ListView items={[]} /></Panel>;
-}
-
 function Panel({ title, caption, icon: Icon, action, children }: { title: string; caption: string; icon: typeof Layers3; action?: () => void; children: React.ReactNode }) {
   return <Card className="panel-card"><div className="panel-head"><div className="flex min-w-0 items-center gap-3"><div className="panel-icon"><Icon className="size-4" /></div><div className="min-w-0"><h2>{title}</h2><p>{caption}</p></div></div>{action && <button type="button" className="panel-action" onClick={action}>View all <ChevronRight className="size-4" /></button>}</div><div className="panel-body">{children}</div></Card>;
+}
+
+function DividendPoolList({ rows }: { rows: Array<{ id: string; symbol: string; events: StockEvent[] }> }) {
+  if (!rows.length) return <div className="empty-state">No upcoming stock dividend pools</div>;
+  return <ListView items={rows.slice(0, 5).map(row => ({
+    id: row.id,
+    title: row.symbol,
+    description: `${row.events.length} event${row.events.length === 1 ? '' : 's'} · Next ex-date ${formatDate(row.events[0]?.exDividendDate)}`,
+    meta: row.events[0]?.dividendRate || undefined,
+    trailing: <span className="asset-value">DIV</span>,
+  }))} />;
 }
 
 function AssetList({ rows, kind = 'default', onTrade, onPromote, promoteBusy, onReturn, returnBusy }: { rows: any[]; kind?: 'default' | 'pool' | 'candidate' | 'position'; onTrade?: (row: any) => void; onPromote?: (row: any) => void; promoteBusy?: string | null; onReturn?: (row: any) => void; returnBusy?: string | null }) {
@@ -69,10 +109,8 @@ function AssetList({ rows, kind = 'default', onTrade, onPromote, promoteBusy, on
   return <ListView items={actionable} />;
 }
 
-function Empty({ kind }: { kind: 'default' | 'pool' | 'candidate' }) {
-  const message = kind === 'pool' ? 'No shared pool items' : kind === 'candidate' ? 'No candidates yet' : 'No data yet';
-  return <div className="empty-state">{message}</div>;
-}
+function Empty({ kind }: { kind: 'default' | 'pool' | 'candidate' }) { const message = kind === 'pool' ? 'No shared pool items' : kind === 'candidate' ? 'No candidates yet' : 'No data yet'; return <div className="empty-state">{message}</div>; }
+function formatDate(value?: string) { if (!value) return '—'; const date = new Date(value); return Number.isNaN(date.getTime()) ? value : date.toLocaleDateString('vi-VN'); }
 function formatEntry(low: any, high: any) { if (low == null && high == null) return '—'; if (low != null && high != null) return `${formatNumber(low)}–${formatNumber(high)}`; return formatNumber(low ?? high); }
 function formatHoldDays(value: any) { const numeric = Number(value); return Number.isFinite(numeric) ? `~${numeric}d` : 'Hold —'; }
 function money(value: any) { const numeric = Number(value); return Number.isFinite(numeric) ? new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 }).format(numeric) : '—'; }
