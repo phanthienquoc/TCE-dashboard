@@ -8,6 +8,7 @@ export type DrePositionState =
   | 'T+2_PENDING'
   | 'AVAILABLE'
   | 'TP_REACHED'
+  | 'SELL_APPROVED'
   | 'SELL_PENDING'
   | 'SOLD'
   | 'COMPLETED'
@@ -55,6 +56,8 @@ export interface RollingPosition {
   settlementAt?: string;
   availableAt?: string;
   soldAt?: string;
+  realizedPnl?: number;
+  recycledCapital?: number;
 }
 
 export interface DreAction {

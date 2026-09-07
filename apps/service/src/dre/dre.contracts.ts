@@ -7,12 +7,10 @@ import type {
   DrePositionState,
 } from './dre.types';
 
-/** Read-only boundary from TCE Core into DRE. */
 export interface TceCorePort {
   evaluate(symbol: string, context: Record<string, unknown>): Promise<TceDecision | null>;
 }
 
-/** DRE owns campaign/sequence state; it does not own strategy calculations. */
 export interface DreRepositoryPort {
   findCampaignByEvent(event: DividendEventRef): Promise<DreCampaign | null>;
   saveCampaign(campaign: DreCampaign): Promise<void>;
@@ -25,21 +23,18 @@ export interface DreRepositoryPort {
   updatePositionState(id: string, state: DrePositionState): Promise<RollingPosition | null>;
   updatePositionLifecycle(
     id: string,
-    changes: Partial<Pick<RollingPosition, 'state' | 'entryAt' | 'settlementAt' | 'availableAt' | 'soldAt'>>,
+    changes: Partial<Pick<RollingPosition, 'state' | 'entryAt' | 'settlementAt' | 'availableAt' | 'soldAt' | 'realizedPnl' | 'recycledCapital'>>,
   ): Promise<RollingPosition | null>;
 }
 
-/** Cash/portfolio read boundary. Execution is deliberately absent in P0. */
 export interface CashPortfolioPort {
   getSettledCash(accountId: string): Promise<number>;
 }
 
-/** Daily Agent consumes plans; an implementation may later adapt this to a broker. */
 export interface DreExecutionPort {
   execute(action: DreAction): Promise<{ accepted: boolean; externalId?: string }>;
 }
 
-/** Calendar abstraction keeps T+2 policy out of domain objects. */
 export interface SettlementCalendarPort {
   addSettlementDays(start: Date, days: number): Date;
 }
