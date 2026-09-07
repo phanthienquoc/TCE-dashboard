@@ -5,7 +5,9 @@ import { Card } from '../ui/card';
 import PlatformConfigTab from '../config/PlatformConfigTab';
 import { ListView } from '../../shareComponent/list-view';
 import { PortfolioComponent } from '../../shareComponent/portfolio-component';
+import { useStockEventStore, type StockEvent } from '../../lib/stock-event-store';
 import type { DashboardActions, DashboardData } from './DashboardShell';
+import { useEffect, useMemo } from 'react';
 
 export function OverviewView({ data }: { data: DashboardData; actions: DashboardActions }) {
   return (
@@ -35,15 +37,46 @@ export function PositionsView({
   data: DashboardData;
   actions: DashboardActions;
 }) {
+  const events = useStockEventStore(s => s.events);
+  const loading = useStockEventStore(s => s.loading);
+  const error = useStockEventStore(s => s.error);
+  const load = useStockEventStore(s => s.load);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  const dividendPools = useMemo(() => {
+    const grouped = new Map<string, StockEvent[]>();
+    for (const event of events) {
+      const ticker = String(event.ticker ?? '')
+        .trim()
+        .toUpperCase();
+      if (!ticker) continue;
+      const bucket = grouped.get(ticker) ?? [];
+      bucket.push(event);
+      grouped.set(ticker, bucket);
+    }
+
+    return [...grouped.entries()]
+      .map(([symbol, tickerEvents]) => ({
+        id: `dividend-${symbol}`,
+        symbol,
+        events: tickerEvents.sort(
+          (a, b) => new Date(a.exDividendDate).getTime() - new Date(b.exDividendDate).getTime()
+        ),
+      }))
+      .sort((a, b) => {
+        const aDate = a.events[0]?.exDividendDate ?? '';
+        const bDate = b.events[0]?.exDividendDate ?? '';
+        return (
+          new Date(aDate).getTime() - new Date(bDate).getTime() || a.symbol.localeCompare(b.symbol)
+        );
+      });
+  }, [events]);
+
   return (
     <div className="dashboard-view dashboard-view-positions">
-      <Panel
-        title="Current Positions"
-        caption={`${data.positions.length} assets`}
-        icon={WalletCards}
-      >
-        <AssetList rows={data.positions} kind="position" onTrade={actions.openPositionSell} />
-      </Panel>
       <Panel
         title="Next Positions"
         caption={data.next.length ? `${data.next.length} candidates` : 'Candidates'}
@@ -56,6 +89,17 @@ export function PositionsView({
           onReturn={actions.returnNextPositionToPool}
           returnBusy={actions.returnBusy}
         />
+      </Panel>
+      <Panel
+        title="Stock Dividend Pools"
+        caption={loading ? 'Loading…' : `${dividendPools.length} stocks`}
+        icon={Layers3}
+      >
+        {error ? (
+          <div className="empty-state">{error}</div>
+        ) : (
+          <DividendPoolList rows={dividendPools} />
+        )}
       </Panel>
       <Panel title="Shared Pools" caption={`${data.pools.length} watching`} icon={Layers3}>
         <AssetList
@@ -128,6 +172,26 @@ function Panel({
       </div>
       <div className="panel-body">{children}</div>
     </Card>
+  );
+}
+
+function DividendPoolList({
+  rows,
+}: {
+  rows: Array<{ id: string; symbol: string; events: StockEvent[] }>;
+}) {
+  if (!rows.length) return <div className="empty-state">No upcoming stock dividend pools</div>;
+
+  return (
+    <ListView
+      items={rows.slice(0, 5).map(row => ({
+        id: row.id,
+        title: row.symbol,
+        description: `${row.events.length} event${row.events.length === 1 ? '' : 's'} · Next ex-date ${formatDate(row.events[0]?.exDividendDate)}`,
+        meta: row.events[0]?.dividendRate || undefined,
+        trailing: <span className="asset-value">DIV</span>,
+      }))}
+    />
   );
 }
 
@@ -258,6 +322,11 @@ function Empty({ kind }: { kind: 'default' | 'pool' | 'candidate' }) {
   return <div className="empty-state">{message}</div>;
 }
 
+function formatDate(value?: string) {
+  if (!value) return '—';
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? value : date.toLocaleDateString('vi-VN');
+}
 function formatEntry(low: any, high: any) {
   if (low == null && high == null) return '—';
   if (low != null && high != null) return `${formatNumber(low)}–${formatNumber(high)}`;
