@@ -38,11 +38,13 @@ export class StockEventsService {
     }
 
     const payload = (await response.json()) as { data?: StockEventRow[] } | StockEventRow[];
-    const rows = Array.isArray(payload) ? payload : payload.data ?? [];
+    const rows = Array.isArray(payload) ? payload : (payload.data ?? []);
 
     return rows
       .map(row => ({
-        id: String(row.id ?? `${row.ticker ?? ''}|${row.ex_dividend_date ?? ''}|${row.event_content ?? ''}`),
+        id: String(
+          row.id ?? `${row.ticker ?? ''}|${row.ex_dividend_date ?? ''}|${row.event_content ?? ''}`
+        ),
         ticker: row.ticker ?? '',
         exDividendDate: row.ex_dividend_date ?? '',
         exDividendTimestamp: row.gdkhq_timestamp ?? null,
