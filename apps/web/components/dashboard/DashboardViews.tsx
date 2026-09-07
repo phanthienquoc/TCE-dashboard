@@ -49,7 +49,9 @@ export function PositionsView({
   const dividendPools = useMemo(() => {
     const grouped = new Map<string, StockEvent[]>();
     for (const event of events) {
-      const ticker = String(event.ticker ?? '').trim().toUpperCase();
+      const ticker = String(event.ticker ?? '')
+        .trim()
+        .toUpperCase();
       if (!ticker) continue;
       const bucket = grouped.get(ticker) ?? [];
       bucket.push(event);
