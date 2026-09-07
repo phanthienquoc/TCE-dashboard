@@ -71,12 +71,7 @@ export function BottomTabs({ items }: BottomTabsProps) {
               aria-current={active ? 'page' : undefined}
               className={cn('tce-bottom-tab', active && 'tce-bottom-tab-active')}
             >
-              <span
-                className={cn(
-                  'tce-bottom-tab-icon',
-                  active && 'bg-primary/10',
-                )}
-              >
+              <span className={cn('tce-bottom-tab-icon', active && 'bg-primary/10')}>
                 <Icon className="size-[19px]" aria-hidden="true" />
               </span>
               <span>{item.label}</span>
