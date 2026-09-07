@@ -379,7 +379,32 @@ export class DashboardService {
     if (normalizedStatus) query = query.eq('status', normalizedStatus);
     const { data, error } = await query.order('rank', { ascending: true }).limit(50);
     if (error) throw this.dbError('getPools', error);
-    return data ?? [];
+
+    const rows = data ?? [];
+    const symbols = [...new Set(rows.map(row => String(row.symbol).toUpperCase()).filter(Boolean))];
+    const marketPriceBySymbol = new Map<string, number>();
+    if (symbols.length) {
+      const { data: marketRows, error: marketError } = await this.supabase.db
+        .from('tce_market_prices')
+        .select('symbol,price,trading_date,observed_at')
+        .eq('user_id', userId)
+        .in('symbol', symbols)
+        .order('trading_date', { ascending: false })
+        .order('observed_at', { ascending: false });
+      if (marketError) throw this.dbError('getPools.marketPrices', marketError);
+      for (const row of marketRows ?? []) {
+        const symbol = String(row.symbol ?? '').toUpperCase();
+        if (symbol && !marketPriceBySymbol.has(symbol)) {
+          const value = Number(row.price);
+          if (Number.isFinite(value)) marketPriceBySymbol.set(symbol, value);
+        }
+      }
+    }
+
+    return rows.map(row => ({
+      ...row,
+      currentPrice: marketPriceBySymbol.get(String(row.symbol).toUpperCase()) ?? null,
+    }));
   }
   private dbError(operation: string, error: any) {
     console.error(`[TCE_DASHBOARD_DB] ${operation}`, {
