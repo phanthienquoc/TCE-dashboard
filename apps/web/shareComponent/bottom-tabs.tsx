@@ -74,7 +74,7 @@ export function BottomTabs({ items }: BottomTabsProps) {
               <span
                 className={cn(
                   'tce-bottom-tab-icon',
-                  active && 'tce-bottom-tab-icon-active',
+                  active && 'bg-primary/10',
                 )}
               >
                 <Icon className="size-[19px]" aria-hidden="true" />
