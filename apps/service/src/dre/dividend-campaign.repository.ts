@@ -112,10 +112,17 @@ export class DividendCampaignRepository implements DreRepositoryPort {
   }
 
   async updatePositionState(id: string, state: DrePositionState): Promise<RollingPosition | null> {
+    return this.updatePositionLifecycle(id, { state });
+  }
+
+  async updatePositionLifecycle(
+    id: string,
+    changes: Partial<Pick<RollingPosition, 'state' | 'entryAt' | 'settlementAt' | 'availableAt' | 'soldAt'>>,
+  ): Promise<RollingPosition | null> {
     const db = await this.mongo.getDb();
     const result = await db.collection<RollingPositionDocument>(POSITION_COLLECTION).findOneAndUpdate(
       { _id: id },
-      { $set: { state } },
+      { $set: changes },
       { returnDocument: 'after' },
     );
     return result ? this.toPositionDomain(result) : null;

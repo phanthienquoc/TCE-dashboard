@@ -23,6 +23,10 @@ export interface DreRepositoryPort {
   findPositionById(id: string): Promise<RollingPosition | null>;
   savePosition(position: RollingPosition): Promise<void>;
   updatePositionState(id: string, state: DrePositionState): Promise<RollingPosition | null>;
+  updatePositionLifecycle(
+    id: string,
+    changes: Partial<Pick<RollingPosition, 'state' | 'entryAt' | 'settlementAt' | 'availableAt' | 'soldAt'>>,
+  ): Promise<RollingPosition | null>;
 }
 
 /** Cash/portfolio read boundary. Execution is deliberately absent in P0. */
