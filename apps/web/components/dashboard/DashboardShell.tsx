@@ -44,7 +44,9 @@ export type DashboardActions = {
   openPositionSell: (row: any) => void;
   openNextPositionOrder: (row: any) => void;
   promotePool: (row: any) => Promise<void>;
+  returnNextPositionToPool: (row: any) => Promise<void>;
   promoteBusy: string | null;
+  returnBusy: string | null;
 };
 
 const navigation = [
@@ -72,6 +74,8 @@ export default function DashboardShell({
   const [tradeBusy, setTradeBusy] = useState(false);
   const [promoteBusy, setPromoteBusy] = useState<string | null>(null);
   const [promoteError, setPromoteError] = useState('');
+  const [returnBusy, setReturnBusy] = useState<string | null>(null);
+  const [returnError, setReturnError] = useState('');
 
   useEffect(() => {
     void init();
@@ -83,13 +87,12 @@ export default function DashboardShell({
     if (user) void load();
   }, [user, load]);
 
-  if (authLoading || !initialized || !user) {
+  if (authLoading || !initialized || !user)
     return (
       <main className="app-shell">
         <div className="loading-state">Loading dashboard…</div>
       </main>
     );
-  }
 
   const account = data?.account ?? {};
   const positions = data?.positions ?? data?.currentPositions ?? [];
@@ -149,6 +152,30 @@ export default function DashboardShell({
       setPromoteBusy(null);
     }
   };
+  const returnNextPositionToPool = async (candidate: any) => {
+    const candidateId = String(candidate?.id ?? '').trim();
+    if (!candidateId) return;
+    setReturnBusy(candidateId);
+    setReturnError('');
+    try {
+      await dashboardApi.returnNextPositionToPool(candidateId);
+      toast(
+        `${String(candidate?.symbol ?? '').toUpperCase()} returned to Shared Pools.`,
+        'success'
+      );
+      await load();
+    } catch (err: any) {
+      const message =
+        err?.response?.data?.message ??
+        err?.response?.data?.error?.message ??
+        err?.message ??
+        'Unable to return Next Position to pool';
+      setReturnError(message);
+      toast(message, 'error');
+    } finally {
+      setReturnBusy(null);
+    }
+  };
   const submitTrade = async (payload: TradePayload) => {
     if (!tradePool) return;
     setTradeBusy(true);
@@ -165,9 +192,8 @@ export default function DashboardShell({
         ...payload,
       });
       const result = response.data;
-      if (result?.ok === false) {
+      if (result?.ok === false)
         throw new Error(result?.error?.message ?? result?.message ?? 'SSI order failed');
-      }
       const symbol = String(tradePool.symbol ?? tradePool.code ?? '').toUpperCase();
       const confirmed = result?.data?.confirmed;
       const providerStatus = result?.data?.providerStatus;
@@ -210,7 +236,9 @@ export default function DashboardShell({
     openPositionSell,
     openNextPositionOrder,
     promotePool,
+    returnNextPositionToPool,
     promoteBusy,
+    returnBusy,
   };
 
   return (
@@ -241,7 +269,6 @@ export default function DashboardShell({
           </Button>
         </div>
       </header>
-
       <div className="app-container app-content">
         {view !== 'settings' && (
           <section className="page-heading">
@@ -269,9 +296,9 @@ export default function DashboardShell({
         )}
         {error && <div className="error-banner">{error}</div>}
         {promoteError && <div className="error-banner">{promoteError}</div>}
+        {returnError && <div className="error-banner">{returnError}</div>}
         {children(viewData, actions)}
       </div>
-
       <NavigationDock items={navigationItems} />
       {tradePool && (
         <TradeTicket
