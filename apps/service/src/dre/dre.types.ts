@@ -1,9 +1,4 @@
-export type DreCampaignStatus =
-  | 'ACTIVE'
-  | 'PAUSED'
-  | 'GAP'
-  | 'COMPLETED'
-  | 'INVALIDATED';
+export type DreCampaignStatus = 'ACTIVE' | 'PAUSED' | 'GAP' | 'COMPLETED' | 'INVALIDATED';
 
 export type DrePositionState =
   | 'PLANNED'

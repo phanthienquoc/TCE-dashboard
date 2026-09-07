@@ -1,4 +1,10 @@
-import type { DreAction, DreCampaign, DividendEventRef, RollingPosition, TceDecision } from './dre.types';
+import type {
+  DreAction,
+  DreCampaign,
+  DividendEventRef,
+  RollingPosition,
+  TceDecision,
+} from './dre.types';
 
 /** Read-only boundary from TCE Core into DRE. */
 export interface TceCorePort {

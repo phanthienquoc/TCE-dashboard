@@ -1,6 +1,7 @@
 # Dividend Rolling Engine (DRE) — architecture
 
 ## Purpose
+
 DRE manages dividend-event campaigns and rolling position continuity. It is an orchestration/domain module, not a second trading-strategy engine.
 
 ## Dependency direction
@@ -17,18 +18,18 @@ The important rule is that **TCE Core never imports DRE**. DRE consumes a `TceDe
 
 ## Ownership
 
-| Concern | Owner |
-|---|---|
-| Entry / signal | TCE Core |
-| Risk | TCE Core |
-| Take-profit | TCE Core |
-| Quantity | TCE Core |
-| Dividend event campaign | DRE |
-| Sequence / current / next | DRE |
-| T+2 lifecycle | DRE + settlement calendar port |
-| Capital recycling state | DRE, using settled-cash read port |
-| Daily observe/reconcile/action plan | Daily Agent (P6) |
-| Broker order execution | Execution adapter (P7+) |
+| Concern                             | Owner                             |
+| ----------------------------------- | --------------------------------- |
+| Entry / signal                      | TCE Core                          |
+| Risk                                | TCE Core                          |
+| Take-profit                         | TCE Core                          |
+| Quantity                            | TCE Core                          |
+| Dividend event campaign             | DRE                               |
+| Sequence / current / next           | DRE                               |
+| T+2 lifecycle                       | DRE + settlement calendar port    |
+| Capital recycling state             | DRE, using settled-cash read port |
+| Daily observe/reconcile/action plan | Daily Agent (P6)                  |
+| Broker order execution              | Execution adapter (P7+)           |
 
 ## P0 safety boundaries
 
