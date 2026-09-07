@@ -3,6 +3,7 @@
 TCE consumes upcoming corporate/dividend events from the existing `stockdividend` service, whose source of truth is MongoDB Atlas `vietstock.events`. This keeps the stock-dividend schema owned by `stockdividend` while TCE exposes a stable authenticated API for its UI.
 
 Environment:
+
 - `STOCK_EVENTS_API_URL` (default: `http://stock-backend:8080/api/stocks`)
 
 API: `GET /stock-events?limit=100` with the normal dashboard bearer token.

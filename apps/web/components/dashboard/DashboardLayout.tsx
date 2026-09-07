@@ -5,13 +5,7 @@ import { ArrowLeftRight, BarChart3, Bell, CalendarDays, Cpu, Home, Settings } fr
 import { NavigationDock } from '../navigation/NavigationDock';
 
 type DashboardNavigationId =
-  | 'overview'
-  | 'positions'
-  | 'orders'
-  | 'engine'
-  | 'events'
-  | 'notifications'
-  | 'settings';
+  'overview' | 'positions' | 'orders' | 'engine' | 'events' | 'notifications' | 'settings';
 
 export const dashboardNavigation = [
   { id: 'overview' as const, label: 'Overview', icon: Home, href: '/overview' },
