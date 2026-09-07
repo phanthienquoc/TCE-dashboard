@@ -75,6 +75,9 @@ export const dashboardApi = {
   setEngineConfig: (config: Record<string, unknown>) =>
     api.patch('/dashboard/engine-config', { config }),
 };
+export const stockEventsApi = {
+  upcoming: (limit = 100) => api.get('/stock-events', { params: { limit } }),
+};
 export const platformApi = {
   credentials: () => api.get('/platform/credentials'),
   save: (provider: string, environment: string, credentials: Record<string, unknown>) =>

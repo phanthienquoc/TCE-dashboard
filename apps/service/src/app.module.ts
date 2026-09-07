@@ -7,6 +7,7 @@ import { PlatformConfigModule } from './platform/platform-config.module';
 import { TceEngineModule } from './monitor/tce-engine.module';
 import { TelegramBotModule } from './telegram/telegram-bot.module';
 import { TelegramDebugModule } from './telegram/telegram-debug.module';
+import { StockEventsModule } from './stock-events/stock-events.module';
 
 @Controller()
 class HealthController {
@@ -26,6 +27,7 @@ class HealthController {
     TceEngineModule,
     TelegramDebugModule,
     TelegramBotModule,
+    StockEventsModule,
   ],
   controllers: [HealthController],
 })
