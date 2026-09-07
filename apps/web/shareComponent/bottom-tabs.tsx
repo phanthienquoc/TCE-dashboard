@@ -16,6 +16,7 @@ export type BottomTabItem = {
 
 export type BottomTabsProps = {
   items: BottomTabItem[];
+  onSelect?: () => void;
 };
 
 const fallbackItems: BottomTabItem[] = [
@@ -49,7 +50,7 @@ export function normalizeBottomTabHref(href?: string) {
   return href;
 }
 
-export function BottomTabs({ items }: BottomTabsProps) {
+export function BottomTabs({ items, onSelect }: BottomTabsProps) {
   const pathname = usePathname();
   const navigationItems = items.length ? items : fallbackItems;
 
@@ -58,10 +59,32 @@ export function BottomTabs({ items }: BottomTabsProps) {
       <div className="tce-bottom-tabs-inner">
         {navigationItems.map(item => {
           const href = normalizeBottomTabHref(item.href);
-          if (!href) return null;
-
-          const active = pathname === href || pathname.startsWith(`${href}/`);
+          const active = item.active || (!!href && (pathname === href || pathname.startsWith(`${href}/`)));
           const Icon = item.icon;
+          const className = cn('tce-bottom-tab', active && 'tce-bottom-tab-active');
+          const content = (
+            <>
+              <span className={cn('tce-bottom-tab-icon', active && 'bg-primary/10')}>
+                <Icon className="size-[19px]" aria-hidden="true" />
+              </span>
+              <span>{item.label}</span>
+            </>
+          );
+
+          if (!href) {
+            if (!onSelect) return null;
+            return (
+              <button
+                key={item.id}
+                type="button"
+                onClick={onSelect}
+                aria-current={active ? 'page' : undefined}
+                className={className}
+              >
+                {content}
+              </button>
+            );
+          }
 
           return (
             <Link
@@ -69,12 +92,9 @@ export function BottomTabs({ items }: BottomTabsProps) {
               href={href}
               prefetch
               aria-current={active ? 'page' : undefined}
-              className={cn('tce-bottom-tab', active && 'tce-bottom-tab-active')}
+              className={className}
             >
-              <span className={cn('tce-bottom-tab-icon', active && 'bg-primary/10')}>
-                <Icon className="size-[19px]" aria-hidden="true" />
-              </span>
-              <span>{item.label}</span>
+              {content}
             </Link>
           );
         })}
