@@ -42,7 +42,11 @@ export class StockEventsService {
 
       return rows
         .map(row => ({
-          id: String(row.id ?? row._id ?? `${row.ticker ?? ''}|${row.ex_dividend_date ?? ''}|${row.event_content ?? ''}`),
+          id: String(
+            row.id ??
+              row._id ??
+              `${row.ticker ?? ''}|${row.ex_dividend_date ?? ''}|${row.event_content ?? ''}`
+          ),
           ticker: row.ticker ?? '',
           exDividendDate: normalizeDate(row.ex_dividend_date),
           exDividendTimestamp: normalizeDate(row.gdkhq_timestamp),
