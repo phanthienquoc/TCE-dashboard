@@ -188,13 +188,13 @@ function DividendPoolList({
     <ListView
       items={rows.slice(0, 5).map(row => {
         const pool = pools.find(
-          item => String(item.symbol ?? item.code ?? '').trim().toUpperCase() === row.symbol
+          item =>
+            String(item.symbol ?? item.code ?? '')
+              .trim()
+              .toUpperCase() === row.symbol
         );
         const currentPrice =
-          pool?.currentPrice ??
-          pool?.current_price ??
-          pool?.marketPrice ??
-          pool?.market_price;
+          pool?.currentPrice ?? pool?.current_price ?? pool?.marketPrice ?? pool?.market_price;
         const targetPrice = pool?.targetPrice ?? pool?.target_price;
         const entryLow = pool?.entryLow ?? pool?.entry_low;
         const entryHigh = pool?.entryHigh ?? pool?.entry_high;
