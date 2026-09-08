@@ -107,7 +107,8 @@ export const platformApi = {
   telegramUnassignDebug: (id: string) => api.delete(`/platform/telegram/debug/assignments/${id}`),
   ssiOtp: (body: Record<string, unknown>) =>
     api.post('/platform/credentials/ssi/request-otp', body),
-  ssiApprove: (body: Record<string, unknown>) => api.post('/platform/credentials/ssi/approve', body),
+  ssiApprove: (body: Record<string, unknown>) =>
+    api.post('/platform/credentials/ssi/approve', body),
   ssiTest: (body: Record<string, unknown>) => api.post('/platform/credentials/ssi/test', body),
   ssiSaveTested: (body: Record<string, unknown>) =>
     api.post('/platform/credentials/ssi/save-tested', body),

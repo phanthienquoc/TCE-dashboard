@@ -143,7 +143,11 @@ const stockSymbols = (snapshot: any) => {
   return [
     ...new Set(
       rows
-        .map(row => String(row?.symbol ?? row?.code ?? '').trim().toUpperCase())
+        .map(row =>
+          String(row?.symbol ?? row?.code ?? '')
+            .trim()
+            .toUpperCase()
+        )
         .filter(Boolean)
     ),
   ];
@@ -152,14 +156,18 @@ const stockSymbols = (snapshot: any) => {
 const mergeMarketPrices = (snapshot: any, prices: Record<string, MarketPrice>) => {
   if (!snapshot) return snapshot;
   const apply = (row: any) => {
-    const symbol = String(row?.symbol ?? row?.code ?? '').trim().toUpperCase();
+    const symbol = String(row?.symbol ?? row?.code ?? '')
+      .trim()
+      .toUpperCase();
     const quote = prices[symbol];
     if (!quote) return row;
     return { ...row, marketPrice: quote.price, market_price: quote.price };
   };
   return {
     ...snapshot,
-    positions: Array.isArray(snapshot.positions) ? snapshot.positions.map(apply) : snapshot.positions,
+    positions: Array.isArray(snapshot.positions)
+      ? snapshot.positions.map(apply)
+      : snapshot.positions,
     currentPositions: Array.isArray(snapshot.currentPositions)
       ? snapshot.currentPositions.map(apply)
       : snapshot.currentPositions,
@@ -181,9 +189,12 @@ export const useDashboardStore = create<DashboardState>(set => ({
       set(state => ({ data: mergeMarketPrices(next, state.marketPrices) }));
       await useDashboardStore.getState().syncMarketPrices(next);
       if (!marketPriceTimer) {
-        marketPriceTimer = setInterval(() => {
-          void useDashboardStore.getState().syncMarketPrices();
-        }, 15 * 60 * 1000);
+        marketPriceTimer = setInterval(
+          () => {
+            void useDashboardStore.getState().syncMarketPrices();
+          },
+          15 * 60 * 1000
+        );
       }
     } catch (e: any) {
       set({ error: e?.response?.data?.message ?? 'Unable to load dashboard' });
@@ -200,7 +211,9 @@ export const useDashboardStore = create<DashboardState>(set => ({
       if (response.data?.ok === false) return;
       const prices = (response.data?.data ?? []).reduce(
         (acc: Record<string, MarketPrice>, quote: MarketPrice) => {
-          const symbol = String(quote.symbol ?? '').trim().toUpperCase();
+          const symbol = String(quote.symbol ?? '')
+            .trim()
+            .toUpperCase();
           if (symbol && Number.isFinite(Number(quote.price)))
             acc[symbol] = { ...quote, symbol, price: Number(quote.price) };
           return acc;
