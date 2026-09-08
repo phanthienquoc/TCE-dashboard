@@ -14,7 +14,7 @@ import { rememberSystemUpdate } from '../lib/system-updates';
 
 function SystemUpdateBridge() {
   const authStatus = useAuthStore(state => state.status);
-  const { toast } = useToast();
+  const toast = useToast();
 
   useEffect(() => {
     if (authStatus !== 'authenticated') return;
@@ -26,11 +26,7 @@ function SystemUpdateBridge() {
         await syncGrantedSystemUpdateNotifications();
         await checkLatestSystemUpdate(update => {
           if (disposed) return;
-          toast({
-            title: update.title,
-            description: update.message,
-            variant: 'info',
-          });
+          toast(update.message, 'info');
         });
       } catch (error) {
         console.debug('[SYSTEM_UPDATE_INIT]', error);
@@ -44,11 +40,14 @@ function SystemUpdateBridge() {
       if (!data || data.type !== 'SYSTEM_UPDATE') return;
       const version = typeof data.version === 'string' ? data.version : '';
       if (version) rememberSystemUpdate(version);
-      toast({
-        title: typeof data.title === 'string' ? data.title : 'TCE Dashboard updated',
-        description: typeof data.body === 'string' ? data.body : 'A new version is available.',
-        variant: 'info',
-      });
+      toast(
+        typeof data.title === 'string'
+          ? `${data.title}: ${typeof data.body === 'string' ? data.body : 'A new version is available.'}`
+          : typeof data.body === 'string'
+            ? data.body
+            : 'A new version is available.',
+        'info'
+      );
     };
 
     navigator.serviceWorker?.addEventListener('message', onMessage);

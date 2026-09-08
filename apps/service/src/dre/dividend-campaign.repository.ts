@@ -48,10 +48,11 @@ export class DividendCampaignRepository implements DreRepositoryPort {
       campaignKey: campaignEventKey(event),
       event,
     };
+    const { _id: _ignored, ...replacement } = document;
     const db = await this.mongo.getDb();
     await db
       .collection<DividendCampaignDocument>(CAMPAIGN_COLLECTION)
-      .replaceOne({ campaignKey: document.campaignKey }, document, { upsert: true });
+      .replaceOne({ campaignKey: document.campaignKey }, replacement, { upsert: true });
   }
 
   async listCampaigns(status?: DreCampaign['status']): Promise<DreCampaign[]> {
@@ -104,9 +105,11 @@ export class DividendCampaignRepository implements DreRepositoryPort {
 
   async savePosition(position: RollingPosition): Promise<void> {
     const db = await this.mongo.getDb();
+    const document = this.toPositionDocument(position);
+    const { _id: _ignored, ...replacement } = document;
     await db
       .collection<RollingPositionDocument>(POSITION_COLLECTION)
-      .replaceOne({ _id: position.id }, { ...position, _id: position.id }, { upsert: true });
+      .replaceOne({ _id: position.id }, replacement, { upsert: true });
   }
 
   async updatePositionState(id: string, state: DrePositionState): Promise<RollingPosition | null> {
@@ -136,12 +139,17 @@ export class DividendCampaignRepository implements DreRepositoryPort {
   }
 
   private toCampaignDomain(row: DividendCampaignDocument): DreCampaign {
-    const { _id: _ignored, campaignKey: _key, ...campaign } = row;
-    return campaign;
+    const { _id, campaignKey: _key, ...campaign } = row;
+    return { ...campaign, id: _id };
   }
 
   private toPositionDomain(row: RollingPositionDocument): RollingPosition {
-    const { _id: _ignored, ...position } = row;
-    return position;
+    const { _id, ...position } = row;
+    return { ...position, id: _id };
+  }
+
+  private toPositionDocument(position: RollingPosition): RollingPositionDocument {
+    const { id, ...document } = position;
+    return { ...document, _id: id };
   }
 }
