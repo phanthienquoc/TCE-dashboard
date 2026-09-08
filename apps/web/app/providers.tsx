@@ -46,8 +46,7 @@ function SystemUpdateBridge() {
       if (version) rememberSystemUpdate(version);
       toast({
         title: typeof data.title === 'string' ? data.title : 'TCE Dashboard updated',
-        description:
-          typeof data.body === 'string' ? data.body : 'A new version is available.',
+        description: typeof data.body === 'string' ? data.body : 'A new version is available.',
         variant: 'info',
       });
     };

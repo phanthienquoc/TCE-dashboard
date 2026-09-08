@@ -31,8 +31,10 @@ export class SystemUpdatesService implements OnModuleInit {
   private readonly version =
     process.env.TCE_RELEASE_VERSION?.trim() || packageJson.version?.trim() || 'unknown';
   private readonly releaseUrl = process.env.TCE_RELEASE_URL?.trim() || null;
-  private readonly vapidPrivateKey = process.env.VAPID_PRIVATE_KEY?.trim() || this.deriveVapidPrivateKey();
-  private readonly vapidPublicKey = process.env.VAPID_PUBLIC_KEY?.trim() || this.deriveVapidPublicKey();
+  private readonly vapidPrivateKey =
+    process.env.VAPID_PRIVATE_KEY?.trim() || this.deriveVapidPrivateKey();
+  private readonly vapidPublicKey =
+    process.env.VAPID_PUBLIC_KEY?.trim() || this.deriveVapidPublicKey();
 
   constructor(private readonly supabase: SupabaseClientService) {
     webpush.setVapidDetails(this.subject, this.vapidPublicKey, this.vapidPrivateKey);
