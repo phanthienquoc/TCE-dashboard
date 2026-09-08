@@ -21,7 +21,7 @@ export class CapitalRecyclingRepository {
     const db = await this.mongo.getDb();
     await db
       .collection<RecycledCapitalDocument>(COLLECTION)
-      .replaceOne({ _id: entry.positionId }, { ...entry, _id: entry.positionId }, { upsert: true });
+      .replaceOne({ _id: entry.positionId }, entry, { upsert: true });
     return entry;
   }
 
