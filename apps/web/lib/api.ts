@@ -58,6 +58,8 @@ export const dashboardApi = {
   all: (status?: string) => api.get('/dashboard', { params: status ? { status } : undefined }),
   account: () => api.get('/dashboard/account'),
   positions: () => api.get('/dashboard/positions'),
+  marketPrices: (symbols: string[]) =>
+    api.get('/dashboard/market-prices', { params: { symbols: symbols.join(',') } }),
   orders: () => api.get('/dashboard/orders'),
   pools: (status?: string) =>
     api.get('/dashboard/pools', { params: status ? { status } : undefined }),

@@ -93,17 +93,24 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       setAccessToken(null);
       useTCEDataStore.getState().clear();
       useStockEventStore.getState().clear();
+      useDashboardStore.getState().clear();
       set({ user: null, status: 'anonymous', initialized: true });
     }
   },
 }));
 
+type MarketPrice = { symbol: string; price: number; tradingDate?: string };
 type DashboardState = {
   data: any;
+  marketPrices: Record<string, MarketPrice>;
   loading: boolean;
   error: string | null;
   load: () => Promise<void>;
+  syncMarketPrices: (data?: any) => Promise<void>;
+  clear: () => void;
 };
+
+let marketPriceTimer: ReturnType<typeof setInterval> | null = null;
 
 const normalizeDashboard = (snapshot: any) => {
   if (!snapshot) return snapshot;
@@ -127,23 +134,106 @@ const normalizeDashboard = (snapshot: any) => {
   };
 };
 
+const stockSymbols = (snapshot: any) => {
+  const rows = [
+    ...(Array.isArray(snapshot?.positions) ? snapshot.positions : []),
+    ...(Array.isArray(snapshot?.currentPositions) ? snapshot.currentPositions : []),
+    ...(Array.isArray(snapshot?.pools) ? snapshot.pools : []),
+  ];
+  return [
+    ...new Set(
+      rows
+        .map(row =>
+          String(row?.symbol ?? row?.code ?? '')
+            .trim()
+            .toUpperCase()
+        )
+        .filter(Boolean)
+    ),
+  ];
+};
+
+const mergeMarketPrices = (snapshot: any, prices: Record<string, MarketPrice>) => {
+  if (!snapshot) return snapshot;
+  const apply = (row: any) => {
+    const symbol = String(row?.symbol ?? row?.code ?? '')
+      .trim()
+      .toUpperCase();
+    const quote = prices[symbol];
+    if (!quote) return row;
+    return { ...row, marketPrice: quote.price, market_price: quote.price };
+  };
+  return {
+    ...snapshot,
+    positions: Array.isArray(snapshot.positions)
+      ? snapshot.positions.map(apply)
+      : snapshot.positions,
+    currentPositions: Array.isArray(snapshot.currentPositions)
+      ? snapshot.currentPositions.map(apply)
+      : snapshot.currentPositions,
+    pools: Array.isArray(snapshot.pools) ? snapshot.pools.map(apply) : snapshot.pools,
+  };
+};
+
 export const useDashboardStore = create<DashboardState>(set => ({
   data: null,
+  marketPrices: {},
   loading: false,
   error: null,
   load: async () => {
     set({ loading: true, error: null });
     try {
-      // Bypass the shared prefetch cache after dashboard mutations so a
-      // promoted pool item disappears immediately from Shared Pools.
       const r = await dashboardApi.all('WATCHING');
       const next = normalizeDashboard(r.data);
       useTCEDataStore.setState({ dashboard: next });
-      set({ data: next });
+      set(state => ({ data: mergeMarketPrices(next, state.marketPrices) }));
+      await useDashboardStore.getState().syncMarketPrices(next);
+      if (!marketPriceTimer) {
+        marketPriceTimer = setInterval(
+          () => {
+            void useDashboardStore.getState().syncMarketPrices();
+          },
+          15 * 60 * 1000
+        );
+      }
     } catch (e: any) {
       set({ error: e?.response?.data?.message ?? 'Unable to load dashboard' });
     } finally {
       set({ loading: false });
     }
+  },
+  syncMarketPrices: async (snapshot?: any) => {
+    const current = snapshot ?? useDashboardStore.getState().data;
+    const symbols = stockSymbols(current);
+    if (!symbols.length) return;
+    try {
+      const response = await dashboardApi.marketPrices(symbols);
+      if (response.data?.ok === false) return;
+      const prices = (response.data?.data ?? []).reduce(
+        (acc: Record<string, MarketPrice>, quote: MarketPrice) => {
+          const symbol = String(quote.symbol ?? '')
+            .trim()
+            .toUpperCase();
+          if (symbol && Number.isFinite(Number(quote.price)))
+            acc[symbol] = { ...quote, symbol, price: Number(quote.price) };
+          return acc;
+        },
+        {}
+      );
+      if (!Object.keys(prices).length) return;
+      set(state => ({
+        marketPrices: { ...state.marketPrices, ...prices },
+        data: mergeMarketPrices(state.data, prices),
+      }));
+    } catch (error) {
+      console.error('[FE_MARKET_PRICE_SYNC]', error);
+    }
+  },
+  clear: () => {
+    if (marketPriceTimer) {
+      clearInterval(marketPriceTimer);
+      marketPriceTimer = null;
+    }
+    set({ data: null, marketPrices: {}, loading: false, error: null });
   },
 }));

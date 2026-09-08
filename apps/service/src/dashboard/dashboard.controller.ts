@@ -9,12 +9,14 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { JwtService } from '../auth/jwt.service';
+import { SsiApplicationService } from '../platform/ssi.application.service';
 import { DashboardService } from './dashboard.service';
 
 @Controller('dashboard')
 export class DashboardController {
   constructor(
     private readonly dashboard: DashboardService,
+    private readonly ssi: SsiApplicationService,
     private readonly jwt: JwtService
   ) {}
   private userId(auth?: string) {
@@ -29,6 +31,31 @@ export class DashboardController {
   }
   @Get('positions') getPositions(@Headers('authorization') auth?: string) {
     return this.dashboard.getPositions(this.userId(auth));
+  }
+  @Get('market-prices') async getMarketPrices(
+    @Headers('authorization') auth: string | undefined,
+    @Query('symbols') symbols?: string
+  ) {
+    const requestedSymbols = [
+      ...new Set(
+        String(symbols ?? '')
+          .split(',')
+          .map(symbol => symbol.trim().toUpperCase())
+          .filter(Boolean)
+      ),
+    ];
+    if (!requestedSymbols.length)
+      throw new UnauthorizedException('At least one stock symbol is required');
+    const result = await this.ssi.marketPrices(this.userId(auth), 'production', requestedSymbols);
+    if (!result.ok) return result;
+    return {
+      ok: true as const,
+      data: result.data.map(quote => ({
+        symbol: quote.symbol.toUpperCase(),
+        price: quote.price,
+        tradingDate: quote.tradingDate,
+      })),
+    };
   }
   @Get('strategy') getStrategy(@Headers('authorization') auth?: string) {
     return this.dashboard.getStrategy(this.userId(auth));
