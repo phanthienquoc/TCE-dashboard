@@ -10,7 +10,7 @@ import { dashboardApi, platformApi } from '../../lib/api';
 import { useToast } from '../ui/toast';
 import TradeTicket from './TradeTicket';
 
-export type DashboardView = 'overview' | 'positions' | 'orders' | 'settings';
+export type DashboardView = 'overview' | 'pools' | 'positions' | 'orders' | 'scan' | 'settings';
 export type TradePayload = {
   side: 'BUY' | 'SELL';
   quantity: number;
@@ -115,12 +115,12 @@ export default function DashboardShell({
     });
   };
   const promotePool = async (pool: any) => {
-    const poolId = String(pool?.id ?? '').trim();
-    if (!poolId) return;
-    setPromoteBusy(poolId);
+    const id = String(pool?.id ?? '').trim();
+    if (!id) return;
+    setPromoteBusy(id);
     setPromoteError('');
     try {
-      await dashboardApi.promotePool(poolId);
+      await dashboardApi.promotePool(id);
       toast(`Promoted ${String(pool?.symbol ?? '').toUpperCase()} to Next Positions.`, 'success');
       await load();
     } catch (err: any) {
@@ -136,12 +136,12 @@ export default function DashboardShell({
     }
   };
   const returnNextPositionToPool = async (candidate: any) => {
-    const candidateId = String(candidate?.id ?? '').trim();
-    if (!candidateId) return;
-    setReturnBusy(candidateId);
+    const id = String(candidate?.id ?? '').trim();
+    if (!id) return;
+    setReturnBusy(id);
     setReturnError('');
     try {
-      await dashboardApi.returnNextPositionToPool(candidateId);
+      await dashboardApi.returnNextPositionToPool(id);
       toast(
         `${String(candidate?.symbol ?? '').toUpperCase()} returned to Shared Pools.`,
         'success'
@@ -178,12 +178,8 @@ export default function DashboardShell({
       if (result?.ok === false)
         throw new Error(result?.error?.message ?? result?.message ?? 'SSI order failed');
       const symbol = String(tradePool.symbol ?? tradePool.code ?? '').toUpperCase();
-      const confirmed = result?.data?.confirmed;
-      const providerStatus = result?.data?.providerStatus;
       toast(
-        confirmed
-          ? `${payload.side} ${symbol} accepted by SSI (${providerStatus ?? 'confirmed'}).`
-          : `${payload.side} ${symbol} submitted to SSI${providerStatus ? ` (${providerStatus})` : ''}.`,
+        `${payload.side} ${symbol} submitted to SSI${result?.data?.providerStatus ? ` (${result.data.providerStatus})` : ''}.`,
         'success'
       );
       setTradePool(null);
@@ -223,6 +219,18 @@ export default function DashboardShell({
     promoteBusy,
     returnBusy,
   };
+  const heading =
+    view === 'overview'
+      ? 'Portfolio'
+      : view === 'pools'
+        ? 'Opportunities'
+        : view === 'positions'
+          ? 'Exposure'
+          : view === 'scan'
+            ? 'Market Scan'
+            : view === 'settings'
+              ? 'System'
+              : 'Execution';
 
   return (
     <DashboardLayout
@@ -239,26 +247,22 @@ export default function DashboardShell({
         ) : null
       }
     >
-      {view !== 'settings' && (
-        <section className="page-heading">
-          <div className="min-w-0">
-            <p className="eyebrow">
-              {view === 'overview' ? 'Portfolio' : view === 'positions' ? 'Exposure' : 'Execution'}
-            </p>
-          </div>
-          <Button
-            type="button"
-            variant="outline"
-            size="icon"
-            className="touch-target shrink-0"
-            onClick={() => void load()}
-            disabled={loading}
-            aria-label="Refresh"
-          >
-            <RefreshCw className={`size-4 ${loading ? 'animate-spin' : ''}`} />
-          </Button>
-        </section>
-      )}
+      <section className="page-heading">
+        <div className="min-w-0">
+          <p className="eyebrow">{heading}</p>
+        </div>
+        <Button
+          type="button"
+          variant="outline"
+          size="icon"
+          className="touch-target shrink-0"
+          onClick={() => void load()}
+          disabled={loading}
+          aria-label="Refresh"
+        >
+          <RefreshCw className={`size-4 ${loading ? 'animate-spin' : ''}`} />
+        </Button>
+      </section>
       {error && <div className="error-banner">{error}</div>}
       {promoteError && <div className="error-banner">{promoteError}</div>}
       {returnError && <div className="error-banner">{returnError}</div>}

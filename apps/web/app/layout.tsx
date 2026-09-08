@@ -16,26 +16,22 @@ import '../shareComponent/account-card.css';
 import './order-theme.css';
 import './app-spacing.css';
 import './dashboard-layout.css';
+import './mobile-command-center.css';
 import { AppProviders } from './providers';
 
 export const metadata: Metadata = {
   title: 'TCE Dashboard',
   description: 'TCE trading dashboard',
   manifest: '/manifest.webmanifest',
-  appleWebApp: {
-    capable: true,
-    statusBarStyle: 'default',
-    title: 'TCE Dashboard',
-  },
+  appleWebApp: { capable: true, statusBarStyle: 'default', title: 'TCE Dashboard' },
 };
-
 export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
   viewportFit: 'cover',
   maximumScale: 1,
   userScalable: false,
-  themeColor: '#0b1020',
+  themeColor: '#071016',
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
