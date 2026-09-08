@@ -1,12 +1,13 @@
 'use client';
 
-import { Bell, Bot, ChevronRight, Plus } from 'lucide-react';
+import { Bell, Bot, ChevronRight, Plus, Smartphone } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '../../components/ui/button';
 import { useAuthStore } from '../../lib/store';
 import { platformApi } from '../../lib/api';
 import { useTCEDataStore } from '../../lib/tce-data-store';
+import { enableSystemUpdateNotifications } from '../../lib/system-updates';
 import DashboardLayout from '../../components/dashboard/DashboardLayout';
 
 type BotRow = { id: string; name: string; environment: string; isActive: boolean };
@@ -29,6 +30,7 @@ export default function NotificationsPage() {
   const [bots, setBots] = useState<BotRow[]>([]);
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [loading, setLoading] = useState(true);
+  const [pushState, setPushState] = useState<'idle' | 'loading' | 'enabled' | 'error'>('idle');
 
   useEffect(() => {
     void init();
@@ -61,6 +63,17 @@ export default function NotificationsPage() {
     }
   }
 
+  async function enablePush() {
+    setPushState('loading');
+    try {
+      await enableSystemUpdateNotifications();
+      setPushState('enabled');
+    } catch (error) {
+      console.error('[SYSTEM_UPDATE_PUSH]', error);
+      setPushState('error');
+    }
+  }
+
   if (authLoading || !initialized || !user)
     return (
       <main className="app-shell">
@@ -81,6 +94,33 @@ export default function NotificationsPage() {
   return (
     <DashboardLayout activeId="notifications">
       <section className="notification-section">
+        <div className="notification-section-head">
+          <span>System updates</span>
+          <span>Release alerts</span>
+        </div>
+        <div className="notification-empty flex items-center gap-3 p-4">
+          <div className="notification-empty-icon">
+            <Smartphone className="size-5" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="text-sm font-semibold text-foreground">PWA update notifications</div>
+            <div className="mt-1 text-xs text-muted">
+              Get a native notification when a new TCE release is deployed.
+            </div>
+          </div>
+          <Button type="button" onClick={enablePush} disabled={pushState === 'loading'}>
+            {pushState === 'loading'
+              ? 'Enabling…'
+              : pushState === 'enabled'
+                ? 'Enabled'
+                : pushState === 'error'
+                  ? 'Retry'
+                  : 'Enable'}
+          </Button>
+        </div>
+      </section>
+
+      <section className="notification-section mt-3">
         <div className="notification-section-head">
           <span>Telegram bots</span>
           <span>{bots.length} configured</span>
