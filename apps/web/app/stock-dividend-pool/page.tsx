@@ -22,6 +22,10 @@ function formatDate(value: string | null) {
   return Number.isNaN(date.getTime()) ? value : date.toLocaleDateString('vi-VN');
 }
 
+function formatPrice(value: number | null) {
+  return value == null ? '—' : value.toLocaleString('vi-VN');
+}
+
 export default function StockDividendPoolPage() {
   const items = useStockDividendPoolStore(s => s.items);
   const loading = useStockDividendPoolStore(s => s.loading);
@@ -49,11 +53,26 @@ export default function StockDividendPoolPage() {
       ),
     },
     {
+      key: 'entry',
+      label: 'Entry',
+      render: item => <span>{formatPrice(item.entryLow)}–{formatPrice(item.entryHigh)}</span>,
+    },
+    {
+      key: 'targetPrice',
+      label: 'TP',
+      render: item => <span>{formatPrice(item.targetPrice)}</span>,
+    },
+    {
       key: 'score',
       label: 'Score',
       render: item => (
         <span className="font-semibold text-foreground">{item.score.toFixed(2)}</span>
       ),
+    },
+    {
+      key: 'confidenceScore',
+      label: 'Confidence',
+      render: item => <span>{item.confidenceScore.toFixed(1)}</span>,
     },
     {
       key: 'dividendYieldPct',
@@ -82,6 +101,11 @@ export default function StockDividendPoolPage() {
         </div>
       ),
     },
+    {
+      key: 'agentNote',
+      label: 'Agent',
+      render: item => <span title={item.agentNote}>{item.agentNote ? 'Updated' : '—'}</span>,
+    },
   ];
 
   return (
@@ -95,7 +119,7 @@ export default function StockDividendPoolPage() {
             </div>
             <Title2 className="mt-1">Stock Dividend Pool</Title2>
             <Subheadline className="mt-1">
-              Top 20 dividend candidates ranked from upcoming stock events.
+              Top 20 dividend candidates ranked from upcoming stock events with TCE agent Entry/TP.
             </Subheadline>
           </div>
           <Button

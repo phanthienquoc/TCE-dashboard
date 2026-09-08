@@ -17,6 +17,12 @@ export type StockDividendPoolItem = {
   dividendYieldPct: number;
   score: number;
   daysToExDate: number;
+  entryLow: number | null;
+  entryHigh: number | null;
+  targetPrice: number | null;
+  confidenceScore: number;
+  agentNote: string;
+  agentUpdatedAt: string | null;
 };
 
 type State = {
