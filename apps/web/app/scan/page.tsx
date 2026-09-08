@@ -1,3 +1,5 @@
+'use client';
+
 import DashboardShell from '../../components/dashboard/DashboardShell';
 import { ScanView } from '../../components/dashboard/DashboardViews';
 
