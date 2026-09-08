@@ -1,0 +1,6 @@
+import DashboardShell from '../../components/dashboard/DashboardShell';
+import { PoolsView } from '../../components/dashboard/DashboardViews';
+
+export default function PoolPage() {
+  return <DashboardShell view="pools">{(data, actions) => <PoolsView data={data} actions={actions} />}</DashboardShell>;
+}
