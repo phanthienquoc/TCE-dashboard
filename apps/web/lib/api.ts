@@ -140,3 +140,11 @@ export const platformApi = {
   binanceXauOrders: (environment = 'production') =>
     api.get('/tce/engine/binance/orders', { headers: { 'x-environment': environment } }),
 };
+export const systemUpdatesApi = {
+  config: () => api.get<{ ok: boolean; vapidPublicKey: string }>('/tce/system-updates/config'),
+  latest: () => api.get('/tce/system-updates/latest'),
+  subscribe: (subscription: PushSubscriptionJSON) =>
+    api.post('/tce/system-updates/subscription', subscription),
+  unsubscribe: (endpoint: string) =>
+    api.delete('/tce/system-updates/subscription', { data: { endpoint } }),
+};
