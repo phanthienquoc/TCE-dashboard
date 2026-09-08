@@ -55,7 +55,11 @@ export default function StockDividendPoolPage() {
     {
       key: 'entry',
       label: 'Entry',
-      render: item => <span>{formatPrice(item.entryLow)}–{formatPrice(item.entryHigh)}</span>,
+      render: item => (
+        <span>
+          {formatPrice(item.entryLow)}–{formatPrice(item.entryHigh)}
+        </span>
+      ),
     },
     {
       key: 'targetPrice',

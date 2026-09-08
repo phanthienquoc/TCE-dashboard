@@ -106,11 +106,11 @@ export class StockDividendPoolService {
     const entryLow = row.tce_entry_low ?? (price > 0 ? roundPrice(price * ENTRY_LOW_FACTOR) : null);
     const entryHigh =
       row.tce_entry_high ?? (price > 0 ? roundPrice(price * ENTRY_HIGH_FACTOR) : null);
-    const yieldBoost = Math.min(MAX_TP_UPSIDE, Math.max(BASE_TP_UPSIDE, yieldPct * 0.5 / 100));
+    const yieldBoost = Math.min(MAX_TP_UPSIDE, Math.max(BASE_TP_UPSIDE, (yieldPct * 0.5) / 100));
     const targetPrice =
-      row.tce_target_price ??
-      (price > 0 ? roundPrice(price * (1 + yieldBoost)) : null);
-    const confidenceScore = row.tce_confidence_score ?? calculateConfidence(price, dividendValue, days, score);
+      row.tce_target_price ?? (price > 0 ? roundPrice(price * (1 + yieldBoost)) : null);
+    const confidenceScore =
+      row.tce_confidence_score ?? calculateConfidence(price, dividendValue, days, score);
     const agentNote =
       row.tce_agent_note ??
       `TCE agent: dividend event ranked; entry ${formatPrice(entryLow)}–${formatPrice(entryHigh)}, TP ${formatPrice(targetPrice)}. Recalculate on next market scan.`;
@@ -157,7 +157,12 @@ function calculateConfidence(price: number, dividendValue: number, days: number,
   if (price <= 0 || dividendValue <= 0) return 35;
   const yieldPct = (dividendValue / price) * 100;
   const timing = Math.max(0, Math.min(25, 25 - days));
-  return Number(Math.min(95, Math.max(40, 40 + Math.min(30, yieldPct * 3) + timing + Math.min(15, score / 10))).toFixed(1));
+  return Number(
+    Math.min(
+      95,
+      Math.max(40, 40 + Math.min(30, yieldPct * 3) + timing + Math.min(15, score / 10))
+    ).toFixed(1)
+  );
 }
 
 function roundPrice(value: number) {
