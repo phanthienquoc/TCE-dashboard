@@ -22,14 +22,20 @@ type ReleaseRow = {
 };
 
 const require = createRequire(import.meta.url);
-const packageJson = require('../../../../package.json') as { version?: string };
+let packageVersion: string | undefined;
+try {
+  packageVersion = (require('../../../../package.json') as { version?: string }).version;
+} catch {
+  // Release metadata is optional at runtime; do not prevent service startup when
+  // the root package manifest is not present in the production image.
+}
 
 @Injectable()
 export class SystemUpdatesService implements OnModuleInit {
   private readonly logger = new Logger(SystemUpdatesService.name);
   private readonly subject = process.env.VAPID_SUBJECT ?? 'mailto:admin@tce-dashboard.local';
   private readonly version =
-    process.env.TCE_RELEASE_VERSION?.trim() || packageJson.version?.trim() || 'unknown';
+    process.env.TCE_RELEASE_VERSION?.trim() || packageVersion?.trim() || 'unknown';
   private readonly releaseUrl = process.env.TCE_RELEASE_URL?.trim() || null;
   private readonly vapidPrivateKey =
     process.env.VAPID_PRIVATE_KEY?.trim() || this.deriveVapidPrivateKey();
