@@ -46,7 +46,7 @@ function SystemUpdateBridge() {
           : typeof data.body === 'string'
             ? data.body
             : 'A new version is available.',
-        'info',
+        'info'
       );
     };
 
