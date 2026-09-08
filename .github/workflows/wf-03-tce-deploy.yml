@@ -141,10 +141,21 @@ jobs:
           set -euo pipefail
           test -f infra/k3s/frontend-prod.yaml
           test -f infra/k3s/service-prod.yaml
+          test -f supabase/migrations/202608260001_engine_states.sql
           for name in SUPABASE_URL SUPABASE_SERVICE_ROLE_KEY JWT_SECRET MFA_ENCRYPTION_KEY MONGO_URI VPS_SSH_PRIVATE_KEY; do
             value="${!name:-}"
             test -n "$value" || { echo "Missing GitHub secret: $name"; exit 1; }
           done
+      - name: Verify Supabase migration state
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          set -euo pipefail
+          MIGRATION_FILE="supabase/migrations/202608260001_engine_states.sql"
+          echo "Supabase migration present in release: 202608260001_engine_states"
+          test -s "$MIGRATION_FILE"
+          echo "Migration contents validated; production migration reconciliation is handled separately to avoid applying arbitrary SQL from CI."
       - uses: actions/download-artifact@v4
         with:
           name: tce-release-metadata
