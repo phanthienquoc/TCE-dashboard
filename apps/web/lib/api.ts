@@ -58,6 +58,8 @@ export const dashboardApi = {
   all: (status?: string) => api.get('/dashboard', { params: status ? { status } : undefined }),
   account: () => api.get('/dashboard/account'),
   positions: () => api.get('/dashboard/positions'),
+  marketPrices: (symbols: string[]) =>
+    api.get('/dashboard/market-prices', { params: { symbols: symbols.join(',') } }),
   orders: () => api.get('/dashboard/orders'),
   pools: (status?: string) =>
     api.get('/dashboard/pools', { params: status ? { status } : undefined }),
@@ -105,8 +107,7 @@ export const platformApi = {
   telegramUnassignDebug: (id: string) => api.delete(`/platform/telegram/debug/assignments/${id}`),
   ssiOtp: (body: Record<string, unknown>) =>
     api.post('/platform/credentials/ssi/request-otp', body),
-  ssiApprove: (body: Record<string, unknown>) =>
-    api.post('/platform/credentials/ssi/approve', body),
+  ssiApprove: (body: Record<string, unknown>) => api.post('/platform/credentials/ssi/approve', body),
   ssiTest: (body: Record<string, unknown>) => api.post('/platform/credentials/ssi/test', body),
   ssiSaveTested: (body: Record<string, unknown>) =>
     api.post('/platform/credentials/ssi/save-tested', body),
