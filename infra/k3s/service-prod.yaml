@@ -12,7 +12,7 @@ spec:
       containers:
         - name: service
           image: tce-service:prod
-          imagePullPolicy: IfNotPresent
+          imagePullPolicy: Never
           ports: [{ name: http, containerPort: 8210 }]
           env:
             - { name: NODE_ENV, value: production }

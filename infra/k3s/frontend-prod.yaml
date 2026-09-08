@@ -10,7 +10,7 @@ spec:
       containers:
         - name: frontend
           image: tce-frontend:prod
-          imagePullPolicy: IfNotPresent
+          imagePullPolicy: Never
           ports: [{ name: http, containerPort: 80 }]
           env:
             - { name: TCE_API_INTERNAL_URL, value: 'http://tce-service:8210' }
