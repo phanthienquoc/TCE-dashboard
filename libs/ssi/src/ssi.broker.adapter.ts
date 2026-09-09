@@ -211,12 +211,52 @@ export class SsiBrokerAdapter implements BrokerPort, SsiConnectionPort {
       const message = error instanceof Error ? error.message : String(error);
       if (!message.startsWith('SSI_REAUTH_REQUIRED')) throw error;
       const marketAuth = this.createAuth(false);
-      // Market-data tokens are issued without OTP. Never persist this token
-      // through the trading credential callback, otherwise it can overwrite
-      // the OTP-authorized trading token stored for BUY/SELL operations.
       await marketAuth.authenticate();
       return marketAuth;
     }
+  }
+
+  /**
+   * Ensure the OTP-authorized Trading session is usable before a request.
+   * The SDK refreshes the access token using the existing refresh token;
+   * approval is only reached when that refresh path is unavailable.
+   */
+  private async ensureTradingAuth() {
+    await this.authenticate();
+    return this.trading();
+  }
+
+  /**
+   * Retry only idempotent/read-only Trading API calls after an auth expiry.
+   * Never blindly retry order placement because a successful order can be
+   * followed by a lost/expired HTTP response and a second submission could
+   * duplicate the order.
+   */
+  private async tradingRead<T>(operation: (trading: Trading) => Promise<T>): Promise<T> {
+    const trading = await this.ensureTradingAuth();
+    try {
+      return await operation(trading);
+    } catch (error) {
+      if (!this.isAuthError(error)) throw error;
+      const refreshed = await this.authenticate();
+      if (!refreshed) throw error;
+      return operation(this.trading());
+    }
+  }
+
+  private isAuthError(error: unknown) {
+    const candidate = error as Record<string, unknown> | null;
+    const response = candidate?.response as Record<string, unknown> | undefined;
+    const status = response?.status ?? candidate?.status ?? candidate?.statusCode;
+    if (Number(status) === 401) return true;
+    const message = this.providerError(error).toLowerCase();
+    return (
+      message.includes('401') ||
+      message.includes('unauthorized') ||
+      message.includes('token expired') ||
+      message.includes('access token expired') ||
+      message.includes('invalid token')
+    );
   }
 
   async requestOtp() {
@@ -252,7 +292,7 @@ export class SsiBrokerAdapter implements BrokerPort, SsiConnectionPort {
   }
 
   private async accountInfo(): Promise<SsiAccount[]> {
-    const accounts = await this.trading().account.getAccountInfo();
+    const accounts = await this.tradingRead(trading => trading.account.getAccountInfo());
     return (accounts ?? []).map(account => ({
       accountNo: String(account.accountNo),
       accountType: String(account.accountType),
@@ -315,7 +355,7 @@ export class SsiBrokerAdapter implements BrokerPort, SsiConnectionPort {
 
   async balance(accountNo: string) {
     return this.result(async () => {
-      const balance = await this.trading().portfolio.getEquityBalance(accountNo);
+      const balance = await this.tradingRead(trading => trading.portfolio.getEquityBalance(accountNo));
       return {
         accountNo: String(balance?.accountNo ?? accountNo),
         cash: Number(balance?.accountBalance ?? balance?.availableCash ?? 0),
@@ -354,7 +394,7 @@ export class SsiBrokerAdapter implements BrokerPort, SsiConnectionPort {
     return this.result(async () => {
       const normalizedAccountNo = accountNo.trim();
       if (!normalizedAccountNo) throw new Error('SSI account number is required for positions');
-      const positions = await this.trading().portfolio.getEquityPositions(normalizedAccountNo);
+      const positions = await this.tradingRead(trading => trading.portfolio.getEquityPositions(normalizedAccountNo));
       return (positions ?? []).map(position => ({
         accountNo: String(position.accountNo ?? normalizedAccountNo),
         symbol: String(position.symbol).toUpperCase(),
@@ -379,7 +419,7 @@ export class SsiBrokerAdapter implements BrokerPort, SsiConnectionPort {
 
   async orders(accountNo: string) {
     return this.result(async () => {
-      const orders = await this.trading().portfolio.getTodayOrders(accountNo);
+      const orders = await this.tradingRead(trading => trading.portfolio.getTodayOrders(accountNo));
       return (orders ?? [])
         .filter(order => order.orderId && order.symbol)
         .map(order => ({
@@ -506,7 +546,7 @@ export class SsiBrokerAdapter implements BrokerPort, SsiConnectionPort {
 
   private async marginBalance(accountNo: string): Promise<ContractResult<AccountBalance>> {
     return this.result(async () => {
-      const ppmmr = await this.trading().portfolio.getEquityPpmmr(accountNo);
+      const ppmmr = await this.tradingRead(trading => trading.portfolio.getEquityPpmmr(accountNo));
       return {
         accountNo: String(ppmmr?.accountNo ?? accountNo),
         cash: Number(ppmmr?.withdrawable ?? 0),
