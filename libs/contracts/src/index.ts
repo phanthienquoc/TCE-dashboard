@@ -6,4 +6,5 @@ export * from './ports.contract';
 export * from './credentials.contract';
 export * from './ssi.contract';
 export * from './execution';
+export * from './decision-engine';
 export * from './tokens';
