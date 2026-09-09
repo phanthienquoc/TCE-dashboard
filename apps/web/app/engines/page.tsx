@@ -2,7 +2,6 @@
 
 import { Cpu } from 'lucide-react';
 import { useEffect } from 'react';
-import DashboardLayout from '../../components/dashboard/DashboardLayout';
 import EngineControlPanel from './EngineControlPanel';
 import { useAuthStore } from '../../lib/store';
 import './engine-cards.css';
@@ -18,25 +17,17 @@ export default function EnginesPage() {
 
   if (authLoading || !initialized || !user) {
     return (
-      <main className="app-shell">
-        <div className="app-container app-content">
-          <div className="loading-state flex items-center gap-3 p-4">
-            <div className="brand-orb">
-              <Cpu className="size-4" />
-            </div>
-            <div className="min-w-0">
-              <strong className="block">Opening TCE</strong>
-              <span className="text-sm text-muted">Checking secure session…</span>
-            </div>
-          </div>
+      <div className="loading-state flex items-center gap-3 p-4">
+        <div className="brand-orb">
+          <Cpu className="size-4" />
         </div>
-      </main>
+        <div className="min-w-0">
+          <strong className="block">Opening TCE</strong>
+          <span className="text-sm text-muted">Checking secure session…</span>
+        </div>
+      </div>
     );
   }
 
-  return (
-    <DashboardLayout activeId="engine">
-      <EngineControlPanel />
-    </DashboardLayout>
-  );
+  return <EngineControlPanel />;
 }
