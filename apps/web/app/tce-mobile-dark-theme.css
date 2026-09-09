@@ -1,30 +1,39 @@
-/* TCE mobile dark theme foundation. Loaded last so legacy light utilities cannot leak into mobile UI. */
+/* Mobile TCE dark palette. Must outrank ThemeProvider's non-important inline token writes. */
 :root {
   color-scheme: dark;
-  --background: #071016;
-  --foreground: #f2f7f8;
-  --muted: #82939b;
-  --subtle: #61727a;
-  --surface: #0b171e;
-  --surface-strong: #102029;
-  --border: rgba(255, 255, 255, 0.09);
-  --primary: #55bfff;
-  --primary-foreground: #071016;
-  --success: #31e981;
-  --warning: #f4b860;
-  --danger: #ff5e72;
-  --tce-bg: #071016;
-  --tce-surface: #0b171e;
-  --tce-surface-2: #102029;
-  --tce-border: rgba(255, 255, 255, 0.09);
-  --tce-text: #f2f7f8;
-  --tce-muted: #82939b;
-  --tce-green: #31e981;
-  --tce-red: #ff5e72;
-  --tce-blue: #55bfff;
 }
 
 @media (max-width: 767px) {
+  :root {
+    --background: #071016 !important;
+    --foreground: #f2f7f8 !important;
+    --secondary: #82939b !important;
+    --tertiary: #61727a !important;
+    --accent: #55bfff !important;
+    --panel: #0b171e !important;
+    --panel-strong: #102029 !important;
+    --line: rgba(255, 255, 255, 0.09) !important;
+    --surface: #0b171e !important;
+    --surface-strong: #102029 !important;
+    --border: rgba(255, 255, 255, 0.09) !important;
+    --muted: #82939b !important;
+    --subtle: #61727a !important;
+    --primary: #55bfff !important;
+    --primary-foreground: #071016 !important;
+    --success: #31e981 !important;
+    --warning: #f4b860 !important;
+    --danger: #ff5e72 !important;
+    --tce-bg: #071016 !important;
+    --tce-surface: #0b171e !important;
+    --tce-surface-2: #102029 !important;
+    --tce-border: rgba(255, 255, 255, 0.09) !important;
+    --tce-text: #f2f7f8 !important;
+    --tce-muted: #82939b !important;
+    --tce-green: #31e981 !important;
+    --tce-red: #ff5e72 !important;
+    --tce-blue: #55bfff !important;
+  }
+
   html,
   body {
     background: var(--background) !important;
