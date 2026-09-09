@@ -1,7 +1,7 @@
 'use client';
 
 import type { ReactNode } from 'react';
-import { ArrowLeftRight, Home, Layers3, Search, Settings } from 'lucide-react';
+import { ArrowLeftRight, Cpu, Home, Layers3, Search, Settings } from 'lucide-react';
 import { NavigationDock } from '../navigation/NavigationDock';
 
 type DashboardNavigationId =
@@ -20,6 +20,7 @@ export const dashboardNavigation = [
   { id: 'pools' as const, label: 'Pools', icon: Layers3, href: '/pool' },
   { id: 'positions' as const, label: 'Positions', icon: ArrowLeftRight, href: '/position' },
   { id: 'scan' as const, label: 'Scan', icon: Search, href: '/scan' },
+  { id: 'engine' as const, label: 'Engine', icon: Cpu, href: '/engines' },
   { id: 'settings' as const, label: 'More', icon: Settings, href: '/settings' },
 ];
 
