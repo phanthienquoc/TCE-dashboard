@@ -27,7 +27,7 @@ export class HuntingDividendScannerService {
   async scanUpcoming(
     markets: ReadonlyMap<string, HuntingDividendMarketInput>,
     limit = 100,
-    now = new Date().toISOString(),
+    now = new Date().toISOString()
   ): Promise<HuntingDividendScanBatchResult> {
     const rows = await this.stockEvents.getUpcoming(limit);
     return this.scanRows(rows, markets, now);
@@ -36,16 +36,22 @@ export class HuntingDividendScannerService {
   scanRows(
     rows: readonly unknown[],
     markets: ReadonlyMap<string, HuntingDividendMarketInput>,
-    now: string,
+    now: string
   ): HuntingDividendScanBatchResult {
-    const inputs: Array<{ dividend: TceDividendEvent; market: HuntingDividendMarketInput; now: string }> = [];
+    const inputs: Array<{
+      dividend: TceDividendEvent;
+      market: HuntingDividendMarketInput;
+      now: string;
+    }> = [];
     let normalizedEvents = 0;
     let rejectedEvents = 0;
     let rejectedMarkets = 0;
     const rejectionReasons: Partial<Record<HuntingDividendScanRejectionReason, number>> = {};
 
     for (const row of rows) {
-      const dividend = normalizeTceDividendEvent(row as Parameters<typeof normalizeTceDividendEvent>[0]);
+      const dividend = normalizeTceDividendEvent(
+        row as Parameters<typeof normalizeTceDividendEvent>[0]
+      );
       if (!dividend) {
         rejectedEvents += 1;
         continue;
@@ -74,11 +80,15 @@ export class HuntingDividendScannerService {
     }
 
     return {
-      candidates: candidates.sort((a, b) => b.score - a.score || a.symbol.localeCompare(b.symbol) || a.id.localeCompare(b.id)),
+      candidates: candidates.sort(
+        (a, b) => b.score - a.score || a.symbol.localeCompare(b.symbol) || a.id.localeCompare(b.id)
+      ),
       normalizedEvents,
       rejectedEvents,
       rejectedMarkets,
-      rejectionReasons: rejectionReasons as Readonly<Record<HuntingDividendScanRejectionReason, number>>,
+      rejectionReasons: rejectionReasons as Readonly<
+        Record<HuntingDividendScanRejectionReason, number>
+      >,
     };
   }
 }

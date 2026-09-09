@@ -31,15 +31,6 @@ export type TceExecutionIdentity = {
   idempotencyKey: string;
 };
 
-export type TceExecutionIntent = TceExecutionIdentity & {
-  mode: TceExecutionMode;
-  symbol: string;
-  side: 'BUY' | 'SELL';
-  quantity: number;
-  limitPrice?: number;
-  lifecycleState: 'READY' | 'EXIT_READY';
-};
-
 export type TceLifecycleAuditRecord = TceLifecycleEvent & {
   engine: string;
   symbol?: string;
@@ -49,7 +40,9 @@ export type TceLifecycleAuditRecord = TceLifecycleEvent & {
   metadata?: Record<string, unknown>;
 };
 
-export const TCE_LIFECYCLE_TRANSITIONS: Readonly<Record<TceLifecycleState, readonly TceLifecycleState[]>> = {
+export const TCE_LIFECYCLE_TRANSITIONS: Readonly<
+  Record<TceLifecycleState, readonly TceLifecycleState[]>
+> = {
   CANDIDATE: ['APPROVED'],
   APPROVED: ['PLANNED'],
   PLANNED: ['RISK_CHECKED'],
@@ -68,9 +61,6 @@ export const TCE_LIFECYCLE_TRANSITIONS: Readonly<Record<TceLifecycleState, reado
   SLOT_RECYCLED: ['CANDIDATE'],
 };
 
-export function canTransitionLifecycle(
-  from: TceLifecycleState,
-  to: TceLifecycleState,
-): boolean {
+export function canTransitionLifecycle(from: TceLifecycleState, to: TceLifecycleState): boolean {
   return TCE_LIFECYCLE_TRANSITIONS[from].includes(to);
 }

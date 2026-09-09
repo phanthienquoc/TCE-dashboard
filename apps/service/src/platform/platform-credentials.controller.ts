@@ -130,11 +130,10 @@ export class PlatformCredentialsController {
       throw new UnauthorizedException('Approval verification is only available for SSI');
     if (!body?.otp && !body?.transactionId)
       throw new UnauthorizedException('SSI transactionId or OTP is required');
-    return this.ssi.approve(
-      this.userId(auth),
-      body.environment ?? 'production',
-      { otp: body.otp, transactionId: body.transactionId }
-    );
+    return this.ssi.approve(this.userId(auth), body.environment ?? 'production', {
+      otp: body.otp,
+      transactionId: body.transactionId,
+    });
   }
   @Post(':provider/test') test(
     @Headers('authorization') auth: string | undefined,

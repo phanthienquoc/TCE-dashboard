@@ -355,7 +355,9 @@ export class SsiBrokerAdapter implements BrokerPort, SsiConnectionPort {
 
   async balance(accountNo: string) {
     return this.result(async () => {
-      const balance = await this.tradingRead(trading => trading.portfolio.getEquityBalance(accountNo));
+      const balance = await this.tradingRead(trading =>
+        trading.portfolio.getEquityBalance(accountNo)
+      );
       return {
         accountNo: String(balance?.accountNo ?? accountNo),
         cash: Number(balance?.accountBalance ?? balance?.availableCash ?? 0),
@@ -394,7 +396,9 @@ export class SsiBrokerAdapter implements BrokerPort, SsiConnectionPort {
     return this.result(async () => {
       const normalizedAccountNo = accountNo.trim();
       if (!normalizedAccountNo) throw new Error('SSI account number is required for positions');
-      const positions = await this.tradingRead(trading => trading.portfolio.getEquityPositions(normalizedAccountNo));
+      const positions = await this.tradingRead(trading =>
+        trading.portfolio.getEquityPositions(normalizedAccountNo)
+      );
       return (positions ?? []).map(position => ({
         accountNo: String(position.accountNo ?? normalizedAccountNo),
         symbol: String(position.symbol).toUpperCase(),

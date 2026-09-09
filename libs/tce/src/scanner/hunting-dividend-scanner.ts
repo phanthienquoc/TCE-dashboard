@@ -75,7 +75,11 @@ export class HuntingDividendCandidateScanner {
       rejectionReasons.push('invalid_price');
     }
 
-    if (Number.isFinite(nowMs) && Number.isFinite(observedMs) && Math.abs(nowMs - observedMs) > maxAgeMs) {
+    if (
+      Number.isFinite(nowMs) &&
+      Number.isFinite(observedMs) &&
+      Math.abs(nowMs - observedMs) > maxAgeMs
+    ) {
       rejectionReasons.push('stale_market_data');
     }
     if (market.tradable === false) rejectionReasons.push('not_tradable');
@@ -87,13 +91,22 @@ export class HuntingDividendCandidateScanner {
         rejectionReasons.push('outside_dividend_window');
       }
     }
-    if (this.policy.minTurnover !== undefined && (market.averageTurnover ?? 0) < this.policy.minTurnover) {
+    if (
+      this.policy.minTurnover !== undefined &&
+      (market.averageTurnover ?? 0) < this.policy.minTurnover
+    ) {
       rejectionReasons.push('insufficient_turnover');
     }
-    if (this.policy.minVolume !== undefined && (market.averageVolume ?? 0) < this.policy.minVolume) {
+    if (
+      this.policy.minVolume !== undefined &&
+      (market.averageVolume ?? 0) < this.policy.minVolume
+    ) {
       rejectionReasons.push('insufficient_volume');
     }
-    if (this.policy.maxVolatility !== undefined && (market.volatility ?? Number.POSITIVE_INFINITY) > this.policy.maxVolatility) {
+    if (
+      this.policy.maxVolatility !== undefined &&
+      (market.volatility ?? Number.POSITIVE_INFINITY) > this.policy.maxVolatility
+    ) {
       rejectionReasons.push('excessive_volatility');
     }
 
@@ -101,7 +114,8 @@ export class HuntingDividendCandidateScanner {
       return { candidate: null, rejectionReasons };
     }
 
-    const dividendYield = dividend.dividendYield ??
+    const dividendYield =
+      dividend.dividendYield ??
       (dividend.dividendValue !== undefined ? (dividend.dividendValue / market.price) * 100 : 0);
     const daysToEx = Math.max(0, Math.ceil((exDividendMs - nowMs) / 86_400_000));
     const score = scoreCandidate(dividendYield, daysToEx, market);
@@ -148,18 +162,23 @@ export class HuntingDividendCandidateScanner {
       if (candidate) candidates.push(candidate);
     }
 
-    return candidates.sort((a, b) =>
-      b.score - a.score ||
-      a.symbol.localeCompare(b.symbol) ||
-      a.id.localeCompare(b.id),
+    return candidates.sort(
+      (a, b) => b.score - a.score || a.symbol.localeCompare(b.symbol) || a.id.localeCompare(b.id)
     );
   }
 }
 
-function scoreCandidate(dividendYield: number, daysToEx: number, market: HuntingDividendMarketSnapshot): number {
+function scoreCandidate(
+  dividendYield: number,
+  daysToEx: number,
+  market: HuntingDividendMarketSnapshot
+): number {
   const yieldScore = Math.max(0, Math.min(60, dividendYield * 6));
   const timingScore = Math.max(0, 25 - daysToEx);
-  const liquidityScore = market.averageTurnover !== undefined ? Math.min(15, Math.max(0, Math.log10(Math.max(1, market.averageTurnover)) - 5)) : 0;
+  const liquidityScore =
+    market.averageTurnover !== undefined
+      ? Math.min(15, Math.max(0, Math.log10(Math.max(1, market.averageTurnover)) - 5))
+      : 0;
   return yieldScore + timingScore + liquidityScore;
 }
 

@@ -106,8 +106,10 @@ export const platformApi = {
     enabled?: boolean;
   }) => api.post('/platform/telegram/debug/assignments', body),
   telegramUnassignDebug: (id: string) => api.delete(`/platform/telegram/debug/assignments/${id}`),
-  ssiOtp: (body: Record<string, unknown>) => api.post('/platform/credentials/ssi/request-otp', body),
-  ssiApprove: (body: Record<string, unknown>) => api.post('/platform/credentials/ssi/approve', body),
+  ssiOtp: (body: Record<string, unknown>) =>
+    api.post('/platform/credentials/ssi/request-otp', body),
+  ssiApprove: (body: Record<string, unknown>) =>
+    api.post('/platform/credentials/ssi/approve', body),
   ssiTest: (body: Record<string, unknown>) => api.post('/platform/credentials/ssi/test', body),
   ssiSaveTested: (body: Record<string, unknown>) =>
     api.post('/platform/credentials/ssi/save-tested', body),
@@ -115,7 +117,8 @@ export const platformApi = {
     encryptCredentialPayload({ environment, credentials }).then(payload =>
       api.post('/platform/credentials/ssi/save', payload)
     ),
-  ssiCurrent: (body: Record<string, unknown>) => api.post('/platform/credentials/ssi/current', body),
+  ssiCurrent: (body: Record<string, unknown>) =>
+    api.post('/platform/credentials/ssi/current', body),
   ssiSync: (body: Record<string, unknown>) => api.post('/platform/credentials/ssi/sync', body),
   ssiMarketPriceSync: () => api.post('/platform/credentials/ssi/sync-market-price'),
   ssiOrder: (body: {
@@ -131,7 +134,8 @@ export const platformApi = {
   fastApiConfig: () => api.get('/platform/config/fastapi'),
   saveFastApi: (body: Record<string, string>) => api.post('/platform/config/fastapi', body),
   binanceXauConfig: () => api.get('/tce/engine/binance/config'),
-  saveBinanceXauConfig: (body: Record<string, unknown>) => api.patch('/tce/engine/binance/config', body),
+  saveBinanceXauConfig: (body: Record<string, unknown>) =>
+    api.patch('/tce/engine/binance/config', body),
   binanceXauPositions: (environment = 'production') =>
     api.get('/tce/engine/binance/positions', { headers: { 'x-environment': environment } }),
   binanceXauOrders: (environment = 'production') =>
@@ -142,5 +146,6 @@ export const systemUpdatesApi = {
   latest: () => api.get('/tce/system-updates/latest'),
   subscribe: (subscription: PushSubscriptionJSON) =>
     api.post('/tce/system-updates/subscription', subscription),
-  unsubscribe: (endpoint: string) => api.delete('/tce/system-updates/subscription', { data: { endpoint } }),
+  unsubscribe: (endpoint: string) =>
+    api.delete('/tce/system-updates/subscription', { data: { endpoint } }),
 };

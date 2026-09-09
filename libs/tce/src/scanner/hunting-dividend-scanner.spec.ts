@@ -1,10 +1,18 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { HuntingDividendCandidateScanner, type HuntingDividendScannerInput } from './hunting-dividend-scanner';
+import {
+  HuntingDividendCandidateScanner,
+  type HuntingDividendScannerInput,
+} from './hunting-dividend-scanner';
 
 const now = '2026-09-09T09:00:00.000Z';
 
-function input(symbol: string, id: string, dividendValue: number, daysToEx = 5): HuntingDividendScannerInput {
+function input(
+  symbol: string,
+  id: string,
+  dividendValue: number,
+  daysToEx = 5
+): HuntingDividendScannerInput {
   return {
     dividend: {
       id,
@@ -29,21 +37,18 @@ function input(symbol: string, id: string, dividendValue: number, daysToEx = 5):
 
 test('scanBatch returns deterministic score ordering', () => {
   const scanner = new HuntingDividendCandidateScanner();
-  const result = scanner.scanBatch([
-    input('FPT', 'evt-fpt', 3000),
-    input('DPM', 'evt-dpm', 5000),
-  ]);
+  const result = scanner.scanBatch([input('FPT', 'evt-fpt', 3000), input('DPM', 'evt-dpm', 5000)]);
 
-  assert.deepEqual(result.map(candidate => candidate.symbol), ['DPM', 'FPT']);
+  assert.deepEqual(
+    result.map(candidate => candidate.symbol),
+    ['DPM', 'FPT']
+  );
   assert.equal(result.length, 2);
 });
 
 test('scanBatch deduplicates identical dividend-event and symbol pairs', () => {
   const scanner = new HuntingDividendCandidateScanner();
-  const result = scanner.scanBatch([
-    input('DPM', 'evt-dpm', 5000),
-    input('dpm', 'evt-dpm', 5000),
-  ]);
+  const result = scanner.scanBatch([input('DPM', 'evt-dpm', 5000), input('dpm', 'evt-dpm', 5000)]);
 
   assert.equal(result.length, 1);
   assert.equal(result[0]?.symbol, 'DPM');
@@ -56,7 +61,10 @@ test('scanBatch omits rejected inputs and preserves accepted candidates', () => 
 
   const result = scanner.scanBatch([stale, input('DPM', 'evt-dpm', 5000)]);
 
-  assert.deepEqual(result.map(candidate => candidate.symbol), ['DPM']);
+  assert.deepEqual(
+    result.map(candidate => candidate.symbol),
+    ['DPM']
+  );
 });
 
 test('scanBatch uses symbol and candidate id as deterministic tie breakers', () => {
@@ -66,7 +74,10 @@ test('scanBatch uses symbol and candidate id as deterministic tie breakers', () 
     input('DPM', 'evt-dpm', 3000, 5),
   ]);
 
-  assert.deepEqual(result.map(candidate => candidate.symbol), ['DPM', 'VCB']);
+  assert.deepEqual(
+    result.map(candidate => candidate.symbol),
+    ['DPM', 'VCB']
+  );
 });
 
 test('scanDetailed returns explicit stale-data diagnostics', () => {
@@ -81,7 +92,11 @@ test('scanDetailed returns explicit stale-data diagnostics', () => {
 });
 
 test('scanDetailed returns all applicable safety rejection reasons deterministically', () => {
-  const scanner = new HuntingDividendCandidateScanner({ minTurnover: 20_000_000, minVolume: 200_000, maxVolatility: 1 });
+  const scanner = new HuntingDividendCandidateScanner({
+    minTurnover: 20_000_000,
+    minVolume: 200_000,
+    maxVolatility: 1,
+  });
   const rejected = input('VIC', 'evt-vic', 5000);
   rejected.market.tradable = false;
   rejected.market.halted = true;
