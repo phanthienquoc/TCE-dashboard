@@ -16,7 +16,10 @@ import { SupabaseClientService } from '../db/supabase.client';
 @Injectable()
 export class SsiApplicationService {
   private readonly sessions = new Map<string, { adapter: SsiBrokerAdapter; accountNo: string }>();
-  private readonly reauthTransactions = new Map<string, { transactionId: string; createdAt: number }>();
+  private readonly reauthTransactions = new Map<
+    string,
+    { transactionId: string; createdAt: number }
+  >();
 
   constructor(
     @Inject(CONTRACT_TOKENS.credentials) private readonly credentials: PlatformCredentialPort,
@@ -301,7 +304,8 @@ export class SsiApplicationService {
       ok: false as const,
       error: {
         code: 'SSI_AUTH_REQUIRED' as const,
-        message: 'Open the SSI app and approve the sign-in request. Use OTP only if SSI asks for it.',
+        message:
+          'Open the SSI app and approve the sign-in request. Use OTP only if SSI asks for it.',
         retryable: true,
         provider: 'ssi' as const,
         details: {
@@ -320,7 +324,7 @@ export class SsiApplicationService {
 
   async dailyCloses(userId: string, environment: string, symbols: string[], tradingDate: string) {
     const { adapter } = await this.adapter(userId, environment, false);
-    return adapter.dailyCloses(symbols, tradingDate,);
+    return adapter.dailyCloses(symbols, tradingDate);
   }
 
   async placeOrder(

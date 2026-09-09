@@ -1,6 +1,19 @@
 'use client';
 
-import { Bell, CheckCircle2, ChevronDown, ChevronRight, CircleDot, Layers3, Search, Settings2, ShieldCheck, TrendingUp, WalletCards, Wifi } from 'lucide-react';
+import {
+  Bell,
+  CheckCircle2,
+  ChevronDown,
+  ChevronRight,
+  CircleDot,
+  Layers3,
+  Search,
+  Settings2,
+  ShieldCheck,
+  TrendingUp,
+  WalletCards,
+  Wifi,
+} from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import PlatformConfigTab from '../config/PlatformConfigTab';
 import { useStockEventStore, type StockEvent } from '../../lib/stock-event-store';
@@ -8,29 +21,394 @@ import { useDashboardStore } from '../../lib/store';
 import type { DashboardActions, DashboardData } from './DashboardShell';
 
 export function PoolsView({ data, actions }: ViewProps) {
-  const capital = number(data.account?.totalValue ?? data.portfolioValue ?? number(data.invested) + number(data.cash));
-  const available = number(data.account?.capital_available ?? data.account?.capitalAvailable ?? data.cash);
-  const invested = number(data.account?.capital_deployed ?? data.account?.capitalDeployed ?? data.invested);
+  const capital = number(
+    data.account?.totalValue ?? data.portfolioValue ?? number(data.invested) + number(data.cash)
+  );
+  const available = number(
+    data.account?.capital_available ?? data.account?.capitalAvailable ?? data.cash
+  );
+  const invested = number(
+    data.account?.capital_deployed ?? data.account?.capitalDeployed ?? data.invested
+  );
   const pending = Math.max(0, capital - available - invested);
   const positions = data.positions;
   const pools = data.pools;
   const next = data.next;
   const poolStates = buildPoolStates(capital, positions, pools);
   const decisionRows = [...next, ...pools].slice(0, 12);
-  return <div className="tce-mobile-view"><MobileHeader title="Hunting Dividend" subtitle="Decision Engine · 30D rolling" icon={<Layers3 className="size-5" />} live /><section className="tce-status-card"><div className="tce-section-row"><div><span className="tce-label">DECISION ENGINE</span><strong>Hunting Dividend</strong></div><span className="tce-live-pill"><CircleDot className="size-3" /> ACTIVE</span></div><div className="tce-engine-meta"><span>TP +5%</span><span>Lookback 30D</span><span>T+2 aware</span></div><div className="tce-market-metrics"><Metric value={pools.length} label="candidates" /><Metric value={positions.length} label="active positions" /><Metric value={next.length} label="next" /></div></section><section className="tce-stat-grid"><Stat label="Capital" value={money(capital)} /><Stat label="Available" value={money(available)} /><Stat label="Pending T+2" value={money(pending)} /></section><MobileSection title="Capital Pools" action="Engine" href="/engines"><div className="tce-pool-balance-grid">{poolStates.map(pool => <article className="tce-pool-balance" key={pool.pool}><div className="tce-pool-balance-top"><strong>Pool {pool.pool}</strong><span>{pool.active}/{pool.slots} slots</span></div><strong>{money(pool.allocated)}</strong><div className="tce-pool-progress"><span style={{ width: `${Math.min(100, pool.usedRatio * 100)}%` }} /></div><div className="tce-pool-balance-meta"><span>free {money(pool.available)}</span><span>{pool.pending ? `T+2 ${money(pool.pending)}` : 'ready'}</span></div></article>)}</div></MobileSection><MobileSection title="Active Rotation">{positions.length ? <div className="tce-list-stack">{positions.slice(0, 9).map((row, index) => <RotationRow key={row.id ?? row.symbol ?? index} row={row} />)}</div> : <EmptyState text="No active positions" />}</MobileSection><MobileSection title="Decision Queue">{decisionRows.length ? <div className="tce-list-stack">{decisionRows.map((row, index) => <DecisionRow key={row.id ?? row.symbol ?? index} row={row} onBuy={() => actions.openTrade(row)} onPromote={() => actions.promotePool(row)} busy={actions.promoteBusy === String(row.id)} />)}</div> : <EmptyState text="No candidates waiting" />}</MobileSection><MobileSection title="Rotation Logic"><div className="tce-flow-card"><div><b>Candidate</b><span>dividend event ≤ 30D</span></div><ChevronRight /><div><b>Decision</b><span>pool + slot + allocation</span></div><ChevronRight /><div><b>Planner</b><span>quantity + TP</span></div><ChevronRight /><div><b>Execution</b><span>SSI + T+2 state</span></div></div></MobileSection></div>;
+  return (
+    <div className="tce-mobile-view">
+      <MobileHeader
+        title="Hunting Dividend"
+        subtitle="Decision Engine · 30D rolling"
+        icon={<Layers3 className="size-5" />}
+        live
+      />
+      <section className="tce-status-card">
+        <div className="tce-section-row">
+          <div>
+            <span className="tce-label">DECISION ENGINE</span>
+            <strong>Hunting Dividend</strong>
+          </div>
+          <span className="tce-live-pill">
+            <CircleDot className="size-3" /> ACTIVE
+          </span>
+        </div>
+        <div className="tce-engine-meta">
+          <span>TP +5%</span>
+          <span>Lookback 30D</span>
+          <span>T+2 aware</span>
+        </div>
+        <div className="tce-market-metrics">
+          <Metric value={pools.length} label="candidates" />
+          <Metric value={positions.length} label="active positions" />
+          <Metric value={next.length} label="next" />
+        </div>
+      </section>
+      <section className="tce-stat-grid">
+        <Stat label="Capital" value={money(capital)} />
+        <Stat label="Available" value={money(available)} />
+        <Stat label="Pending T+2" value={money(pending)} />
+      </section>
+      <MobileSection title="Capital Pools" action="Engine" href="/engines">
+        <div className="tce-pool-balance-grid">
+          {poolStates.map(pool => (
+            <article className="tce-pool-balance" key={pool.pool}>
+              <div className="tce-pool-balance-top">
+                <strong>Pool {pool.pool}</strong>
+                <span>
+                  {pool.active}/{pool.slots} slots
+                </span>
+              </div>
+              <strong>{money(pool.allocated)}</strong>
+              <div className="tce-pool-progress">
+                <span style={{ width: `${Math.min(100, pool.usedRatio * 100)}%` }} />
+              </div>
+              <div className="tce-pool-balance-meta">
+                <span>free {money(pool.available)}</span>
+                <span>{pool.pending ? `T+2 ${money(pool.pending)}` : 'ready'}</span>
+              </div>
+            </article>
+          ))}
+        </div>
+      </MobileSection>
+      <MobileSection title="Active Rotation">
+        {positions.length ? (
+          <div className="tce-list-stack">
+            {positions.slice(0, 9).map((row, index) => (
+              <RotationRow key={row.id ?? row.symbol ?? index} row={row} />
+            ))}
+          </div>
+        ) : (
+          <EmptyState text="No active positions" />
+        )}
+      </MobileSection>
+      <MobileSection title="Decision Queue">
+        {decisionRows.length ? (
+          <div className="tce-list-stack">
+            {decisionRows.map((row, index) => (
+              <DecisionRow
+                key={row.id ?? row.symbol ?? index}
+                row={row}
+                onBuy={() => actions.openTrade(row)}
+                onPromote={() => actions.promotePool(row)}
+                busy={actions.promoteBusy === String(row.id)}
+              />
+            ))}
+          </div>
+        ) : (
+          <EmptyState text="No candidates waiting" />
+        )}
+      </MobileSection>
+      <MobileSection title="Rotation Logic">
+        <div className="tce-flow-card">
+          <div>
+            <b>Candidate</b>
+            <span>dividend event ≤ 30D</span>
+          </div>
+          <ChevronRight />
+          <div>
+            <b>Decision</b>
+            <span>pool + slot + allocation</span>
+          </div>
+          <ChevronRight />
+          <div>
+            <b>Planner</b>
+            <span>quantity + TP</span>
+          </div>
+          <ChevronRight />
+          <div>
+            <b>Execution</b>
+            <span>SSI + T+2 state</span>
+          </div>
+        </div>
+      </MobileSection>
+    </div>
+  );
 }
 
-function MobileHeader({ title, subtitle, icon, live }: { title: string; subtitle?: string; icon?: React.ReactNode; live?: boolean }) { return <header className="tce-mobile-header"><div className="tce-header-brand">{icon}<div><strong>{title}</strong>{subtitle && <span>{subtitle}</span>}</div></div>{live ? <span className="tce-live-pill"><CircleDot className="size-3" /> LIVE</span> : <Bell className="size-5 tce-muted" />}</header>; }
-function MobileSection({ title, action, href, children }: { title: string; action?: string; href?: string; children: React.ReactNode }) { return <section className="tce-section"><div className="tce-section-title"><h2>{title}</h2>{action && href ? <a href={href}>{action}<ChevronRight className="size-4" /></a> : null}</div>{children}</section>; }
-function Stat({ label, value }: { label: string; value: string }) { return <div className="tce-stat"><span>{label}</span><strong>{value}</strong></div>; }
-function Metric({ value, label }: { value: number; label: string }) { return <div><strong>{value}</strong><span>{label}</span></div>; }
-function PositionRow({ row }: { row: any }) { const pnl = Number(row.pnl ?? row.unrealizedPnl ?? row.unrealized_pnl ?? 0); return <a className="tce-row-card" href="/position"><div><strong>{symbolOf(row)}</strong><span>{formatNumber(row.quantity ?? row.total ?? 0)} shares</span></div><div className="tce-row-price"><strong>{formatNumber(row.marketPrice ?? row.market_price ?? row.currentPrice ?? row.current_price)}</strong><span>{formatNumber(pnl)}</span></div></a>; }
-function PoolRow({ row }: { row: any }) { return <a className="tce-row-card" href="/pools"><div><strong>{symbolOf(row)}</strong><span>{String(row.status ?? 'WATCHING')}</span></div><div className="tce-score"><strong>{Number(row.score ?? 0) || '—'}</strong><span>TCE Score</span></div></a>; }
-function RotationRow({ row }: { row: any }) { const price = Number(row.currentPrice ?? row.marketPrice ?? row.current_price ?? row.market_price ?? 0); const entry = Number(row.positionPrice ?? row.position_price ?? row.avgBuyCost ?? row.avg_cost ?? 0); const pnl = entry > 0 && price > 0 ? ((price - entry) / entry) * 100 : Number(row.pnlPct ?? row.pnl_percent ?? 0); const tp = entry > 0 ? entry * 1.05 : Number(row.targetPrice ?? row.target_price ?? 0); return <article className="tce-rotation-row"><div className="tce-rotation-top"><div><strong>{symbolOf(row)}</strong><span>{String(row.pool ?? row.pool_id ?? '—')} · {String(row.slot ?? '—')}</span></div><span className={pnl >= 0 ? 'tce-positive' : 'tce-negative'}>{pnl >= 0 ? '+' : ''}{pnl.toFixed(2)}%</span></div><div className="tce-rotation-grid"><div><span>Entry</span><b>{formatNumber(entry)}</b></div><div><span>Now</span><b>{formatNumber(price)}</b></div><div><span>TP +5%</span><b>{formatNumber(tp)}</b></div><div><span>T+2</span><b>{String(row.sellableAt ?? row.sellable_at ?? 'SELLABLE')}</b></div></div></article>; }
-function DecisionRow({ row, onBuy, onPromote, busy }: { row: any; onBuy: () => void; onPromote: () => void; busy: boolean }) { const price = Number(row.currentPrice ?? row.current_price ?? row.marketPrice ?? row.market_price ?? row.price ?? 0); const dividend = Number(row.dividendValue ?? row.dividend_value ?? 0); const ratio = row['Tỷ lệ'] ?? row.ratio ?? row.dividendRatio; return <article className="tce-decision-row"><div className="tce-decision-top"><div><strong>{symbolOf(row)}</strong><span>{String(row.status ?? 'CANDIDATE')} · {ratio ? String(ratio) : dividend ? `${money(dividend)} ₫/CP` : 'Dividend candidate'}</span></div><span className="tce-score"><strong>{Number(row.score ?? row.confidence ?? 0) || '—'}</strong><span>score</span></span></div><div className="tce-decision-meta"><span>Price <b>{formatNumber(price)}</b></span><span>Event <b>{formatDate(row.gdkhq_timestamp ?? row.gdkhqTimestamp ?? row.exDate)}</b></span><span>TP <b>{price > 0 ? formatNumber(price * 1.05) : '—'}</b></span></div><div className="tce-card-actions"><button type="button" onClick={onBuy}>BUY</button><button type="button" onClick={onPromote} disabled={busy}>{busy ? '…' : 'Queue'}</button></div></article>; }
-function buildPoolStates(capital: number, positions: any[], pools: any[]) { const allocated = capital / 3; return (['A', 'B', 'C'] as const).map(pool => { const rows = positions.filter(row => String(row.pool ?? row.pool_id ?? '').toUpperCase() === pool); const active = rows.length; const slots = Math.max(1, Math.ceil(pools.filter(row => String(row.pool ?? row.pool_id ?? '').toUpperCase() === pool).length || 1)); const pending = rows.reduce((total, row) => total + Number(row.pendingT2Value ?? row.pending_t2_value ?? 0), 0); const used = rows.reduce((total, row) => total + Number(row.costBasis ?? row.cost_basis ?? row.avgCost ?? row.avg_cost ?? 0) * Number(row.quantity ?? 0), 0); const available = Math.max(0, allocated - used); return { pool, allocated, available, active, slots, pending, usedRatio: allocated > 0 ? (allocated - available) / allocated : 0 }; }); }
-function number(value: any) { const n = Number(value); return Number.isFinite(n) ? n : 0; }
-function money(value: any) { return new Intl.NumberFormat('vi-VN', { maximumFractionDigits: 0 }).format(number(value)); }
-function formatNumber(value: any) { const n = Number(value); return Number.isFinite(n) ? new Intl.NumberFormat('en-US', { maximumFractionDigits: 2 }).format(n) : '—'; }
-function formatDate(value: any) { if (!value) return '—'; const date = new Date(value); return Number.isNaN(date.getTime()) ? String(value) : new Intl.DateTimeFormat('vi-VN', { day: '2-digit', month: '2-digit' }).format(date); }
-function symbolOf(row: any) { return String(row?.symbol ?? row?.code ?? row?.ticker ?? '—').toUpperCase(); }
+function MobileHeader({
+  title,
+  subtitle,
+  icon,
+  live,
+}: {
+  title: string;
+  subtitle?: string;
+  icon?: React.ReactNode;
+  live?: boolean;
+}) {
+  return (
+    <header className="tce-mobile-header">
+      <div className="tce-header-brand">
+        {icon}
+        <div>
+          <strong>{title}</strong>
+          {subtitle && <span>{subtitle}</span>}
+        </div>
+      </div>
+      {live ? (
+        <span className="tce-live-pill">
+          <CircleDot className="size-3" /> LIVE
+        </span>
+      ) : (
+        <Bell className="size-5 tce-muted" />
+      )}
+    </header>
+  );
+}
+function MobileSection({
+  title,
+  action,
+  href,
+  children,
+}: {
+  title: string;
+  action?: string;
+  href?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="tce-section">
+      <div className="tce-section-title">
+        <h2>{title}</h2>
+        {action && href ? (
+          <a href={href}>
+            {action}
+            <ChevronRight className="size-4" />
+          </a>
+        ) : null}
+      </div>
+      {children}
+    </section>
+  );
+}
+function Stat({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="tce-stat">
+      <span>{label}</span>
+      <strong>{value}</strong>
+    </div>
+  );
+}
+function Metric({ value, label }: { value: number; label: string }) {
+  return (
+    <div>
+      <strong>{value}</strong>
+      <span>{label}</span>
+    </div>
+  );
+}
+function PositionRow({ row }: { row: any }) {
+  const pnl = Number(row.pnl ?? row.unrealizedPnl ?? row.unrealized_pnl ?? 0);
+  return (
+    <a className="tce-row-card" href="/position">
+      <div>
+        <strong>{symbolOf(row)}</strong>
+        <span>{formatNumber(row.quantity ?? row.total ?? 0)} shares</span>
+      </div>
+      <div className="tce-row-price">
+        <strong>
+          {formatNumber(
+            row.marketPrice ?? row.market_price ?? row.currentPrice ?? row.current_price
+          )}
+        </strong>
+        <span>{formatNumber(pnl)}</span>
+      </div>
+    </a>
+  );
+}
+function PoolRow({ row }: { row: any }) {
+  return (
+    <a className="tce-row-card" href="/pools">
+      <div>
+        <strong>{symbolOf(row)}</strong>
+        <span>{String(row.status ?? 'WATCHING')}</span>
+      </div>
+      <div className="tce-score">
+        <strong>{Number(row.score ?? 0) || '—'}</strong>
+        <span>TCE Score</span>
+      </div>
+    </a>
+  );
+}
+function RotationRow({ row }: { row: any }) {
+  const price = Number(
+    row.currentPrice ?? row.marketPrice ?? row.current_price ?? row.market_price ?? 0
+  );
+  const entry = Number(
+    row.positionPrice ?? row.position_price ?? row.avgBuyCost ?? row.avg_cost ?? 0
+  );
+  const pnl =
+    entry > 0 && price > 0
+      ? ((price - entry) / entry) * 100
+      : Number(row.pnlPct ?? row.pnl_percent ?? 0);
+  const tp = entry > 0 ? entry * 1.05 : Number(row.targetPrice ?? row.target_price ?? 0);
+  return (
+    <article className="tce-rotation-row">
+      <div className="tce-rotation-top">
+        <div>
+          <strong>{symbolOf(row)}</strong>
+          <span>
+            {String(row.pool ?? row.pool_id ?? '—')} · {String(row.slot ?? '—')}
+          </span>
+        </div>
+        <span className={pnl >= 0 ? 'tce-positive' : 'tce-negative'}>
+          {pnl >= 0 ? '+' : ''}
+          {pnl.toFixed(2)}%
+        </span>
+      </div>
+      <div className="tce-rotation-grid">
+        <div>
+          <span>Entry</span>
+          <b>{formatNumber(entry)}</b>
+        </div>
+        <div>
+          <span>Now</span>
+          <b>{formatNumber(price)}</b>
+        </div>
+        <div>
+          <span>TP +5%</span>
+          <b>{formatNumber(tp)}</b>
+        </div>
+        <div>
+          <span>T+2</span>
+          <b>{String(row.sellableAt ?? row.sellable_at ?? 'SELLABLE')}</b>
+        </div>
+      </div>
+    </article>
+  );
+}
+function DecisionRow({
+  row,
+  onBuy,
+  onPromote,
+  busy,
+}: {
+  row: any;
+  onBuy: () => void;
+  onPromote: () => void;
+  busy: boolean;
+}) {
+  const price = Number(
+    row.currentPrice ?? row.current_price ?? row.marketPrice ?? row.market_price ?? row.price ?? 0
+  );
+  const dividend = Number(row.dividendValue ?? row.dividend_value ?? 0);
+  const ratio = row['Tỷ lệ'] ?? row.ratio ?? row.dividendRatio;
+  return (
+    <article className="tce-decision-row">
+      <div className="tce-decision-top">
+        <div>
+          <strong>{symbolOf(row)}</strong>
+          <span>
+            {String(row.status ?? 'CANDIDATE')} ·{' '}
+            {ratio ? String(ratio) : dividend ? `${money(dividend)} ₫/CP` : 'Dividend candidate'}
+          </span>
+        </div>
+        <span className="tce-score">
+          <strong>{Number(row.score ?? row.confidence ?? 0) || '—'}</strong>
+          <span>score</span>
+        </span>
+      </div>
+      <div className="tce-decision-meta">
+        <span>
+          Price <b>{formatNumber(price)}</b>
+        </span>
+        <span>
+          Event <b>{formatDate(row.gdkhq_timestamp ?? row.gdkhqTimestamp ?? row.exDate)}</b>
+        </span>
+        <span>
+          TP <b>{price > 0 ? formatNumber(price * 1.05) : '—'}</b>
+        </span>
+      </div>
+      <div className="tce-card-actions">
+        <button type="button" onClick={onBuy}>
+          BUY
+        </button>
+        <button type="button" onClick={onPromote} disabled={busy}>
+          {busy ? '…' : 'Queue'}
+        </button>
+      </div>
+    </article>
+  );
+}
+function buildPoolStates(capital: number, positions: any[], pools: any[]) {
+  const allocated = capital / 3;
+  return (['A', 'B', 'C'] as const).map(pool => {
+    const rows = positions.filter(
+      row => String(row.pool ?? row.pool_id ?? '').toUpperCase() === pool
+    );
+    const active = rows.length;
+    const slots = Math.max(
+      1,
+      Math.ceil(
+        pools.filter(row => String(row.pool ?? row.pool_id ?? '').toUpperCase() === pool).length ||
+          1
+      )
+    );
+    const pending = rows.reduce(
+      (total, row) => total + Number(row.pendingT2Value ?? row.pending_t2_value ?? 0),
+      0
+    );
+    const used = rows.reduce(
+      (total, row) =>
+        total +
+        Number(row.costBasis ?? row.cost_basis ?? row.avgCost ?? row.avg_cost ?? 0) *
+          Number(row.quantity ?? 0),
+      0
+    );
+    const available = Math.max(0, allocated - used);
+    return {
+      pool,
+      allocated,
+      available,
+      active,
+      slots,
+      pending,
+      usedRatio: allocated > 0 ? (allocated - available) / allocated : 0,
+    };
+  });
+}
+function number(value: any) {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : 0;
+}
+function money(value: any) {
+  return new Intl.NumberFormat('vi-VN', { maximumFractionDigits: 0 }).format(number(value));
+}
+function formatNumber(value: any) {
+  const n = Number(value);
+  return Number.isFinite(n)
+    ? new Intl.NumberFormat('en-US', { maximumFractionDigits: 2 }).format(n)
+    : '—';
+}
+function formatDate(value: any) {
+  if (!value) return '—';
+  const date = new Date(value);
+  return Number.isNaN(date.getTime())
+    ? String(value)
+    : new Intl.DateTimeFormat('vi-VN', { day: '2-digit', month: '2-digit' }).format(date);
+}
+function symbolOf(row: any) {
+  return String(row?.symbol ?? row?.code ?? row?.ticker ?? '—').toUpperCase();
+}

@@ -1,11 +1,18 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import type { DecisionEngineContext, DecisionStockCandidate } from '@tce/contracts';
-import { HuntingDividendCandidateScanner, type HuntingDividendScannerInput } from './hunting-dividend-scanner';
+import {
+  HuntingDividendCandidateScanner,
+  type HuntingDividendScannerInput,
+} from './hunting-dividend-scanner';
 
 const now = '2026-09-09T09:00:00.000Z';
 
-function input(symbol: string, dividendValue: number, observedAt = now): HuntingDividendScannerInput {
+function input(
+  symbol: string,
+  dividendValue: number,
+  observedAt = now
+): HuntingDividendScannerInput {
   return {
     dividend: {
       id: `evt-${symbol}`,
@@ -28,7 +35,9 @@ function input(symbol: string, dividendValue: number, observedAt = now): Hunting
   };
 }
 
-function toDecisionCandidate(candidate: NonNullable<ReturnType<HuntingDividendCandidateScanner['scan']>>): DecisionStockCandidate {
+function toDecisionCandidate(
+  candidate: NonNullable<ReturnType<HuntingDividendCandidateScanner['scan']>>
+): DecisionStockCandidate {
   return {
     symbol: candidate.symbol,
     price: candidate.price,
@@ -96,9 +105,16 @@ test('scanner output contains only provider-neutral candidate fields', () => {
 
 test('identical scanner snapshots produce identical decision candidates and ordering', () => {
   const scanner = new HuntingDividendCandidateScanner();
-  const first = scanner.scanBatch([input('VCB', 3000), input('DPM', 5000)]).map(toDecisionCandidate);
-  const second = scanner.scanBatch([input('VCB', 3000), input('DPM', 5000)]).map(toDecisionCandidate);
+  const first = scanner
+    .scanBatch([input('VCB', 3000), input('DPM', 5000)])
+    .map(toDecisionCandidate);
+  const second = scanner
+    .scanBatch([input('VCB', 3000), input('DPM', 5000)])
+    .map(toDecisionCandidate);
 
   assert.deepEqual(first, second);
-  assert.deepEqual(first.map(candidate => candidate.symbol), ['DPM', 'VCB']);
+  assert.deepEqual(
+    first.map(candidate => candidate.symbol),
+    ['DPM', 'VCB']
+  );
 });

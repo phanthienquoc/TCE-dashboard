@@ -40,7 +40,9 @@ export type TceLifecycleAuditRecord = TceLifecycleEvent & {
   metadata?: Record<string, unknown>;
 };
 
-export const TCE_LIFECYCLE_TRANSITIONS: Readonly<Record<TceLifecycleState, readonly TceLifecycleState[]>> = {
+export const TCE_LIFECYCLE_TRANSITIONS: Readonly<
+  Record<TceLifecycleState, readonly TceLifecycleState[]>
+> = {
   CANDIDATE: ['APPROVED'],
   APPROVED: ['PLANNED'],
   PLANNED: ['RISK_CHECKED'],
@@ -59,9 +61,6 @@ export const TCE_LIFECYCLE_TRANSITIONS: Readonly<Record<TceLifecycleState, reado
   SLOT_RECYCLED: ['CANDIDATE'],
 };
 
-export function canTransitionLifecycle(
-  from: TceLifecycleState,
-  to: TceLifecycleState,
-): boolean {
+export function canTransitionLifecycle(from: TceLifecycleState, to: TceLifecycleState): boolean {
   return TCE_LIFECYCLE_TRANSITIONS[from].includes(to);
 }

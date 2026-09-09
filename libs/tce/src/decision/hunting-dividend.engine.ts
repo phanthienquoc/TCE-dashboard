@@ -28,11 +28,18 @@ export class HuntingDividendDecisionEngine implements DecisionEngine {
     const cfg = context.config ?? {};
     const lookbackDays = positive(this.options.lookbackDays ?? cfg.lookbackDays, 30);
     const tpPercent = positive(this.options.tpPercent ?? cfg.tpPercent, 5);
-    const invalidationPercent = optionalPositive(this.options.invalidationPercent ?? cfg.invalidationPercent);
-    const slotsPerPool = Math.max(1, Math.floor(positive(this.options.slotsPerPool ?? cfg.slotsPerPool, 1)));
+    const invalidationPercent = optionalPositive(
+      this.options.invalidationPercent ?? cfg.invalidationPercent
+    );
+    const slotsPerPool = Math.max(
+      1,
+      Math.floor(positive(this.options.slotsPerPool ?? cfg.slotsPerPool, 1))
+    );
     const maxHoldDays = positive(this.options.maxHoldDays ?? cfg.maxHoldDays, 30);
     const minConfidence = bounded(this.options.minConfidence ?? cfg.minConfidence, 0, 1, 0.5);
-    const strategyVersion = String(this.options.strategyVersion ?? cfg.strategyVersion ?? HUNTING_DIVIDEND_STRATEGY_VERSION);
+    const strategyVersion = String(
+      this.options.strategyVersion ?? cfg.strategyVersion ?? HUNTING_DIVIDEND_STRATEGY_VERSION
+    );
     const now = new Date(context.timestamp).getTime();
     if (!Number.isFinite(now)) return [];
     const cutoff = now - lookbackDays * DAY_MS;
@@ -44,7 +51,12 @@ export class HuntingDividendDecisionEngine implements DecisionEngine {
       .filter(item => item.score !== null)
       .filter(item => inWindow(item.candidate.gdkhqTimestamp, cutoff, now))
       .filter(item => !occupiedSymbols.has(item.candidate.symbol.trim().toUpperCase()))
-      .sort((a, b) => (b.score as number) - (a.score as number) || a.candidate.symbol.localeCompare(b.candidate.symbol) || a.index - b.index);
+      .sort(
+        (a, b) =>
+          (b.score as number) - (a.score as number) ||
+          a.candidate.symbol.localeCompare(b.candidate.symbol) ||
+          a.index - b.index
+      );
 
     const seenWindows = new Set<string>();
     const decisions: TradeDecision[] = [];
@@ -53,7 +65,8 @@ export class HuntingDividendDecisionEngine implements DecisionEngine {
 
     for (const pool of POOLS) {
       const state = poolStates.get(pool);
-      if (!state || !Number.isFinite(state.availableCapital) || state.availableCapital <= 0) continue;
+      if (!state || !Number.isFinite(state.availableCapital) || state.availableCapital <= 0)
+        continue;
       const slotCapital = state.allocatedCapital / slotsPerPool;
       if (!Number.isFinite(slotCapital) || slotCapital <= 0) continue;
       for (let slotIndex = 1; slotIndex <= slotsPerPool; slotIndex += 1) {
@@ -73,9 +86,16 @@ export class HuntingDividendDecisionEngine implements DecisionEngine {
 
           const entry = candidate.price;
           const target = round(entry * (1 + tpPercent / 100));
-          const invalidation = invalidationPercent === undefined ? undefined : round(entry * (1 - invalidationPercent / 100));
+          const invalidation =
+            invalidationPercent === undefined
+              ? undefined
+              : round(entry * (1 - invalidationPercent / 100));
           if (!Number.isFinite(target) || target <= entry) continue;
-          if (invalidation !== undefined && (!Number.isFinite(invalidation) || invalidation <= 0 || invalidation >= entry)) continue;
+          if (
+            invalidation !== undefined &&
+            (!Number.isFinite(invalidation) || invalidation <= 0 || invalidation >= entry)
+          )
+            continue;
 
           const allocation = Math.min(slotCapital, state.availableCapital);
           if (!Number.isFinite(allocation) || allocation <= 0) continue;
@@ -97,7 +117,14 @@ export class HuntingDividendDecisionEngine implements DecisionEngine {
             decisionWindowKey: windowKey,
             decisionId,
             strategyVersion,
-            reasons: ['dividend_event_in_window', 'candidate_ranked', 'confidence_above_threshold', 'slot_available', 'target_defined', ...(invalidation !== undefined ? ['invalidation_defined'] : [])],
+            reasons: [
+              'dividend_event_in_window',
+              'candidate_ranked',
+              'confidence_above_threshold',
+              'slot_available',
+              'target_defined',
+              ...(invalidation !== undefined ? ['invalidation_defined'] : []),
+            ],
             timestamp: context.timestamp,
           };
           decisions.push(decision);
@@ -109,8 +136,14 @@ export class HuntingDividendDecisionEngine implements DecisionEngine {
   }
 
   snapshot(decision: TradeDecision): DecisionSnapshot {
-    const decisionId = decision.decisionId ?? `${this.options.strategyVersion ?? HUNTING_DIVIDEND_STRATEGY_VERSION}:${decision.symbol ?? 'UNKNOWN'}:${decision.slot ?? 'UNASSIGNED'}:${decision.timestamp}`;
-    return { decisionId, strategyVersion: decision.strategyVersion ?? HUNTING_DIVIDEND_STRATEGY_VERSION, decision: { ...decision, decisionId } };
+    const decisionId =
+      decision.decisionId ??
+      `${this.options.strategyVersion ?? HUNTING_DIVIDEND_STRATEGY_VERSION}:${decision.symbol ?? 'UNKNOWN'}:${decision.slot ?? 'UNASSIGNED'}:${decision.timestamp}`;
+    return {
+      decisionId,
+      strategyVersion: decision.strategyVersion ?? HUNTING_DIVIDEND_STRATEGY_VERSION,
+      decision: { ...decision, decisionId },
+    };
   }
 }
 
@@ -123,7 +156,7 @@ function candidateScore(candidate: Record<string, unknown>): number | null {
   const pnl = Number(candidate.realPnl ?? 0);
   const ratio = Number(String(candidate.dividendRatio ?? '').replace('%', ''));
   const ratioScore = Number.isFinite(ratio) ? ratio * 2 : 0;
-  const dividendScore = Number.isFinite(dividend) ? dividend / price * 100 : 0;
+  const dividendScore = Number.isFinite(dividend) ? (dividend / price) * 100 : 0;
   const pnlScore = Number.isFinite(pnl) ? pnl : 0;
   const score = ratioScore + dividendScore + pnlScore;
   return Number.isFinite(score) ? score : null;
