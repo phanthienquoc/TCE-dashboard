@@ -68,3 +68,45 @@ test('scanBatch uses symbol and candidate id as deterministic tie breakers', () 
 
   assert.deepEqual(result.map(candidate => candidate.symbol), ['DPM', 'VCB']);
 });
+
+test('scanDetailed returns explicit stale-data diagnostics', () => {
+  const scanner = new HuntingDividendCandidateScanner({ maxDataAgeMinutes: 10 });
+  const stale = input('VIC', 'evt-vic', 5000);
+  stale.market.observedAt = '2026-09-09T08:00:00.000Z';
+
+  const result = scanner.scanDetailed(stale);
+
+  assert.equal(result.candidate, null);
+  assert.deepEqual(result.rejectionReasons, ['stale_market_data']);
+});
+
+test('scanDetailed returns all applicable safety rejection reasons deterministically', () => {
+  const scanner = new HuntingDividendCandidateScanner({ minTurnover: 20_000_000, minVolume: 200_000, maxVolatility: 1 });
+  const rejected = input('VIC', 'evt-vic', 5000);
+  rejected.market.tradable = false;
+  rejected.market.halted = true;
+  rejected.market.abnormalEvent = true;
+  rejected.market.averageTurnover = 1_000_000;
+  rejected.market.averageVolume = 10_000;
+  rejected.market.volatility = 5;
+
+  const result = scanner.scanDetailed(rejected);
+
+  assert.deepEqual(result.rejectionReasons, [
+    'not_tradable',
+    'halted',
+    'abnormal_event',
+    'insufficient_turnover',
+    'insufficient_volume',
+    'excessive_volatility',
+  ]);
+  assert.equal(result.candidate, null);
+});
+
+test('scan remains backward compatible with detailed rejection handling', () => {
+  const scanner = new HuntingDividendCandidateScanner({ maxDataAgeMinutes: 10 });
+  const stale = input('VIC', 'evt-vic', 5000);
+  stale.market.observedAt = '2026-09-09T08:00:00.000Z';
+
+  assert.equal(scanner.scan(stale), null);
+});
