@@ -1,4 +1,4 @@
-import type { TceDecision, TceOrderPlan } from '@tce/contracts';
+import type { TceDecision, TceExecutionIntent, TceOrderPlan } from '@tce/contracts';
 
 export type OrderPlannerConfig = Readonly<{
   lotSize: number;
@@ -20,6 +20,10 @@ export type OrderPlannerOutcome =
   | Readonly<{ ok: true; plan: TceOrderPlan }>
   | Readonly<{ ok: false; code: string; message: string }>;
 
+export type ExecutionIntentOutcome =
+  | Readonly<{ ok: true; intent: TceExecutionIntent }>
+  | Readonly<{ ok: false; code: string; message: string }>;
+
 export function planBuyOrder(
   request: OrderPlannerRequest,
   config: OrderPlannerConfig
@@ -27,6 +31,7 @@ export function planBuyOrder(
   if (request.decision.action !== 'BUY') return { ok: false, code: 'DECISION_NOT_BUY', message: 'Only BUY decisions can be planned' };
   if (!request.slotAvailable) return { ok: false, code: 'SLOT_UNAVAILABLE', message: 'Decision slot is not available' };
   if (!Number.isFinite(request.price) || request.price <= 0) return { ok: false, code: 'INVALID_PRICE', message: 'Price must be positive and finite' };
+  if (!Number.isFinite(request.capital) || request.capital <= 0) return { ok: false, code: 'INVALID_CAPITAL', message: 'Capital must be positive' };
   if (!Number.isFinite(request.availableCapital) || request.availableCapital <= 0) return { ok: false, code: 'NO_BUYING_POWER', message: 'Available capital must be positive' };
   if (!Number.isInteger(config.lotSize) || config.lotSize <= 0) return { ok: false, code: 'INVALID_LOT_SIZE', message: 'lotSize must be a positive integer' };
 
@@ -41,24 +46,47 @@ export function planBuyOrder(
   if (config.maxNotional !== undefined && notional > config.maxNotional) return { ok: false, code: 'MAX_NOTIONAL', message: 'Calculated notional exceeds maximum' };
   if (notional > request.availableCapital) return { ok: false, code: 'BUYING_POWER_EXCEEDED', message: 'Calculated notional exceeds available capital' };
 
-  const target = request.decision.target;
-  const invalidation = request.decision.invalidation;
-  const id = `order-plan:${request.decision.id}:${request.decision.slotId}`;
   return {
     ok: true,
     plan: {
-      id,
+      id: `order-plan:${request.decision.id}:${request.decision.slotId}`,
       decisionId: request.decision.id,
       symbol: request.decision.symbol,
       side: 'BUY',
       quantity,
       entryPrice: request.price,
-      targetPrice: target,
-      invalidationPrice: invalidation,
+      targetPrice: request.decision.target,
+      invalidationPrice: request.decision.invalidation,
       notional,
       pool: request.decision.pool,
       slotId: request.decision.slotId,
       createdAt: request.timestamp,
+    },
+  };
+}
+
+export function createExecutionIntent(
+  plan: TceOrderPlan,
+  mode: TceExecutionIntent['mode'],
+  correlationId: string
+): ExecutionIntentOutcome {
+  if (!correlationId.trim()) return { ok: false, code: 'INVALID_CORRELATION_ID', message: 'correlationId is required' };
+  if (plan.quantity <= 0 || plan.notional <= 0) return { ok: false, code: 'INVALID_PLAN', message: 'Order plan must contain positive quantity and notional' };
+  const idempotencyKey = `tce:${plan.id}:${plan.side}:${plan.quantity}:${plan.entryPrice}`;
+  return {
+    ok: true,
+    intent: {
+      id: `execution-intent:${plan.id}`,
+      orderPlanId: plan.id,
+      correlationId,
+      idempotencyKey,
+      mode,
+      symbol: plan.symbol,
+      side: plan.side,
+      quantity: plan.quantity,
+      limitPrice: plan.entryPrice,
+      lifecycleState: 'READY',
+      createdAt: plan.createdAt,
     },
   };
 }
