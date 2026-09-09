@@ -1,0 +1,58 @@
+/* Mobile-only compatibility patch for More / platform configuration surfaces. */
+@media (max-width: 767px) {
+  .platform-config {
+    background: transparent !important;
+    color: var(--foreground) !important;
+  }
+
+  .platform-config > * {
+    opacity: 1 !important;
+    filter: none !important;
+  }
+
+  .platform-config h1,
+  .platform-config h2,
+  .platform-config h3,
+  .platform-config p,
+  .platform-config label,
+  .platform-config span,
+  .platform-config button {
+    color: var(--foreground) !important;
+  }
+
+  .platform-config [class*='text-zinc-400'],
+  .platform-config [class*='text-zinc-500'],
+  .platform-config [class*='text-zinc-600'],
+  .platform-config [class*='text-[#75697d]'],
+  .platform-config [class*='text-[#81748a]'],
+  .platform-config [class*='text-[#66596e]'] {
+    color: var(--muted) !important;
+  }
+
+  .platform-config [class*='bg-white'] {
+    background-color: var(--surface-strong) !important;
+  }
+
+  .platform-config [class*='bg-slate-50'],
+  .platform-config [class*='bg-gray-50'],
+  .platform-config [class*='bg-zinc-50'] {
+    background-color: var(--surface) !important;
+  }
+
+  .platform-config [class*='border-gray-'],
+  .platform-config [class*='border-slate-'],
+  .platform-config [class*='border-zinc-'] {
+    border-color: var(--border) !important;
+  }
+
+  .platform-config [class*='shadow'] {
+    --tw-shadow-color: rgb(0 0 0 / 0.22) !important;
+  }
+
+  .platform-config .panel-card,
+  .platform-config .data-card,
+  .platform-config section {
+    background: var(--surface-strong) !important;
+    border-color: var(--border) !important;
+  }
+}
