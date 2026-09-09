@@ -90,7 +90,7 @@
   .engine-meta {
     background: var(--surface) !important;
     color: var(--muted) !important;
-    border: 1px solid var(--border);
+    border-color: var(--border) !important;
   }
 
   .engine-meta .is-active-text {
@@ -98,18 +98,10 @@
   }
 
   .engine-title-row p,
-  .engine-description,
-  .engine-title-row span,
-  .engine-note,
   .page-heading h1,
-  .page-subtitle,
   .section-header h2,
-  .section-header span,
   .panel-head h2,
-  .panel-head p,
-  .eyebrow,
-  .account-chip strong,
-  .account-chip small {
+  .account-chip strong {
     color: var(--foreground) !important;
   }
 
@@ -122,6 +114,14 @@
   .eyebrow,
   .account-chip small {
     color: var(--muted) !important;
+  }
+
+  .platform-config,
+  .platform-config > *,
+  .engine-control-section,
+  .engine-control-section > * {
+    opacity: 1 !important;
+    filter: none !important;
   }
 
   .platform-config [role='tablist'] {
@@ -173,13 +173,6 @@
 
   .tce-bottom-tab-active {
     color: var(--primary) !important;
-  }
-
-  .platform-config,
-  .platform-config > *,
-  .engine-control-section,
-  .engine-control-section > * {
-    opacity: 1 !important;
   }
 
   [class*='text-white'] {
