@@ -20,6 +20,7 @@
   border: 1px solid var(--border);
   border-radius: 16px;
   background: var(--surface-strong);
+  color: var(--foreground);
   box-shadow: 0 1px 2px rgb(0 0 0 / 0.03);
 }
 .engine-row:last-child {
@@ -28,28 +29,110 @@
 .engine-power {
   grid-area: power;
   margin-top: 1px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  width: 46px;
+  height: 46px;
+  display: grid;
+  place-items: center;
+  background: var(--surface);
+  color: var(--muted);
+  transition:
+    background-color 160ms ease,
+    color 160ms ease,
+    border-color 160ms ease,
+    transform 160ms ease;
+}
+.engine-power:active {
+  transform: scale(0.96);
+}
+.engine-power.is-active {
+  background: color-mix(in srgb, var(--success) 10%, var(--surface));
+  color: var(--success);
+  border-color: color-mix(in srgb, var(--success) 40%, var(--border));
 }
 .engine-copy {
   grid-area: copy;
   min-width: 0;
+  text-decoration: none;
+  color: inherit;
 }
 .engine-title-row {
   grid-area: meta;
   min-width: 0;
 }
+.engine-title-row p {
+  margin: 0;
+  padding-right: 82px;
+  color: var(--foreground);
+  font-size: 18px;
+  line-height: 1.22;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+}
+.engine-title-row span {
+  display: inline-flex;
+  margin-top: 6px;
+  padding: 4px 8px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.1;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.engine-description {
+  margin: 0;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.45;
+}
 .engine-meta {
   position: absolute;
   top: 14px;
   right: 14px;
-  padding: 4px 7px;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 6px 8px;
+  border: 1px solid var(--border);
   border-radius: 999px;
   background: var(--surface);
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1;
+  font-weight: 800;
+  letter-spacing: 0.08em;
 }
-.engine-title-row p {
-  padding-right: 64px;
+.engine-meta .is-active-text {
+  color: var(--success);
+}
+.engine-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+  margin-top: 12px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.35;
 }
 @media (max-width: 700px) {
   .engine-list {
     grid-template-columns: 1fr;
+    gap: 10px;
+  }
+  .engine-row {
+    min-height: 136px;
+    padding: 13px;
+    border-radius: 15px;
+  }
+  .engine-title-row p {
+    font-size: 17px;
+    padding-right: 88px;
+  }
+  .engine-description {
+    font-size: 13px;
   }
 }
