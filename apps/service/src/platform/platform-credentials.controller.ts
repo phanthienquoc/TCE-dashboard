@@ -111,16 +111,10 @@ export class PlatformCredentialsController {
   @Post(':provider/request-otp') requestOtp(
     @Headers('authorization') auth: string | undefined,
     @Param('provider') provider: string,
-    @Body() body?: { environment?: string; credentials?: Record<string, unknown> }
+    @Body() body?: { environment?: string }
   ) {
     if (provider !== 'ssi') throw new UnauthorizedException('OTP flow is only available for SSI');
-    if (!body?.credentials || typeof body.credentials !== 'object')
-      throw new UnauthorizedException('SSI credentials are required');
-    return this.ssi.requestOtp(
-      this.userId(auth),
-      body.environment ?? 'production',
-      body.credentials
-    );
+    return this.ssi.requestOtp(this.userId(auth), body?.environment ?? 'production');
   }
   @Post(':provider/approve') approve(
     @Headers('authorization') auth: string | undefined,
@@ -130,20 +124,16 @@ export class PlatformCredentialsController {
       environment?: string;
       otp?: string;
       transactionId?: string;
-      credentials?: Record<string, unknown>;
     }
   ) {
     if (provider !== 'ssi')
       throw new UnauthorizedException('Approval verification is only available for SSI');
-    if (!body?.credentials || typeof body.credentials !== 'object')
-      throw new UnauthorizedException('SSI credentials are required');
-    if (!body.otp && !body.transactionId)
+    if (!body?.otp && !body?.transactionId)
       throw new UnauthorizedException('SSI transactionId or OTP is required');
     return this.ssi.approve(
       this.userId(auth),
       body.environment ?? 'production',
-      { otp: body.otp, transactionId: body.transactionId },
-      body.credentials
+      { otp: body.otp, transactionId: body.transactionId }
     );
   }
   @Post(':provider/test') test(
@@ -159,13 +149,11 @@ export class PlatformCredentialsController {
   ) {
     if (provider !== 'ssi')
       throw new UnauthorizedException('Connection test is not implemented for this provider yet');
-    if (!body?.credentials || typeof body.credentials !== 'object')
-      throw new UnauthorizedException('SSI credentials are required');
     return this.ssi.test(
       this.userId(auth),
-      body.environment ?? 'production',
-      { otp: body.otp, transactionId: body.transactionId },
-      body.credentials
+      body?.environment ?? 'production',
+      { otp: body?.otp, transactionId: body?.transactionId },
+      body?.credentials
     );
   }
   @Post(':provider/save-tested') saveTested(
