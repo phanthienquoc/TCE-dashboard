@@ -46,11 +46,9 @@
     padding-bottom: calc(108px + env(safe-area-inset-bottom)) !important;
   }
 
-  /* Shared surfaces: replace legacy light cards everywhere on mobile. */
   .hero-card,
   .panel-card,
   .data-card,
-  .auth-card,
   .engine-list-card,
   .notification-section,
   .platform-config section,
@@ -177,7 +175,6 @@
     color: var(--primary) !important;
   }
 
-  /* Remove accidental inherited opacity from wrappers observed in More/settings. */
   .platform-config,
   .platform-config > *,
   .engine-control-section,
