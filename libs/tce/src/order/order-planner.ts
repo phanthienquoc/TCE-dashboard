@@ -1,7 +1,10 @@
 import type { TceDecision, TceExecutionIntent, TceOrderPlan } from '@tce/contracts';
+import { normalizeOrderPrices, roundQuantityToStep } from './order-precision';
 
 export type OrderPlannerConfig = Readonly<{
   lotSize: number;
+  quantityStep?: number;
+  priceTick?: number;
   minQuantity?: number;
   maxQuantity?: number;
   maxNotional?: number;
@@ -30,19 +33,27 @@ export function planBuyOrder(
 ): OrderPlannerOutcome {
   if (request.decision.action !== 'BUY') return { ok: false, code: 'DECISION_NOT_BUY', message: 'Only BUY decisions can be planned' };
   if (!request.slotAvailable) return { ok: false, code: 'SLOT_UNAVAILABLE', message: 'Decision slot is not available' };
-  if (!Number.isFinite(request.price) || request.price <= 0) return { ok: false, code: 'INVALID_PRICE', message: 'Price must be positive and finite' };
   if (!Number.isFinite(request.capital) || request.capital <= 0) return { ok: false, code: 'INVALID_CAPITAL', message: 'Capital must be positive' };
   if (!Number.isFinite(request.availableCapital) || request.availableCapital <= 0) return { ok: false, code: 'NO_BUYING_POWER', message: 'Available capital must be positive' };
   if (!Number.isInteger(config.lotSize) || config.lotSize <= 0) return { ok: false, code: 'INVALID_LOT_SIZE', message: 'lotSize must be a positive integer' };
 
+  const prices = config.priceTick === undefined
+    ? { ok: true as const, value: { entry: request.price, target: request.decision.target, invalidation: request.decision.invalidation } }
+    : normalizeOrderPrices(request.price, request.decision.target, request.decision.invalidation, {
+        priceTick: config.priceTick,
+        quantityStep: config.quantityStep ?? config.lotSize,
+      });
+  if (!prices.ok) return prices;
+  const entryPrice = prices.value.entry;
   const budget = Math.min(request.capital, request.availableCapital);
-  const rawQuantity = Math.floor(budget / request.price);
-  const quantity = Math.floor(rawQuantity / config.lotSize) * config.lotSize;
-  if (quantity <= 0) return { ok: false, code: 'INSUFFICIENT_CAPITAL', message: 'Capital cannot purchase one board lot' };
+  const rawQuantity = Math.floor(budget / entryPrice);
+  const quantityResult = roundQuantityToStep(rawQuantity, config.quantityStep ?? config.lotSize);
+  if (!quantityResult.ok) return { ok: false, code: 'INSUFFICIENT_CAPITAL', message: 'Capital cannot purchase one board lot' };
+  const quantity = quantityResult.value;
   if (config.minQuantity !== undefined && quantity < config.minQuantity) return { ok: false, code: 'MIN_QUANTITY', message: 'Calculated quantity is below minimum' };
   if (config.maxQuantity !== undefined && quantity > config.maxQuantity) return { ok: false, code: 'MAX_QUANTITY', message: 'Calculated quantity exceeds maximum' };
 
-  const notional = quantity * request.price;
+  const notional = quantity * entryPrice;
   if (config.maxNotional !== undefined && notional > config.maxNotional) return { ok: false, code: 'MAX_NOTIONAL', message: 'Calculated notional exceeds maximum' };
   if (notional > request.availableCapital) return { ok: false, code: 'BUYING_POWER_EXCEEDED', message: 'Calculated notional exceeds available capital' };
 
@@ -54,9 +65,9 @@ export function planBuyOrder(
       symbol: request.decision.symbol,
       side: 'BUY',
       quantity,
-      entryPrice: request.price,
-      targetPrice: request.decision.target,
-      invalidationPrice: request.decision.invalidation,
+      entryPrice,
+      targetPrice: prices.value.target,
+      invalidationPrice: prices.value.invalidation,
       notional,
       pool: request.decision.pool,
       slotId: request.decision.slotId,
