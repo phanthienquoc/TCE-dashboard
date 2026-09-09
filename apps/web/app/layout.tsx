@@ -17,6 +17,7 @@ import './order-theme.css';
 import './app-spacing.css';
 import './dashboard-layout.css';
 import './mobile-command-center.css';
+import './mobile-theme-sync.css';
 import { AppProviders } from './providers';
 
 export const metadata: Metadata = {

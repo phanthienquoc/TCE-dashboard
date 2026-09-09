@@ -1,0 +1,52 @@
+/* Mobile command-center semantic theme bridge. */
+@media screen and (max-width: 767px) {
+  :root {
+    color-scheme: dark;
+    --background: #071016;
+    --foreground: #f2f7f8;
+    --secondary: #a5b4ba;
+    --tertiary: #82939b;
+    --muted: #82939b;
+    --subtle: #647780;
+    --surface: #0b171e;
+    --surface-strong: #102029;
+    --panel: #0b171e;
+    --panel-strong: #102029;
+    --border: rgba(255, 255, 255, 0.09);
+    --line: rgba(255, 255, 255, 0.09);
+    --primary: #55bfff;
+    --primary-foreground: #071016;
+    --accent: #55bfff;
+    --success: #31e981;
+    --warning: #ffbd5e;
+    --danger: #ff5e72;
+  }
+  html, body { background: #071016 !important; color: #f2f7f8 !important; color-scheme: dark !important; }
+  .app-shell, .dashboard-layout, .app-content { background: #071016 !important; color: #f2f7f8 !important; }
+  .tce-bottom-tabs { border-top-color: rgba(255,255,255,.09) !important; background: rgba(10,24,31,.94) !important; box-shadow: 0 -10px 30px rgba(0,0,0,.32) !important; }
+  .tce-bottom-tabs-inner { grid-template-columns: repeat(5, minmax(0, 1fr)) !important; }
+  .tce-bottom-tab { color: #82939b !important; }
+  .tce-bottom-tab-active { color: #55bfff !important; }
+  .tce-bottom-tab-icon { color: currentColor !important; }
+  .platform-config { color: #f2f7f8 !important; }
+  .platform-config .eyebrow, .platform-config > div:first-child p:last-child { color: #82939b !important; }
+  .platform-config h2, .platform-config [aria-label='TCE system controls'] strong { color: #f2f7f8 !important; }
+  .platform-config [aria-label='TCE system controls'] > a { min-height: 76px; border-color: rgba(255,255,255,.09) !important; background: linear-gradient(145deg,#102029,#0b171e) !important; color: #f2f7f8 !important; box-shadow: 0 8px 20px rgba(0,0,0,.16); }
+  .platform-config [aria-label='TCE system controls'] > a > span:first-child { border-color: rgba(255,255,255,.09) !important; background: rgba(255,255,255,.04) !important; color: #a5b4ba !important; }
+  .platform-config [aria-label='TCE system controls'] > a > span:last-child > span { color: #82939b !important; }
+  .platform-config [role='tablist'] { width: 100%; min-height: 54px; display: grid !important; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 4px; padding: 4px !important; overflow: hidden !important; border-color: rgba(255,255,255,.09) !important; background: #0b171e !important; border-radius: 14px !important; }
+  .platform-config [role='tab'] { min-width: 0; width: 100%; min-height: 44px; padding: 8px 6px !important; overflow: hidden; text-overflow: ellipsis; color: #a5b4ba !important; background: transparent !important; border-radius: 10px !important; font-size: 13px !important; }
+  .platform-config [role='tab'][data-state='active'] { background: #102b37 !important; color: #f2f7f8 !important; box-shadow: 0 2px 8px rgba(0,0,0,.28) !important; }
+  .platform-config [role='tabpanel'] { color: #f2f7f8 !important; }
+  .platform-config section { border-color: rgba(255,255,255,.09) !important; background: linear-gradient(145deg,#102029,#0b171e) !important; color: #f2f7f8 !important; }
+  .platform-config section h2, .platform-config section h3, .platform-config section strong, .platform-config section label { color: #f2f7f8 !important; }
+  .platform-config section p, .platform-config section small, .platform-config section [class*='text-muted'], .platform-config section [class*='text-zinc-'] { color: #82939b !important; }
+  .platform-config input, .platform-config select, .platform-config textarea { min-height: 48px; background: #0b171e !important; color: #f2f7f8 !important; border-color: rgba(255,255,255,.1) !important; }
+  .platform-config input::placeholder, .platform-config textarea::placeholder { color: #647780 !important; }
+  .platform-config button { color: #f2f7f8; }
+  .platform-config button:disabled { opacity: .48; }
+  .platform-config [class*='bg-white'], .platform-config [class*='bg-background'] { background-color: #102029 !important; }
+  .platform-config [class*='border-white'], .platform-config [class*='border-border'] { border-color: rgba(255,255,255,.09) !important; }
+  .platform-config [class*='text-foreground'] { color: #f2f7f8 !important; }
+  .platform-config [class*='text-muted'] { color: #82939b !important; }
+}
