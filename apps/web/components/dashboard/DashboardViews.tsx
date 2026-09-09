@@ -16,6 +16,7 @@ import {
 import { useEffect, useMemo, useState } from 'react';
 import PlatformConfigTab from '../config/PlatformConfigTab';
 import { useStockEventStore, type StockEvent } from '../../lib/stock-event-store';
+import { useDashboardStore } from '../../lib/store';
 import type { DashboardActions, DashboardData } from './DashboardShell';
 
 type ViewProps = { data: DashboardData; actions: DashboardActions };
@@ -130,6 +131,8 @@ export function PositionsView({ data, actions }: ViewProps) {
   const loading = useStockEventStore(s => s.loading);
   const error = useStockEventStore(s => s.error);
   const load = useStockEventStore(s => s.load);
+  const marketPrices = useDashboardStore(s => s.marketPrices);
+  const syncMarketPrices = useDashboardStore(s => s.syncMarketPrices);
   useEffect(() => {
     void load();
   }, [load]);
@@ -146,6 +149,17 @@ export function PositionsView({ data, actions }: ViewProps) {
       .map(([symbol, tickerEvents]) => ({ symbol, events: tickerEvents }))
       .sort((a, b) => a.symbol.localeCompare(b.symbol));
   }, [events]);
+  const dividendSymbolsKey = useMemo(() => dividendPools.map(item => item.symbol).join(','), [dividendPools]);
+  useEffect(() => {
+    const symbols = dividendPools.map(item => item.symbol);
+    if (!symbols.length) return;
+    const snapshot = { pools: symbols.map(symbol => ({ symbol })) };
+    void syncMarketPrices(snapshot);
+    const timer = window.setInterval(() => {
+      void syncMarketPrices(snapshot);
+    }, 15 * 60 * 1000);
+    return () => window.clearInterval(timer);
+  }, [dividendSymbolsKey, syncMarketPrices]);
   return (
     <div className="tce-mobile-view">
       <MobileHeader
@@ -190,6 +204,7 @@ export function PositionsView({ data, actions }: ViewProps) {
                 pool={data.pools.find(
                   p => String(p.symbol ?? p.code ?? '').toUpperCase() === item.symbol
                 )}
+                marketPrice={marketPrices[item.symbol]?.price}
               />
             ))
           ) : (
@@ -507,11 +522,14 @@ function PositionCard({ row, onSell }: { row: any; onSell: () => void }) {
 function DividendCard({
   item,
   pool,
+  marketPrice,
 }: {
   item: { symbol: string; events: StockEvent[] };
   pool?: any;
+  marketPrice?: number;
 }) {
   const event = item.events[0];
+  const price = marketPrice ?? pool?.currentPrice ?? pool?.current_price;
   return (
     <article className="tce-dividend-card">
       <div>
@@ -527,7 +545,7 @@ function DividendCard({
       <div className="tce-pool-grid">
         <div>
           <span>Price</span>
-          <b>{formatNumber(pool?.currentPrice ?? pool?.current_price)}</b>
+          <b>{formatNumber(price)}</b>
         </div>
         <div>
           <span>Entry</span>
