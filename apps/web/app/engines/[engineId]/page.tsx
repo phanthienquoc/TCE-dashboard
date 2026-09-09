@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { ArrowLeft, RefreshCw, Save } from 'lucide-react';
+import { ArrowLeft, RefreshCw, Save, X } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { Card, CardContent } from '../../../components/ui/card';
@@ -11,6 +11,12 @@ import { dashboardApi, platformApi } from '../../../lib/api';
 
 type ActionResult = { ok: boolean; message: string } | null;
 type EngineConfig = Record<string, string | number | boolean>;
+
+type SsiAuthDetails = {
+  transactionId?: string;
+  action?: string;
+  message?: string;
+};
 
 export default function EngineDetailPage() {
   const params = useParams<{ engineId: string }>();
@@ -22,6 +28,11 @@ export default function EngineDetailPage() {
   const [syncingPortfolio, setSyncingPortfolio] = useState(false);
   const [syncResult, setSyncResult] = useState<ActionResult>(null);
   const [portfolioResult, setPortfolioResult] = useState<ActionResult>(null);
+  const [ssiOtpOpen, setSsiOtpOpen] = useState(false);
+  const [ssiOtp, setSsiOtp] = useState('');
+  const [ssiTransactionId, setSsiTransactionId] = useState<string | undefined>();
+  const [ssiOtpLoading, setSsiOtpLoading] = useState(false);
+  const [ssiOtpError, setSsiOtpError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!engine) return;
@@ -120,6 +131,49 @@ export default function EngineDetailPage() {
     }
   }
 
+  function openSsiOtp(details?: SsiAuthDetails) {
+    setSsiTransactionId(details?.transactionId);
+    setSsiOtp('');
+    setSsiOtpError(null);
+    setSsiOtpOpen(true);
+  }
+
+  async function approveSsiOtp() {
+    const otp = ssiOtp.trim();
+    if (!otp && !ssiTransactionId) {
+      setSsiOtpError('Enter the OTP sent by SSI.');
+      return;
+    }
+    setSsiOtpLoading(true);
+    setSsiOtpError(null);
+    try {
+      const response = await platformApi.ssiApprove({
+        environment: 'production',
+        ...(otp ? { otp } : {}),
+        ...(ssiTransactionId ? { transactionId: ssiTransactionId } : {}),
+      });
+      const data = response.data as { ok?: boolean; error?: { message?: string } };
+      if (!data?.ok) {
+        setSsiOtpError(data?.error?.message ?? 'SSI OTP verification failed');
+        return;
+      }
+      setSsiOtpOpen(false);
+      setSsiOtp('');
+      setSsiTransactionId(undefined);
+      await syncPortfolio();
+    } catch (error) {
+      const value = error as { response?: { data?: { message?: string; error?: { message?: string } } }; message?: string };
+      setSsiOtpError(
+        value?.response?.data?.error?.message ??
+          value?.response?.data?.message ??
+          value?.message ??
+          'SSI OTP verification failed'
+      );
+    } finally {
+      setSsiOtpLoading(false);
+    }
+  }
+
   async function syncPortfolio() {
     if (syncingPortfolio) return;
     setSyncingPortfolio(true);
@@ -128,7 +182,7 @@ export default function EngineDetailPage() {
       const response = await platformApi.ssiSync({});
       const data = response.data as {
         ok?: boolean;
-        error?: { message?: string };
+        error?: { code?: string; message?: string; details?: SsiAuthDetails };
         data?: {
           accountsSynced?: number;
           assetsSynced?: number;
@@ -139,7 +193,13 @@ export default function EngineDetailPage() {
       };
       const result = data?.data;
       if (!data?.ok) {
-        setPortfolioResult({ ok: false, message: data?.error?.message ?? 'SSI portfolio sync failed' });
+        const authError = data?.error;
+        if (authError?.code === 'SSI_AUTH_REQUIRED') {
+          setPortfolioResult({ ok: false, message: authError.message ?? 'SSI approval required.' });
+          openSsiOtp(authError.details);
+          return;
+        }
+        setPortfolioResult({ ok: false, message: authError?.message ?? 'SSI portfolio sync failed' });
         return;
       }
       const accounts = Number(result?.accountsSynced ?? 0);
@@ -152,15 +212,21 @@ export default function EngineDetailPage() {
         message: `Synced ${accounts} SSI account(s), ${assets} asset row(s), ${positions} position(s). Cash ${cash.toLocaleString('vi-VN')} VND.${closed ? ` Closed ${closed} stale position(s).` : ''}`,
       });
     } catch (error) {
-      const value = error as { response?: { data?: { message?: string; error?: { message?: string } } }; message?: string };
-      setPortfolioResult({
-        ok: false,
-        message:
-          value?.response?.data?.error?.message ??
-          value?.response?.data?.message ??
-          value?.message ??
-          'SSI portfolio sync failed',
-      });
+      const value = error as { response?: { data?: { message?: string; error?: { code?: string; message?: string; details?: SsiAuthDetails } } }; message?: string };
+      const authError = value?.response?.data?.error;
+      if (authError?.code === 'SSI_AUTH_REQUIRED') {
+        setPortfolioResult({ ok: false, message: authError.message ?? 'SSI approval required.' });
+        openSsiOtp(authError.details);
+      } else {
+        setPortfolioResult({
+          ok: false,
+          message:
+            authError?.message ??
+            value?.response?.data?.message ??
+            value?.message ??
+            'SSI portfolio sync failed',
+        });
+      }
     } finally {
       setSyncingPortfolio(false);
     }
@@ -269,6 +335,53 @@ export default function EngineDetailPage() {
           </div>
         </CardContent>
       </Card>
+
+      {ssiOtpOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-sm rounded-2xl border border-violet-200/[0.10] bg-[#11111a] p-5 shadow-2xl">
+            <div className="mb-5 flex items-start justify-between gap-3">
+              <div>
+                <p className="text-base font-semibold text-white">SSI approval required</p>
+                <p className="mt-1 text-xs leading-5 text-muted">
+                  SSI session expired. Enter the OTP from SSI to refresh the trading access token.
+                </p>
+              </div>
+              <button
+                type="button"
+                aria-label="Close"
+                onClick={() => setSsiOtpOpen(false)}
+                className="rounded-lg p-1.5 text-muted transition hover:bg-white/[0.06] hover:text-white"
+              >
+                <X className="size-4" />
+              </button>
+            </div>
+            <label className="block">
+              <span className="mb-2 block text-xs font-medium text-muted">OTP</span>
+              <input
+                autoFocus
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                value={ssiOtp}
+                onChange={event => setSsiOtp(event.target.value.replace(/\D/g, ''))}
+                onKeyDown={event => {
+                  if (event.key === 'Enter') void approveSsiOtp();
+                }}
+                placeholder="Enter OTP"
+                className="h-12 w-full rounded-xl border border-violet-200/[0.10] bg-white/[0.04] px-3 text-center text-lg tracking-[0.35em] text-white outline-none focus:border-violet-300/30"
+              />
+            </label>
+            {ssiOtpError && <p className="mt-2 text-xs text-red-300">{ssiOtpError}</p>}
+            <div className="mt-5 flex justify-end gap-2">
+              <Button variant="ghost" className="touch-target" disabled={ssiOtpLoading} onClick={() => setSsiOtpOpen(false)}>
+                Cancel
+              </Button>
+              <Button className="touch-target" disabled={ssiOtpLoading || !ssiOtp.trim()} onClick={() => void approveSsiOtp()}>
+                {ssiOtpLoading ? 'Verifying…' : 'Verify & sync'}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

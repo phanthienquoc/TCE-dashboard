@@ -135,6 +135,7 @@ export class SsiApplicationService {
       console.error('[SSI_ORDER_STREAM_START]', error);
     }
   }
+
   private storeSession(
     userId: string,
     environment: string,
@@ -143,16 +144,20 @@ export class SsiApplicationService {
     this.sessions.set(`${userId}:ssi:${environment}`, session);
   }
 
-  async requestOtp(userId: string, environment: string, credentials: Record<string, unknown>) {
-    const { adapter } = this.fromRaw(credentials, userId, environment);
+  async requestOtp(userId: string, environment: string) {
+    // Re-authentication is intentionally driven from the persisted credential
+    // record. The browser must never send apiKey/apiSecret/privateKey for this flow.
+    const { adapter } = await this.adapter(userId, environment, false);
     return adapter.requestOtp();
   }
+
   async approve(
     userId: string,
     environment: string,
     input: SsiAuthInput,
-    credentials: Record<string, unknown>
+    suppliedCredentials?: Record<string, unknown>
   ) {
+    const credentials = suppliedCredentials ?? (await this.credentials.get(userId, 'ssi', environment));
     const session = this.fromRaw(credentials, userId, environment, undefined, true);
     const result = await session.adapter.connect({ userId, environment, ...input });
     if (!result.ok) return result;
@@ -165,6 +170,7 @@ export class SsiApplicationService {
       void this.startOrderStream(await this.tceAccountId(userId), finalSession);
     return { ok: true as const, data: { authentication: 'ok' as const, provider: 'ssi' as const } };
   }
+
   async test(
     userId: string,
     environment: string,
@@ -210,6 +216,7 @@ export class SsiApplicationService {
       void this.startOrderStream(await this.tceAccountId(userId), finalSession);
     return result;
   }
+
   async saveTested(
     userId: string,
     environment: string,
@@ -240,21 +247,50 @@ export class SsiApplicationService {
     void this.startOrderStream(await this.tceAccountId(userId), persisted);
     return result;
   }
+
   async current(userId: string, environment: string, input: SsiAuthInput) {
     const { adapter, accountNo } = await this.adapter(userId, environment);
     return adapter.current(accountNo, input);
   }
+
   async accountSnapshots(userId: string, environment: string, input: SsiAuthInput) {
     const key = `${userId}:ssi:${environment}`;
     const existing = this.sessions.get(key);
-    if (existing) return existing.adapter.accountSnapshots(input);
-    const { adapter } = await this.adapter(userId, environment, false);
-    return adapter.accountSnapshots(input);
+    return existing
+      ? existing.adapter.accountSnapshots(input)
+      : (await this.adapter(userId, environment, false)).adapter.accountSnapshots(input);
   }
+
+  async syncWithReauth(userId: string, environment: string, input: SsiAuthInput = {}) {
+    const snapshots = await this.accountSnapshots(userId, environment, input);
+    if (snapshots.ok) return snapshots;
+
+    const message = String(snapshots.error?.message ?? '');
+    if (!message.startsWith('SSI_REAUTH_REQUIRED')) return snapshots;
+
+    const challenge = await this.requestOtp(userId, environment);
+    if (!challenge.ok) return challenge;
+
+    return {
+      ok: false as const,
+      error: {
+        code: 'SSI_AUTH_REQUIRED' as const,
+        message: challenge.data.message,
+        retryable: false,
+        provider: 'ssi' as const,
+        details: {
+          transactionId: challenge.data.transactionId,
+          action: 'ENTER_OTP',
+        },
+      },
+    };
+  }
+
   async marketPrices(userId: string, environment: string, symbols: string[]) {
     const { adapter } = await this.adapter(userId, environment, false);
     return adapter.marketPrices(symbols);
   }
+
   async dailyCloses(userId: string, environment: string, symbols: string[], tradingDate: string) {
     const { adapter } = await this.adapter(userId, environment, false);
     return adapter.dailyCloses(symbols, tradingDate);
@@ -283,9 +319,6 @@ export class SsiApplicationService {
     let confirmedOrderId = result.data.orderId;
     let providerStatus = result.data.status;
 
-    // SSI may expose the new order a short moment after the place-order response.
-    // Poll the authoritative "today orders" endpoint so the UI can distinguish
-    // an accepted order from a request that only returned a transport-level 200.
     for (let attempt = 0; attempt < 4; attempt += 1) {
       const orders = await session.adapter.orders(accountNo);
       if (orders.ok) {

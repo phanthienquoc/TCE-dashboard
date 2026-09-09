@@ -22,7 +22,7 @@ export class SsiAssetSyncService {
     if (error) throw error;
     if (!account) throw new NotFoundException('TCE account is not configured');
 
-    const snapshots = await this.ssi.accountSnapshots(userId, environment, input);
+    const snapshots = await this.ssi.syncWithReauth(userId, environment, input);
     if (!snapshots.ok) return snapshots;
 
     let accountsSynced = 0,
