@@ -77,6 +77,28 @@ export class HuntingDividendCandidateScanner {
       scannerVersion: this.version,
     };
   }
+
+  scanBatch(inputs: readonly HuntingDividendScannerInput[]): TceCandidate[] {
+    const seen = new Set<string>();
+    const candidates: TceCandidate[] = [];
+
+    for (const input of inputs) {
+      const symbol = input.market.symbol.trim().toUpperCase();
+      const dividendId = input.dividend.id.trim();
+      const key = `${dividendId}:${symbol}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+
+      const candidate = this.scan(input);
+      if (candidate) candidates.push(candidate);
+    }
+
+    return candidates.sort((a, b) =>
+      b.score - a.score ||
+      a.symbol.localeCompare(b.symbol) ||
+      a.id.localeCompare(b.id),
+    );
+  }
 }
 
 function scoreCandidate(dividendYield: number, daysToEx: number, market: HuntingDividendMarketSnapshot): number {
