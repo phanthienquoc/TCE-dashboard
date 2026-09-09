@@ -11,3 +11,4 @@ export * from './tokens';
 export * from './trading-lifecycle.contract';
 export * from './tce-auto-trade.contract';
 export * from './capital-allocation.contract';
+export * from './capital-lifecycle.contract';

@@ -17,3 +17,4 @@ export type TceOrder = {
 export * from './scanner/hunting-dividend-scanner';
 export * from './decision/hunting-dividend.engine';
 export * from './capital/capital-slot-allocator';
+export * from './capital/capital-allocation-lifecycle';
