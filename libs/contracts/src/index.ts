@@ -9,3 +9,4 @@ export * from './execution';
 export * from './decision-engine';
 export * from './tokens';
 export * from './trading-lifecycle.contract';
+export * from './tce-auto-trade.contract';
