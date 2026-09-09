@@ -86,19 +86,43 @@ export function reserveCapital(
   existingOwnerKeys: ReadonlySet<string> = new Set()
 ): CapitalAllocationOutcome {
   if (!Number.isFinite(request.amount) || request.amount <= 0) {
-    return { ok: false, error: { code: 'INVALID_AMOUNT', message: 'Allocation amount must be positive and finite' } };
+    return {
+      ok: false,
+      error: { code: 'INVALID_AMOUNT', message: 'Allocation amount must be positive and finite' },
+    };
   }
   if (request.pool !== state.pool || slot.pool !== state.pool) {
-    return { ok: false, error: { code: 'INVALID_POOL_STATE', message: 'Pool and slot must belong to the same capital pool' } };
+    return {
+      ok: false,
+      error: {
+        code: 'INVALID_POOL_STATE',
+        message: 'Pool and slot must belong to the same capital pool',
+      },
+    };
   }
   if (slot.state !== 'AVAILABLE') {
-    return { ok: false, error: { code: 'SLOT_UNAVAILABLE', message: `Slot ${slot.id} is not available` } };
+    return {
+      ok: false,
+      error: { code: 'SLOT_UNAVAILABLE', message: `Slot ${slot.id} is not available` },
+    };
   }
   if (existingOwnerKeys.has(request.ownerKey)) {
-    return { ok: false, error: { code: 'OWNER_ALREADY_ASSIGNED', message: `Owner ${request.ownerKey} already has an allocation` } };
+    return {
+      ok: false,
+      error: {
+        code: 'OWNER_ALREADY_ASSIGNED',
+        message: `Owner ${request.ownerKey} already has an allocation`,
+      },
+    };
   }
   if (request.amount > state.availableCapital) {
-    return { ok: false, error: { code: 'INSUFFICIENT_AVAILABLE_CAPITAL', message: 'Requested capital exceeds available pool capital' } };
+    return {
+      ok: false,
+      error: {
+        code: 'INSUFFICIENT_AVAILABLE_CAPITAL',
+        message: 'Requested capital exceeds available pool capital',
+      },
+    };
   }
 
   const next: CapitalPoolState = {
@@ -120,10 +144,7 @@ export function reserveCapital(
   };
 }
 
-export function releaseReservedCapital(
-  state: CapitalPoolState,
-  amount: number
-): CapitalPoolState {
+export function releaseReservedCapital(state: CapitalPoolState, amount: number): CapitalPoolState {
   if (!Number.isFinite(amount) || amount < 0 || amount > state.reservedCapital) {
     throw new Error('release amount must be within reserved capital');
   }
@@ -135,7 +156,11 @@ export function releaseReservedCapital(
   };
 }
 
-export function realizeCapital(state: CapitalPoolState, principal: number, pnl: number): CapitalPoolState {
+export function realizeCapital(
+  state: CapitalPoolState,
+  principal: number,
+  pnl: number
+): CapitalPoolState {
   if (!Number.isFinite(principal) || principal < 0 || principal > state.allocatedCapital) {
     throw new Error('principal must be within allocated capital');
   }
@@ -148,24 +173,35 @@ export function realizeCapital(state: CapitalPoolState, principal: number, pnl: 
   };
 }
 
-export function createSlot(
-  pool: CapitalPoolId,
-  index: number,
-  timestamp: string
-): CapitalSlot {
-  if (!Number.isInteger(index) || index < 0) throw new Error('slot index must be a non-negative integer');
-  return { id: `${pool}:${index + 1}`, pool, index, state: 'AVAILABLE', reservedCapital: 0, updatedAt: timestamp };
+export function createSlot(pool: CapitalPoolId, index: number, timestamp: string): CapitalSlot {
+  if (!Number.isInteger(index) || index < 0)
+    throw new Error('slot index must be a non-negative integer');
+  return {
+    id: `${pool}:${index + 1}`,
+    pool,
+    index,
+    state: 'AVAILABLE',
+    reservedCapital: 0,
+    updatedAt: timestamp,
+  };
 }
 
-export function reserveSlot(slot: CapitalSlot, ownerKey: string, amount: number, timestamp: string): CapitalSlot {
+export function reserveSlot(
+  slot: CapitalSlot,
+  ownerKey: string,
+  amount: number,
+  timestamp: string
+): CapitalSlot {
   if (slot.state !== 'AVAILABLE') throw new Error(`Slot ${slot.id} is not available`);
   if (!ownerKey.trim()) throw new Error('ownerKey is required');
-  if (!Number.isFinite(amount) || amount <= 0) throw new Error('reserved slot capital must be positive and finite');
+  if (!Number.isFinite(amount) || amount <= 0)
+    throw new Error('reserved slot capital must be positive and finite');
   return { ...slot, state: 'RESERVED', ownerKey, reservedCapital: amount, updatedAt: timestamp };
 }
 
 export function activateSlot(slot: CapitalSlot, timestamp: string): CapitalSlot {
-  if (slot.state !== 'RESERVED') throw new Error(`Slot ${slot.id} must be RESERVED before activation`);
+  if (slot.state !== 'RESERVED')
+    throw new Error(`Slot ${slot.id} must be RESERVED before activation`);
   return { ...slot, state: 'ACTIVE', updatedAt: timestamp };
 }
 
@@ -173,7 +209,13 @@ export function releaseSlot(slot: CapitalSlot, timestamp: string): CapitalSlot {
   if (slot.state !== 'RESERVED' && slot.state !== 'ACTIVE') {
     throw new Error(`Slot ${slot.id} cannot be released from ${slot.state}`);
   }
-  return { ...slot, state: 'AVAILABLE', ownerKey: undefined, reservedCapital: 0, updatedAt: timestamp };
+  return {
+    ...slot,
+    state: 'AVAILABLE',
+    ownerKey: undefined,
+    reservedCapital: 0,
+    updatedAt: timestamp,
+  };
 }
 
 export function markSlotOrphaned(slot: CapitalSlot, timestamp: string): CapitalSlot {

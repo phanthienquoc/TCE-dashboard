@@ -1,7 +1,4 @@
-import type {
-  CapitalAllocationLifecycle,
-  CapitalLifecycleOutcome,
-} from '@tce/contracts';
+import type { CapitalAllocationLifecycle, CapitalLifecycleOutcome } from '@tce/contracts';
 import {
   markAllocationOrphaned,
   markAllocationStuck,
@@ -20,12 +17,13 @@ export class CapitalAllocationLifecycleService {
 
   constructor(private current: CapitalAllocationLifecycle) {}
 
-  private run<T extends CapitalLifecycleOutcome>(
-    command: LifecycleCommand,
-    operation: () => T
-  ): T {
+  private run<T extends CapitalLifecycleOutcome>(command: LifecycleCommand, operation: () => T): T {
     if (!command.idempotencyKey.trim()) {
-      return { ok: false, code: 'INVALID_IDEMPOTENCY_KEY', message: 'idempotencyKey is required' } as T;
+      return {
+        ok: false,
+        code: 'INVALID_IDEMPOTENCY_KEY',
+        message: 'idempotencyKey is required',
+      } as T;
     }
     const previous = this.processed.get(command.idempotencyKey);
     if (previous) return { ok: true, lifecycle: previous } as T;
@@ -38,7 +36,9 @@ export class CapitalAllocationLifecycleService {
   }
 
   partialFill(command: LifecycleCommand, filledAmount: number): CapitalLifecycleOutcome {
-    return this.run(command, () => transitionPartialFill(this.current, filledAmount, command.timestamp));
+    return this.run(command, () =>
+      transitionPartialFill(this.current, filledAmount, command.timestamp)
+    );
   }
 
   release(command: LifecycleCommand): CapitalLifecycleOutcome {
