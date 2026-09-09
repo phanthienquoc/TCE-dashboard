@@ -16,14 +16,23 @@ import {
 test('reserves capital without exceeding available pool capacity', () => {
   const pool = createCapitalPoolState('A', 100_000, 2);
   const slot = createSlot('A', 0, '2026-09-09T16:00:00.000Z');
-  const reservedSlot = reserveSlot(slot, 'candidate:DPM:window-1', 40_000, '2026-09-09T16:00:00.000Z');
-  const outcome = reserveCapital(pool, {
-    pool: 'A',
-    slotId: reservedSlot.id,
-    ownerKey: reservedSlot.ownerKey!,
-    amount: 40_000,
-    timestamp: reservedSlot.updatedAt,
-  }, reservedSlot);
+  const reservedSlot = reserveSlot(
+    slot,
+    'candidate:DPM:window-1',
+    40_000,
+    '2026-09-09T16:00:00.000Z'
+  );
+  const outcome = reserveCapital(
+    pool,
+    {
+      pool: 'A',
+      slotId: reservedSlot.id,
+      ownerKey: reservedSlot.ownerKey!,
+      amount: 40_000,
+      timestamp: reservedSlot.updatedAt,
+    },
+    reservedSlot
+  );
 
   assert.equal(outcome.ok, true);
   if (!outcome.ok) return;
@@ -44,7 +53,10 @@ test('rejects duplicate owner and over-allocation deterministically', () => {
     timestamp: slot.updatedAt,
   };
   assert.equal(reserveCapital(pool, request, slot).ok, false);
-  assert.equal(reserveCapital(pool, { ...request, amount: 10_000 }, slot, new Set([request.ownerKey])).ok, false);
+  assert.equal(
+    reserveCapital(pool, { ...request, amount: 10_000 }, slot, new Set([request.ownerKey])).ok,
+    false
+  );
 });
 
 test('slot lifecycle supports reserve, activate and release', () => {
@@ -71,13 +83,17 @@ test('orphaned and stuck states remain explicit recovery states', () => {
 test('releasing reserved capital restores availability', () => {
   const pool = createCapitalPoolState('A', 100_000, 2);
   const slot = createSlot('A', 0, '2026-09-09T16:00:00.000Z');
-  const outcome = reserveCapital(pool, {
-    pool: 'A',
-    slotId: slot.id,
-    ownerKey: 'candidate:DPM:window-1',
-    amount: 25_000,
-    timestamp: slot.updatedAt,
-  }, slot);
+  const outcome = reserveCapital(
+    pool,
+    {
+      pool: 'A',
+      slotId: slot.id,
+      ownerKey: 'candidate:DPM:window-1',
+      amount: 25_000,
+      timestamp: slot.updatedAt,
+    },
+    slot
+  );
   assert.equal(outcome.ok, true);
   if (!outcome.ok) return;
   const released = releaseReservedCapital(outcome.state, 25_000);

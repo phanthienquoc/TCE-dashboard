@@ -7,12 +7,22 @@ test('partial fill releases only unfilled capital and preserves filled allocatio
   const service = new CapitalAllocationLifecycleService({
     ownerKey: 'candidate:DPM:window-1',
     pool: {
-      pool: 'A', configuredCapital: 100, allocatedCapital: 100, reservedCapital: 100,
-      availableCapital: 0, realizedCapital: 0, slotCount: 1,
+      pool: 'A',
+      configuredCapital: 100,
+      allocatedCapital: 100,
+      reservedCapital: 100,
+      availableCapital: 0,
+      realizedCapital: 0,
+      slotCount: 1,
     },
     slot: {
-      id: 'A:1', pool: 'A', index: 0, state: 'RESERVED', ownerKey: 'candidate:DPM:window-1',
-      reservedCapital: 100, updatedAt: '2026-09-10T00:00:00.000Z',
+      id: 'A:1',
+      pool: 'A',
+      index: 0,
+      state: 'RESERVED',
+      ownerKey: 'candidate:DPM:window-1',
+      reservedCapital: 100,
+      updatedAt: '2026-09-10T00:00:00.000Z',
     },
     allocatedAmount: 100,
     reservedAmount: 100,
@@ -21,7 +31,10 @@ test('partial fill releases only unfilled capital and preserves filled allocatio
     updatedAt: '2026-09-10T00:00:00.000Z',
   } satisfies CapitalAllocationLifecycle);
 
-  const partial = service.partialFill({ idempotencyKey: 'fill-1', timestamp: '2026-09-10T00:00:01.000Z' }, 40);
+  const partial = service.partialFill(
+    { idempotencyKey: 'fill-1', timestamp: '2026-09-10T00:00:01.000Z' },
+    40
+  );
   assert.equal(partial.ok, true);
   if (!partial.ok) return;
   assert.equal(partial.lifecycle.filledAmount, 40);
@@ -30,7 +43,10 @@ test('partial fill releases only unfilled capital and preserves filled allocatio
   assert.equal(partial.lifecycle.pool.reservedCapital, 60);
   assert.equal(partial.lifecycle.slot.reservedCapital, 60);
 
-  const release = service.release({ idempotencyKey: 'cancel-1', timestamp: '2026-09-10T00:00:02.000Z' });
+  const release = service.release({
+    idempotencyKey: 'cancel-1',
+    timestamp: '2026-09-10T00:00:02.000Z',
+  });
   assert.equal(release.ok, true);
   if (!release.ok) return;
   assert.equal(release.lifecycle.allocatedAmount, 40);
@@ -45,12 +61,22 @@ test('close realizes pnl only after all reserved capital has been released', () 
   const service = new CapitalAllocationLifecycleService({
     ownerKey: 'candidate:PTB:window-1',
     pool: {
-      pool: 'B', configuredCapital: 100, allocatedCapital: 50, reservedCapital: 0,
-      availableCapital: 50, realizedCapital: 0, slotCount: 1,
+      pool: 'B',
+      configuredCapital: 100,
+      allocatedCapital: 50,
+      reservedCapital: 0,
+      availableCapital: 50,
+      realizedCapital: 0,
+      slotCount: 1,
     },
     slot: {
-      id: 'B:1', pool: 'B', index: 0, state: 'ACTIVE', ownerKey: 'candidate:PTB:window-1',
-      reservedCapital: 0, updatedAt: '2026-09-10T00:00:00.000Z',
+      id: 'B:1',
+      pool: 'B',
+      index: 0,
+      state: 'ACTIVE',
+      ownerKey: 'candidate:PTB:window-1',
+      reservedCapital: 0,
+      updatedAt: '2026-09-10T00:00:00.000Z',
     },
     allocatedAmount: 50,
     reservedAmount: 0,
@@ -59,7 +85,10 @@ test('close realizes pnl only after all reserved capital has been released', () 
     updatedAt: '2026-09-10T00:00:00.000Z',
   });
 
-  const closed = service.close({ idempotencyKey: 'close-1', timestamp: '2026-09-10T00:00:01.000Z' }, 5);
+  const closed = service.close(
+    { idempotencyKey: 'close-1', timestamp: '2026-09-10T00:00:01.000Z' },
+    5
+  );
   assert.equal(closed.ok, true);
   if (!closed.ok) return;
   assert.equal(closed.lifecycle.state, 'REALIZED');
@@ -74,12 +103,22 @@ test('idempotency returns the original lifecycle and does not apply a command tw
   const service = new CapitalAllocationLifecycleService({
     ownerKey: 'candidate:VIC:window-1',
     pool: {
-      pool: 'C', configuredCapital: 100, allocatedCapital: 100, reservedCapital: 100,
-      availableCapital: 0, realizedCapital: 0, slotCount: 1,
+      pool: 'C',
+      configuredCapital: 100,
+      allocatedCapital: 100,
+      reservedCapital: 100,
+      availableCapital: 0,
+      realizedCapital: 0,
+      slotCount: 1,
     },
     slot: {
-      id: 'C:1', pool: 'C', index: 0, state: 'RESERVED', ownerKey: 'candidate:VIC:window-1',
-      reservedCapital: 100, updatedAt: '2026-09-10T00:00:00.000Z',
+      id: 'C:1',
+      pool: 'C',
+      index: 0,
+      state: 'RESERVED',
+      ownerKey: 'candidate:VIC:window-1',
+      reservedCapital: 100,
+      updatedAt: '2026-09-10T00:00:00.000Z',
     },
     allocatedAmount: 100,
     reservedAmount: 100,
@@ -88,8 +127,14 @@ test('idempotency returns the original lifecycle and does not apply a command tw
     updatedAt: '2026-09-10T00:00:00.000Z',
   });
 
-  const first = service.partialFill({ idempotencyKey: 'same-key', timestamp: '2026-09-10T00:00:01.000Z' }, 25);
-  const second = service.partialFill({ idempotencyKey: 'same-key', timestamp: '2026-09-10T00:01:00.000Z' }, 90);
+  const first = service.partialFill(
+    { idempotencyKey: 'same-key', timestamp: '2026-09-10T00:00:01.000Z' },
+    25
+  );
+  const second = service.partialFill(
+    { idempotencyKey: 'same-key', timestamp: '2026-09-10T00:01:00.000Z' },
+    90
+  );
   assert.equal(first.ok, true);
   assert.deepEqual(second, first);
   assert.equal(service.snapshot().filledAmount, 25);
@@ -99,12 +144,22 @@ test('orphan and stuck are explicit recovery states', () => {
   const service = new CapitalAllocationLifecycleService({
     ownerKey: 'candidate:FPT:window-1',
     pool: {
-      pool: 'A', configuredCapital: 100, allocatedCapital: 20, reservedCapital: 0,
-      availableCapital: 80, realizedCapital: 0, slotCount: 1,
+      pool: 'A',
+      configuredCapital: 100,
+      allocatedCapital: 20,
+      reservedCapital: 0,
+      availableCapital: 80,
+      realizedCapital: 0,
+      slotCount: 1,
     },
     slot: {
-      id: 'A:1', pool: 'A', index: 0, state: 'ACTIVE', ownerKey: 'candidate:FPT:window-1',
-      reservedCapital: 0, updatedAt: '2026-09-10T00:00:00.000Z',
+      id: 'A:1',
+      pool: 'A',
+      index: 0,
+      state: 'ACTIVE',
+      ownerKey: 'candidate:FPT:window-1',
+      reservedCapital: 0,
+      updatedAt: '2026-09-10T00:00:00.000Z',
     },
     allocatedAmount: 20,
     reservedAmount: 0,
@@ -113,7 +168,10 @@ test('orphan and stuck are explicit recovery states', () => {
     updatedAt: '2026-09-10T00:00:00.000Z',
   });
 
-  const orphan = service.orphan({ idempotencyKey: 'orphan-1', timestamp: '2026-09-10T00:00:01.000Z' });
+  const orphan = service.orphan({
+    idempotencyKey: 'orphan-1',
+    timestamp: '2026-09-10T00:00:01.000Z',
+  });
   assert.equal(orphan.ok, true);
   if (!orphan.ok) return;
   assert.equal(orphan.lifecycle.state, 'ORPHANED');

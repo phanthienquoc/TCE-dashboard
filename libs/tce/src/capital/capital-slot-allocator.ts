@@ -67,26 +67,50 @@ export class CapitalSlotAllocator {
 
   allocate(request: CapitalSlotAllocatorRequest): CapitalSlotAllocatorOutcome {
     const pool = this.pools.get(request.pool);
-    if (!pool) return { ok: false, code: 'POOL_NOT_FOUND', message: `Capital pool ${request.pool} was not found` };
-    if (!request.ownerKey.trim()) return { ok: false, code: 'INVALID_OWNER', message: 'ownerKey is required' };
+    if (!pool)
+      return {
+        ok: false,
+        code: 'POOL_NOT_FOUND',
+        message: `Capital pool ${request.pool} was not found`,
+      };
+    if (!request.ownerKey.trim())
+      return { ok: false, code: 'INVALID_OWNER', message: 'ownerKey is required' };
 
     const existingOwner = [...this.slots.values()].find(
-      (slot) => slot.pool === request.pool && slot.ownerKey === request.ownerKey && (slot.state === 'RESERVED' || slot.state === 'ACTIVE')
+      slot =>
+        slot.pool === request.pool &&
+        slot.ownerKey === request.ownerKey &&
+        (slot.state === 'RESERVED' || slot.state === 'ACTIVE')
     );
     if (existingOwner) {
-      return { ok: false, code: 'OWNER_ALREADY_ASSIGNED', message: `Owner ${request.ownerKey} already owns slot ${existingOwner.id}` };
+      return {
+        ok: false,
+        code: 'OWNER_ALREADY_ASSIGNED',
+        message: `Owner ${request.ownerKey} already owns slot ${existingOwner.id}`,
+      };
     }
 
     const slot = [...this.slots.values()]
-      .filter((candidate) => candidate.pool === request.pool && candidate.state === 'AVAILABLE')
+      .filter(candidate => candidate.pool === request.pool && candidate.state === 'AVAILABLE')
       .sort((a, b) => a.index - b.index || a.id.localeCompare(b.id))[0];
-    if (!slot) return { ok: false, code: 'SLOT_UNAVAILABLE', message: `No available slot exists in pool ${request.pool}` };
+    if (!slot)
+      return {
+        ok: false,
+        code: 'SLOT_UNAVAILABLE',
+        message: `No available slot exists in pool ${request.pool}`,
+      };
 
     const reserved = reserveCapital(
       pool,
-      { pool: request.pool, slotId: slot.id, ownerKey: request.ownerKey, amount: request.amount, timestamp: request.timestamp },
+      {
+        pool: request.pool,
+        slotId: slot.id,
+        ownerKey: request.ownerKey,
+        amount: request.amount,
+        timestamp: request.timestamp,
+      },
       slot,
-      new Set([...this.slots.values()].filter((item) => item.ownerKey).map((item) => item.ownerKey!))
+      new Set([...this.slots.values()].filter(item => item.ownerKey).map(item => item.ownerKey!))
     );
     if (!reserved.ok) return reserved;
 
@@ -104,9 +128,15 @@ export class CapitalSlotAllocator {
 
   activate(slotId: string, timestamp: string): CapitalSlotAllocatorOutcome {
     const slot = this.slots.get(slotId);
-    if (!slot) return { ok: false, code: 'SLOT_NOT_FOUND', message: `Slot ${slotId} was not found` };
+    if (!slot)
+      return { ok: false, code: 'SLOT_NOT_FOUND', message: `Slot ${slotId} was not found` };
     const pool = this.pools.get(slot.pool);
-    if (!pool) return { ok: false, code: 'POOL_NOT_FOUND', message: `Capital pool ${slot.pool} was not found` };
+    if (!pool)
+      return {
+        ok: false,
+        code: 'POOL_NOT_FOUND',
+        message: `Capital pool ${slot.pool} was not found`,
+      };
     const active = activateSlot(slot, timestamp);
     this.slots.set(slotId, active);
     return {
@@ -127,11 +157,23 @@ export class CapitalSlotAllocator {
 
   release(ownerKey: string, timestamp: string): CapitalSlotAllocatorOutcome {
     const slot = [...this.slots.values()].find(
-      (candidate) => candidate.ownerKey === ownerKey && (candidate.state === 'RESERVED' || candidate.state === 'ACTIVE')
+      candidate =>
+        candidate.ownerKey === ownerKey &&
+        (candidate.state === 'RESERVED' || candidate.state === 'ACTIVE')
     );
-    if (!slot) return { ok: false, code: 'ALLOCATION_NOT_FOUND', message: `No active allocation exists for ${ownerKey}` };
+    if (!slot)
+      return {
+        ok: false,
+        code: 'ALLOCATION_NOT_FOUND',
+        message: `No active allocation exists for ${ownerKey}`,
+      };
     const pool = this.pools.get(slot.pool);
-    if (!pool) return { ok: false, code: 'POOL_NOT_FOUND', message: `Capital pool ${slot.pool} was not found` };
+    if (!pool)
+      return {
+        ok: false,
+        code: 'POOL_NOT_FOUND',
+        message: `Capital pool ${slot.pool} was not found`,
+      };
 
     const releasedPool = releaseReservedCapital(pool, slot.reservedCapital);
     const releasedSlot = releaseSlot(slot, timestamp);
@@ -156,16 +198,20 @@ export class CapitalSlotAllocator {
   snapshot(): CapitalSlotAllocatorSnapshot {
     return {
       pools: [...this.pools.values()].sort((a, b) => a.pool.localeCompare(b)),
-      slots: [...this.slots.values()].sort((a, b) => a.pool.localeCompare(b.pool) || a.index - b.index),
+      slots: [...this.slots.values()].sort(
+        (a, b) => a.pool.localeCompare(b.pool) || a.index - b.index
+      ),
     };
   }
 }
 
 export function createAllocatorSnapshot(
-  pools: ReadonlyArray<Readonly<{ pool: CapitalPoolId; configuredCapital: number; slotCount: number }>>,
+  pools: ReadonlyArray<
+    Readonly<{ pool: CapitalPoolId; configuredCapital: number; slotCount: number }>
+  >,
   timestamp: string
 ): CapitalSlotAllocatorSnapshot {
-  const states = pools.map((config) => ({
+  const states = pools.map(config => ({
     pool: config.pool,
     configuredCapital: config.configuredCapital,
     allocatedCapital: 0,
@@ -176,6 +222,8 @@ export function createAllocatorSnapshot(
   }));
   return {
     pools: states,
-    slots: states.flatMap((pool) => Array.from({ length: pool.slotCount }, (_, index) => createSlot(pool.pool, index, timestamp))),
+    slots: states.flatMap(pool =>
+      Array.from({ length: pool.slotCount }, (_, index) => createSlot(pool.pool, index, timestamp))
+    ),
   };
 }
