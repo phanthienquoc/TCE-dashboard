@@ -16,6 +16,7 @@ import { SupabaseClientService } from '../db/supabase.client';
 @Injectable()
 export class SsiApplicationService {
   private readonly sessions = new Map<string, { adapter: SsiBrokerAdapter; accountNo: string }>();
+  private readonly reauthTransactions = new Map<string, { transactionId: string; createdAt: number }>();
 
   constructor(
     @Inject(CONTRACT_TOKENS.credentials) private readonly credentials: PlatformCredentialPort,
@@ -144,31 +145,56 @@ export class SsiApplicationService {
     this.sessions.set(`${userId}:ssi:${environment}`, session);
   }
 
-  async requestOtp(userId: string, environment: string) {
-    // Re-authentication is intentionally driven from the persisted credential
-    // record. The browser must never send apiKey/apiSecret/privateKey for this flow.
-    const { adapter } = await this.adapter(userId, environment, false);
-    return adapter.requestOtp();
+  private reauthKey(userId: string, environment: string) {
+    return `${userId}:ssi:${environment}`;
   }
 
-  async approve(
+  async requestOtp(userId: string, environment: string) {
+    const { adapter } = await this.adapter(userId, environment, false);
+    const result = await adapter.requestOtp();
+    if (result.ok && result.data.transactionId) {
+      this.reauthTransactions.set(this.reauthKey(userId, environment), {
+        transactionId: result.data.transactionId,
+        createdAt: Date.now(),
+      });
+    }
+    return result;
+  }
+
+  private async authenticateReauth(
     userId: string,
     environment: string,
     input: SsiAuthInput,
-    suppliedCredentials?: Record<string, unknown>
+    transactionId?: string
   ) {
-    const credentials = suppliedCredentials ?? (await this.credentials.get(userId, 'ssi', environment));
+    const credentials = await this.credentials.get(userId, 'ssi', environment);
     const session = this.fromRaw(credentials, userId, environment, undefined, true);
-    const result = await session.adapter.connect({ userId, environment, ...input });
+    const result = await session.adapter.connect({
+      userId,
+      environment,
+      ...(transactionId ? { transactionId } : input),
+    });
     if (!result.ok) return result;
     const token = session.adapter.getTokenSnapshot();
     const finalSession = token
       ? this.fromRaw({ ...credentials, ...token }, userId, environment, undefined, true)
       : session;
     this.storeSession(userId, environment, finalSession);
+    this.reauthTransactions.delete(this.reauthKey(userId, environment));
     if (finalSession.accountNo)
       void this.startOrderStream(await this.tceAccountId(userId), finalSession);
-    return { ok: true as const, data: { authentication: 'ok' as const, provider: 'ssi' as const } };
+    return {
+      ok: true as const,
+      data: { authentication: 'ok' as const, provider: 'ssi' as const },
+    };
+  }
+
+  async approve(userId: string, environment: string, input: SsiAuthInput) {
+    const pending = this.reauthTransactions.get(this.reauthKey(userId, environment));
+    const transactionId = input.transactionId ?? pending?.transactionId;
+    if (!transactionId && !input.otp)
+      throw new NotFoundException('SSI approval transaction is not available');
+    return this.authenticateReauth(userId, environment, input, transactionId);
   }
 
   async test(
@@ -275,12 +301,13 @@ export class SsiApplicationService {
       ok: false as const,
       error: {
         code: 'SSI_AUTH_REQUIRED' as const,
-        message: challenge.data.message,
-        retryable: false,
+        message: 'Open the SSI app and approve the sign-in request. Use OTP only if SSI asks for it.',
+        retryable: true,
         provider: 'ssi' as const,
         details: {
           transactionId: challenge.data.transactionId,
-          action: 'ENTER_OTP',
+          action: 'APPROVE_OR_ENTER_OTP',
+          message: challenge.data.message,
         },
       },
     };
@@ -293,7 +320,7 @@ export class SsiApplicationService {
 
   async dailyCloses(userId: string, environment: string, symbols: string[], tradingDate: string) {
     const { adapter } = await this.adapter(userId, environment, false);
-    return adapter.dailyCloses(symbols, tradingDate);
+    return adapter.dailyCloses(symbols, tradingDate,);
   }
 
   async placeOrder(
