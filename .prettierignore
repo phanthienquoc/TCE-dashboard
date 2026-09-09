@@ -7,3 +7,4 @@ coverage/
 .nx/
 package-lock.json
 *.tsbuildinfo
+.github/workflows/wf-03-tce-deploy.yml
