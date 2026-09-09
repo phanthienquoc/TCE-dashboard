@@ -15,3 +15,4 @@ export type TceOrder = {
 };
 
 export * from './scanner/hunting-dividend-scanner';
+export * from './decision/hunting-dividend.engine';
