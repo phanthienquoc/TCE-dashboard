@@ -17,7 +17,7 @@ type DashboardNavigationId =
 
 export const dashboardNavigation = [
   { id: 'overview' as const, label: 'Home', icon: Home, href: '/overview' },
-  { id: 'pools' as const, label: 'Pools', icon: Layers3, href: '/pool' },
+  { id: 'pools' as const, label: 'Pools', icon: Layers3, href: '/pools' },
   { id: 'positions' as const, label: 'Positions', icon: ArrowLeftRight, href: '/position' },
   { id: 'scan' as const, label: 'Scan', icon: Search, href: '/scan' },
   { id: 'engine' as const, label: 'Engine', icon: Cpu, href: '/engines' },
