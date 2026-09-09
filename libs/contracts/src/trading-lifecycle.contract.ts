@@ -31,15 +31,6 @@ export type TceExecutionIdentity = {
   idempotencyKey: string;
 };
 
-export type TceExecutionIntent = TceExecutionIdentity & {
-  mode: TceExecutionMode;
-  symbol: string;
-  side: 'BUY' | 'SELL';
-  quantity: number;
-  limitPrice?: number;
-  lifecycleState: 'READY' | 'EXIT_READY';
-};
-
 export type TceLifecycleAuditRecord = TceLifecycleEvent & {
   engine: string;
   symbol?: string;
