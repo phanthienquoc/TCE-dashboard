@@ -58,12 +58,30 @@ export type TradeDecision = {
   slot?: string;
   capital?: number;
   maxPrice?: number;
+  entry?: number;
+  target?: number;
+  invalidation?: number;
   tpPercent?: number;
   maxHoldDays?: number;
   confidence?: number;
+  candidateId?: string;
+  decisionWindowKey?: string;
+  decisionId?: string;
+  strategyVersion?: string;
   reasons: string[];
   timestamp: string;
 };
+
+export type DecisionSnapshot = Readonly<{
+  decisionId: string;
+  strategyVersion: string;
+  decision: TradeDecision;
+}>;
+
+export interface DecisionSnapshotRepository {
+  save(snapshot: DecisionSnapshot): Promise<void> | void;
+  exists(decisionId: string): Promise<boolean> | boolean;
+}
 
 export interface DecisionEngine {
   readonly id: string;
