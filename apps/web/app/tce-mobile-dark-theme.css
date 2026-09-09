@@ -1,0 +1,199 @@
+/* TCE mobile dark theme foundation. Loaded last so legacy light utilities cannot leak into mobile UI. */
+:root {
+  color-scheme: dark;
+  --background: #071016;
+  --foreground: #f2f7f8;
+  --muted: #82939b;
+  --subtle: #61727a;
+  --surface: #0b171e;
+  --surface-strong: #102029;
+  --border: rgba(255, 255, 255, 0.09);
+  --primary: #55bfff;
+  --primary-foreground: #071016;
+  --success: #31e981;
+  --warning: #f4b860;
+  --danger: #ff5e72;
+  --tce-bg: #071016;
+  --tce-surface: #0b171e;
+  --tce-surface-2: #102029;
+  --tce-border: rgba(255, 255, 255, 0.09);
+  --tce-text: #f2f7f8;
+  --tce-muted: #82939b;
+  --tce-green: #31e981;
+  --tce-red: #ff5e72;
+  --tce-blue: #55bfff;
+}
+
+@media (max-width: 767px) {
+  html,
+  body {
+    background: var(--background) !important;
+    color: var(--foreground) !important;
+    color-scheme: dark !important;
+  }
+
+  body,
+  .app-shell,
+  .dashboard-layout,
+  .app-content,
+  .app-container {
+    background: var(--background) !important;
+    color: var(--foreground) !important;
+  }
+
+  .app-content {
+    padding-top: calc(72px + env(safe-area-inset-top)) !important;
+    padding-bottom: calc(108px + env(safe-area-inset-bottom)) !important;
+  }
+
+  /* Shared surfaces: replace legacy light cards everywhere on mobile. */
+  .hero-card,
+  .panel-card,
+  .data-card,
+  .auth-card,
+  .engine-list-card,
+  .notification-section,
+  .platform-config section,
+  .tce-settings-card,
+  .tce-status-card,
+  .tce-scan-card,
+  .tce-pool-card,
+  .tce-position-card,
+  .tce-dividend-card {
+    background: var(--surface-strong) !important;
+    color: var(--foreground) !important;
+    border-color: var(--border) !important;
+    box-shadow: 0 10px 28px rgb(0 0 0 / 0.2) !important;
+  }
+
+  .engine-row {
+    background: var(--surface-strong) !important;
+    border-color: var(--border) !important;
+    color: var(--foreground) !important;
+    box-shadow: none !important;
+  }
+
+  .engine-power,
+  .panel-icon,
+  .asset-mark,
+  .account-chip-icon,
+  .brand-orb {
+    background: var(--surface) !important;
+    color: var(--foreground) !important;
+    border-color: var(--border) !important;
+  }
+
+  .engine-power.is-active {
+    background: color-mix(in srgb, var(--success) 10%, var(--surface)) !important;
+    color: var(--success) !important;
+    border-color: color-mix(in srgb, var(--success) 42%, var(--border)) !important;
+  }
+
+  .engine-meta {
+    background: var(--surface) !important;
+    color: var(--muted) !important;
+    border: 1px solid var(--border);
+  }
+
+  .engine-meta .is-active-text {
+    color: var(--success) !important;
+  }
+
+  .engine-title-row p,
+  .engine-description,
+  .engine-title-row span,
+  .engine-note,
+  .page-heading h1,
+  .page-subtitle,
+  .section-header h2,
+  .section-header span,
+  .panel-head h2,
+  .panel-head p,
+  .eyebrow,
+  .account-chip strong,
+  .account-chip small {
+    color: var(--foreground) !important;
+  }
+
+  .engine-description,
+  .engine-title-row span,
+  .engine-note,
+  .page-subtitle,
+  .section-header span,
+  .panel-head p,
+  .eyebrow,
+  .account-chip small {
+    color: var(--muted) !important;
+  }
+
+  .platform-config [role='tablist'] {
+    background: var(--surface) !important;
+    border-color: var(--border) !important;
+  }
+
+  .platform-config [role='tab'] {
+    background: transparent !important;
+    color: var(--muted) !important;
+  }
+
+  .platform-config [role='tab'][data-state='active'] {
+    background: var(--surface-strong) !important;
+    color: var(--foreground) !important;
+    box-shadow: 0 1px 4px rgb(0 0 0 / 0.28) !important;
+  }
+
+  .platform-config select,
+  .platform-config input,
+  .platform-config textarea,
+  input,
+  select,
+  textarea {
+    background: var(--surface) !important;
+    color: var(--foreground) !important;
+    border-color: var(--border) !important;
+    color-scheme: dark !important;
+  }
+
+  .platform-config input::placeholder,
+  .platform-config textarea::placeholder,
+  input::placeholder,
+  textarea::placeholder {
+    color: var(--subtle) !important;
+  }
+
+  .mobile-bottom-nav,
+  .tce-bottom-tabs {
+    background: color-mix(in srgb, var(--surface-strong) 96%, transparent) !important;
+    border-color: var(--border) !important;
+    box-shadow: 0 -10px 28px rgb(0 0 0 / 0.22) !important;
+    color: var(--foreground) !important;
+  }
+
+  .tce-bottom-tab {
+    color: var(--muted) !important;
+  }
+
+  .tce-bottom-tab-active {
+    color: var(--primary) !important;
+  }
+
+  /* Remove accidental inherited opacity from wrappers observed in More/settings. */
+  .platform-config,
+  .platform-config > *,
+  .engine-control-section,
+  .engine-control-section > * {
+    opacity: 1 !important;
+  }
+
+  [class*='text-white'] {
+    color: var(--foreground) !important;
+  }
+
+  [class*='bg-white'] {
+    background-color: var(--surface-strong) !important;
+  }
+
+  [class*='border-white/'] {
+    border-color: var(--border) !important;
+  }
+}
