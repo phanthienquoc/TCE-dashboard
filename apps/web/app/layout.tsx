@@ -17,13 +17,15 @@ import './order-theme.css';
 import './app-spacing.css';
 import './dashboard-layout.css';
 import './mobile-command-center.css';
+import './tce-mobile-dark-theme.css';
+import './more-dark-theme-fix.css';
 import { AppProviders } from './providers';
 
 export const metadata: Metadata = {
   title: 'TCE Dashboard',
   description: 'TCE trading dashboard',
   manifest: '/manifest.webmanifest',
-  appleWebApp: { capable: true, statusBarStyle: 'default', title: 'TCE Dashboard' },
+  appleWebApp: { capable: true, statusBarStyle: 'black-translucent', title: 'TCE Dashboard' },
 };
 export const viewport: Viewport = {
   width: 'device-width',
