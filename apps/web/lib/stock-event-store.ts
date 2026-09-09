@@ -8,6 +8,7 @@ export type StockEvent = {
   ticker: string;
   exDividendDate: string;
   exDividendTimestamp: string | null;
+  executionDate: string | null;
   eventContent: string;
   dividendRate: string;
   dividendValue: number;

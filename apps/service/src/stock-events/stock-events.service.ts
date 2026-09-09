@@ -45,6 +45,7 @@ export class StockEventsService {
           ticker: row['Mã CK'] ?? row.symbol ?? '',
           exDividendDate: row['Ngày GDKHQ'] ?? normalizeDate(row.gdkhq_timestamp) ?? '',
           exDividendTimestamp: normalizeDate(row.gdkhq_timestamp),
+          executionDate: row['Ngày thực hiện'] ?? null,
           eventContent: row['Nội dung sự kiện'] ?? '',
           dividendRate: row['Tỷ lệ'] ?? '',
           dividendValue: Number(row.dividendValue ?? 0),
