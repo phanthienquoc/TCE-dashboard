@@ -22,6 +22,7 @@ const context: TceRiskGateContext = {
   availableCapital: 10_000_000,
   concurrentExposure: 0,
   poolExposure: { A: 0, B: 0, C: 0 },
+  engineState: 'RUNNING',
   engineKillSwitch: false,
   killedPools: [],
   blockedSymbols: [],
@@ -104,6 +105,28 @@ test('rejects global and pool kill switches', () => {
   const poolStop = evaluateRiskSafetyGate(request({ context: { ...context, killedPools: ['A'] } }), config);
   assert.equal(poolStop.ok, false);
   if (!poolStop.ok) assert.equal(poolStop.code, 'POOL_KILL_SWITCH');
+});
+
+test('blocks LIVE execution while the engine is not RUNNING', () => {
+  const liveIntent = { ...intent, mode: 'LIVE' as const };
+  const stopped = evaluateRiskSafetyGate(
+    request({ intent: liveIntent, context: { ...context, engineState: 'STOPPED' } }),
+    config
+  );
+  assert.equal(stopped.ok, false);
+  if (!stopped.ok) assert.equal(stopped.code, 'ENGINE_NOT_RUNNING');
+
+  const paper = evaluateRiskSafetyGate(
+    request({ context: { ...context, engineState: 'STOPPED' } }),
+    config
+  );
+  assert.equal(paper.ok, true);
+
+  const liveRunning = evaluateRiskSafetyGate(
+    request({ intent: liveIntent }),
+    config
+  );
+  assert.equal(liveRunning.ok, true);
 });
 
 test('rejects blocked and non-allow-listed symbols', () => {

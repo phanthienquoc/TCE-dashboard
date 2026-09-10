@@ -1,4 +1,4 @@
-import type { TceCapitalPoolId, TceExecutionIntent } from './tce-auto-trade.contract';
+import type { TceCapitalPoolId, TceEngineState, TceExecutionIntent } from './tce-auto-trade.contract';
 
 export type TceRiskGateConfig = Readonly<{
   maxRiskPerTrade: number;
@@ -14,6 +14,7 @@ export type TceRiskGateContext = Readonly<{
   availableCapital: number;
   concurrentExposure: number;
   poolExposure: Readonly<Record<TceCapitalPoolId, number>>;
+  engineState: TceEngineState;
   engineKillSwitch: boolean;
   killedPools: readonly TceCapitalPoolId[];
   blockedSymbols: readonly string[];

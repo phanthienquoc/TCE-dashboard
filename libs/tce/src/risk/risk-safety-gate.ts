@@ -107,6 +107,9 @@ export function evaluateRiskSafetyGate(
   if (context.killedPools.includes(request.pool)) {
     return { ok: false, code: 'POOL_KILL_SWITCH', message: `Pool ${request.pool} kill switch is active` };
   }
+  if (intent.mode === 'LIVE' && context.engineState !== 'RUNNING') {
+    return { ok: false, code: 'ENGINE_NOT_RUNNING', message: 'LIVE execution requires the TCE engine to be RUNNING' };
+  }
 
   const notional = intent.quantity * (intent.limitPrice ?? 0);
   if (!Number.isFinite(notional) || notional <= 0) {
