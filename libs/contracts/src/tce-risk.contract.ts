@@ -1,4 +1,8 @@
-import type { TceCapitalPoolId, TceEngineState, TceExecutionIntent } from './tce-auto-trade.contract';
+import type {
+  TceCapitalPoolId,
+  TceEngineState,
+  TceExecutionIntent,
+} from './tce-auto-trade.contract';
 
 export type TceRiskGateConfig = Readonly<{
   maxRiskPerTrade: number;

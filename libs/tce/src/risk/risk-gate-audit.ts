@@ -1,8 +1,4 @@
-import type {
-  TceRiskGateAuditEvent,
-  TceRiskGateRequest,
-  TceRiskGateResult,
-} from '@tce/contracts';
+import type { TceRiskGateAuditEvent, TceRiskGateRequest, TceRiskGateResult } from '@tce/contracts';
 
 export function createRiskGateAuditEvent(
   request: TceRiskGateRequest,
