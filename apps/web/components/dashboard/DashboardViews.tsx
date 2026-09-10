@@ -805,14 +805,11 @@ function buildPoolStates(
 
   const usedByPool = new Map<string, number>();
   for (const pool of poolIds) {
-    const used = (poolRows.get(pool) ?? []).reduce(
-      (total, row) => {
-        const costBasis = Number(row.costBasis ?? row.cost_basis);
-        if (Number.isFinite(costBasis)) return total + costBasis;
-        return total + Number(row.avgCost ?? row.avg_cost ?? 0) * Number(row.quantity ?? 0);
-      },
-      0
-    );
+    const used = (poolRows.get(pool) ?? []).reduce((total, row) => {
+      const costBasis = Number(row.costBasis ?? row.cost_basis);
+      if (Number.isFinite(costBasis)) return total + costBasis;
+      return total + Number(row.avgCost ?? row.avg_cost ?? 0) * Number(row.quantity ?? 0);
+    }, 0);
     usedByPool.set(pool, Number.isFinite(used) ? used : 0);
   }
 
