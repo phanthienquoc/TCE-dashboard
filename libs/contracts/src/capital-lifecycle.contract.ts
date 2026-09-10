@@ -1,13 +1,7 @@
 import type { CapitalPoolState, CapitalSlot } from './capital-allocation.contract';
 
 export type CapitalAllocationLifecycleState =
-  | 'RESERVED'
-  | 'PARTIALLY_FILLED'
-  | 'ACTIVE'
-  | 'RELEASED'
-  | 'REALIZED'
-  | 'ORPHANED'
-  | 'STUCK';
+  'RESERVED' | 'PARTIALLY_FILLED' | 'ACTIVE' | 'RELEASED' | 'REALIZED' | 'ORPHANED' | 'STUCK';
 
 export type CapitalAllocationLifecycle = Readonly<{
   ownerKey: string;
@@ -29,8 +23,16 @@ export function transitionPartialFill(
   filledAmount: number,
   timestamp: string
 ): CapitalLifecycleOutcome {
-  if (!Number.isFinite(filledAmount) || filledAmount < 0 || filledAmount > lifecycle.allocatedAmount) {
-    return { ok: false, code: 'INVALID_FILL', message: 'filledAmount must be within allocated amount' };
+  if (
+    !Number.isFinite(filledAmount) ||
+    filledAmount < 0 ||
+    filledAmount > lifecycle.allocatedAmount
+  ) {
+    return {
+      ok: false,
+      code: 'INVALID_FILL',
+      message: 'filledAmount must be within allocated amount',
+    };
   }
   if (filledAmount < lifecycle.filledAmount) {
     return { ok: false, code: 'FILL_REGRESSION', message: 'filledAmount cannot decrease' };
@@ -38,7 +40,11 @@ export function transitionPartialFill(
   const reservedAmount = lifecycle.allocatedAmount - filledAmount;
   const releasedReservation = lifecycle.reservedAmount - reservedAmount;
   if (releasedReservation < 0) {
-    return { ok: false, code: 'INVALID_RESERVATION', message: 'fill exceeds currently reserved capital' };
+    return {
+      ok: false,
+      code: 'INVALID_RESERVATION',
+      message: 'fill exceeds currently reserved capital',
+    };
   }
   const nextPool: CapitalPoolState = {
     ...lifecycle.pool,
@@ -47,7 +53,12 @@ export function transitionPartialFill(
   const nextSlot: CapitalSlot = {
     ...lifecycle.slot,
     reservedCapital: reservedAmount,
-    state: filledAmount === 0 ? lifecycle.slot.state : filledAmount === lifecycle.allocatedAmount ? 'ACTIVE' : 'RESERVED',
+    state:
+      filledAmount === 0
+        ? lifecycle.slot.state
+        : filledAmount === lifecycle.allocatedAmount
+          ? 'ACTIVE'
+          : 'RESERVED',
     updatedAt: timestamp,
   };
   return {
@@ -58,7 +69,12 @@ export function transitionPartialFill(
       slot: nextSlot,
       filledAmount,
       reservedAmount,
-      state: filledAmount === 0 ? lifecycle.state : filledAmount === lifecycle.allocatedAmount ? 'ACTIVE' : 'PARTIALLY_FILLED',
+      state:
+        filledAmount === 0
+          ? lifecycle.state
+          : filledAmount === lifecycle.allocatedAmount
+            ? 'ACTIVE'
+            : 'PARTIALLY_FILLED',
       updatedAt: timestamp,
     },
   };
@@ -69,7 +85,11 @@ export function releaseUnfilledCapital(
   timestamp: string
 ): CapitalLifecycleOutcome {
   if (lifecycle.reservedAmount < 0 || lifecycle.reservedAmount > lifecycle.allocatedAmount) {
-    return { ok: false, code: 'INVALID_RESERVATION', message: 'reservedAmount is outside allocation bounds' };
+    return {
+      ok: false,
+      code: 'INVALID_RESERVATION',
+      message: 'reservedAmount is outside allocation bounds',
+    };
   }
   if (lifecycle.state === 'REALIZED' || lifecycle.state === 'RELEASED') {
     return { ok: true, lifecycle };
@@ -106,12 +126,17 @@ export function realizeClosedCapital(
   pnl: number,
   timestamp: string
 ): CapitalLifecycleOutcome {
-  if (!Number.isFinite(pnl)) return { ok: false, code: 'INVALID_PNL', message: 'pnl must be finite' };
+  if (!Number.isFinite(pnl))
+    return { ok: false, code: 'INVALID_PNL', message: 'pnl must be finite' };
   if (lifecycle.state !== 'ACTIVE' && lifecycle.state !== 'PARTIALLY_FILLED') {
     return { ok: false, code: 'NOT_ACTIVE', message: 'Only an active allocation can be realized' };
   }
   if (lifecycle.reservedAmount !== 0) {
-    return { ok: false, code: 'UNRELEASED_RESERVE', message: 'Unfilled capital must be released before close' };
+    return {
+      ok: false,
+      code: 'UNRELEASED_RESERVE',
+      message: 'Unfilled capital must be released before close',
+    };
   }
   const nextPool: CapitalPoolState = {
     ...lifecycle.pool,
@@ -145,7 +170,11 @@ export function markAllocationOrphaned(
   timestamp: string
 ): CapitalLifecycleOutcome {
   if (lifecycle.state === 'RELEASED' || lifecycle.state === 'REALIZED') {
-    return { ok: false, code: 'TERMINAL_ALLOCATION', message: 'Terminal allocations cannot become orphaned' };
+    return {
+      ok: false,
+      code: 'TERMINAL_ALLOCATION',
+      message: 'Terminal allocations cannot become orphaned',
+    };
   }
   return { ok: true, lifecycle: { ...lifecycle, state: 'ORPHANED', updatedAt: timestamp } };
 }
@@ -155,7 +184,11 @@ export function markAllocationStuck(
   timestamp: string
 ): CapitalLifecycleOutcome {
   if (lifecycle.state === 'RELEASED' || lifecycle.state === 'REALIZED') {
-    return { ok: false, code: 'TERMINAL_ALLOCATION', message: 'Terminal allocations cannot become stuck' };
+    return {
+      ok: false,
+      code: 'TERMINAL_ALLOCATION',
+      message: 'Terminal allocations cannot become stuck',
+    };
   }
   return { ok: true, lifecycle: { ...lifecycle, state: 'STUCK', updatedAt: timestamp } };
 }

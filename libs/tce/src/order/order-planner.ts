@@ -32,37 +32,75 @@ export function planBuyOrder(
   request: OrderPlannerRequest,
   config: OrderPlannerConfig
 ): OrderPlannerOutcome {
-  if (request.decision.action !== 'BUY') return { ok: false, code: 'DECISION_NOT_BUY', message: 'Only BUY decisions can be planned' };
-  if (!request.slotAvailable) return { ok: false, code: 'SLOT_UNAVAILABLE', message: 'Decision slot is not available' };
+  if (request.decision.action !== 'BUY')
+    return { ok: false, code: 'DECISION_NOT_BUY', message: 'Only BUY decisions can be planned' };
+  if (!request.slotAvailable)
+    return { ok: false, code: 'SLOT_UNAVAILABLE', message: 'Decision slot is not available' };
   const configResult = validateOrderPlannerConfig(config);
   if (!configResult.ok) return configResult;
-  if (!Number.isFinite(request.capital) || request.capital <= 0) return { ok: false, code: 'INVALID_CAPITAL', message: 'Capital must be positive' };
-  if (!Number.isFinite(request.availableCapital) || request.availableCapital <= 0) return { ok: false, code: 'NO_BUYING_POWER', message: 'Available capital must be positive' };
-  const priceResult = validateBuyOrderPrices(request.price, request.decision.target, request.decision.invalidation);
+  if (!Number.isFinite(request.capital) || request.capital <= 0)
+    return { ok: false, code: 'INVALID_CAPITAL', message: 'Capital must be positive' };
+  if (!Number.isFinite(request.availableCapital) || request.availableCapital <= 0)
+    return { ok: false, code: 'NO_BUYING_POWER', message: 'Available capital must be positive' };
+  const priceResult = validateBuyOrderPrices(
+    request.price,
+    request.decision.target,
+    request.decision.invalidation
+  );
   if (!priceResult.ok) return priceResult;
 
-  const prices = config.priceTick === undefined
-    ? { ok: true as const, value: { entry: request.price, target: request.decision.target, invalidation: request.decision.invalidation } }
-    : normalizeOrderPrices(request.price, request.decision.target, request.decision.invalidation, {
-        priceTick: config.priceTick,
-        quantityStep: config.quantityStep ?? config.lotSize,
-      });
+  const prices =
+    config.priceTick === undefined
+      ? {
+          ok: true as const,
+          value: {
+            entry: request.price,
+            target: request.decision.target,
+            invalidation: request.decision.invalidation,
+          },
+        }
+      : normalizeOrderPrices(
+          request.price,
+          request.decision.target,
+          request.decision.invalidation,
+          {
+            priceTick: config.priceTick,
+            quantityStep: config.quantityStep ?? config.lotSize,
+          }
+        );
   if (!prices.ok) return prices;
-  const normalizedPriceResult = validateBuyOrderPrices(prices.value.entry, prices.value.target, prices.value.invalidation);
+  const normalizedPriceResult = validateBuyOrderPrices(
+    prices.value.entry,
+    prices.value.target,
+    prices.value.invalidation
+  );
   if (!normalizedPriceResult.ok) return normalizedPriceResult;
 
   const entryPrice = prices.value.entry;
   const budget = Math.min(request.capital, request.availableCapital);
   const rawQuantity = Math.floor(budget / entryPrice);
   const quantityResult = roundQuantityToStep(rawQuantity, config.quantityStep ?? config.lotSize);
-  if (!quantityResult.ok) return { ok: false, code: 'INSUFFICIENT_CAPITAL', message: 'Capital cannot purchase one board lot' };
+  if (!quantityResult.ok)
+    return {
+      ok: false,
+      code: 'INSUFFICIENT_CAPITAL',
+      message: 'Capital cannot purchase one board lot',
+    };
   const quantity = quantityResult.value;
-  if (config.minQuantity !== undefined && quantity < config.minQuantity) return { ok: false, code: 'MIN_QUANTITY', message: 'Calculated quantity is below minimum' };
-  if (config.maxQuantity !== undefined && quantity > config.maxQuantity) return { ok: false, code: 'MAX_QUANTITY', message: 'Calculated quantity exceeds maximum' };
+  if (config.minQuantity !== undefined && quantity < config.minQuantity)
+    return { ok: false, code: 'MIN_QUANTITY', message: 'Calculated quantity is below minimum' };
+  if (config.maxQuantity !== undefined && quantity > config.maxQuantity)
+    return { ok: false, code: 'MAX_QUANTITY', message: 'Calculated quantity exceeds maximum' };
 
   const notional = quantity * entryPrice;
-  if (config.maxNotional !== undefined && notional > config.maxNotional) return { ok: false, code: 'MAX_NOTIONAL', message: 'Calculated notional exceeds maximum' };
-  if (notional > request.availableCapital) return { ok: false, code: 'BUYING_POWER_EXCEEDED', message: 'Calculated notional exceeds available capital' };
+  if (config.maxNotional !== undefined && notional > config.maxNotional)
+    return { ok: false, code: 'MAX_NOTIONAL', message: 'Calculated notional exceeds maximum' };
+  if (notional > request.availableCapital)
+    return {
+      ok: false,
+      code: 'BUYING_POWER_EXCEEDED',
+      message: 'Calculated notional exceeds available capital',
+    };
 
   return {
     ok: true,
@@ -88,8 +126,14 @@ export function createExecutionIntent(
   mode: TceExecutionIntent['mode'],
   correlationId: string
 ): ExecutionIntentOutcome {
-  if (!correlationId.trim()) return { ok: false, code: 'INVALID_CORRELATION_ID', message: 'correlationId is required' };
-  if (plan.quantity <= 0 || plan.notional <= 0) return { ok: false, code: 'INVALID_PLAN', message: 'Order plan must contain positive quantity and notional' };
+  if (!correlationId.trim())
+    return { ok: false, code: 'INVALID_CORRELATION_ID', message: 'correlationId is required' };
+  if (plan.quantity <= 0 || plan.notional <= 0)
+    return {
+      ok: false,
+      code: 'INVALID_PLAN',
+      message: 'Order plan must contain positive quantity and notional',
+    };
   const idempotencyKey = `tce:${plan.id}:${plan.side}:${plan.quantity}:${plan.entryPrice}`;
   return {
     ok: true,

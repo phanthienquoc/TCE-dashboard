@@ -14,8 +14,18 @@ test('allocates the lowest available slot deterministically', () => {
     )
   );
 
-  const first = allocator.allocate({ pool: 'A', ownerKey: 'candidate:DPM:window-1', amount: 40_000, timestamp: '2026-09-09T17:00:00.000Z' });
-  const second = allocator.allocate({ pool: 'A', ownerKey: 'candidate:PTB:window-1', amount: 30_000, timestamp: '2026-09-09T17:00:01.000Z' });
+  const first = allocator.allocate({
+    pool: 'A',
+    ownerKey: 'candidate:DPM:window-1',
+    amount: 40_000,
+    timestamp: '2026-09-09T17:00:00.000Z',
+  });
+  const second = allocator.allocate({
+    pool: 'A',
+    ownerKey: 'candidate:PTB:window-1',
+    amount: 30_000,
+    timestamp: '2026-09-09T17:00:01.000Z',
+  });
 
   assert.equal(first.ok, true);
   assert.equal(second.ok, true);
@@ -27,9 +37,17 @@ test('allocates the lowest available slot deterministically', () => {
 
 test('rejects duplicate live ownership and unavailable slots without mutating state', () => {
   const allocator = new CapitalSlotAllocator(
-    createAllocatorSnapshot([{ pool: 'B', configuredCapital: 20_000, slotCount: 1 }], '2026-09-09T17:00:00.000Z')
+    createAllocatorSnapshot(
+      [{ pool: 'B', configuredCapital: 20_000, slotCount: 1 }],
+      '2026-09-09T17:00:00.000Z'
+    )
   );
-  const request = { pool: 'B' as const, ownerKey: 'candidate:SSI:window-1', amount: 10_000, timestamp: '2026-09-09T17:00:00.000Z' };
+  const request = {
+    pool: 'B' as const,
+    ownerKey: 'candidate:SSI:window-1',
+    amount: 10_000,
+    timestamp: '2026-09-09T17:00:00.000Z',
+  };
   assert.equal(allocator.allocate(request).ok, true);
   const before = allocator.snapshot();
   const duplicate = allocator.allocate({ ...request, timestamp: '2026-09-09T17:01:00.000Z' });
@@ -39,14 +57,30 @@ test('rejects duplicate live ownership and unavailable slots without mutating st
     message: 'Owner candidate:SSI:window-1 already owns slot B:1',
   });
   assert.deepEqual(allocator.snapshot(), before);
-  assert.equal(allocator.allocate({ pool: 'B', ownerKey: 'candidate:OTHER:window-1', amount: 5_000, timestamp: request.timestamp }).ok, false);
+  assert.equal(
+    allocator.allocate({
+      pool: 'B',
+      ownerKey: 'candidate:OTHER:window-1',
+      amount: 5_000,
+      timestamp: request.timestamp,
+    }).ok,
+    false
+  );
 });
 
 test('activation and release recycle the same slot and restore pool capital', () => {
   const allocator = new CapitalSlotAllocator(
-    createAllocatorSnapshot([{ pool: 'C', configuredCapital: 30_000, slotCount: 1 }], '2026-09-09T17:00:00.000Z')
+    createAllocatorSnapshot(
+      [{ pool: 'C', configuredCapital: 30_000, slotCount: 1 }],
+      '2026-09-09T17:00:00.000Z'
+    )
   );
-  const allocation = allocator.allocate({ pool: 'C', ownerKey: 'candidate:VIC:window-1', amount: 12_000, timestamp: '2026-09-09T17:00:00.000Z' });
+  const allocation = allocator.allocate({
+    pool: 'C',
+    ownerKey: 'candidate:VIC:window-1',
+    amount: 12_000,
+    timestamp: '2026-09-09T17:00:00.000Z',
+  });
   assert.equal(allocation.ok, true);
   if (!allocation.ok) return;
 
@@ -58,7 +92,12 @@ test('activation and release recycle the same slot and restore pool capital', ()
   assert.equal(released.allocation.slot.state, 'AVAILABLE');
   assert.equal(released.allocation.pool.availableCapital, 30_000);
 
-  const recycled = allocator.allocate({ pool: 'C', ownerKey: 'candidate:FPT:window-2', amount: 8_000, timestamp: '2026-09-09T17:00:03.000Z' });
+  const recycled = allocator.allocate({
+    pool: 'C',
+    ownerKey: 'candidate:FPT:window-2',
+    amount: 8_000,
+    timestamp: '2026-09-09T17:00:03.000Z',
+  });
   assert.equal(recycled.ok, true);
   if (!recycled.ok) return;
   assert.equal(recycled.allocation.slot.id, 'C:1');
