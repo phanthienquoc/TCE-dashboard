@@ -108,7 +108,7 @@ export function PoolsView({ data, actions }: ViewProps) {
   const positions = data.positions;
   const pools = data.pools;
   const next = data.next;
-  const poolStates = buildPoolStates(capital, positions, pools);
+  const poolStates = buildPoolStates(capital, available, pending, positions, pools);
   const decisionRows = [...next, ...pools].slice(0, 12);
   return (
     <div className="tce-mobile-view">
@@ -786,40 +786,41 @@ function DecisionRow({
     </article>
   );
 }
-function buildPoolStates(capital: number, positions: any[], pools: any[]) {
+function buildPoolStates(capital: number, availableCash: number, pendingCash: number, positions: any[], pools: any[]) {
   const allocated = capital / 3;
-  return (['A', 'B', 'C'] as const).map(pool => {
-    const rows = positions.filter(
-      row => String(row.pool ?? row.pool_id ?? '').toUpperCase() === pool
-    );
-    const active = rows.length;
-    const slots = Math.max(
-      1,
-      Math.ceil(
-        pools.filter(row => String(row.pool ?? row.pool_id ?? '').toUpperCase() === pool).length ||
-          1
-      )
-    );
-    const pending = rows.reduce(
-      (total, row) => total + Number(row.pendingT2Value ?? row.pending_t2_value ?? 0),
-      0
-    );
-    const used = rows.reduce(
-      (total, row) =>
-        total +
-        Number(row.costBasis ?? row.cost_basis ?? row.avgCost ?? row.avg_cost ?? 0) *
-          Number(row.quantity ?? 0),
-      0
-    );
-    const available = Math.max(0, allocated - used);
+  const poolIds = ['A', 'B', 'C'] as const;
+  const poolRows = new Map<string, any[]>();
+  for (const pool of poolIds) poolRows.set(pool, []);
+  for (const row of positions) {
+    const pool = String(row.pool ?? row.pool_id ?? '').toUpperCase();
+    if (poolRows.has(pool)) poolRows.get(pool)!.push(row);
+  }
+  const usedByPool = new Map<string, number>();
+  for (const pool of poolIds) {
+    const used = (poolRows.get(pool) ?? []).reduce((total, row) => {
+      const costBasis = Number(row.costBasis ?? row.cost_basis);
+      return total + (Number.isFinite(costBasis) ? costBasis : Number(row.avgCost ?? row.avg_cost ?? 0) * Number(row.quantity ?? 0));
+    }, 0);
+    usedByPool.set(pool, Math.max(0, used));
+  }
+  const freeCapacities = poolIds.map(pool => Math.max(0, allocated - (usedByPool.get(pool) ?? 0)));
+  const totalFreeCapacity = freeCapacities.reduce((total, value) => total + value, 0);
+  const availableToAllocate = Math.max(0, availableCash);
+  const pendingToAllocate = Math.max(0, pendingCash);
+  return poolIds.map((pool, index) => {
+    const rows = poolRows.get(pool) ?? [];
+    const freeCapacity = freeCapacities[index];
+    const weight = totalFreeCapacity > 0 ? freeCapacity / totalFreeCapacity : 1 / poolIds.length;
+    const poolAvailable = Math.min(freeCapacity, availableToAllocate * weight);
+    const poolPending = Math.min(Math.max(0, freeCapacity - poolAvailable), pendingToAllocate * weight);
     return {
       pool,
       allocated,
-      available,
-      active,
-      slots,
-      pending,
-      usedRatio: allocated > 0 ? (allocated - available) / allocated : 0,
+      available: poolAvailable,
+      active: rows.length,
+      slots: 1,
+      pending: poolPending,
+      usedRatio: allocated > 0 ? Math.min(1, (usedByPool.get(pool) ?? 0) / allocated) : 0,
     };
   });
 }
