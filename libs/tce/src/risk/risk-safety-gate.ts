@@ -18,6 +18,12 @@ function validateConfig(config: TceRiskGateConfig): TceRiskGateResult | undefine
   if (!Number.isFinite(config.maxIntentAgeMs) || config.maxIntentAgeMs < 0) {
     return invalid('maxIntentAgeMs must be non-negative');
   }
+  if (config.maxMarketDataAgeMs !== undefined && (!Number.isFinite(config.maxMarketDataAgeMs) || config.maxMarketDataAgeMs < 0)) {
+    return invalid('maxMarketDataAgeMs must be non-negative when configured');
+  }
+  if (config.maxDividendDataAgeMs !== undefined && (!Number.isFinite(config.maxDividendDataAgeMs) || config.maxDividendDataAgeMs < 0)) {
+    return invalid('maxDividendDataAgeMs must be non-negative when configured');
+  }
 }
 
 function hasOverride(request: TceRiskGateRequest): boolean {
@@ -28,6 +34,21 @@ function hasOverride(request: TceRiskGateRequest): boolean {
     override.reason.trim() &&
     override.approvedAt.trim()
   );
+}
+
+function validateFreshness(
+  now: number,
+  observedAt: string | undefined,
+  maxAgeMs: number | undefined,
+  code: string,
+  label: string
+): TceRiskGateResult | undefined {
+  if (maxAgeMs === undefined) return undefined;
+  if (!observedAt) return { ok: false, code, message: `${label} timestamp is required` };
+  const observed = Date.parse(observedAt);
+  if (!Number.isFinite(observed) || now < observed || now - observed > maxAgeMs) {
+    return { ok: false, code, message: `${label} data is stale or has an invalid timestamp` };
+  }
 }
 
 export function evaluateRiskSafetyGate(
@@ -70,6 +91,16 @@ export function evaluateRiskSafetyGate(
     return { ok: false, code: 'STALE_INTENT', message: 'Execution intent is stale for the current risk check' };
   }
 
+  const marketFreshness = validateFreshness(now, context.marketDataAt, config.maxMarketDataAgeMs, 'STALE_MARKET_DATA', 'Market');
+  if (marketFreshness) return marketFreshness;
+  if (context.dividendDataRequired) {
+    const dividendFreshness = validateFreshness(now, context.dividendDataAt, config.maxDividendDataAgeMs ?? 0, 'STALE_DIVIDEND_DATA', 'Dividend');
+    if (dividendFreshness) return dividendFreshness;
+  }
+
+  if (config.blockOnMajorNews && context.majorNewsRisk) {
+    return { ok: false, code: 'MAJOR_NEWS_RISK', message: 'Major-news protection is active' };
+  }
   if (context.engineKillSwitch) {
     return { ok: false, code: 'ENGINE_KILL_SWITCH', message: 'Global engine kill switch is active' };
   }

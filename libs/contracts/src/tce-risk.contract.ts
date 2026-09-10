@@ -4,6 +4,9 @@ export type TceRiskGateConfig = Readonly<{
   maxRiskPerTrade: number;
   maxConcurrentExposure: number;
   maxIntentAgeMs: number;
+  maxMarketDataAgeMs?: number;
+  maxDividendDataAgeMs?: number;
+  blockOnMajorNews?: boolean;
 }>;
 
 export type TceRiskGateContext = Readonly<{
@@ -15,6 +18,10 @@ export type TceRiskGateContext = Readonly<{
   killedPools: readonly TceCapitalPoolId[];
   blockedSymbols: readonly string[];
   allowedSymbols?: readonly string[];
+  marketDataAt?: string;
+  dividendDataAt?: string;
+  dividendDataRequired?: boolean;
+  majorNewsRisk?: boolean;
 }>;
 
 export type TceRiskOverride = Readonly<{
