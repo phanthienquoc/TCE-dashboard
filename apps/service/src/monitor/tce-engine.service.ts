@@ -7,7 +7,6 @@ import {
 } from '@tce/contracts';
 import { tceEngine } from '@tce/tce-engine';
 import { SupabaseClientService } from '../db/supabase.client';
-import { SsiApplicationService } from '../platform/ssi.application.service';
 
 const DEFAULT_CONFIG: TceEngineConfig = {
   enabled: false,
@@ -23,10 +22,7 @@ export class TceEngineService {
   private readonly logger = new Logger(TceEngineService.name);
   private running = new Set<string>();
 
-  constructor(
-    private readonly supabase: SupabaseClientService,
-    private readonly ssi: SsiApplicationService
-  ) {}
+  constructor(private readonly supabase: SupabaseClientService) {}
 
   async run(accountId: string, environment = 'production', execute = false) {
     if (this.running.has(accountId))
@@ -92,77 +88,18 @@ export class TceEngineService {
     state: TceEngineAccountState,
     decisions: TceEngineDecision[]
   ) {
-    const executed: Array<Record<string, unknown>> = [];
-    const sells = decisions.filter(decision => decision.action === 'SELL');
-    const buys = decisions.filter(decision => decision.action === 'BUY');
-    const credentials = await this.supabase.db
-      .from('platform_credentials')
-      .select('ssi_account_no')
-      .eq('user_id', accountId)
-      .eq('provider', 'ssi')
-      .eq('environment', environment)
-      .eq('is_active', true)
-      .maybeSingle();
-    if (credentials.error) throw credentials.error;
-    const accountNo = String(credentials.data?.ssi_account_no ?? '');
-    if (!accountNo)
-      return { skipped: true, reason: 'ssi_account_not_configured', decisions, executed };
-
-    // Never buy against optimistic cash created by a pending sell. Submit the explicit
-    // quantity decision first, then wait for SSI order status/fill and run the engine again.
-    for (const decision of sells) {
-      const position = state.positions.find(
-        item => item.symbol.toUpperCase() === decision.symbol.toUpperCase()
-      );
-      const price = Number(position?.marketPrice ?? 0);
-      const result = await this.ssi.placeOrder(accountId, environment, {
-        accountNo,
-        symbol: decision.symbol,
-        side: 'SELL',
-        quantity: decision.quantity,
-        orderType: 'LO',
-        price,
-      });
-      if (!result.ok) throw new Error(`${decision.symbol} SELL failed: ${result.error.message}`);
-      executed.push({
-        action: 'SELL',
-        symbol: decision.symbol,
-        quantity: decision.quantity,
-        order: result.data,
-      });
-    }
-    if (sells.length > 0)
-      return {
-        skipped: false,
-        decisions,
-        executed,
-        followUpRequired: true,
-        reason: 'sell_orders_submitted_wait_for_fill_before_buy',
-      };
-
-    for (const decision of buys) {
-      const candidate = state.candidates.find(
-        item => item.symbol.toUpperCase() === decision.symbol.toUpperCase()
-      );
-      const price = Number(candidate?.price ?? 0);
-      if (!price) throw new Error(`${decision.symbol} BUY price is unavailable`);
-      const result = await this.ssi.placeOrder(accountId, environment, {
-        accountNo,
-        symbol: decision.symbol,
-        side: 'BUY',
-        quantity: decision.quantity,
-        orderType: 'LO',
-        price,
-      });
-      if (!result.ok) throw new Error(`${decision.symbol} BUY failed: ${result.error.message}`);
-      executed.push({
-        action: 'BUY',
-        symbol: decision.symbol,
-        quantity: decision.quantity,
-        order: result.data,
-      });
-    }
-    return { skipped: false, decisions, executed, followUpRequired: false };
+    this.logger.warn(
+      `TCE execution request for ${accountId}/${environment} was blocked: raw engine decisions cannot bypass the Risk/Safety Gate`
+    );
+    return {
+      skipped: true,
+      reason: 'risk_gate_approval_required',
+      executionBoundary: 'tce-risk-safety-gate',
+      decisions,
+      state,
+      executed: [] as Array<Record<string, unknown>>,
+      followUpRequired: false,
+    };
   }
 
   private async loadConfig(accountId: string): Promise<TceEngineConfig> {
@@ -184,7 +121,6 @@ export class TceEngineService {
       buyFromRemainingBudget: data?.buy_from_remaining_budget !== false,
     };
   }
-
   private async loadAccount(accountId: string) {
     const { data, error } = await this.supabase.db
       .from('tce_accounts')
