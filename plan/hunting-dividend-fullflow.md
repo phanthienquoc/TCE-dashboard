@@ -241,17 +241,17 @@ A persistent allocator/state machine that can answer at any time: **which pool, 
 
 ### Work
 
-- [x] Calculate quantity from pool capital and planned entry.
-- [x] Apply lot-size / board-lot rules.
-- [x] Calculate notional value.
-- [x] Calculate TP price (`+5%` initially).
-- [x] Calculate risk/invalidation price where applicable.
-- [x] Validate buying power.
-- [x] Validate available slot/capital.
-- [x] Validate price/quantity precision.
-- [x] Apply minimum/maximum order constraints.
-- [x] Generate deterministic client request ID / idempotency key.
-- [x] Produce an `ExecutionIntent`.
+- [ ] Calculate quantity from pool capital and planned entry.
+- [ ] Apply lot-size / board-lot rules.
+- [ ] Calculate notional value.
+- [ ] Calculate TP price (`+5%` initially).
+- [ ] Calculate risk/invalidation price where applicable.
+- [ ] Validate buying power.
+- [ ] Validate available slot/capital.
+- [ ] Validate price/quantity precision.
+- [ ] Apply minimum/maximum order constraints.
+- [ ] Generate deterministic client request ID / idempotency key.
+- [ ] Produce an `ExecutionIntent`.
 
 ### Example
 
@@ -283,18 +283,18 @@ ExecutionIntent
 
 ### Work
 
-- [x] Enforce max risk per trade.
-- [x] Enforce available capital/buying power.
-- [x] Enforce slot availability.
-- [x] Enforce max concurrent exposure.
-- [x] Reject unclear risk.
-- [x] Reject stale market/dividend data.
-- [x] Reject invalid/stale execution intents.
-- [x] Add major-news protection where required.
-- [x] Add global engine kill switch.
-- [x] Add pool-level kill switch.
-- [x] Add symbol-level block/allow rules.
-- [x] Ensure manual override is explicit and auditable.
+- [ ] Enforce max risk per trade.
+- [ ] Enforce available capital/buying power.
+- [ ] Enforce slot availability.
+- [ ] Enforce max concurrent exposure.
+- [ ] Reject unclear risk.
+- [ ] Reject stale market/dividend data.
+- [ ] Reject invalid/stale execution intents.
+- [ ] Add major-news protection where required.
+- [ ] Add global engine kill switch.
+- [ ] Add pool-level kill switch.
+- [ ] Add symbol-level block/allow rules.
+- [ ] Ensure manual override is explicit and auditable.
 
 ### Deliverable
 
@@ -560,4 +560,353 @@ Scan
 - [ ] Decision cycle scheduler.
 - [ ] Order reconciliation scheduler.
 - [ ] Position reconciliation scheduler.
-... (truncated)
+- [ ] Dividend/T+2 lifecycle scheduler.
+- [ ] TP monitoring loop.
+- [ ] Slot recycle trigger.
+- [ ] Market-session awareness.
+- [ ] Safe behavior outside trading hours.
+- [ ] Graceful shutdown.
+- [ ] Resume after restart.
+
+---
+
+# Phase 15 — Dashboard / UX Full Lifecycle
+
+**Objective:** Expose the real engine state rather than a static strategy demo.
+
+## Engine page
+
+- [ ] Engine status: stopped / running / paused / error.
+- [ ] Mode: PAPER / ASSISTED / LIVE.
+- [ ] Start / pause / resume / stop.
+- [ ] Kill switch.
+- [ ] Last scan / next scan.
+- [ ] Health status.
+
+## Capital / slots
+
+- [ ] Pool A/B/C capital cards.
+- [ ] Available vs allocated capital.
+- [ ] Slot occupancy.
+- [ ] Slot lifecycle.
+- [ ] Rotation history.
+
+## Decision queue
+
+- [ ] Candidates.
+- [ ] Decision score/confidence.
+- [ ] Decision reason.
+- [ ] Planned entry.
+- [ ] Planned quantity.
+- [ ] TP.
+- [ ] Risk status.
+- [ ] READY / APPROVE / REJECT actions in ASSISTED mode.
+
+## Execution
+
+- [ ] Order status.
+- [ ] Provider order ID.
+- [ ] Partial fill state.
+- [ ] Execution errors.
+- [ ] Reconciliation status.
+
+## Position lifecycle
+
+- [ ] Entry/fill.
+- [ ] Holding.
+- [ ] Ex-dividend.
+- [ ] T+2.
+- [ ] Dividend confirmation.
+- [ ] TP readiness.
+- [ ] Exit.
+- [ ] Closed/recycled.
+
+## Observability
+
+- [ ] Engine event timeline.
+- [ ] Audit log.
+- [ ] Error/recovery queue.
+- [ ] Reconciliation warnings.
+
+---
+
+# Phase 16 — Notifications / Operations
+
+**Objective:** Surface only actionable events.
+
+### Notifications
+
+- [ ] Engine started/stopped/paused.
+- [ ] Candidate approved.
+- [ ] Assisted approval required.
+- [ ] Order submitted.
+- [ ] Order filled/rejected.
+- [ ] Reconciliation mismatch.
+- [ ] Position unexpectedly changed.
+- [ ] Dividend lifecycle milestone.
+- [ ] TP reached / exit submitted.
+- [ ] Slot recycled.
+- [ ] Kill switch triggered.
+- [ ] Critical provider/token failure.
+
+### Channels
+
+- [ ] In-app event feed.
+- [ ] Telegram integration.
+- [ ] Optional future channels behind notification contracts.
+
+---
+
+# Phase 17 — Testing / Simulation / Production Readiness
+
+**Objective:** Prove the full lifecycle before LIVE mode.
+
+## Unit tests
+
+- [ ] Candidate normalization.
+- [ ] Dividend scoring.
+- [ ] Decision engine.
+- [ ] Capital allocation.
+- [ ] Slot transitions.
+- [ ] Order planning.
+- [ ] Risk gate.
+- [ ] Lifecycle transitions.
+
+## Contract tests
+
+- [ ] SSI adapter contract.
+- [ ] Execution contract.
+- [ ] Reconciliation contract.
+- [ ] Provider error normalization.
+
+## Integration tests
+
+- [ ] Scanner → Decision.
+- [ ] Decision → Planner.
+- [ ] Planner → Risk.
+- [ ] Risk → Execution.
+- [ ] Execution → SSI.
+- [ ] SSI → Reconciliation.
+- [ ] Position → Dividend lifecycle.
+- [ ] Exit → Recycle.
+
+## Failure simulations
+
+- [ ] Network timeout after order submission.
+- [ ] Duplicate submit attempt.
+- [ ] Token expiry before submit.
+- [ ] Partial fill.
+- [ ] Provider rejection.
+- [ ] Process restart while order is open.
+- [ ] DB unavailable during transition.
+- [ ] Stale dividend data.
+- [ ] Manual broker-side order.
+
+## Rollout
+
+- [ ] PAPER mode.
+- [ ] Historical/backtest validation where practical.
+- [ ] Assisted mode.
+- [ ] Small controlled LIVE rollout.
+- [ ] Expand only after reconciliation and safety metrics are stable.
+
+---
+
+# Phase 18 — Performance / Monitoring / Operational Metrics
+
+**Objective:** Know whether the engine is healthy and whether the strategy is behaving as intended.
+
+### Metrics
+
+- [ ] Scan duration.
+- [ ] Candidates scanned.
+- [ ] Candidate approval rate.
+- [ ] Decision confidence distribution.
+- [ ] Orders planned/submitted/filled/rejected.
+- [ ] Fill rate.
+- [ ] Reconciliation mismatch rate.
+- [ ] Average capital utilization by pool.
+- [ ] Slot utilization/turnover.
+- [ ] Dividend confirmation rate.
+- [ ] TP hit rate.
+- [ ] Average holding duration.
+- [ ] Realized P&L.
+- [ ] Dividend contribution.
+- [ ] Execution latency.
+- [ ] Provider/API error rate.
+
+### Alerts
+
+- [ ] Stale market data.
+- [ ] Stale dividend data.
+- [ ] Reconciliation mismatch.
+- [ ] Unexpected position.
+- [ ] High order rejection rate.
+- [ ] Token/authorization failure.
+- [ ] Engine stuck state.
+- [ ] Slot stuck beyond threshold.
+
+---
+
+# Cross-Phase State Model
+
+The implementation should converge on a single canonical state machine rather than separate ad-hoc status fields.
+
+```text
+Candidate
+  ↓
+Decision
+  ↓
+Allocation
+  ↓
+OrderPlan
+  ↓
+RiskGate
+  ↓
+ExecutionIntent
+  ↓
+Order
+  ↓
+Fill
+  ↓
+Position
+  ↓
+ExDividend
+  ↓
+T+2
+  ↓
+DividendConfirmed
+  ↓
+ExitReady
+  ↓
+ExitOrder
+  ↓
+Closed
+  ↓
+SlotRecycled
+```
+
+Every transition should have:
+
+```text
+entityId
+fromState
+ toState
+timestamp
+reason
+actor/source
+correlationId
+strategyVersion
+```
+
+---
+
+# Suggested Implementation Order
+
+The implementation order is intentionally dependency-driven:
+
+```text
+1. Contract Audit
+       ↓
+2. Candidate Scanner / Normalizer
+       ↓
+3. Decision Engine productionization
+       ↓
+4. Capital A/B/C + Slot State Machine
+       ↓
+5. Order Planner + ExecutionIntent
+       ↓
+6. Risk / Safety Gate
+       ↓
+7. Execution Engine + SSI Adapter
+       ↓
+8. Order Reconciliation
+       ↓
+9. Position Reconciliation
+       ↓
+10. Dividend / Ex-Dividend / T+2 lifecycle
+       ↓
+11. Exit / +5% TP
+       ↓
+12. Slot Recycle
+       ↓
+13. Persistence + Audit
+       ↓
+14. Runtime / Scheduler
+       ↓
+15. Dashboard full lifecycle
+       ↓
+16. Notifications
+       ↓
+17. Test / Simulation / PAPER
+       ↓
+18. Assisted
+       ↓
+19. Controlled LIVE
+```
+
+---
+
+# Immediate Next Milestone
+
+The highest-value next implementation after the current Decision Engine dashboard is:
+
+### **Order Planner + Capital/Slot State Machine + ExecutionIntent**
+
+Why:
+
+- It bridges the current decision layer to actual execution.
+- It establishes the A/B/C capital model.
+- It establishes deterministic slot ownership/rotation.
+- It gives SSI a clean provider-neutral input.
+- It allows the next phases to add risk gating, execution, and reconciliation without redesigning the strategy layer.
+
+Target flow for this milestone:
+
+```text
+Candidate
+ → Decision
+ → Capital/Slot Allocation
+ → Order Planner
+ → Risk Check
+ → ExecutionIntent
+```
+
+**No real order submission is required in this milestone.** The output should be deterministic, persistable, auditable, and ready for the future Execution Engine.
+
+---
+
+# Definition of Done — Full Flow
+
+The Hunting Dividend engine is considered full-flow complete only when all of the following are true:
+
+- [ ] Market/dividend data can produce normalized candidates.
+- [ ] Candidates can produce explainable decisions.
+- [ ] Decisions allocate capital and slots deterministically.
+- [ ] Planner produces valid execution intents.
+- [ ] Safety gate can block unsafe actions.
+- [ ] SSI execution can submit approved intents.
+- [ ] Orders reconcile against broker truth.
+- [ ] Positions reconcile against broker truth.
+- [ ] Ex-dividend and T+2 lifecycle is tracked.
+- [ ] Dividend confirmation is persisted.
+- [ ] +5% TP exit is planned/executed/reconciled.
+- [ ] Closed positions release capital and recycle slots.
+- [ ] Engine can continuously scan for the next opportunity.
+- [ ] Restart/recovery does not create duplicate orders.
+- [ ] Every material action is auditable.
+- [ ] PAPER and ASSISTED modes work before LIVE.
+- [ ] Kill switch and operational safeguards are functional.
+- [ ] Dashboard exposes the real lifecycle.
+- [ ] Notifications surface critical/actionable events.
+- [ ] Automated tests cover normal and failure paths.
+
+## Non-goals for the first full-flow release
+
+- Multi-strategy orchestration beyond Hunting Dividend.
+- Fully autonomous optimization of strategy parameters.
+- Automatic leverage/risk escalation.
+- Provider-specific logic inside the strategy/domain layer.
+- Complex derivatives execution in the SSI flow.
+
+These can be added later through new contracts/adapters without changing the core lifecycle.
