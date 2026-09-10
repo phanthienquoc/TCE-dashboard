@@ -21,10 +21,16 @@ export type TceTradingAuthorization = Readonly<{
   checkedAt: string;
   expiresAt?: string;
   transactionId?: string;
+  approvalAction?: 'APPROVE_OR_ENTER_OTP';
+  approvalMessage?: string;
 }>;
 
 export interface TceTradingAuthorizationPort {
   ensureAuthorized(
     context: TceTradingAuthorizationContext
   ): Promise<ContractResult<TceTradingAuthorization>>;
+
+  requestApproval(
+    context: TceTradingAuthorizationContext
+  ): Promise<ContractResult<Pick<TceTradingAuthorization, 'state' | 'provider' | 'accountId' | 'environment' | 'checkedAt' | 'transactionId' | 'approvalAction' | 'approvalMessage'>>>;
 }

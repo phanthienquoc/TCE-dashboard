@@ -129,3 +129,22 @@ describe('TceSsiTradingAuthorizationAdapter', () => {
     }
   });
 });
+
+describe('SSI approval challenge mapping', () => {
+  it('keeps approval metadata provider-neutral and excludes credential material', () => {
+    const result = mapSsiApprovalChallenge(context, {
+      transactionId: 'tx-123',
+      message: 'Open the SSI app and approve the sign-in request.',
+    });
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.data.state).toBe('APPROVAL_REQUIRED');
+      expect(result.data.transactionId).toBe('tx-123');
+      expect(result.data.approvalAction).toBe('APPROVE_OR_ENTER_OTP');
+      expect(result.data.approvalMessage).toContain('approve');
+      expect(JSON.stringify(result.data)).not.toContain('apiSecret');
+      expect(JSON.stringify(result.data)).not.toContain('accessToken');
+    }
+  });
+});
