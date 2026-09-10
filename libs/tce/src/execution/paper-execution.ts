@@ -73,12 +73,16 @@ export class TcePaperExecutionPort implements TceExecutionPort {
     const existing = this.requests.get(command.authorization.idempotencyKey);
     if (existing) return existing;
 
+    const quantity = command.intent.quantity;
+    const limitPrice = command.intent.limitPrice;
     if (
       !command.intent.symbol.trim() ||
-      !Number.isFinite(command.intent.quantity) ||
-      command.intent.quantity <= 0 ||
-      !Number.isFinite(command.intent.limitPrice) ||
-      command.intent.limitPrice <= 0
+      typeof quantity !== 'number' ||
+      !Number.isFinite(quantity) ||
+      quantity <= 0 ||
+      typeof limitPrice !== 'number' ||
+      !Number.isFinite(limitPrice) ||
+      limitPrice <= 0
     ) {
       const result: TceExecutionResult = {
         ok: false,
@@ -105,8 +109,8 @@ export class TcePaperExecutionPort implements TceExecutionPort {
       clientRequestId: command.clientRequestId,
       symbol: command.intent.symbol.toUpperCase(),
       side: command.intent.side,
-      quantity: command.intent.quantity,
-      limitPrice: command.intent.limitPrice,
+      quantity,
+      limitPrice,
       filledQuantity: 0,
       status: 'SUBMITTED',
     };

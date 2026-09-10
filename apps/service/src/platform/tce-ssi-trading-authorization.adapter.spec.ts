@@ -8,6 +8,8 @@ const context = {
   accountId: 'account-1',
   environment: 'production',
   mode: 'LIVE' as const,
+  correlationId: 'corr-1',
+  idempotencyKey: 'idem-1',
 };
 
 const credentials = (overrides: Record<string, unknown> = {}) => ({

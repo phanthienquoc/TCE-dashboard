@@ -67,6 +67,8 @@ export class TceTradingAuthorizedExecutionPort implements TceExecutionPort {
       accountId: command.accountId,
       environment: command.environment,
       mode: command.mode,
+      correlationId: command.authorization.correlationId,
+      idempotencyKey: command.authorization.idempotencyKey,
     });
 
     if (!result.ok) {

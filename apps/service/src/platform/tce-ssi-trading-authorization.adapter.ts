@@ -104,7 +104,7 @@ export class TceSsiTradingAuthorizationAdapter implements TceTradingAuthorizatio
     context: TceTradingAuthorizationContext
   ): Promise<ContractResult<TceTradingAuthorization>> {
     const account = await this.resolveAccount(context);
-    if (!account.ok) return account;
+    if (!account.ok) return unavailable(context, account.error.message);
 
     let raw: SsiCredentialRecord;
     try {
@@ -185,7 +185,7 @@ export class TceSsiTradingAuthorizationAdapter implements TceTradingAuthorizatio
     >
   > {
     const account = await this.resolveAccount(context);
-    if (!account.ok) return account;
+    if (!account.ok) return unavailable(context, account.error.message);
 
     let raw: SsiCredentialRecord;
     try {
