@@ -1,0 +1,125 @@
+name: Temporary Pools Capital Fix
+
+on:
+  push:
+    branches:
+      - fix/pools-capital-state
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+          persist-credentials: true
+
+      - name: Patch pool capital accounting
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          path = Path('apps/web/components/dashboard/DashboardViews.tsx')
+          text = path.read_text()
+
+          old_call = 'const poolStates = buildPoolStates(capital, positions, pools);'
+          new_call = 'const poolStates = buildPoolStates(capital, available, pending, positions, pools);'
+          if old_call not in text:
+              raise SystemExit('expected poolStates call not found')
+          text = text.replace(old_call, new_call, 1)
+
+          pattern = re.compile(r'function buildPoolStates\\([\\s\\S]*?\\n\\}\\nfunction ', re.M)
+          match = pattern.search(text)
+          if not match:
+              raise SystemExit('expected buildPoolStates function not found')
+
+          replacement = '''function buildPoolStates(
+            capital: number,
+            availableCash: number,
+            pendingCash: number,
+            positions: any[],
+            _pools: any[]
+          ) {
+            const configured = capital / 3;
+            const poolIds = ['A', 'B', 'C'] as const;
+            const poolRows = new Map<string, any[]>();
+            for (const pool of poolIds) poolRows.set(pool, []);
+
+            for (const row of positions) {
+              const pool = String(row.pool ?? row.pool_id ?? '').toUpperCase();
+              if (poolRows.has(pool)) poolRows.get(pool)!.push(row);
+            }
+
+            const usedByPool = new Map<string, number>();
+            for (const pool of poolIds) {
+              const used = (poolRows.get(pool) ?? []).reduce(
+                (total, row) =>
+                  total +
+                  number(
+                    row.marketValue ??
+                      row.market_value ??
+                      row.costBasis ??
+                      row.cost_basis ??
+                      row.value ??
+                      row.entryValue ??
+                      0
+                  ),
+                0
+              );
+              usedByPool.set(pool, used);
+            }
+
+            // Pool capacity remains equal by strategy design, but "free" must
+            // come from real account-level cash instead of repeating the full
+            // capacity in every pool card.
+            let remainingAvailable = Math.max(0, availableCash);
+            let remainingPending = Math.max(0, pendingCash);
+
+            return poolIds.map(pool => {
+              const rows = poolRows.get(pool) ?? [];
+              const used = usedByPool.get(pool) ?? 0;
+              const freeCapacity = Math.max(0, configured - used);
+              const poolAvailable = Math.min(freeCapacity, remainingAvailable);
+              const poolPending = Math.min(
+                Math.max(0, freeCapacity - poolAvailable),
+                remainingPending
+              );
+              remainingAvailable -= poolAvailable;
+              remainingPending -= poolPending;
+
+              return {
+                pool,
+                allocated: configured,
+                used,
+                available: poolAvailable,
+                pending: poolPending,
+                active: rows.length,
+                slots: 1,
+                usedRatio: configured > 0 ? used / configured : 0,
+              };
+            });
+          }
+          function '''
+
+          text = text[:match.start()] + replacement + text[match.end()-len('function '):]
+          path.write_text(text)
+          PY
+
+      - name: Validate formatting
+        run: |
+          npx prettier --check apps/web/components/dashboard/DashboardViews.tsx
+
+      - name: Squash temporary runner into one fix commit
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add apps/web/components/dashboard/DashboardViews.tsx
+          git rm .github/workflows/_fix-pools-capital-state.yml
+          git reset --soft HEAD~1
+          git add apps/web/components/dashboard/DashboardViews.tsx
+          git commit -m "fix(web): correct pools capital availability"
+          git push --force-with-lease origin HEAD:${GITHUB_REF_NAME}
