@@ -13,7 +13,10 @@ test('rounds quantities down to the configured step', () => {
 });
 
 test('normalizes entry, target and invalidation using the same price tick', () => {
-  const result = normalizeOrderPrices(28_537, 29_987, 27_901, { priceTick: 100, quantityStep: 100 });
+  const result = normalizeOrderPrices(28_537, 29_987, 27_901, {
+    priceTick: 100,
+    quantityStep: 100,
+  });
   assert.deepEqual(result, {
     ok: true,
     value: { entry: 28_500, target: 29_900, invalidation: 27_900 },
