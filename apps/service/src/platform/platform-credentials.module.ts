@@ -6,6 +6,7 @@ import { SsiAssetSyncService } from './ssi-asset-sync.service';
 import { SsiMarketPriceService } from './ssi-market-price.service';
 import { BinanceFuturesService } from './binance-futures.service';
 import { TceSsiTradingAuthorizationAdapter } from './tce-ssi-trading-authorization.adapter';
+import { TceSsiExecutionAdapter } from './tce-ssi-execution.adapter';
 import { PlatformCredentialsController } from './platform-credentials.controller';
 import { DbModule } from '../db/db.module';
 import { AuthModule } from '../auth/auth.module';
@@ -36,6 +37,7 @@ import { SupabaseClientService } from '../db/supabase.client';
     },
     SsiApplicationService,
     TceSsiTradingAuthorizationAdapter,
+    TceSsiExecutionAdapter,
     SsiAssetSyncService,
     SsiMarketPriceService,
     BinanceFuturesService,
@@ -46,6 +48,7 @@ import { SupabaseClientService } from '../db/supabase.client';
     CONTRACT_TOKENS.orderRepository,
     SsiApplicationService,
     TceSsiTradingAuthorizationAdapter,
+    TceSsiExecutionAdapter,
     SsiAssetSyncService,
     SsiMarketPriceService,
     BinanceFuturesService,
