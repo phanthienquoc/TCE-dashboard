@@ -62,6 +62,40 @@ test('rejects stale intents', () => {
   if (!result.ok) assert.equal(result.code, 'STALE_INTENT');
 });
 
+test('rejects stale or missing market data when freshness is required', () => {
+  const freshnessConfig = { ...config, maxMarketDataAgeMs: 30_000 };
+  const missing = evaluateRiskSafetyGate(request(), freshnessConfig);
+  assert.equal(missing.ok, false);
+  if (!missing.ok) assert.equal(missing.code, 'STALE_MARKET_DATA');
+
+  const stale = evaluateRiskSafetyGate(request({ context: { ...context, marketDataAt: '2026-09-10T00:59:00.000Z' } }), freshnessConfig);
+  assert.equal(stale.ok, false);
+  if (!stale.ok) assert.equal(stale.code, 'STALE_MARKET_DATA');
+
+  const fresh = evaluateRiskSafetyGate(request({ context: { ...context, marketDataAt: context.now } }), freshnessConfig);
+  assert.equal(fresh.ok, true);
+});
+
+test('rejects required dividend data without a freshness policy or with stale data', () => {
+  const noPolicy = evaluateRiskSafetyGate(request({ context: { ...context, dividendDataRequired: true } }), config);
+  assert.equal(noPolicy.ok, false);
+  if (!noPolicy.ok) assert.equal(noPolicy.code, 'STALE_DIVIDEND_DATA');
+
+  const freshConfig = { ...config, maxDividendDataAgeMs: 30_000 };
+  const stale = evaluateRiskSafetyGate(request({ context: { ...context, dividendDataRequired: true, dividendDataAt: '2026-09-10T00:59:00.000Z' } }), freshConfig);
+  assert.equal(stale.ok, false);
+  if (!stale.ok) assert.equal(stale.code, 'STALE_DIVIDEND_DATA');
+
+  const fresh = evaluateRiskSafetyGate(request({ context: { ...context, dividendDataRequired: true, dividendDataAt: context.now } }), freshConfig);
+  assert.equal(fresh.ok, true);
+});
+
+test('rejects major-news risk when configured', () => {
+  const result = evaluateRiskSafetyGate(request({ context: { ...context, majorNewsRisk: true } }), { ...config, blockOnMajorNews: true });
+  assert.equal(result.ok, false);
+  if (!result.ok) assert.equal(result.code, 'MAJOR_NEWS_RISK');
+});
+
 test('rejects global and pool kill switches', () => {
   const globalStop = evaluateRiskSafetyGate(request({ context: { ...context, engineKillSwitch: true } }), config);
   assert.equal(globalStop.ok, false);
