@@ -5,6 +5,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
 import SSIPlatformConfig from './platforms/SSIPlatformConfig';
 import BinancePlatformConfig from './platforms/BinancePlatformConfig';
 import FastApiPlatformConfig from './platforms/FastApiPlatformConfig';
+import GeminiPlatformConfig from './platforms/GeminiPlatformConfig';
 import type { PlatformConfigProps, PlatformDefinition } from './platforms/types';
 
 export default function PlatformConfigTab() {
@@ -13,6 +14,7 @@ export default function PlatformConfigTab() {
     () => [
       { id: 'ssi', label: 'SSI FastConnect', component: SSIPlatformConfig },
       { id: 'binance', label: 'Binance Futures', component: BinancePlatformConfig },
+      { id: 'gemini', label: 'Gemini 2.5 Flash', component: GeminiPlatformConfig },
       { id: 'fastapi', label: 'FastAPI', component: FastApiPlatformConfig },
     ],
     []
