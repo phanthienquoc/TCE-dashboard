@@ -5,8 +5,35 @@ import { CheckCircle2, FileJson, KeyRound, Loader2, Upload, XCircle } from 'luci
 import { platformApi } from '../../../lib/api';
 
 type Props = { onMessage?: (message: string) => void };
-
 type ResultState = { ok: boolean; message: string } | null;
+
+type GeminiModel = {
+  id: string;
+  label: string;
+  description: string;
+  freeTier: boolean;
+};
+
+const GEMINI_MODELS: GeminiModel[] = [
+  {
+    id: 'gemini-2.5-flash',
+    label: 'Gemini 2.5 Flash',
+    description: 'Best default for TCE signal parsing and reasoning',
+    freeTier: true,
+  },
+  {
+    id: 'gemini-2.5-flash-lite',
+    label: 'Gemini 2.5 Flash-Lite',
+    description: 'Fastest and most budget-friendly 2.5 model',
+    freeTier: true,
+  },
+  {
+    id: 'gemini-3.1-flash-lite',
+    label: 'Gemini 3.1 Flash-Lite',
+    description: 'High-volume, cost-efficient agentic workloads',
+    freeTier: true,
+  },
+];
 
 const pick = (source: Record<string, unknown>, ...keys: string[]) => {
   for (const key of keys) {
@@ -16,7 +43,7 @@ const pick = (source: Record<string, unknown>, ...keys: string[]) => {
   return '';
 };
 
-function apiKeyFromJson(value: unknown): string {
+function credentialsFromJson(value: unknown) {
   if (!value || typeof value !== 'object' || Array.isArray(value))
     throw new Error('JSON root must be an object');
   const root = value as Record<string, unknown>;
@@ -24,11 +51,16 @@ function apiKeyFromJson(value: unknown): string {
     root.credentials && typeof root.credentials === 'object' && !Array.isArray(root.credentials)
       ? (root.credentials as Record<string, unknown>)
       : {};
-  return pick({ ...root, ...nested }, 'apiKey', 'api_key', 'geminiApiKey', 'gemini_api_key');
+  const source = { ...root, ...nested };
+  return {
+    apiKey: pick(source, 'apiKey', 'api_key', 'geminiApiKey', 'gemini_api_key'),
+    model: pick(source, 'model', 'modelName', 'model_name'),
+  };
 }
 
 export default function GeminiPlatform({ onMessage }: Props) {
   const [apiKey, setApiKey] = useState('');
+  const [model, setModel] = useState(GEMINI_MODELS[0].id);
   const [fileName, setFileName] = useState('');
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<ResultState>(null);
@@ -41,11 +73,12 @@ export default function GeminiPlatform({ onMessage }: Props) {
       if (!file.name.toLowerCase().endsWith('.json') && file.type !== 'application/json')
         throw new Error('Please select a JSON file');
       const parsed = JSON.parse(await file.text());
-      const next = apiKeyFromJson(parsed);
-      if (!next) throw new Error('JSON must contain apiKey (or geminiApiKey)');
-      setApiKey(next);
+      const next = credentialsFromJson(parsed);
+      if (!next.apiKey) throw new Error('JSON must contain apiKey (or geminiApiKey)');
+      setApiKey(next.apiKey);
+      if (next.model && GEMINI_MODELS.some(item => item.id === next.model)) setModel(next.model);
       setFileName(file.name);
-      setResult({ ok: true, message: `Loaded Gemini API key from ${file.name}.` });
+      setResult({ ok: true, message: `Loaded Gemini credentials from ${file.name}.` });
       onMessage?.(`Loaded Gemini credentials from ${file.name}`);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'JSON upload failed';
@@ -64,9 +97,10 @@ export default function GeminiPlatform({ onMessage }: Props) {
     setBusy(true);
     setResult(null);
     try {
-      await platformApi.save('gemini', 'production', { apiKey: apiKey.trim() });
-      setResult({ ok: true, message: 'Gemini 2.5 Flash credentials saved securely.' });
-      onMessage?.('Gemini credentials saved');
+      await platformApi.save('gemini', 'production', { apiKey: apiKey.trim(), model });
+      const selected = GEMINI_MODELS.find(item => item.id === model);
+      setResult({ ok: true, message: `${selected?.label ?? model} credentials saved securely.` });
+      onMessage?.(`Gemini credentials saved with ${model}`);
     } catch (error) {
       const value = error as { response?: { data?: { message?: string } }; message?: string };
       const message = value?.response?.data?.message ?? value?.message ?? 'Save failed';
@@ -85,14 +119,33 @@ export default function GeminiPlatform({ onMessage }: Props) {
             <KeyRound className="size-4" />
           </div>
           <div className="min-w-0">
-            <p className="font-semibold tracking-tight">Gemini 2.5 Flash</p>
+            <p className="font-semibold tracking-tight">Gemini Engine</p>
             <p className="mt-0.5 truncate text-xs text-[#81748a]">Signal Parser · Production</p>
           </div>
         </div>
       </div>
 
       <div className="border-t border-emerald-200/[0.07] px-5 pb-5 pt-4">
-        <div className="mb-4 flex flex-wrap items-center gap-2">
+        <label className="block text-xs text-[#9c91a3]">
+          Model
+          <select
+            className="mt-1.5 h-11 w-full rounded-xl border border-white/10 bg-black/20 px-3 text-sm outline-none focus:border-emerald-300/30"
+            value={model}
+            onChange={event => setModel(event.target.value)}
+            disabled={busy}
+          >
+            {GEMINI_MODELS.map(item => (
+              <option key={item.id} value={item.id}>
+                {item.label} · {item.freeTier ? 'Free tier' : 'Paid'}
+              </option>
+            ))}
+          </select>
+          <span className="mt-1 block text-[11px] text-[#81748a]">
+            {GEMINI_MODELS.find(item => item.id === model)?.description} · Free-tier availability and limits are subject to Google AI Studio pricing.
+          </span>
+        </label>
+
+        <div className="mb-4 mt-4 flex flex-wrap items-center gap-2">
           <input
             ref={fileInputRef}
             type="file"
