@@ -61,6 +61,9 @@ export class TceSsiExecutionAdapter implements TceExecutionPort {
             : 'AUTHORIZATION_REQUIRED';
       return rejected(command, code, `SSI authorization is ${auth.data.state.toLowerCase()}`);
     }
+    if (auth.data.accountId !== command.accountId || auth.data.environment !== command.environment) {
+      return rejected(command, 'INVALID_ACCOUNT', 'SSI authorization identity does not match the execution account/environment');
+    }
 
     const account = await this.supabase.db
       .from('tce_accounts')
