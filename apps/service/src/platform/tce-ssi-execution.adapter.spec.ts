@@ -41,8 +41,8 @@ const readyAuth = {
   },
 };
 
-function adapter() {
-  const authorization = { ensureAuthorized: async () => readyAuth };
+function adapter(auth = readyAuth) {
+  const authorization = { ensureAuthorized: async () => auth };
   const supabase = {
     db: {
       from: () => ({
@@ -76,6 +76,24 @@ test('submits an approved LIVE intent through the SSI application boundary', asy
   assert.equal(result.clientRequestId, 'client-1');
 });
 
+test('fails closed when authorization account does not match execution account', async () => {
+  const result = await adapter({
+    ...readyAuth,
+    data: { ...readyAuth.data, accountId: 'other-account' },
+  }).submit(command());
+  assert.equal(result.ok, false);
+  assert.equal(result.error?.code, 'INVALID_ACCOUNT');
+});
+
+test('fails closed when authorization environment does not match execution environment', async () => {
+  const result = await adapter({
+    ...readyAuth,
+    data: { ...readyAuth.data, environment: 'sandbox' },
+  }).submit(command());
+  assert.equal(result.ok, false);
+  assert.equal(result.error?.code, 'INVALID_ACCOUNT');
+});
+
 test('rejects non-LIVE commands without touching SSI', async () => {
   let called = false;
   const instance = adapter();
@@ -90,18 +108,16 @@ test('rejects non-LIVE commands without touching SSI', async () => {
 });
 
 test('fails closed when authorization is not READY', async () => {
-  const instance = adapter();
-  (instance as any).authorization.ensureAuthorized = async () => ({
+  const result = await adapter({
     ok: true,
     data: {
       state: 'APPROVAL_REQUIRED',
       provider: 'ssi',
       accountId: 'account-1',
       environment: 'production',
-      checkedAt: new Date().toISOString(),
+      checkedAt: '2026-09-10T14:00:00.000Z',
     },
-  });
-  const result = await instance.submit(command());
+  }).submit(command());
   assert.equal(result.ok, false);
   assert.equal(result.error?.code, 'APPROVAL_REQUIRED');
 });
