@@ -14,9 +14,9 @@ import {
   CONTRACT_TOKENS,
   FuturesCancelOrderInput,
   FuturesEntryOrderInput,
-  FuturesTpSlInput,
   PlatformCredentialPort,
   type BrokerOrderRequest,
+  type PlatformProvider,
 } from '@tce/contracts';
 import { JwtService } from '../auth/jwt.service';
 import { SsiApplicationService } from './ssi.application.service';
@@ -49,7 +49,7 @@ export class PlatformCredentialsController {
   }
   @Post(':provider') save(
     @Headers('authorization') auth: string | undefined,
-    @Param('provider') provider: 'ssi' | 'binance' | 'fastapi' | 'telegram',
+    @Param('provider') provider: PlatformProvider,
     @Body() body: { environment?: string; credentials: Record<string, unknown> }
   ) {
     if (!body?.credentials || typeof body.credentials !== 'object')
@@ -235,7 +235,7 @@ export class PlatformCredentialsController {
   }
   @Delete(':provider') remove(
     @Headers('authorization') auth: string | undefined,
-    @Param('provider') provider: 'ssi' | 'binance' | 'fastapi' | 'telegram',
+    @Param('provider') provider: PlatformProvider,
     @Body() body?: { environment?: string }
   ) {
     const environment =
