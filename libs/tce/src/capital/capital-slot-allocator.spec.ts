@@ -122,5 +122,8 @@ test('keeps the temporary default pool capital split equal across A/B/C', () => 
     snapshot.pools.map(pool => pool.configuredCapital),
     [3_000_000, 3_000_000, 3_000_000]
   );
-  assert.equal(snapshot.pools.reduce((sum, pool) => sum + pool.configuredCapital, 0), totalCapital);
+  assert.equal(
+    snapshot.pools.reduce((sum, pool) => sum + pool.configuredCapital, 0),
+    totalCapital
+  );
 });
