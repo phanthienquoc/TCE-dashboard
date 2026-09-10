@@ -17,13 +17,13 @@ import {
   FuturesTpSlInput,
   PlatformCredentialPort,
   type BrokerOrderRequest,
-  type PlatformProvider,
 } from '@tce/contracts';
 import { JwtService } from '../auth/jwt.service';
 import { SsiApplicationService } from './ssi.application.service';
 import { SsiAssetSyncService } from './ssi-asset-sync.service';
 import { SsiMarketPriceService } from './ssi-market-price.service';
 import { BinanceFuturesService } from './binance-futures.service';
+import { GeminiConnectionService } from './gemini-connection.service';
 
 @Controller('platform/credentials')
 export class PlatformCredentialsController {
@@ -33,6 +33,7 @@ export class PlatformCredentialsController {
     private readonly ssiAssetSync: SsiAssetSyncService,
     private readonly ssiMarketPrice: SsiMarketPriceService,
     private readonly binance: BinanceFuturesService,
+    private readonly gemini: GeminiConnectionService,
     private readonly jwt: JwtService
   ) {}
   private userId(auth?: string) {
@@ -50,7 +51,7 @@ export class PlatformCredentialsController {
   }
   @Post(':provider') save(
     @Headers('authorization') auth: string | undefined,
-    @Param('provider') provider: PlatformProvider,
+    @Param('provider') provider: 'ssi' | 'binance' | 'fastapi' | 'telegram',
     @Body() body: { environment?: string; credentials: Record<string, unknown> }
   ) {
     if (!body?.credentials || typeof body.credentials !== 'object')
@@ -81,6 +82,20 @@ export class PlatformCredentialsController {
       this.userId(auth),
       this.binanceEnvironment(body?.environment)
     );
+  }
+  @Post('gemini/test') testGemini(
+    @Headers('authorization') auth: string | undefined,
+    @Body()
+    body?: {
+      environment?: string;
+      credentials?: { apiKey?: string; model?: string };
+    }
+  ) {
+    void (body?.environment ?? 'production');
+    this.userId(auth);
+    const apiKey = typeof body?.credentials?.apiKey === 'string' ? body.credentials.apiKey : '';
+    const model = typeof body?.credentials?.model === 'string' ? body.credentials.model : '';
+    return this.gemini.testConnection(apiKey, model);
   }
   @Post('binance/order') orderBinance(
     @Headers('authorization') auth: string | undefined,
@@ -121,7 +136,12 @@ export class PlatformCredentialsController {
   @Post(':provider/approve') approve(
     @Headers('authorization') auth: string | undefined,
     @Param('provider') provider: string,
-    @Body() body?: { environment?: string; otp?: string; transactionId?: string }
+    @Body()
+    body?: {
+      environment?: string;
+      otp?: string;
+      transactionId?: string;
+    }
   ) {
     if (provider !== 'ssi')
       throw new UnauthorizedException('Approval verification is only available for SSI');
@@ -231,7 +251,7 @@ export class PlatformCredentialsController {
   }
   @Delete(':provider') remove(
     @Headers('authorization') auth: string | undefined,
-    @Param('provider') provider: PlatformProvider,
+    @Param('provider') provider: 'ssi' | 'binance' | 'fastapi' | 'telegram',
     @Body() body?: { environment?: string }
   ) {
     const environment =

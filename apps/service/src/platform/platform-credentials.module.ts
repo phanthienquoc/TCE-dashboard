@@ -5,6 +5,7 @@ import { SsiApplicationService } from './ssi.application.service';
 import { SsiAssetSyncService } from './ssi-asset-sync.service';
 import { SsiMarketPriceService } from './ssi-market-price.service';
 import { BinanceFuturesService } from './binance-futures.service';
+import { GeminiConnectionService } from './gemini-connection.service';
 import { PlatformCredentialsController } from './platform-credentials.controller';
 import { DbModule } from '../db/db.module';
 import { AuthModule } from '../auth/auth.module';
@@ -37,6 +38,7 @@ import { SupabaseClientService } from '../db/supabase.client';
     SsiAssetSyncService,
     SsiMarketPriceService,
     BinanceFuturesService,
+    GeminiConnectionService,
   ],
   exports: [
     CONTRACT_TOKENS.credentials,
@@ -46,6 +48,7 @@ import { SupabaseClientService } from '../db/supabase.client';
     SsiAssetSyncService,
     SsiMarketPriceService,
     BinanceFuturesService,
+    GeminiConnectionService,
   ],
 })
 export class PlatformCredentialsModule {}

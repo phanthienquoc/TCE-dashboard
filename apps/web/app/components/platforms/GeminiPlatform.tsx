@@ -1,7 +1,7 @@
 'use client';
 
 import { useRef, useState } from 'react';
-import { CheckCircle2, FileJson, KeyRound, Loader2, Upload, XCircle } from 'lucide-react';
+import { CheckCircle2, FileJson, KeyRound, Loader2, Upload, Wifi, XCircle } from 'lucide-react';
 import { platformApi } from '../../../lib/api';
 
 type Props = { onMessage?: (message: string) => void };
@@ -86,6 +86,34 @@ export default function GeminiPlatform({ onMessage }: Props) {
       onMessage?.(`Gemini JSON upload failed: ${message}`);
     } finally {
       if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
+  const testConnection = async () => {
+    if (!apiKey.trim()) {
+      setResult({ ok: false, message: 'Gemini API Key is required.' });
+      return;
+    }
+    setBusy(true);
+    setResult(null);
+    try {
+      const response = await platformApi.geminiTest({
+        environment: 'production',
+        credentials: { apiKey: apiKey.trim(), model },
+      });
+      const data = response.data as { message?: string; model?: string };
+      setResult({
+        ok: true,
+        message: data.message ?? `Gemini connection successful for ${data.model ?? model}.`,
+      });
+      onMessage?.(`Gemini connection test successful for ${data.model ?? model}`);
+    } catch (error) {
+      const value = error as { response?: { data?: { message?: string } }; message?: string };
+      const message = value?.response?.data?.message ?? value?.message ?? 'Gemini connection test failed';
+      setResult({ ok: false, message });
+      onMessage?.(`Gemini connection test failed: ${message}`);
+    } finally {
+      setBusy(false);
     }
   };
 
@@ -185,15 +213,26 @@ export default function GeminiPlatform({ onMessage }: Props) {
           />
         </label>
 
-        <button
-          type="button"
-          disabled={busy || !apiKey.trim()}
-          onClick={() => void save()}
-          className="mt-4 inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-emerald-300 px-4 text-sm font-semibold text-slate-950 disabled:opacity-50"
-        >
-          {busy ? <Loader2 className="size-4 animate-spin" /> : <CheckCircle2 className="size-4" />}
-          Save Credential
-        </button>
+        <div className="mt-4 flex flex-wrap gap-2">
+          <button
+            type="button"
+            disabled={busy || !apiKey.trim()}
+            onClick={() => void testConnection()}
+            className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-emerald-300/20 bg-emerald-300/[0.05] px-4 text-sm font-semibold text-emerald-100 disabled:opacity-50"
+          >
+            {busy ? <Loader2 className="size-4 animate-spin" /> : <Wifi className="size-4" />}
+            Test Connection
+          </button>
+          <button
+            type="button"
+            disabled={busy || !apiKey.trim()}
+            onClick={() => void save()}
+            className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-emerald-300 px-4 text-sm font-semibold text-slate-950 disabled:opacity-50"
+          >
+            {busy ? <Loader2 className="size-4 animate-spin" /> : <CheckCircle2 className="size-4" />}
+            Save Credential
+          </button>
+        </div>
 
         {result && (
           <div

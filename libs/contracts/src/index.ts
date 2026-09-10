@@ -13,3 +13,5 @@ export * from './tce-auto-trade.contract';
 export * from './capital-allocation.contract';
 export * from './capital-lifecycle.contract';
 export * from './tce-risk.contract';
+export * from './tce-execution.contract';
+export * from './tce-trading-authorization.contract';
