@@ -72,7 +72,13 @@ export class PlatformCredentialsController {
         throw new UnauthorizedException('Binance API Key and API Secret are required');
     }
     if (provider === 'gemini') {
-      credentials = { apiKey: body.credentials.apiKey };
+      credentials = {
+        apiKey: body.credentials.apiKey,
+        model:
+          typeof body.credentials.model === 'string' && body.credentials.model.trim()
+            ? body.credentials.model.trim()
+            : 'gemini-2.5-flash',
+      };
       if (typeof credentials.apiKey !== 'string' || !credentials.apiKey.trim())
         throw new UnauthorizedException('Gemini API Key is required');
     }
