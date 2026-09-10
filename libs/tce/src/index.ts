@@ -21,3 +21,4 @@ export * from './capital/capital-allocation-lifecycle';
 export * from './order/order-planner';
 export * from './order/order-planner-allocation';
 export * from './order/order-precision';
+export * from './order/order-planner-validation';

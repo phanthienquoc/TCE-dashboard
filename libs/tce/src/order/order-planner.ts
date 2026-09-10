@@ -1,5 +1,6 @@
 import type { TceDecision, TceExecutionIntent, TceOrderPlan } from '@tce/contracts';
 import { normalizeOrderPrices, roundQuantityToStep } from './order-precision';
+import { validateBuyOrderPrices, validateOrderPlannerConfig } from './order-planner-validation';
 
 export type OrderPlannerConfig = Readonly<{
   lotSize: number;
@@ -33,9 +34,12 @@ export function planBuyOrder(
 ): OrderPlannerOutcome {
   if (request.decision.action !== 'BUY') return { ok: false, code: 'DECISION_NOT_BUY', message: 'Only BUY decisions can be planned' };
   if (!request.slotAvailable) return { ok: false, code: 'SLOT_UNAVAILABLE', message: 'Decision slot is not available' };
+  const configResult = validateOrderPlannerConfig(config);
+  if (!configResult.ok) return configResult;
   if (!Number.isFinite(request.capital) || request.capital <= 0) return { ok: false, code: 'INVALID_CAPITAL', message: 'Capital must be positive' };
   if (!Number.isFinite(request.availableCapital) || request.availableCapital <= 0) return { ok: false, code: 'NO_BUYING_POWER', message: 'Available capital must be positive' };
-  if (!Number.isInteger(config.lotSize) || config.lotSize <= 0) return { ok: false, code: 'INVALID_LOT_SIZE', message: 'lotSize must be a positive integer' };
+  const priceResult = validateBuyOrderPrices(request.price, request.decision.target, request.decision.invalidation);
+  if (!priceResult.ok) return priceResult;
 
   const prices = config.priceTick === undefined
     ? { ok: true as const, value: { entry: request.price, target: request.decision.target, invalidation: request.decision.invalidation } }
@@ -44,6 +48,9 @@ export function planBuyOrder(
         quantityStep: config.quantityStep ?? config.lotSize,
       });
   if (!prices.ok) return prices;
+  const normalizedPriceResult = validateBuyOrderPrices(prices.value.entry, prices.value.target, prices.value.invalidation);
+  if (!normalizedPriceResult.ok) return normalizedPriceResult;
+
   const entryPrice = prices.value.entry;
   const budget = Math.min(request.capital, request.availableCapital);
   const rawQuantity = Math.floor(budget / entryPrice);
