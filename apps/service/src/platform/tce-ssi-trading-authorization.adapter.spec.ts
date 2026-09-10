@@ -1,4 +1,4 @@
-import { TceSsiTradingAuthorizationAdapter } from './tce-ssi-trading-authorization.adapter';
+import { mapSsiAuthorizationFailure, TceSsiTradingAuthorizationAdapter } from './tce-ssi-trading-authorization.adapter';
 import type { PlatformCredentialPort } from '@tce/contracts';
 
 const context = {
@@ -28,6 +28,29 @@ const fakeDb = (account: Record<string, unknown> | null, error: Error | null = n
       }),
     }),
   }),
+});
+
+describe('mapSsiAuthorizationFailure', () => {
+  it('maps SSI reauthentication requirement to approval-required', () => {
+    const result = mapSsiAuthorizationFailure(context, 'SSI_REAUTH_REQUIRED: refresh token expired');
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.data.state).toBe('APPROVAL_REQUIRED');
+  });
+
+  it('maps an expired provider token response to expired', () => {
+    const result = mapSsiAuthorizationFailure(context, 'HTTP 401: access token expired');
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.data.state).toBe('EXPIRED');
+  });
+
+  it('fails closed for unknown authorization failures', () => {
+    const result = mapSsiAuthorizationFailure(context, 'SSI credential rejected');
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error.code).toBe('UNAVAILABLE');
+      expect(result.error.retryable).toBe(true);
+    }
+  });
 });
 
 describe('TceSsiTradingAuthorizationAdapter', () => {
