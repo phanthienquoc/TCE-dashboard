@@ -1,6 +1,10 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import type { TceExecutionPort, TceExecutionResult, TceExecutionSubmitCommand } from '@tce/contracts';
+import type {
+  TceExecutionPort,
+  TceExecutionResult,
+  TceExecutionSubmitCommand,
+} from '@tce/contracts';
 import { TceExecutionOrchestrator } from './execution-orchestrator.js';
 
 const submit = (overrides: Partial<TceExecutionSubmitCommand> = {}): TceExecutionSubmitCommand => ({
@@ -45,12 +49,16 @@ const okResult = (command: TceExecutionSubmitCommand): TceExecutionResult => ({
 test('dispatches approved submit and preserves provider-neutral result', async () => {
   let calls = 0;
   const port: TceExecutionPort = {
-    submit: async (command) => {
+    submit: async command => {
       calls += 1;
       return okResult(command);
     },
-    cancel: async () => { throw new Error('not used'); },
-    replace: async () => { throw new Error('not used'); },
+    cancel: async () => {
+      throw new Error('not used');
+    },
+    replace: async () => {
+      throw new Error('not used');
+    },
   };
 
   const result = await new TceExecutionOrchestrator(port).execute(submit());
@@ -62,9 +70,16 @@ test('dispatches approved submit and preserves provider-neutral result', async (
 test('deduplicates repeated idempotency keys without calling provider twice', async () => {
   let calls = 0;
   const port: TceExecutionPort = {
-    submit: async (command) => { calls += 1; return okResult(command); },
-    cancel: async () => { throw new Error('not used'); },
-    replace: async () => { throw new Error('not used'); },
+    submit: async command => {
+      calls += 1;
+      return okResult(command);
+    },
+    cancel: async () => {
+      throw new Error('not used');
+    },
+    replace: async () => {
+      throw new Error('not used');
+    },
   };
   const orchestrator = new TceExecutionOrchestrator(port);
   const first = await orchestrator.execute(submit());
@@ -75,12 +90,18 @@ test('deduplicates repeated idempotency keys without calling provider twice', as
 
 test('fails closed when authorization does not match the intent', async () => {
   const port: TceExecutionPort = {
-    submit: async () => { throw new Error('must not be called'); },
-    cancel: async () => { throw new Error('must not be called'); },
-    replace: async () => { throw new Error('must not be called'); },
+    submit: async () => {
+      throw new Error('must not be called');
+    },
+    cancel: async () => {
+      throw new Error('must not be called');
+    },
+    replace: async () => {
+      throw new Error('must not be called');
+    },
   };
   const result = await new TceExecutionOrchestrator(port).execute(
-    submit({ authorization: { ...submit().authorization, correlationId: 'other-correlation' } }),
+    submit({ authorization: { ...submit().authorization, correlationId: 'other-correlation' } })
   );
   assert.equal(result.ok, false);
   assert.equal(result.result.error?.code, 'INVALID_COMMAND');
@@ -88,9 +109,15 @@ test('fails closed when authorization does not match the intent', async () => {
 
 test('normalizes adapter exceptions as unknown and requires reconciliation', async () => {
   const port: TceExecutionPort = {
-    submit: async () => { throw new Error('network timeout'); },
-    cancel: async () => { throw new Error('not used'); },
-    replace: async () => { throw new Error('not used'); },
+    submit: async () => {
+      throw new Error('network timeout');
+    },
+    cancel: async () => {
+      throw new Error('not used');
+    },
+    replace: async () => {
+      throw new Error('not used');
+    },
   };
   const result = await new TceExecutionOrchestrator(port).execute(submit());
   assert.equal(result.result.status, 'UNKNOWN');

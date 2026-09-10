@@ -109,7 +109,8 @@ export default function GeminiPlatform({ onMessage }: Props) {
       onMessage?.(`Gemini connection test successful for ${data.model ?? model}`);
     } catch (error) {
       const value = error as { response?: { data?: { message?: string } }; message?: string };
-      const message = value?.response?.data?.message ?? value?.message ?? 'Gemini connection test failed';
+      const message =
+        value?.response?.data?.message ?? value?.message ?? 'Gemini connection test failed';
       setResult({ ok: false, message });
       onMessage?.(`Gemini connection test failed: ${message}`);
     } finally {
@@ -229,7 +230,11 @@ export default function GeminiPlatform({ onMessage }: Props) {
             onClick={() => void save()}
             className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-emerald-300 px-4 text-sm font-semibold text-slate-950 disabled:opacity-50"
           >
-            {busy ? <Loader2 className="size-4 animate-spin" /> : <CheckCircle2 className="size-4" />}
+            {busy ? (
+              <Loader2 className="size-4 animate-spin" />
+            ) : (
+              <CheckCircle2 className="size-4" />
+            )}
             Save Credential
           </button>
         </div>

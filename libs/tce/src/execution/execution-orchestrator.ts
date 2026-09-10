@@ -15,7 +15,7 @@ type ExecutionOrchestratorResult = Readonly<{
 const invalidResult = (
   command: TceExecutionCommand,
   code: 'AUTHORIZATION_REQUIRED' | 'INVALID_COMMAND',
-  message: string,
+  message: string
 ): ExecutionOrchestratorResult => ({
   ok: false,
   result: {
@@ -78,7 +78,11 @@ export class TceExecutionOrchestrator {
   private validate(command: TceExecutionCommand): ExecutionOrchestratorResult | null {
     const auth = command.authorization;
     if (!auth?.approvalId || !auth.correlationId || !auth.idempotencyKey || !auth.approvedAt) {
-      return invalidResult(command, 'AUTHORIZATION_REQUIRED', 'Execution approval identity is required');
+      return invalidResult(
+        command,
+        'AUTHORIZATION_REQUIRED',
+        'Execution approval identity is required'
+      );
     }
 
     if (command.operation === 'SUBMIT') {
@@ -87,12 +91,21 @@ export class TceExecutionOrchestrator {
         command.intent.idempotencyKey !== auth.idempotencyKey ||
         command.intent.mode !== command.mode
       ) {
-        return invalidResult(command, 'INVALID_COMMAND', 'Execution authorization does not match intent');
+        return invalidResult(
+          command,
+          'INVALID_COMMAND',
+          'Execution authorization does not match intent'
+        );
       }
       return null;
     }
 
-    if (!command.executionIntentId || !command.clientRequestId || !command.accountId || !command.environment) {
+    if (
+      !command.executionIntentId ||
+      !command.clientRequestId ||
+      !command.accountId ||
+      !command.environment
+    ) {
       return invalidResult(command, 'INVALID_COMMAND', 'Execution command identity is incomplete');
     }
 
@@ -113,7 +126,7 @@ export class TceExecutionOrchestrator {
         return this.port.replace(command as TceExecutionReplaceCommand);
       default:
         return Promise.resolve(
-          invalidResult(command, 'INVALID_COMMAND', 'Unsupported execution operation').result,
+          invalidResult(command, 'INVALID_COMMAND', 'Unsupported execution operation').result
         );
     }
   }
