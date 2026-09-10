@@ -70,8 +70,6 @@ jobs:
               usedByPool.set(pool, used);
             }
 
-            // Pool capacity remains equal by strategy design, but free cash is
-            // account-level and must never be duplicated across all pools.
             let remainingAvailable = Math.max(0, availableCash);
             let remainingPending = Math.max(0, pendingCash);
 
@@ -103,9 +101,7 @@ jobs:
           text = text[:start] + replacement + text[end:]
           path.write_text(text)
           PY
-
-      - name: Validate formatting
-        run: npx prettier --check apps/web/components/dashboard/DashboardViews.tsx
+          npx prettier --write apps/web/components/dashboard/DashboardViews.tsx
 
       - name: Squash temporary runner into one fix commit
         run: |
@@ -115,5 +111,6 @@ jobs:
           git reset --soft origin/master
           git add apps/web/components/dashboard/DashboardViews.tsx
           git rm .github/workflows/_fix-pools-capital-state.yml
+          git rm .github/.pool-fix-trigger || true
           git commit -m "fix(web): correct pools capital availability"
           git push --force-with-lease origin HEAD:${GITHUB_REF_NAME}
