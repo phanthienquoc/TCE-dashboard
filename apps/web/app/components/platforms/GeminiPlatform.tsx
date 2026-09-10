@@ -141,7 +141,8 @@ export default function GeminiPlatform({ onMessage }: Props) {
             ))}
           </select>
           <span className="mt-1 block text-[11px] text-[#81748a]">
-            {GEMINI_MODELS.find(item => item.id === model)?.description} · Free-tier availability and limits are subject to Google AI Studio pricing.
+            {GEMINI_MODELS.find(item => item.id === model)?.description} · Free-tier availability
+            and limits are subject to Google AI Studio pricing.
           </span>
         </label>
 
