@@ -28,3 +28,4 @@ export * from './risk/risk-gate-audit';
 export * from './execution/execution-orchestrator';
 export * from './execution/trading-authorization';
 export * from './execution/paper-execution';
+export * from './execution/assisted-approval';
