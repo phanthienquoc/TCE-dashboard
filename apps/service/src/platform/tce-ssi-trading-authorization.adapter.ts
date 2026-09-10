@@ -33,6 +33,29 @@ const unavailable = (
   },
 });
 
+const authorizationState = (
+  context: TceTradingAuthorizationContext,
+  state: 'APPROVAL_REQUIRED' | 'EXPIRED',
+): ContractResult<TceTradingAuthorization> => ({
+  ok: true,
+  data: {
+    state,
+    provider: 'ssi',
+    accountId: context.accountId,
+    environment: context.environment,
+    checkedAt: nowIso(),
+  },
+});
+
+export const mapSsiAuthorizationFailure = (
+  context: TceTradingAuthorizationContext,
+  message: string,
+): ContractResult<TceTradingAuthorization> => {
+  if (message.startsWith('SSI_REAUTH_REQUIRED')) return authorizationState(context, 'APPROVAL_REQUIRED');
+  if (message.toLowerCase().includes('token expired')) return authorizationState(context, 'EXPIRED');
+  return unavailable(context, message);
+};
+
 @Injectable()
 export class TceSsiTradingAuthorizationAdapter implements TceTradingAuthorizationPort {
   constructor(
@@ -82,7 +105,9 @@ export class TceSsiTradingAuthorizationAdapter implements TceTradingAuthorizatio
     }
 
     try {
-      await adapter.connect({ userId: account.data.userId, environment: context.environment });
+      const connection = await adapter.connect({ userId: account.data.userId, environment: context.environment });
+      if (!connection.ok) return mapSsiAuthorizationFailure(context, connection.error.message);
+
       const refreshed = adapter.getTokenSnapshot();
       if (refreshed?.accessToken && this.isFuture(refreshed.expiresAt)) {
         return {
@@ -99,32 +124,7 @@ export class TceSsiTradingAuthorizationAdapter implements TceTradingAuthorizatio
       }
       return unavailable(context, 'SSI authorization completed without a usable access token');
     } catch (error) {
-      const message = this.message(error, 'SSI authorization failed');
-      if (message.startsWith('SSI_REAUTH_REQUIRED')) {
-        return {
-          ok: true,
-          data: {
-            state: 'APPROVAL_REQUIRED',
-            provider: 'ssi',
-            accountId: context.accountId,
-            environment: context.environment,
-            checkedAt: nowIso(),
-          },
-        };
-      }
-      if (this.isExpired(message)) {
-        return {
-          ok: true,
-          data: {
-            state: 'EXPIRED',
-            provider: 'ssi',
-            accountId: context.accountId,
-            environment: context.environment,
-            checkedAt: nowIso(),
-          },
-        };
-      }
-      return unavailable(context, message);
+      return mapSsiAuthorizationFailure(context, this.message(error, 'SSI authorization failed'));
     }
   }
 
@@ -177,11 +177,6 @@ export class TceSsiTradingAuthorizationAdapter implements TceTradingAuthorizatio
   private epochToIso(epoch: number) {
     const milliseconds = epoch < 1e12 ? epoch * 1000 : epoch;
     return new Date(milliseconds).toISOString();
-  }
-
-  private isExpired(message: string) {
-    const normalized = message.toLowerCase();
-    return normalized.includes('expired') || normalized.includes('token expired');
   }
 
   private message(error: unknown, fallback: string) {
