@@ -8,6 +8,7 @@ import {
   Post,
   UnauthorizedException,
   Inject,
+  ConflictException,
 } from '@nestjs/common';
 import {
   CONTRACT_TOKENS,
@@ -48,7 +49,7 @@ export class PlatformCredentialsController {
   }
   @Post(':provider') save(
     @Headers('authorization') auth: string | undefined,
-    @Param('provider') provider: 'ssi' | 'binance' | 'fastapi' | 'telegram' | 'gemini',
+    @Param('provider') provider: 'ssi' | 'binance' | 'fastapi' | 'telegram',
     @Body() body: { environment?: string; credentials: Record<string, unknown> }
   ) {
     if (!body?.credentials || typeof body.credentials !== 'object')
@@ -57,31 +58,18 @@ export class PlatformCredentialsController {
       provider === 'binance'
         ? this.binanceEnvironment(body.environment)
         : (body.environment ?? 'production');
-    let credentials: Record<string, unknown> = body.credentials;
-    if (provider === 'binance') {
-      credentials = {
-        apiKey: body.credentials.apiKey,
-        apiSecret: body.credentials.apiSecret,
-      };
-      if (
-        typeof credentials.apiKey !== 'string' ||
+    const credentials =
+      provider === 'binance'
+        ? { apiKey: body.credentials.apiKey, apiSecret: body.credentials.apiSecret }
+        : body.credentials;
+    if (
+      provider === 'binance' &&
+      (typeof credentials.apiKey !== 'string' ||
         typeof credentials.apiSecret !== 'string' ||
         !credentials.apiKey ||
-        !credentials.apiSecret
-      )
-        throw new UnauthorizedException('Binance API Key and API Secret are required');
-    }
-    if (provider === 'gemini') {
-      credentials = {
-        apiKey: body.credentials.apiKey,
-        model:
-          typeof body.credentials.model === 'string' && body.credentials.model.trim()
-            ? body.credentials.model.trim()
-            : 'gemini-2.5-flash',
-      };
-      if (typeof credentials.apiKey !== 'string' || !credentials.apiKey.trim())
-        throw new UnauthorizedException('Gemini API Key is required');
-    }
+        !credentials.apiSecret)
+    )
+      throw new UnauthorizedException('Binance API Key and API Secret are required');
     return this.credentials.save(this.userId(auth), provider, environment, credentials);
   }
   @Post('binance/test') testBinance(
@@ -132,7 +120,12 @@ export class PlatformCredentialsController {
   @Post(':provider/approve') approve(
     @Headers('authorization') auth: string | undefined,
     @Param('provider') provider: string,
-    @Body() body?: { environment?: string; otp?: string; transactionId?: string }
+    @Body()
+    body?: {
+      environment?: string;
+      otp?: string;
+      transactionId?: string;
+    }
   ) {
     if (provider !== 'ssi')
       throw new UnauthorizedException('Approval verification is only available for SSI');
@@ -229,25 +222,20 @@ export class PlatformCredentialsController {
   @Post('ssi/order') orderSsi(
     @Headers('authorization') auth: string | undefined,
     @Body()
-    body: Omit<BrokerOrderRequest, 'accountNo'> & { accountNo?: string; environment?: string }
+    body: Omit<BrokerOrderRequest, 'accountNo'> & {
+      accountNo?: string;
+      environment?: string;
+    }
   ) {
-    const { environment, ...request } = body ?? {};
-    if (request.side !== 'BUY' && request.side !== 'SELL')
-      throw new UnauthorizedException('SSI order side must be BUY or SELL');
-    if (!request.symbol || !Number.isInteger(request.quantity) || request.quantity <= 0)
-      throw new UnauthorizedException(
-        'SSI order symbol and positive integer quantity are required'
-      );
-    if (
-      request.orderType === 'LO' &&
-      (!Number.isFinite(request.price) || Number(request.price) <= 0)
-    )
-      throw new UnauthorizedException('SSI LO orders require a positive price');
-    return this.ssi.placeOrder(this.userId(auth), environment ?? 'production', request);
+    void auth;
+    void body;
+    throw new ConflictException(
+      'TCE execution is risk-gated. Submit a Risk/Safety-Gate-approved execution envelope; direct SSI orders are not accepted.'
+    );
   }
   @Delete(':provider') remove(
     @Headers('authorization') auth: string | undefined,
-    @Param('provider') provider: 'ssi' | 'binance' | 'fastapi' | 'telegram' | 'gemini',
+    @Param('provider') provider: 'ssi' | 'binance' | 'fastapi' | 'telegram',
     @Body() body?: { environment?: string }
   ) {
     const environment =
