@@ -1,4 +1,4 @@
-export type TceExecutionMode = 'PAPER' | 'ASSISTED' | 'LIVE';
+import type { TceExecutionMode } from './tce-execution.contract.js';
 
 export type TceLifecycleState =
   | 'CANDIDATE'
@@ -64,3 +64,7 @@ export const TCE_LIFECYCLE_TRANSITIONS: Readonly<
 export function canTransitionLifecycle(from: TceLifecycleState, to: TceLifecycleState): boolean {
   return TCE_LIFECYCLE_TRANSITIONS[from].includes(to);
 }
+
+// Keep the import part of this module's public dependency graph without re-declaring
+// TceExecutionMode; the canonical execution mode is exported by tce-execution.contract.
+export type { TceExecutionMode };

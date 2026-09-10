@@ -11,6 +11,8 @@ export type TceTradingAuthorizationContext = Readonly<{
   accountId: string;
   environment: string;
   mode: TceExecutionMode;
+  correlationId: string;
+  idempotencyKey: string;
 }>;
 
 export type TceTradingAuthorization = Readonly<{
