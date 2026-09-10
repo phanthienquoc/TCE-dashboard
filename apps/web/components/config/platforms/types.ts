@@ -1,6 +1,6 @@
 import type { ComponentType } from 'react';
 
-export type PlatformId = 'ssi' | 'binance' | 'fastapi';
+export type PlatformId = 'ssi' | 'binance' | 'fastapi' | 'gemini';
 
 export interface PlatformConfigProps {
   busy: string | null;
