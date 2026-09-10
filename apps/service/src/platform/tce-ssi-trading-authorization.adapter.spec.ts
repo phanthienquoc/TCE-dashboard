@@ -1,4 +1,7 @@
-import { mapSsiAuthorizationFailure, TceSsiTradingAuthorizationAdapter } from './tce-ssi-trading-authorization.adapter';
+import {
+  mapSsiAuthorizationFailure,
+  TceSsiTradingAuthorizationAdapter,
+} from './tce-ssi-trading-authorization.adapter';
 import type { PlatformCredentialPort } from '@tce/contracts';
 
 const context = {
@@ -32,7 +35,10 @@ const fakeDb = (account: Record<string, unknown> | null, error: Error | null = n
 
 describe('mapSsiAuthorizationFailure', () => {
   it('maps SSI reauthentication requirement to approval-required', () => {
-    const result = mapSsiAuthorizationFailure(context, 'SSI_REAUTH_REQUIRED: refresh token expired');
+    const result = mapSsiAuthorizationFailure(
+      context,
+      'SSI_REAUTH_REQUIRED: refresh token expired'
+    );
     expect(result.ok).toBe(true);
     if (result.ok) expect(result.data.state).toBe('APPROVAL_REQUIRED');
   });
@@ -59,10 +65,9 @@ describe('TceSsiTradingAuthorizationAdapter', () => {
       get: async () => credentials(),
       save: async () => undefined,
     };
-    const adapter = new TceSsiTradingAuthorizationAdapter(
-      store,
-      { db: fakeDb({ id: 'account-1', user_id: 'user-1', external_account_no: 'SSI001' }) } as never
-    );
+    const adapter = new TceSsiTradingAuthorizationAdapter(store, {
+      db: fakeDb({ id: 'account-1', user_id: 'user-1', external_account_no: 'SSI001' }),
+    } as never);
 
     const result = await adapter.ensureAuthorized(context);
 
@@ -81,10 +86,9 @@ describe('TceSsiTradingAuthorizationAdapter', () => {
       get: async () => credentials({ accountNo: 'SSI002' }),
       save: async () => undefined,
     };
-    const adapter = new TceSsiTradingAuthorizationAdapter(
-      store,
-      { db: fakeDb({ id: 'account-1', user_id: 'user-1', external_account_no: 'SSI001' }) } as never
-    );
+    const adapter = new TceSsiTradingAuthorizationAdapter(store, {
+      db: fakeDb({ id: 'account-1', user_id: 'user-1', external_account_no: 'SSI001' }),
+    } as never);
 
     const result = await adapter.ensureAuthorized(context);
 
@@ -97,10 +101,7 @@ describe('TceSsiTradingAuthorizationAdapter', () => {
       get: async () => credentials(),
       save: async () => undefined,
     };
-    const adapter = new TceSsiTradingAuthorizationAdapter(
-      store,
-      { db: fakeDb(null) } as never
-    );
+    const adapter = new TceSsiTradingAuthorizationAdapter(store, { db: fakeDb(null) } as never);
 
     const result = await adapter.ensureAuthorized(context);
 
@@ -115,10 +116,9 @@ describe('TceSsiTradingAuthorizationAdapter', () => {
       },
       save: async () => undefined,
     };
-    const adapter = new TceSsiTradingAuthorizationAdapter(
-      store,
-      { db: fakeDb({ id: 'account-1', user_id: 'user-1', external_account_no: 'SSI001' }) } as never
-    );
+    const adapter = new TceSsiTradingAuthorizationAdapter(store, {
+      db: fakeDb({ id: 'account-1', user_id: 'user-1', external_account_no: 'SSI001' }),
+    } as never);
 
     const result = await adapter.ensureAuthorized(context);
 

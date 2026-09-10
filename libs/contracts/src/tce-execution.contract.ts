@@ -68,17 +68,10 @@ export type TceExecutionReplaceCommand = Readonly<{
 }>;
 
 export type TceExecutionCommand =
-  | TceExecutionSubmitCommand
-  | TceExecutionCancelCommand
-  | TceExecutionReplaceCommand;
+  TceExecutionSubmitCommand | TceExecutionCancelCommand | TceExecutionReplaceCommand;
 
 export type TceExecutionResultStatus =
-  | 'SUBMITTED'
-  | 'CANCELLED'
-  | 'REPLACED'
-  | 'PENDING'
-  | 'REJECTED'
-  | 'UNKNOWN';
+  'SUBMITTED' | 'CANCELLED' | 'REPLACED' | 'PENDING' | 'REJECTED' | 'UNKNOWN';
 
 export type TceExecutionResult = Readonly<{
   ok: boolean;

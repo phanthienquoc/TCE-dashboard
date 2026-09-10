@@ -129,7 +129,8 @@ export class TcePaperExecutionPort implements TceExecutionPort {
   }
 
   async cancel(command: TceExecutionCancelCommand): Promise<TceExecutionResult> {
-    if (command.mode !== 'PAPER') return invalid(command, 'PAPER execution port only accepts PAPER mode');
+    if (command.mode !== 'PAPER')
+      return invalid(command, 'PAPER execution port only accepts PAPER mode');
     const existing = command.providerOrderId ? this.orders.get(command.providerOrderId) : undefined;
     if (!existing || existing.executionIntentId !== command.executionIntentId)
       return invalid(command, 'PAPER order reference does not match an existing execution intent');
@@ -163,14 +164,22 @@ export class TcePaperExecutionPort implements TceExecutionPort {
   }
 
   async replace(command: TceExecutionReplaceCommand): Promise<TceExecutionResult> {
-    if (command.mode !== 'PAPER') return invalid(command, 'PAPER execution port only accepts PAPER mode');
+    if (command.mode !== 'PAPER')
+      return invalid(command, 'PAPER execution port only accepts PAPER mode');
     const existing = this.orders.get(command.providerOrderId);
     if (!existing || existing.executionIntentId !== command.executionIntentId)
       return invalid(command, 'PAPER order reference does not match an existing execution intent');
-    if (existing.status === 'CANCELLED') return invalid(command, 'Cancelled PAPER orders cannot be replaced');
-    if (command.quantity !== undefined && (!Number.isFinite(command.quantity) || command.quantity <= 0))
+    if (existing.status === 'CANCELLED')
+      return invalid(command, 'Cancelled PAPER orders cannot be replaced');
+    if (
+      command.quantity !== undefined &&
+      (!Number.isFinite(command.quantity) || command.quantity <= 0)
+    )
       return invalid(command, 'Replacement quantity must be positive');
-    if (command.limitPrice !== undefined && (!Number.isFinite(command.limitPrice) || command.limitPrice <= 0))
+    if (
+      command.limitPrice !== undefined &&
+      (!Number.isFinite(command.limitPrice) || command.limitPrice <= 0)
+    )
       return invalid(command, 'Replacement limit price must be positive');
     if (command.quantity !== undefined) existing.quantity = command.quantity;
     if (command.limitPrice !== undefined) existing.limitPrice = command.limitPrice;

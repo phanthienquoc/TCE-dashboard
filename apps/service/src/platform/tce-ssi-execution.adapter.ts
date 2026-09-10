@@ -18,7 +18,7 @@ const rejected = (
   command: Command,
   code: TceExecutionErrorCode,
   message: string,
-  reconciliationRequired = false,
+  reconciliationRequired = false
 ): TceExecutionResult => ({
   ok: false,
   operation: command.operation,
@@ -36,12 +36,16 @@ export class TceSsiExecutionAdapter implements TceExecutionPort {
     private readonly ssi: SsiApplicationService,
     private readonly supabase: SupabaseClientService,
     @Inject(TceSsiTradingAuthorizationAdapter)
-    private readonly authorization: TceTradingAuthorizationPort,
+    private readonly authorization: TceTradingAuthorizationPort
   ) {}
 
   async submit(command: TceExecutionSubmitCommand): Promise<TceExecutionResult> {
     if (command.mode !== 'LIVE') {
-      return rejected(command, 'UNSUPPORTED_OPERATION', 'SSI live adapter only accepts LIVE execution commands');
+      return rejected(
+        command,
+        'UNSUPPORTED_OPERATION',
+        'SSI live adapter only accepts LIVE execution commands'
+      );
     }
 
     const auth = await this.authorization.ensureAuthorized({
@@ -61,8 +65,15 @@ export class TceSsiExecutionAdapter implements TceExecutionPort {
             : 'AUTHORIZATION_REQUIRED';
       return rejected(command, code, `SSI authorization is ${auth.data.state.toLowerCase()}`);
     }
-    if (auth.data.accountId !== command.accountId || auth.data.environment !== command.environment) {
-      return rejected(command, 'INVALID_ACCOUNT', 'SSI authorization identity does not match the execution account/environment');
+    if (
+      auth.data.accountId !== command.accountId ||
+      auth.data.environment !== command.environment
+    ) {
+      return rejected(
+        command,
+        'INVALID_ACCOUNT',
+        'SSI authorization identity does not match the execution account/environment'
+      );
     }
 
     const account = await this.supabase.db
@@ -71,7 +82,8 @@ export class TceSsiExecutionAdapter implements TceExecutionPort {
       .eq('id', command.accountId)
       .maybeSingle();
     if (account.error) return rejected(command, 'INVALID_ACCOUNT', 'Unable to resolve TCE account');
-    if (!account.data?.user_id) return rejected(command, 'INVALID_ACCOUNT', 'TCE account is not configured');
+    if (!account.data?.user_id)
+      return rejected(command, 'INVALID_ACCOUNT', 'TCE account is not configured');
 
     const intent = command.intent;
     if (!Number.isInteger(intent.quantity) || intent.quantity <= 0) {
@@ -114,10 +126,18 @@ export class TceSsiExecutionAdapter implements TceExecutionPort {
   }
 
   async cancel(command: TceExecutionCancelCommand): Promise<TceExecutionResult> {
-    return rejected(command, 'UNSUPPORTED_OPERATION', 'SSI CANCEL adapter semantics are not implemented yet');
+    return rejected(
+      command,
+      'UNSUPPORTED_OPERATION',
+      'SSI CANCEL adapter semantics are not implemented yet'
+    );
   }
 
   async replace(command: TceExecutionReplaceCommand): Promise<TceExecutionResult> {
-    return rejected(command, 'UNSUPPORTED_OPERATION', 'SSI REPLACE adapter semantics are not implemented yet');
+    return rejected(
+      command,
+      'UNSUPPORTED_OPERATION',
+      'SSI REPLACE adapter semantics are not implemented yet'
+    );
   }
 }
