@@ -56,7 +56,10 @@ test('wraps only a risk-approved intent in the guarded execution envelope', () =
 });
 
 test('does not create an approval for a blocked execution intent', () => {
-  const result = approveExecutionIntent(request({ context: { ...context, engineKillSwitch: true } }), config);
+  const result = approveExecutionIntent(
+    request({ context: { ...context, engineKillSwitch: true } }),
+    config
+  );
   assert.deepEqual(result, {
     ok: false,
     code: 'ENGINE_KILL_SWITCH',
