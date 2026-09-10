@@ -17,13 +17,16 @@ const authFailure = (
   command: TceExecutionCommand,
   message: string,
   retryable: boolean,
-  code: 'AUTHORIZATION_REQUIRED' | 'AUTHORIZATION_EXPIRED' | 'APPROVAL_REQUIRED' | 'PROVIDER_UNAVAILABLE'
+  code:
+    | 'AUTHORIZATION_REQUIRED'
+    | 'AUTHORIZATION_EXPIRED'
+    | 'APPROVAL_REQUIRED'
+    | 'PROVIDER_UNAVAILABLE'
 ): TceExecutionResult => ({
   ok: false,
   operation: command.operation,
   status: 'REJECTED',
-  executionIntentId:
-    command.operation === 'SUBMIT' ? command.intent.id : command.executionIntentId,
+  executionIntentId: command.operation === 'SUBMIT' ? command.intent.id : command.executionIntentId,
   correlationId: command.authorization.correlationId,
   idempotencyKey: command.authorization.idempotencyKey,
   clientRequestId: command.clientRequestId,
@@ -83,6 +86,11 @@ export class TceTradingAuthorizedExecutionPort implements TceExecutionPort {
       return authFailure(command, 'Trading authorization expired', true, 'AUTHORIZATION_EXPIRED');
     if (result.data.state === 'APPROVAL_REQUIRED')
       return authFailure(command, 'Trading approval or OTP is required', true, 'APPROVAL_REQUIRED');
-    return authFailure(command, 'Trading authorization is unavailable', true, 'PROVIDER_UNAVAILABLE');
+    return authFailure(
+      command,
+      'Trading authorization is unavailable',
+      true,
+      'PROVIDER_UNAVAILABLE'
+    );
   }
 }

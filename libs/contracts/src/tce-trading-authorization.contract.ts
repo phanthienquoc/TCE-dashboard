@@ -2,10 +2,7 @@ import type { ContractResult } from './errors.js';
 import type { TceExecutionMode } from './tce-execution.contract.js';
 
 export type TceTradingAuthorizationState =
-  | 'READY'
-  | 'EXPIRED'
-  | 'APPROVAL_REQUIRED'
-  | 'UNAVAILABLE';
+  'READY' | 'EXPIRED' | 'APPROVAL_REQUIRED' | 'UNAVAILABLE';
 
 export type TceTradingAuthorizationContext = Readonly<{
   accountId: string;
@@ -34,5 +31,19 @@ export interface TceTradingAuthorizationPort {
 
   requestApproval(
     context: TceTradingAuthorizationContext
-  ): Promise<ContractResult<Pick<TceTradingAuthorization, 'state' | 'provider' | 'accountId' | 'environment' | 'checkedAt' | 'transactionId' | 'approvalAction' | 'approvalMessage'>>>;
+  ): Promise<
+    ContractResult<
+      Pick<
+        TceTradingAuthorization,
+        | 'state'
+        | 'provider'
+        | 'accountId'
+        | 'environment'
+        | 'checkedAt'
+        | 'transactionId'
+        | 'approvalAction'
+        | 'approvalMessage'
+      >
+    >
+  >;
 }

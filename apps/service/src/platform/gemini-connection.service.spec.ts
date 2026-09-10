@@ -17,7 +17,10 @@ describe('GeminiConnectionService', () => {
     });
     global.fetch = fetchMock as typeof fetch;
 
-    const result = await new GeminiConnectionService().testConnection('secret-key', 'gemini-2.5-flash');
+    const result = await new GeminiConnectionService().testConnection(
+      'secret-key',
+      'gemini-2.5-flash'
+    );
 
     expect(result).toEqual({
       ok: true,
