@@ -42,3 +42,19 @@ export type TceRiskGateRequest = Readonly<{
 export type TceRiskGateResult =
   | Readonly<{ ok: true; intent: TceExecutionIntent; riskAmount: number; overrideApplied: boolean }>
   | Readonly<{ ok: false; code: string; message: string }>;
+
+export type TceRiskGateAuditEvent = Readonly<{
+  id: string;
+  intentId: string;
+  pool: TceCapitalPoolId;
+  decision: 'APPROVED' | 'BLOCKED';
+  correlationId: string;
+  idempotencyKey: string;
+  riskAmount?: number;
+  code?: string;
+  message?: string;
+  overrideApplied: boolean;
+  overrideActor?: string;
+  overrideReason?: string;
+  occurredAt: string;
+}>;
