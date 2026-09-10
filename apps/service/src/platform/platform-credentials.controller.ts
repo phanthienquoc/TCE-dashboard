@@ -14,6 +14,7 @@ import {
   CONTRACT_TOKENS,
   FuturesCancelOrderInput,
   FuturesEntryOrderInput,
+  FuturesTpSlInput,
   PlatformCredentialPort,
   type BrokerOrderRequest,
   type PlatformProvider,
@@ -120,12 +121,7 @@ export class PlatformCredentialsController {
   @Post(':provider/approve') approve(
     @Headers('authorization') auth: string | undefined,
     @Param('provider') provider: string,
-    @Body()
-    body?: {
-      environment?: string;
-      otp?: string;
-      transactionId?: string;
-    }
+    @Body() body?: { environment?: string; otp?: string; transactionId?: string }
   ) {
     if (provider !== 'ssi')
       throw new UnauthorizedException('Approval verification is only available for SSI');
