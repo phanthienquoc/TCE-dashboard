@@ -22,3 +22,4 @@ export * from './order/order-planner';
 export * from './order/order-planner-allocation';
 export * from './order/order-precision';
 export * from './order/order-planner-validation';
+export * from './risk/risk-safety-gate';
