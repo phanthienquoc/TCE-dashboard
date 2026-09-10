@@ -1,4 +1,9 @@
-export type PlatformProvider = 'ssi' | 'binance' | 'fastapi' | 'telegram';
+export type PlatformProvider =
+  | 'ssi'
+  | 'binance'
+  | 'fastapi'
+  | 'telegram'
+  | 'gemini';
 export type PlatformCredentialRecord = {
   id: string;
   provider: PlatformProvider;
