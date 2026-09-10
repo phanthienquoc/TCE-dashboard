@@ -149,7 +149,11 @@ export default function GeminiPlatform({ onMessage }: Props) {
                 : 'border-red-300/10 bg-red-300/[0.04] text-red-200'
             }`}
           >
-            {result.ok ? <CheckCircle2 className="mt-0.5 size-4 shrink-0" /> : <XCircle className="mt-0.5 size-4 shrink-0" />}
+            {result.ok ? (
+              <CheckCircle2 className="mt-0.5 size-4 shrink-0" />
+            ) : (
+              <XCircle className="mt-0.5 size-4 shrink-0" />
+            )}
             <span>{result.message}</span>
           </div>
         )}

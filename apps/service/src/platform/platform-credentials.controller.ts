@@ -140,7 +140,13 @@ export class PlatformCredentialsController {
   @Post(':provider/test') test(
     @Headers('authorization') auth: string | undefined,
     @Param('provider') provider: string,
-    @Body() body?: { environment?: string; otp?: string; transactionId?: string; credentials?: Record<string, unknown> }
+    @Body()
+    body?: {
+      environment?: string;
+      otp?: string;
+      transactionId?: string;
+      credentials?: Record<string, unknown>;
+    }
   ) {
     if (provider !== 'ssi')
       throw new UnauthorizedException('Connection test is not implemented for this provider yet');
@@ -154,7 +160,14 @@ export class PlatformCredentialsController {
   @Post(':provider/save-tested') saveTested(
     @Headers('authorization') auth: string | undefined,
     @Param('provider') provider: string,
-    @Body() body?: { environment?: string; otp?: string; transactionId?: string; accountNo?: string; credentials?: Record<string, unknown> }
+    @Body()
+    body?: {
+      environment?: string;
+      otp?: string;
+      transactionId?: string;
+      accountNo?: string;
+      credentials?: Record<string, unknown>;
+    }
   ) {
     if (provider !== 'ssi')
       throw new UnauthorizedException('Save-tested flow is not implemented for this provider yet');
@@ -209,13 +222,16 @@ export class PlatformCredentialsController {
   }
   @Post('ssi/order') orderSsi(
     @Headers('authorization') auth: string | undefined,
-    @Body() body: Omit<BrokerOrderRequest, 'accountNo'> & { accountNo?: string; environment?: string }
+    @Body()
+    body: Omit<BrokerOrderRequest, 'accountNo'> & { accountNo?: string; environment?: string }
   ) {
     const { environment, ...request } = body ?? {};
     if (request.side !== 'BUY' && request.side !== 'SELL')
       throw new UnauthorizedException('SSI order side must be BUY or SELL');
     if (!request.symbol || !Number.isInteger(request.quantity) || request.quantity <= 0)
-      throw new UnauthorizedException('SSI order symbol and positive integer quantity are required');
+      throw new UnauthorizedException(
+        'SSI order symbol and positive integer quantity are required'
+      );
     if (
       request.orderType === 'LO' &&
       (!Number.isFinite(request.price) || Number(request.price) <= 0)
