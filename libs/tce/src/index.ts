@@ -26,3 +26,4 @@ export * from './risk/risk-safety-gate';
 export * from './risk/guarded-execution';
 export * from './risk/risk-gate-audit';
 export * from './execution/execution-orchestrator';
+export * from './execution/trading-authorization';
