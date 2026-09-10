@@ -64,7 +64,11 @@ export class CapitalSlotAllocator {
   allocate(request: CapitalSlotAllocatorRequest): CapitalSlotAllocatorOutcome {
     const pool = this.pools.get(request.pool);
     if (!pool)
-      return { ok: false, code: 'POOL_NOT_FOUND', message: `Capital pool ${request.pool} was not found` };
+      return {
+        ok: false,
+        code: 'POOL_NOT_FOUND',
+        message: `Capital pool ${request.pool} was not found`,
+      };
     if (!request.ownerKey.trim())
       return { ok: false, code: 'INVALID_OWNER', message: 'ownerKey is required' };
 
@@ -123,7 +127,11 @@ export class CapitalSlotAllocator {
       return { ok: false, code: 'SLOT_NOT_FOUND', message: `Slot ${slotId} was not found` };
     const pool = this.pools.get(slot.pool);
     if (!pool)
-      return { ok: false, code: 'POOL_NOT_FOUND', message: `Capital pool ${slot.pool} was not found` };
+      return {
+        ok: false,
+        code: 'POOL_NOT_FOUND',
+        message: `Capital pool ${slot.pool} was not found`,
+      };
     const active = activateSlot(slot, timestamp);
     this.slots.set(slotId, active);
     return {
@@ -149,10 +157,18 @@ export class CapitalSlotAllocator {
         (candidate.state === 'RESERVED' || candidate.state === 'ACTIVE')
     );
     if (!slot)
-      return { ok: false, code: 'ALLOCATION_NOT_FOUND', message: `No active allocation exists for ${ownerKey}` };
+      return {
+        ok: false,
+        code: 'ALLOCATION_NOT_FOUND',
+        message: `No active allocation exists for ${ownerKey}`,
+      };
     const pool = this.pools.get(slot.pool);
     if (!pool)
-      return { ok: false, code: 'POOL_NOT_FOUND', message: `Capital pool ${slot.pool} was not found` };
+      return {
+        ok: false,
+        code: 'POOL_NOT_FOUND',
+        message: `Capital pool ${slot.pool} was not found`,
+      };
 
     const releasedPool = releaseReservedCapital(pool, slot.reservedCapital);
     const releasedSlot = releaseSlot(slot, timestamp);
