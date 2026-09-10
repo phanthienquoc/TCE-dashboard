@@ -102,3 +102,25 @@ test('activation and release recycle the same slot and restore pool capital', ()
   if (!recycled.ok) return;
   assert.equal(recycled.allocation.slot.id, 'C:1');
 });
+
+test('keeps the temporary default pool capital split equal across A/B/C', () => {
+  const totalCapital = 9_000_000;
+  const equalPoolCapital = totalCapital / 3;
+  const allocator = new CapitalSlotAllocator(
+    createAllocatorSnapshot(
+      [
+        { pool: 'A', configuredCapital: equalPoolCapital, slotCount: 1 },
+        { pool: 'B', configuredCapital: equalPoolCapital, slotCount: 1 },
+        { pool: 'C', configuredCapital: equalPoolCapital, slotCount: 1 },
+      ],
+      '2026-09-10T00:00:00.000Z'
+    )
+  );
+
+  const snapshot = allocator.snapshot();
+  assert.deepEqual(
+    snapshot.pools.map(pool => pool.configuredCapital),
+    [3_000_000, 3_000_000, 3_000_000]
+  );
+  assert.equal(snapshot.pools.reduce((sum, pool) => sum + pool.configuredCapital, 0), totalCapital);
+});
