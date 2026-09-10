@@ -62,11 +62,7 @@ export class TelegramBotService implements OnModuleInit {
     return { ok: true, bot: me.result };
   }
 
-  async parseSignal(
-    userId: string,
-    environment: string,
-    text: string
-  ): Promise<TceTelegramSignal> {
+  async parseSignal(userId: string, environment: string, text: string): Promise<TceTelegramSignal> {
     const parsed = await this.geminiSignalParser.parse(userId, environment, text);
     return {
       symbol: parsed.symbol,

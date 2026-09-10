@@ -29,9 +29,7 @@ export class GeminiSignalParserService {
       const apiKey = this.readString(credentials.apiKey);
       if (!apiKey) throw new Error('Gemini API key is not configured');
 
-      const model = this.normalizeModel(
-        this.readString(credentials.model) || this.defaultModel
-      );
+      const model = this.normalizeModel(this.readString(credentials.model) || this.defaultModel);
       const extraction = await this.extract(apiKey, model, rawText);
       return this.toTradingSignal(extraction);
     } catch (error) {
