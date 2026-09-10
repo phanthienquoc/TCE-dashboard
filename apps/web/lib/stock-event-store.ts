@@ -13,6 +13,10 @@ export type StockEvent = {
   dividendRate: string;
   dividendValue: number;
   crawledAt?: string | null;
+  // Compatibility aliases consumed by legacy dashboard views.
+  gdkhqTimestamp?: string | null;
+  gdkhq_timestamp?: string | null;
+  exDate?: string | null;
 };
 
 type StockEventState = {
@@ -40,8 +44,14 @@ export const useStockEventStore = create<StockEventState>((set, get) => ({
     inFlight = api
       .get<StockEvent[]>('/stock-events', { params: { limit } })
       .then(response => {
+        const events = Array.isArray(response.data) ? response.data : [];
         set({
-          events: Array.isArray(response.data) ? response.data : [],
+          events: events.map(event => ({
+            ...event,
+            gdkhqTimestamp: event.exDividendTimestamp,
+            gdkhq_timestamp: event.exDividendTimestamp,
+            exDate: event.exDividendDate,
+          })),
           initialized: true,
           loading: false,
           error: null,
