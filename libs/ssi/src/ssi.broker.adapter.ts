@@ -179,9 +179,10 @@ export class SsiBrokerAdapter implements BrokerPort, SsiConnectionPort {
       // SSI SDK token timestamps are epoch seconds. Normalize legacy/persisted
       // millisecond values too, otherwise a valid refresh token is incorrectly
       // treated as expired and the flow falls through to SSI_REAUTH_REQUIRED.
-      const refreshNow = refreshTokenExpiresAt > 0 && refreshTokenExpiresAt < 1e12
-        ? Math.floor(Date.now() / 1000)
-        : Date.now();
+      const refreshNow =
+        refreshTokenExpiresAt > 0 && refreshTokenExpiresAt < 1e12
+          ? Math.floor(Date.now() / 1000)
+          : Date.now();
       const refreshTokenValid = !refreshTokenExpiresAt || refreshTokenExpiresAt > refreshNow;
       if (current && tokenManager.hasRefreshToken() && refreshTokenValid) {
         try {
