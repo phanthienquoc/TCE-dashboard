@@ -48,7 +48,7 @@ export class PlatformCredentialsController {
   }
   @Post(':provider') save(
     @Headers('authorization') auth: string | undefined,
-    @Param('provider') provider: 'ssi' | 'binance' | 'fastapi' | 'telegram',
+    @Param('provider') provider: 'ssi' | 'binance' | 'fastapi' | 'telegram' | 'gemini',
     @Body() body: { environment?: string; credentials: Record<string, unknown> }
   ) {
     if (!body?.credentials || typeof body.credentials !== 'object')
@@ -57,18 +57,25 @@ export class PlatformCredentialsController {
       provider === 'binance'
         ? this.binanceEnvironment(body.environment)
         : (body.environment ?? 'production');
-    const credentials =
-      provider === 'binance'
-        ? { apiKey: body.credentials.apiKey, apiSecret: body.credentials.apiSecret }
-        : body.credentials;
-    if (
-      provider === 'binance' &&
-      (typeof credentials.apiKey !== 'string' ||
+    let credentials: Record<string, unknown> = body.credentials;
+    if (provider === 'binance') {
+      credentials = {
+        apiKey: body.credentials.apiKey,
+        apiSecret: body.credentials.apiSecret,
+      };
+      if (
+        typeof credentials.apiKey !== 'string' ||
         typeof credentials.apiSecret !== 'string' ||
         !credentials.apiKey ||
-        !credentials.apiSecret)
-    )
-      throw new UnauthorizedException('Binance API Key and API Secret are required');
+        !credentials.apiSecret
+      )
+        throw new UnauthorizedException('Binance API Key and API Secret are required');
+    }
+    if (provider === 'gemini') {
+      credentials = { apiKey: body.credentials.apiKey };
+      if (typeof credentials.apiKey !== 'string' || !credentials.apiKey.trim())
+        throw new UnauthorizedException('Gemini API Key is required');
+    }
     return this.credentials.save(this.userId(auth), provider, environment, credentials);
   }
   @Post('binance/test') testBinance(
@@ -119,12 +126,7 @@ export class PlatformCredentialsController {
   @Post(':provider/approve') approve(
     @Headers('authorization') auth: string | undefined,
     @Param('provider') provider: string,
-    @Body()
-    body?: {
-      environment?: string;
-      otp?: string;
-      transactionId?: string;
-    }
+    @Body() body?: { environment?: string; otp?: string; transactionId?: string }
   ) {
     if (provider !== 'ssi')
       throw new UnauthorizedException('Approval verification is only available for SSI');
@@ -138,13 +140,7 @@ export class PlatformCredentialsController {
   @Post(':provider/test') test(
     @Headers('authorization') auth: string | undefined,
     @Param('provider') provider: string,
-    @Body()
-    body?: {
-      environment?: string;
-      otp?: string;
-      transactionId?: string;
-      credentials?: Record<string, unknown>;
-    }
+    @Body() body?: { environment?: string; otp?: string; transactionId?: string; credentials?: Record<string, unknown> }
   ) {
     if (provider !== 'ssi')
       throw new UnauthorizedException('Connection test is not implemented for this provider yet');
@@ -158,14 +154,7 @@ export class PlatformCredentialsController {
   @Post(':provider/save-tested') saveTested(
     @Headers('authorization') auth: string | undefined,
     @Param('provider') provider: string,
-    @Body()
-    body?: {
-      environment?: string;
-      otp?: string;
-      transactionId?: string;
-      accountNo?: string;
-      credentials?: Record<string, unknown>;
-    }
+    @Body() body?: { environment?: string; otp?: string; transactionId?: string; accountNo?: string; credentials?: Record<string, unknown> }
   ) {
     if (provider !== 'ssi')
       throw new UnauthorizedException('Save-tested flow is not implemented for this provider yet');
@@ -220,19 +209,13 @@ export class PlatformCredentialsController {
   }
   @Post('ssi/order') orderSsi(
     @Headers('authorization') auth: string | undefined,
-    @Body()
-    body: Omit<BrokerOrderRequest, 'accountNo'> & {
-      accountNo?: string;
-      environment?: string;
-    }
+    @Body() body: Omit<BrokerOrderRequest, 'accountNo'> & { accountNo?: string; environment?: string }
   ) {
     const { environment, ...request } = body ?? {};
     if (request.side !== 'BUY' && request.side !== 'SELL')
       throw new UnauthorizedException('SSI order side must be BUY or SELL');
     if (!request.symbol || !Number.isInteger(request.quantity) || request.quantity <= 0)
-      throw new UnauthorizedException(
-        'SSI order symbol and positive integer quantity are required'
-      );
+      throw new UnauthorizedException('SSI order symbol and positive integer quantity are required');
     if (
       request.orderType === 'LO' &&
       (!Number.isFinite(request.price) || Number(request.price) <= 0)
@@ -242,7 +225,7 @@ export class PlatformCredentialsController {
   }
   @Delete(':provider') remove(
     @Headers('authorization') auth: string | undefined,
-    @Param('provider') provider: 'ssi' | 'binance' | 'fastapi' | 'telegram',
+    @Param('provider') provider: 'ssi' | 'binance' | 'fastapi' | 'telegram' | 'gemini',
     @Body() body?: { environment?: string }
   ) {
     const environment =
