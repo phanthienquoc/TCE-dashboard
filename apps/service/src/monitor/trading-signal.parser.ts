@@ -18,8 +18,8 @@ const TELEGRAM_HEAD_RE = new RegExp(
   `^\\s*#?([A-Z0-9._-]+)\\s+(BUY|SELL)\\s+(${PRICE})\\s*[-_]\\s*(${PRICE})\\s*$`,
   'i'
 );
-const TP_RE = new RegExp(`^\\s*TP\\s+(${PRICE})\\s*$`, 'i');
-const SL_RE = new RegExp(`^\\s*SL\\s+(${PRICE})\\s*$`, 'i');
+const TP_RE = new RegExp(`^\\s*TP(?:\\s*\\d+)?\\s+(${PRICE})\\s*$`, 'i');
+const SL_RE = new RegExp(`^\\s*SL(?:\\s*\\d+)?\\s+(${PRICE})\\s*$`, 'i');
 
 function validateProtection(
   side: 'BUY' | 'SELL',
@@ -55,6 +55,7 @@ function validateProtection(
 /**
  * Parse canonical TCE signals and Telegram entry-zone/multi-TP signals.
  * Telegram: #XAUUSD SELL 4485_4488 + one or more TP lines + one SL line.
+ * Markdown wrappers and numbered TP/SL labels are normalized before parsing.
  * For a two-price entry zone, the trigger entry is offset by +5 price units
  * from the optimal edge: SELL uses entryMax + 5, BUY uses entryMin + 5.
  * The legacy takeProfit is the second TP when multiple TP levels are supplied;
@@ -63,6 +64,9 @@ function validateProtection(
 export function parseTradingSignal(input: string): TradingSignal {
   const text = String(input ?? '')
     .replace(/[\u2013\u2014]/g, '-')
+    .replace(/\*\*/g, '')
+    .replace(/__/g, '')
+    .replace(/`/g, '')
     .trim();
   const canonical = CANONICAL_RE.exec(text);
   if (canonical) {

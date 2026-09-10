@@ -2,7 +2,7 @@ import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { Inject } from '@nestjs/common';
 import { CONTRACT_TOKENS, PlatformCredentialPort } from '@tce/contracts';
 import { TceSignalService } from '../monitor/tce-signal.service';
-import { parseTradingSignal } from '../monitor/trading-signal.parser';
+import { GeminiSignalParserService } from '../monitor/gemini-signal-parser.service';
 import { SupabaseClientService } from '../db/supabase.client';
 
 export type TceTelegramSignal = {
@@ -32,7 +32,8 @@ export class TelegramBotService implements OnModuleInit {
   constructor(
     @Inject(CONTRACT_TOKENS.credentials) private readonly credentials: PlatformCredentialPort,
     private readonly signals: TceSignalService,
-    private readonly supabase: SupabaseClientService
+    private readonly supabase: SupabaseClientService,
+    private readonly geminiSignalParser: GeminiSignalParserService
   ) {}
 
   async onModuleInit() {
@@ -61,8 +62,8 @@ export class TelegramBotService implements OnModuleInit {
     return { ok: true, bot: me.result };
   }
 
-  parseSignal(text: string): TceTelegramSignal {
-    const parsed = parseTradingSignal(text);
+  async parseSignal(userId: string, environment: string, text: string): Promise<TceTelegramSignal> {
+    const parsed = await this.geminiSignalParser.parse(userId, environment, text);
     return {
       symbol: parsed.symbol,
       side: parsed.side,
@@ -152,7 +153,7 @@ export class TelegramBotService implements OnModuleInit {
             const message = update.message;
             if (!message?.text || (chatId && String(message.chat?.id) !== chatId)) continue;
             try {
-              const signal = this.parseSignal(message.text);
+              const signal = await this.parseSignal(userId, environment, message.text);
               const accepted = await this.signals.accept(userId, environment, {
                 ...signal,
                 rawMessage: message.text,

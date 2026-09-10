@@ -7,6 +7,7 @@ import { TceEngineService } from './tce-engine.service';
 import { TceSignalService } from './tce-signal.service';
 import { BinanceEngineService } from './binance-engine.service';
 import { BinancePositionWatcherService } from './binance-position-watcher.service';
+import { GeminiSignalParserService } from './gemini-signal-parser.service';
 
 @Module({
   imports: [DbModule, AuthModule, PlatformCredentialsModule],
@@ -16,12 +17,14 @@ import { BinancePositionWatcherService } from './binance-position-watcher.servic
     TceSignalService,
     BinanceEngineService,
     BinancePositionWatcherService,
+    GeminiSignalParserService,
   ],
   exports: [
     TceEngineService,
     TceSignalService,
     BinanceEngineService,
     BinancePositionWatcherService,
+    GeminiSignalParserService,
   ],
 })
 export class TceEngineModule {}

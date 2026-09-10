@@ -45,7 +45,12 @@ const config = {
 test('creates deterministic approved audit events and records override metadata', () => {
   const gateRequest = request({
     riskAmount: 600_000,
-    override: { approved: true, actor: 'ops-user', reason: 'documented exception', approvedAt: context.now },
+    override: {
+      approved: true,
+      actor: 'ops-user',
+      reason: 'documented exception',
+      approvedAt: context.now,
+    },
   });
   const result = evaluateRiskSafetyGate(gateRequest, config);
   assert.equal(result.ok, true);
