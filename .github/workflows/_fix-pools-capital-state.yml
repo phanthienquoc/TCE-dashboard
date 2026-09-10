@@ -14,14 +14,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 2
+          fetch-depth: 0
           persist-credentials: true
 
       - name: Patch pool capital accounting
         run: |
           python3 - <<'PY'
           from pathlib import Path
-          import re
 
           path = Path('apps/web/components/dashboard/DashboardViews.tsx')
           text = path.read_text()
@@ -32,10 +31,8 @@ jobs:
               raise SystemExit('expected poolStates call not found')
           text = text.replace(old_call, new_call, 1)
 
-          pattern = re.compile(r'function buildPoolStates\\([\\s\\S]*?\\n\\}\\nfunction ', re.M)
-          match = pattern.search(text)
-          if not match:
-              raise SystemExit('expected buildPoolStates function not found')
+          start = text.index('function buildPoolStates(')
+          end = text.index('\nfunction ', start + 10)
 
           replacement = '''function buildPoolStates(
             capital: number,
@@ -73,9 +70,8 @@ jobs:
               usedByPool.set(pool, used);
             }
 
-            // Pool capacity remains equal by strategy design, but "free" must
-            // come from real account-level cash instead of repeating the full
-            // capacity in every pool card.
+            // Pool capacity remains equal by strategy design, but free cash is
+            // account-level and must never be duplicated across all pools.
             let remainingAvailable = Math.max(0, availableCash);
             let remainingPending = Math.max(0, pendingCash);
 
@@ -102,24 +98,22 @@ jobs:
                 usedRatio: configured > 0 ? used / configured : 0,
               };
             });
-          }
-          function '''
+          }'''
 
-          text = text[:match.start()] + replacement + text[match.end()-len('function '):]
+          text = text[:start] + replacement + text[end:]
           path.write_text(text)
           PY
 
       - name: Validate formatting
-        run: |
-          npx prettier --check apps/web/components/dashboard/DashboardViews.tsx
+        run: npx prettier --check apps/web/components/dashboard/DashboardViews.tsx
 
       - name: Squash temporary runner into one fix commit
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git fetch origin master
+          git reset --soft origin/master
           git add apps/web/components/dashboard/DashboardViews.tsx
           git rm .github/workflows/_fix-pools-capital-state.yml
-          git reset --soft HEAD~1
-          git add apps/web/components/dashboard/DashboardViews.tsx
           git commit -m "fix(web): correct pools capital availability"
           git push --force-with-lease origin HEAD:${GITHUB_REF_NAME}
