@@ -39,6 +39,26 @@ export class TelegramBotController {
   @Post('test') test(@Body() body: { token?: string }) {
     return this.bot.testToken(String(body?.token ?? ''));
   }
+  @Post('pause') pause(
+    @Headers('authorization') auth: string | undefined,
+    @Body() body?: { environment?: string; name?: string }
+  ) {
+    return this.bot.pauseBot(
+      this.userId(auth),
+      body?.environment ?? 'production',
+      body?.name ?? 'default'
+    );
+  }
+  @Post('resume') resume(
+    @Headers('authorization') auth: string | undefined,
+    @Body() body?: { environment?: string; name?: string }
+  ) {
+    return this.bot.resumeBot(
+      this.userId(auth),
+      body?.environment ?? 'production',
+      body?.name ?? 'default'
+    );
+  }
   @Delete() remove(
     @Headers('authorization') auth: string | undefined,
     @Body() body?: { environment?: string; name?: string }

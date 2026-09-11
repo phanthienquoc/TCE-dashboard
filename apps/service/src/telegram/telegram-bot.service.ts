@@ -41,7 +41,8 @@ export class TelegramBotService implements OnModuleInit {
       .from('platform_credentials')
       .select('id,user_id,environment,credential_name')
       .eq('provider', 'telegram')
-      .eq('is_active', true);
+      .eq('is_active', true)
+      .eq('telegram_paused', false);
     if (error) {
       this.logger.warn(`Unable to restore Telegram bots: ${error.message}`);
       return;
@@ -93,23 +94,97 @@ export class TelegramBotService implements OnModuleInit {
       credentialName
     );
     this.stopPolling(saved.id);
+    const { error: pauseError } = await this.supabase.db
+      .from('platform_credentials')
+      .update({ telegram_paused: false })
+      .eq('id', saved.id)
+      .eq('user_id', userId);
+    if (pauseError) throw pauseError;
     await this.start(userId, environment, credentialName, saved.id, token.trim(), chatId?.trim());
     return { ok: true, bot: verified.bot, saved };
   }
 
   async listBots(userId: string) {
-    return (await this.credentials.list(userId)).filter(
-      row => row.provider === 'telegram' && row.isActive
-    );
+    const { data, error } = await this.supabase.db
+      .from('platform_credentials')
+      .select('id,environment,credential_name,is_active,telegram_paused')
+      .eq('user_id', userId)
+      .eq('provider', 'telegram')
+      .order('credential_name');
+    if (error) throw error;
+    return (data ?? [])
+      .filter(row => Boolean(row.is_active) || Boolean(row.telegram_paused))
+      .map(row => ({
+        id: String(row.id),
+        provider: 'telegram' as const,
+        environment: String(row.environment ?? 'production'),
+        name: String(row.credential_name ?? 'default'),
+        isActive: Boolean(row.is_active),
+        isPaused: Boolean(row.telegram_paused),
+      }));
+  }
+
+  async pauseBot(userId: string, environment = 'production', name = 'default') {
+    const credentialName = this.normalizeName(name);
+    const { data: bot, error } = await this.supabase.db
+      .from('platform_credentials')
+      .select('id')
+      .eq('user_id', userId)
+      .eq('provider', 'telegram')
+      .eq('environment', environment)
+      .eq('credential_name', credentialName)
+      .eq('is_active', true)
+      .maybeSingle();
+    if (error) throw error;
+    if (!bot) throw new Error('Telegram bot not found');
+    this.stopPolling(String(bot.id));
+    const { error: updateError } = await this.supabase.db
+      .from('platform_credentials')
+      .update({ telegram_paused: true })
+      .eq('id', bot.id)
+      .eq('user_id', userId);
+    if (updateError) throw updateError;
+    return { ok: true, isPaused: true };
+  }
+
+  async resumeBot(userId: string, environment = 'production', name = 'default') {
+    const credentialName = this.normalizeName(name);
+    const { data: bot, error } = await this.supabase.db
+      .from('platform_credentials')
+      .select('id')
+      .eq('user_id', userId)
+      .eq('provider', 'telegram')
+      .eq('environment', environment)
+      .eq('credential_name', credentialName)
+      .eq('is_active', true)
+      .maybeSingle();
+    if (error) throw error;
+    if (!bot) throw new Error('Telegram bot not found');
+    const { error: updateError } = await this.supabase.db
+      .from('platform_credentials')
+      .update({ telegram_paused: false })
+      .eq('id', bot.id)
+      .eq('user_id', userId);
+    if (updateError) throw updateError;
+    await this.start(userId, environment, credentialName, String(bot.id));
+    return { ok: true, isPaused: false };
   }
 
   async removeBot(userId: string, environment = 'production', name = 'default') {
+    const credentialName = this.normalizeName(name);
     const bots = await this.listBots(userId);
     const bot = bots.find(
-      row => row.environment === environment && row.name === this.normalizeName(name)
+      row => row.environment === environment && row.name === credentialName
     );
     if (bot) this.stopPolling(bot.id);
-    await this.credentials.remove(userId, 'telegram', environment, this.normalizeName(name));
+    await this.credentials.remove(userId, 'telegram', environment, credentialName);
+    await this.supabase.db
+      .from('platform_credentials')
+      .update({ telegram_paused: false })
+      .eq('user_id', userId)
+      .eq('provider', 'telegram')
+      .eq('environment', environment)
+      .eq('credential_name', credentialName);
   }
 
   async start(
@@ -141,6 +216,7 @@ export class TelegramBotService implements OnModuleInit {
     this.running.add(key);
     const poll = async () => {
       try {
+        if (!(await this.isPollingEnabled(credentialId ?? key))) return;
         const offset = this.offsets.get(key) ?? 0;
         const result = await this.telegram(botToken!, 'getUpdates', {
           offset,
@@ -149,6 +225,7 @@ export class TelegramBotService implements OnModuleInit {
         });
         if (result.ok)
           for (const update of result.result ?? []) {
+            if (!(await this.isPollingEnabled(credentialId ?? key))) break;
             this.offsets.set(key, Number(update.update_id) + 1);
             const message = update.message;
             if (!message?.text || (chatId && String(message.chat?.id) !== chatId)) continue;
@@ -206,7 +283,9 @@ export class TelegramBotService implements OnModuleInit {
           bot: name,
         });
       } finally {
-        if (this.running.has(key)) this.timers.set(key, setTimeout(poll, 1000));
+        if (this.running.has(key) && (await this.isPollingEnabled(credentialId ?? key)))
+          this.timers.set(key, setTimeout(poll, 1000));
+        else this.running.delete(key);
       }
     };
     void poll();
@@ -251,6 +330,7 @@ export class TelegramBotService implements OnModuleInit {
       .eq('user_id', userId)
       .eq('provider', 'telegram')
       .eq('is_active', true)
+      .eq('telegram_paused', false)
       .maybeSingle();
     if (botError) throw botError;
     if (!bot) throw new Error('Telegram bot not found');
@@ -310,6 +390,7 @@ export class TelegramBotService implements OnModuleInit {
           .eq('user_id', userId)
           .eq('provider', 'telegram')
           .eq('is_active', true)
+          .eq('telegram_paused', false)
           .maybeSingle();
         if (!row) continue;
         const stored = await this.credentials.get(
@@ -329,6 +410,20 @@ export class TelegramBotService implements OnModuleInit {
         `Telegram debug delivery skipped: ${error instanceof Error ? error.message : String(error)}`
       );
     }
+  }
+
+  private async isPollingEnabled(credentialId: string) {
+    const { data, error } = await this.supabase.db
+      .from('platform_credentials')
+      .select('is_active,telegram_paused')
+      .eq('id', credentialId)
+      .eq('provider', 'telegram')
+      .maybeSingle();
+    if (error) {
+      this.logger.warn(`Unable to verify Telegram polling state: ${error.message}`);
+      return false;
+    }
+    return Boolean(data?.is_active) && !Boolean(data?.telegram_paused);
   }
 
   private normalizeName(value: string) {
