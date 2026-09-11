@@ -7,6 +7,13 @@ export type TradingSignal = {
   entryMin?: number;
   entryMax?: number;
   takeProfits?: number[];
+  /** Binance Futures-compatible entry order fields. Quantity is supplied by engine risk/config. */
+  orderType: 'LIMIT';
+  price: number;
+  positionSide: 'BOTH';
+  timeInForce: 'GTC';
+  reduceOnly: false;
+  agentNote?: string;
 };
 
 const PRICE = '[0-9]+(?:\\.[0-9]+)?';
@@ -20,6 +27,11 @@ const TELEGRAM_HEAD_RE = new RegExp(
 );
 const TP_RE = new RegExp(`^\\s*TP(?:\\s*\\d+)?\\s+(${PRICE})\\s*$`, 'i');
 const SL_RE = new RegExp(`^\\s*SL(?:\\s*\\d+)?\\s+(${PRICE})\\s*$`, 'i');
+
+function normalizeExecutionSymbol(symbol: string) {
+  const normalized = symbol.trim().toUpperCase();
+  return normalized === 'XAUUSD' ? 'XAUUSDT' : normalized;
+}
 
 function validateProtection(
   side: 'BUY' | 'SELL',
@@ -35,7 +47,6 @@ function validateProtection(
     takeProfits.some(value => value <= 0)
   )
     throw new Error('Entry, TP and SL must be positive numbers');
-
   if (side === 'BUY') {
     if (!(stopLoss < entry && takeProfits.every(tp => tp > entry)))
       throw new Error(
@@ -43,24 +54,37 @@ function validateProtection(
           ? 'BUY signal requires SL < ENTRY < TP'
           : 'BUY signal requires SL < ENTRY < every TP'
       );
-  } else if (!(takeProfits.every(tp => tp < entry) && entry < stopLoss)) {
+  } else if (!(takeProfits.every(tp => tp < entry) && entry < stopLoss))
     throw new Error(
       takeProfits.length === 1
         ? 'SELL signal requires TP < ENTRY < SL'
         : 'SELL signal requires every TP < ENTRY < SL'
     );
-  }
 }
 
-/**
- * Parse canonical TCE signals and Telegram entry-zone/multi-TP signals.
- * Telegram: #XAUUSD SELL 4485_4488 + one or more TP lines + one SL line.
- * Markdown wrappers and numbered TP/SL labels are normalized before parsing.
- * For a two-price entry zone, the trigger entry is offset by +5 price units
- * from the optimal edge: SELL uses entryMax + 5, BUY uses entryMin + 5.
- * The legacy takeProfit is the second TP when multiple TP levels are supplied;
- * all TP levels are preserved in takeProfits.
- */
+function toTradingSignal(
+  symbol: string,
+  side: 'BUY' | 'SELL',
+  entry: number,
+  takeProfit: number,
+  stopLoss: number,
+  extras: Pick<TradingSignal, 'entryMin' | 'entryMax' | 'takeProfits'> = {}
+): TradingSignal {
+  return {
+    symbol: normalizeExecutionSymbol(symbol),
+    side,
+    entry,
+    takeProfit,
+    stopLoss,
+    ...extras,
+    orderType: 'LIMIT',
+    price: entry,
+    positionSide: 'BOTH',
+    timeInForce: 'GTC',
+    reduceOnly: false,
+  };
+}
+
 export function parseTradingSignal(input: string): TradingSignal {
   const text = String(input ?? '')
     .replace(/[\u2013\u2014]/g, '-')
@@ -71,15 +95,13 @@ export function parseTradingSignal(input: string): TradingSignal {
   const canonical = CANONICAL_RE.exec(text);
   if (canonical) {
     const [, rawSymbol, rawSide, rawEntry, rawTp, rawSl] = canonical;
-    const symbol = rawSymbol.toUpperCase();
     const side = rawSide.toUpperCase() as TradingSignal['side'];
     const entry = Number(rawEntry);
     const takeProfit = Number(rawTp);
     const stopLoss = Number(rawSl);
     validateProtection(side, entry, [takeProfit], stopLoss);
-    return { symbol, side, entry, takeProfit, stopLoss };
+    return toTradingSignal(rawSymbol, side, entry, takeProfit, stopLoss);
   }
-
   const lines = text
     .split(/\r?\n/)
     .map(line => line.trim())
@@ -89,8 +111,7 @@ export function parseTradingSignal(input: string): TradingSignal {
     throw new Error(
       'Invalid signal. Expected canonical TCE format or #SYMBOL BUY|SELL ENTRY_LOW_ENTRY_HIGH with TP/SL lines.'
     );
-
-  const symbol = head[1].toUpperCase();
+  const symbol = normalizeExecutionSymbol(head[1]);
   const side = head[2].toUpperCase() as TradingSignal['side'];
   const entryA = Number(head[3]);
   const entryB = Number(head[4]);
@@ -98,7 +119,6 @@ export function parseTradingSignal(input: string): TradingSignal {
   const entryMax = Math.max(entryA, entryB);
   const takeProfits: number[] = [];
   let stopLoss: number | undefined;
-
   for (const line of lines.slice(1)) {
     const tp = TP_RE.exec(line);
     if (tp) {
@@ -113,33 +133,23 @@ export function parseTradingSignal(input: string): TradingSignal {
     }
     throw new Error(`Unsupported signal line: ${line}`);
   }
-
   if (takeProfits.length === 0 || stopLoss == null)
     throw new Error('Telegram signal requires at least one TP line and exactly one SL line.');
   if (new Set(takeProfits).size !== takeProfits.length)
     throw new Error('Duplicate TP values are not allowed');
-
   const entry = side === 'SELL' ? entryMax + 5 : entryMin + 5;
   const takeProfit = takeProfits.length >= 2 ? takeProfits[1] : takeProfits[0];
   validateProtection(side, entry, takeProfits, stopLoss);
-
   if (side === 'SELL') {
     if (!(stopLoss > entry && takeProfits.every(tp => tp < entryMin)))
       throw new Error('SELL entry zone requires every TP < entry zone < SL after +5 entry offset');
-  } else if (!(stopLoss < entryMin && takeProfits.every(tp => tp > entry))) {
+  } else if (!(stopLoss < entryMin && takeProfits.every(tp => tp > entry)))
     throw new Error(
       'BUY entry zone requires SL < entry zone and every TP > entry after +5 entry offset'
     );
-  }
-
-  return {
-    symbol,
-    side,
-    entry,
-    takeProfit,
-    stopLoss,
+  return toTradingSignal(symbol, side, entry, takeProfit, stopLoss, {
     entryMin,
     entryMax,
     takeProfits,
-  };
+  });
 }
