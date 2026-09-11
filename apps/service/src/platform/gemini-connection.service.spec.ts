@@ -87,9 +87,9 @@ describe('GeminiConnectionService', () => {
         json: async () => ({ error: { message: providerMessage } }),
       }) as typeof fetch;
 
-      await expect(
-        new GeminiConnectionService().testConnection('secret-key')
-      ).rejects.toThrow(expected);
+      await expect(new GeminiConnectionService().testConnection('secret-key')).rejects.toThrow(
+        expected
+      );
     }
   });
 });
