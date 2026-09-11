@@ -10,7 +10,7 @@
   "scripts": {
     "dev": "nx serve web",
     "build": "nx run-many -t build --projects=web,service",
-    "test": "tsx --test libs/binance/src/*.spec.ts libs/ssi/src/*.spec.ts libs/tce/src/*.spec.ts libs/tce/src/*/*.spec.ts apps/service/src/platform/tce-*.spec.ts",
+    "test": "tsx --tsconfig tsconfig.base.json --test $(find libs/binance/src libs/ssi/src libs/tce/src apps/service/src/platform -type f -name '*.spec.ts' ! -name 'assisted-approval.spec.ts' ! -name 'hunting-dividend.engine.spec.ts' ! -name 'trading-authorization.spec.ts') && npx --yes vitest@5.0.0 run --globals libs/tce/src/execution/assisted-approval.spec.ts libs/tce/src/decision/hunting-dividend.engine.spec.ts libs/tce/src/execution/trading-authorization.spec.ts",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "lint": "eslint .",

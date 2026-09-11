@@ -25,10 +25,10 @@ type SsiApprovalChallenge = Readonly<{
 
 const nowIso = () => new Date().toISOString();
 
-const unavailable = (
+const unavailable = <T>(
   context: TceTradingAuthorizationContext,
   message: string
-): ContractResult<TceTradingAuthorization> => ({
+): ContractResult<T> => ({
   ok: false,
   error: {
     code: 'UNAVAILABLE',
