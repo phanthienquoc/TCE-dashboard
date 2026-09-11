@@ -26,7 +26,10 @@ export class StockDividendPoolService {
     const collectionName = process.env.MONGO_EVENTS_COLLECTION?.trim() || DEFAULT_COLLECTION;
     const today = new Date();
     today.setUTCHours(0, 0, 0, 0);
-    const selectedMonth = month && /^\d{4}-\d{2}$/.test(month) ? month : `${today.getUTCFullYear()}-${String(today.getUTCMonth() + 1).padStart(2, '0')}`;
+    const selectedMonth =
+      month && /^\d{4}-\d{2}$/.test(month)
+        ? month
+        : `${today.getUTCFullYear()}-${String(today.getUTCMonth() + 1).padStart(2, '0')}`;
     const [year, monthNumber] = selectedMonth.split('-').map(Number);
     const start = new Date(Date.UTC(year, monthNumber - 1, 1));
     const end = new Date(Date.UTC(year, monthNumber, 1));
@@ -41,30 +44,42 @@ export class StockDividendPoolService {
         .limit(200)
         .toArray();
 
-      return rows.map(row => {
-        const ticker = String(row['Mã CK'] ?? row.symbol ?? '').trim();
-        const dividendValue = Number(row.dividendValue ?? 0);
-        const price = Number(row.price ?? 0);
-        const yieldPct = price > 0 ? (dividendValue / price) * 100 : 0;
-        const exDate = normalizeDate(row.gdkhq_timestamp);
-        const days = exDate ? Math.max(0, Math.ceil((new Date(exDate).getTime() - today.getTime()) / 86_400_000)) : 999;
-        const dividendScore = Math.min(45, yieldPct * 4.5);
-        const valueScore = Math.min(35, dividendValue / 1000);
-        const timingScore = Math.max(0, 20 - Math.min(days, 20));
-        return {
-          id: String(row._id ?? ''), ticker,
-          exDividendDate: row['Ngày GDKHQ'] ?? exDate ?? '', exDividendTimestamp: exDate,
-          paymentDate: row['Ngày thực hiện'] ?? null, eventContent: row['Nội dung sự kiện'] ?? '',
-          dividendRate: row['Tỷ lệ'] ?? '', dividendValue, price: price || null,
-          dividendYieldPct: Number(yieldPct.toFixed(2)),
-          score: Number((dividendScore + valueScore + timingScore).toFixed(2)), daysToExDate: days,
-        };
-      }).filter(row => row.ticker && row.exDividendDate)
+      return rows
+        .map(row => {
+          const ticker = String(row['Mã CK'] ?? row.symbol ?? '').trim();
+          const dividendValue = Number(row.dividendValue ?? 0);
+          const price = Number(row.price ?? 0);
+          const yieldPct = price > 0 ? (dividendValue / price) * 100 : 0;
+          const exDate = normalizeDate(row.gdkhq_timestamp);
+          const days = exDate
+            ? Math.max(0, Math.ceil((new Date(exDate).getTime() - today.getTime()) / 86_400_000))
+            : 999;
+          const dividendScore = Math.min(45, yieldPct * 4.5);
+          const valueScore = Math.min(35, dividendValue / 1000);
+          const timingScore = Math.max(0, 20 - Math.min(days, 20));
+          return {
+            id: String(row._id ?? ''),
+            ticker,
+            exDividendDate: row['Ngày GDKHQ'] ?? exDate ?? '',
+            exDividendTimestamp: exDate,
+            paymentDate: row['Ngày thực hiện'] ?? null,
+            eventContent: row['Nội dung sự kiện'] ?? '',
+            dividendRate: row['Tỷ lệ'] ?? '',
+            dividendValue,
+            price: price || null,
+            dividendYieldPct: Number(yieldPct.toFixed(2)),
+            score: Number((dividendScore + valueScore + timingScore).toFixed(2)),
+            daysToExDate: days,
+          };
+        })
+        .filter(row => row.ticker && row.exDividendDate)
         .sort((a, b) => b.score - a.score || a.daysToExDate - b.daysToExDate)
         .slice(0, safeLimit)
         .map((row, index) => ({ ...row, rank: index + 1 }));
     } catch (error) {
-      throw new ServiceUnavailableException(`Stock dividend pool query failed: ${error instanceof Error ? error.message : String(error)}`);
+      throw new ServiceUnavailableException(
+        `Stock dividend pool query failed: ${error instanceof Error ? error.message : String(error)}`
+      );
     }
   }
 }
