@@ -14,18 +14,16 @@ describe('GeminiSignalParserService', () => {
   it('parses canonical four-line output into Binance-ready entry fields', async () => {
     vi.stubGlobal(
       'fetch',
-      vi
-        .fn()
-        .mockResolvedValue(
-          new Response(
-            JSON.stringify({
-              candidates: [
-                { content: { parts: [{ text: 'XAUUSD BUY\nENTRY 4582\nTP 4588\nSL 4567' }] } },
-              ],
-            }),
-            { status: 200, headers: { 'content-type': 'application/json' } }
-          )
+      vi.fn().mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            candidates: [
+              { content: { parts: [{ text: 'XAUUSD BUY\nENTRY 4582\nTP 4588\nSL 4567' }] } },
+            ],
+          }),
+          { status: 200, headers: { 'content-type': 'application/json' } }
         )
+      )
     );
     await expect(
       service.parse('user-1', 'production', 'XAUUSD buy entry 4582 tp 4588 sl 4567')
