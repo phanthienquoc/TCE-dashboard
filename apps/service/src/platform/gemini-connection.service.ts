@@ -56,7 +56,8 @@ export class GeminiConnectionService {
         let providerMessage = '';
         try {
           const body = (await response.json()) as { error?: { message?: string } };
-          providerMessage = typeof body.error?.message === 'string' ? body.error.message.trim() : '';
+          providerMessage =
+            typeof body.error?.message === 'string' ? body.error.message.trim() : '';
         } catch {
           // Keep the stable mapped error below when the provider response is not JSON.
         }
