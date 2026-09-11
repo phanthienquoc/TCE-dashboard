@@ -1,7 +1,18 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Bot, Eye, EyeOff, Loader2, Save, ShieldCheck, Trash2, Wrench } from 'lucide-react';
+import {
+  Bot,
+  Eye,
+  EyeOff,
+  Loader2,
+  PauseCircle,
+  PlayCircle,
+  Save,
+  ShieldCheck,
+  Trash2,
+  Wrench,
+} from 'lucide-react';
 import { platformApi } from '../../lib/api';
 import { useTCEDataStore } from '../../lib/tce-data-store';
 import { Button } from '../../components/ui/button';
@@ -14,7 +25,13 @@ import {
 } from '../../components/ui/card';
 import { Input } from '../../components/ui/input';
 
-type BotRow = { id: string; name: string; environment: string; isActive: boolean };
+type BotRow = {
+  id: string;
+  name: string;
+  environment: string;
+  isActive: boolean;
+  isPaused?: boolean;
+};
 type Assignment = {
   id: string;
   telegram_credential_id: string;
@@ -98,6 +115,26 @@ export default function TelegramBotConfig() {
       setBusy(false);
     }
   }
+
+  async function togglePause(bot: BotRow) {
+    setBusy(true);
+    try {
+      const body = { environment: bot.environment, name: bot.name };
+      if (bot.isPaused) await platformApi.telegramResume(body);
+      else await platformApi.telegramPause(body);
+      setOk(true);
+      setMessage(`${bot.name} ${bot.isPaused ? 'resumed' : 'paused'}.`);
+      await load();
+    } catch (error: any) {
+      setOk(false);
+      setMessage(
+        error?.response?.data?.message ?? error?.message ?? 'Unable to change Telegram state'
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function removeBot(bot: BotRow) {
     setBusy(true);
     try {
@@ -112,6 +149,7 @@ export default function TelegramBotConfig() {
       setBusy(false);
     }
   }
+
   async function assign() {
     if (!botId || !serviceName.trim()) return;
     setBusy(true);
@@ -133,6 +171,7 @@ export default function TelegramBotConfig() {
       setBusy(false);
     }
   }
+
   async function unassign(id: string) {
     setBusy(true);
     try {
@@ -153,8 +192,8 @@ export default function TelegramBotConfig() {
               <span>Telegram Gateway & Debug</span>
             </CardTitle>
             <CardDescription className="mt-1 max-w-2xl">
-              One account can have multiple Telegram bots. Backend logs/debug are sent only to
-              explicitly assigned bots.
+              One account can have multiple Telegram bots. Pause stops signal polling and Telegram
+              debug delivery without removing the saved bot.
             </CardDescription>
           </div>
           <span
@@ -243,20 +282,46 @@ export default function TelegramBotConfig() {
                 className="flex min-w-0 items-center justify-between gap-3 rounded-xl border border-white/10 bg-white/[0.02] px-3 py-2"
               >
                 <div className="min-w-0">
-                  <div className="truncate text-sm text-white">{bot.name}</div>
+                  <div className="flex items-center gap-2 truncate text-sm text-white">
+                    <span className="truncate">{bot.name}</span>
+                    <span
+                      className={`shrink-0 rounded-full border px-2 py-0.5 text-[9px] font-semibold uppercase ${bot.isPaused ? 'border-amber-300/20 text-amber-300' : bot.isActive ? 'border-emerald-300/20 text-emerald-300' : 'border-zinc-500/20 text-zinc-500'}`}
+                    >
+                      {bot.isPaused ? 'Paused' : bot.isActive ? 'Active' : 'Disconnected'}
+                    </span>
+                  </div>
                   <div className="text-xs text-zinc-500">{bot.environment}</div>
                 </div>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  disabled={busy}
-                  onClick={() => void removeBot(bot)}
-                  className="shrink-0"
-                >
-                  <Trash2 className="size-4" />
-                  <span className="hidden sm:inline">Disconnect</span>
-                </Button>
+                <div className="flex shrink-0 items-center gap-2">
+                  {bot.isActive && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      disabled={busy}
+                      onClick={() => void togglePause(bot)}
+                      aria-label={bot.isPaused ? `Resume ${bot.name}` : `Pause ${bot.name}`}
+                    >
+                      {bot.isPaused ? (
+                        <PlayCircle className="size-4" />
+                      ) : (
+                        <PauseCircle className="size-4" />
+                      )}
+                      <span className="hidden sm:inline">{bot.isPaused ? 'Resume' : 'Pause'}</span>
+                    </Button>
+                  )}
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={busy}
+                    onClick={() => void removeBot(bot)}
+                    className="shrink-0"
+                  >
+                    <Trash2 className="size-4" />
+                    <span className="hidden sm:inline">Disconnect</span>
+                  </Button>
+                </div>
               </div>
             ))}
           </div>
@@ -276,11 +341,13 @@ export default function TelegramBotConfig() {
               className="h-10 w-full rounded-xl border border-white/10 bg-[#120b18] px-3 text-sm text-white"
             >
               <option value="">Select bot</option>
-              {bots.map(bot => (
-                <option key={bot.id} value={bot.id}>
-                  {bot.name} · {bot.environment}
-                </option>
-              ))}
+              {bots
+                .filter(bot => bot.isActive && !bot.isPaused)
+                .map(bot => (
+                  <option key={bot.id} value={bot.id}>
+                    {bot.name} · {bot.environment}
+                  </option>
+                ))}
             </select>
             <Input
               value={serviceName}

@@ -101,6 +101,10 @@ export const platformApi = {
   telegramSave: (body: { token: string; chatId?: string; environment?: string; name?: string }) =>
     api.post('/platform/telegram/save', body),
   telegramTest: (token: string) => api.post('/platform/telegram/test', { token }),
+  telegramPause: (body: { environment?: string; name?: string }) =>
+    api.post('/platform/telegram/pause', body),
+  telegramResume: (body: { environment?: string; name?: string }) =>
+    api.post('/platform/telegram/resume', body),
   telegramRemove: (body: { environment?: string; name?: string }) =>
     api.delete('/platform/telegram', { data: body }),
   telegramDebugAssignments: () => api.get('/platform/telegram/debug/assignments'),
