@@ -10,9 +10,13 @@ export class StockDividendPoolController {
   ) {}
 
   @Get()
-  get(@Headers('authorization') auth?: string, @Query('limit') limit?: string) {
+  get(
+    @Headers('authorization') auth?: string,
+    @Query('limit') limit?: string,
+    @Query('month') month?: string
+  ) {
     if (!auth?.startsWith('Bearer ')) throw new UnauthorizedException('Bearer token required');
     this.jwt.verify(auth.slice(7));
-    return this.pool.getTop(Number(limit ?? 20));
+    return this.pool.getTop(Number(limit ?? 20), month);
   }
 }

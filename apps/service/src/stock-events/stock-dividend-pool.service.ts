@@ -21,17 +21,25 @@ type StockEventRow = {
 export class StockDividendPoolService {
   constructor(private readonly mongo: MongoDbClient) {}
 
-  async getTop(limit = DEFAULT_LIMIT) {
+  async getTop(limit = DEFAULT_LIMIT, month?: string) {
     const safeLimit = Math.min(Math.max(Number(limit) || DEFAULT_LIMIT, 1), 20);
     const collectionName = process.env.MONGO_EVENTS_COLLECTION?.trim() || DEFAULT_COLLECTION;
     const today = new Date();
     today.setUTCHours(0, 0, 0, 0);
+    const selectedMonth =
+      month && /^\d{4}-\d{2}$/.test(month)
+        ? month
+        : `${today.getUTCFullYear()}-${String(today.getUTCMonth() + 1).padStart(2, '0')}`;
+    const [year, monthNumber] = selectedMonth.split('-').map(Number);
+    const start = new Date(Date.UTC(year, monthNumber - 1, 1));
+    const end = new Date(Date.UTC(year, monthNumber, 1));
+    const rangeStart = start > today ? start : today;
 
     try {
       const db = await this.mongo.getDb();
       const rows = await db
         .collection<StockEventRow>(collectionName)
-        .find({ gdkhq_timestamp: { $gte: today } })
+        .find({ gdkhq_timestamp: { $gte: rangeStart, $lt: end } })
         .sort({ gdkhq_timestamp: 1 })
         .limit(200)
         .toArray();
@@ -49,7 +57,6 @@ export class StockDividendPoolService {
           const dividendScore = Math.min(45, yieldPct * 4.5);
           const valueScore = Math.min(35, dividendValue / 1000);
           const timingScore = Math.max(0, 20 - Math.min(days, 20));
-
           return {
             id: String(row._id ?? ''),
             ticker,

@@ -23,17 +23,19 @@ type State = {
   items: StockDividendPoolItem[];
   loading: boolean;
   error: string | null;
-  load: () => Promise<void>;
+  load: (month?: string) => Promise<void>;
 };
 
 export const useStockDividendPoolStore = create<State>(set => ({
   items: [],
   loading: false,
   error: null,
-  load: async () => {
+  load: async (month?: string) => {
     set({ loading: true, error: null });
     try {
-      const response = await api.get('/stock-events/pool?limit=20');
+      const query = new URLSearchParams({ limit: '20' });
+      if (month) query.set('month', month);
+      const response = await api.get(`/stock-events/pool?${query.toString()}`);
       set({ items: Array.isArray(response.data) ? response.data : [], loading: false });
     } catch (error) {
       set({
