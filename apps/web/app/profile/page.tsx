@@ -1,6 +1,6 @@
 'use client';
 
-import { CheckCircle2, LogOut, ShieldCheck, UserCircle } from 'lucide-react';
+import { CheckCircle2, KeyRound, LogOut, ShieldCheck, UserCircle } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import DashboardShell from '../../components/dashboard/DashboardShell';
 import { useAuthStore } from '../../lib/store';
@@ -47,6 +47,19 @@ export default function ProfilePage() {
                 <span>{user?.mfaEnabled ? 'Enabled' : 'Not enabled'}</span>
               </div>
             </div>
+          </section>
+          <section className="tce-settings-card">
+            <button
+              type="button"
+              className="tce-row-card"
+              onClick={() => router.push('/profile/passkey')}
+            >
+              <KeyRound className="size-5" />
+              <div>
+                <strong>Passkeys</strong>
+                <span>Register and manage passwordless sign-in devices.</span>
+              </div>
+            </button>
           </section>
           <section className="tce-settings-card">
             <button
