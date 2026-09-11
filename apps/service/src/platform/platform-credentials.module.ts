@@ -7,6 +7,8 @@ import { SsiMarketPriceService } from './ssi-market-price.service';
 import { BinanceFuturesService } from './binance-futures.service';
 import { GeminiConnectionService } from './gemini-connection.service';
 import { PlatformCredentialsController } from './platform-credentials.controller';
+import { TceSsiTradingAuthorizationAdapter } from './tce-ssi-trading-authorization.adapter';
+import { TceSsiOrderReconciliationAdapter } from './tce-ssi-order-reconciliation.adapter';
 import { DbModule } from '../db/db.module';
 import { AuthModule } from '../auth/auth.module';
 import { SupabaseClientService } from '../db/supabase.client';
@@ -35,6 +37,8 @@ import { SupabaseClientService } from '../db/supabase.client';
       useFactory: (db: SupabaseClientService) => new SupabaseOrderAdapter(db.db),
     },
     SsiApplicationService,
+    TceSsiTradingAuthorizationAdapter,
+    TceSsiOrderReconciliationAdapter,
     SsiAssetSyncService,
     SsiMarketPriceService,
     BinanceFuturesService,
@@ -45,6 +49,8 @@ import { SupabaseClientService } from '../db/supabase.client';
     CONTRACT_TOKENS.positionRepository,
     CONTRACT_TOKENS.orderRepository,
     SsiApplicationService,
+    TceSsiTradingAuthorizationAdapter,
+    TceSsiOrderReconciliationAdapter,
     SsiAssetSyncService,
     SsiMarketPriceService,
     BinanceFuturesService,

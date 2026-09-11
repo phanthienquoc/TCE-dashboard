@@ -29,3 +29,8 @@ export * from './execution/execution-orchestrator';
 export * from './execution/trading-authorization';
 export * from './execution/paper-execution';
 export * from './execution/assisted-approval';
+export * from './reconciliation/order-status';
+export * from './reconciliation/order-state-reconciler';
+export * from './reconciliation/reconciliation-persistence';
+export * from './reconciliation/reconciliation-lifecycle-events';
+export * from './reconciliation/reconciliation-recovery';
