@@ -22,7 +22,8 @@ api.interceptors.response.use(
       !config ||
       config._retry ||
       config.url?.includes('/auth/refresh') ||
-      config.url?.includes('/auth/login')
+      config.url?.includes('/auth/login') ||
+      config.url?.includes('/auth/passkey/login')
     )
       throw error;
     config._retry = true;
@@ -53,6 +54,8 @@ export const authApi = {
   me: () => api.get('/auth/me'),
   refresh: () => api.post('/auth/refresh'),
   logout: () => api.post('/auth/logout'),
+  passkeyLoginOptions: () => api.post('/auth/passkey/login/options'),
+  passkeyLoginVerify: (response: unknown) => api.post('/auth/passkey/login/verify', response),
 };
 export const dashboardApi = {
   all: (status?: string) => api.get('/dashboard', { params: status ? { status } : undefined }),

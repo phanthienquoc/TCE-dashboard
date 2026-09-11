@@ -5,15 +5,15 @@ import { useTCEDataStore } from './tce-data-store';
 import { useStockEventStore } from './stock-event-store';
 
 type User = { id: string; email: string; role: string; mfaEnabled: boolean };
-type AuthStatus = 'loading' | 'authenticated' | 'anonymous';
 type AuthState = {
   user: User | null;
-  status: AuthStatus;
+  status: 'loading' | 'authenticated' | 'anonymous';
   loading: boolean;
   initialized: boolean;
   error: string | null;
   init: () => Promise<void>;
   login: (e: string, p: string) => Promise<{ mfaRequired?: boolean; userId?: string }>;
+  loginWithPasskey: () => Promise<{ mfaRequired?: boolean; userId?: string }>;
   mfa: (id: string, c: string) => Promise<void>;
   logout: () => Promise<void>;
 };
@@ -66,6 +66,30 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       return r.data;
     } catch (err: any) {
       set({ status: 'anonymous', error: err?.response?.data?.message ?? 'Login failed' });
+      throw err;
+    } finally {
+      set({ loading: false });
+    }
+  },
+  loginWithPasskey: async () => {
+    set({ status: 'loading', loading: true, error: null });
+    try {
+      const { signInWithPasskey } = await import('./passkey');
+      const result = await signInWithPasskey();
+      if (result.mfaRequired) {
+        set({ status: 'anonymous' });
+        return result;
+      }
+      setAccessToken(result.accessToken);
+      const me = await authApi.me();
+      set({ user: me.data.user, status: 'authenticated', initialized: true });
+      prefetchAfterAuth();
+      return result;
+    } catch (err: any) {
+      set({
+        status: 'anonymous',
+        error: err?.response?.data?.message ?? err?.message ?? 'Passkey sign-in failed',
+      });
       throw err;
     } finally {
       set({ loading: false });

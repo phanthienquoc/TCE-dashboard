@@ -25,11 +25,9 @@ describe('SupabaseReconciliationLifecycleSink', () => {
       .fn()
       .mockResolvedValue({ data: { event_id: event.eventId }, error: null });
     const db = {
-      from: jest
-        .fn()
-        .mockReturnValue({
-          select: jest.fn().mockReturnValue({ eq: jest.fn().mockReturnValue({ maybeSingle }) }),
-        }),
+      from: jest.fn().mockReturnValue({
+        select: jest.fn().mockReturnValue({ eq: jest.fn().mockReturnValue({ maybeSingle }) }),
+      }),
     } as any;
     const sink = new SupabaseReconciliationLifecycleSink(db);
     await expect(sink.has(event.eventId)).resolves.toBe(true);
