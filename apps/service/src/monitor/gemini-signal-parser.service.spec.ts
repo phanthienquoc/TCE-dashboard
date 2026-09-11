@@ -84,12 +84,42 @@ describe('GeminiSignalParserService', () => {
         )
     );
     await expect(
-      service.parse('user-1', 'production', 'XAUUSD BUY ENTRY 4582 TP 4588 SL 4567')
+      service.parse('user-1', 'production', `#XAUUSD BUY NOW
+4338__4334
+
+TP 4342
+TP 4346
+TP 4350
+TP 4355
+TP 4360
+TP 4380
+
+SL 4324`)
     ).resolves.toMatchObject({
       symbol: 'XAUUSDT',
       side: 'BUY',
-      entry: 4582,
+      entry: 4339,
+      takeProfit: 4346,
+      stopLoss: 4324,
       agentNote: expect.stringContaining('AI parse failed after 3 attempt(s)'),
     });
+  });
+  it('exposes both AI and fallback errors when the deterministic parser also fails', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi
+        .fn()
+        .mockResolvedValue(
+          new Response(
+            JSON.stringify({ candidates: [{ content: { parts: [{ text: 'INVALID' }] } }] }),
+            { status: 200, headers: { 'content-type': 'application/json' } }
+          )
+        )
+    );
+    await expect(
+      service.parse('user-1', 'production', '#XAUUSD BUY NOW\nnot-an-entry-zone')
+    ).rejects.toThrow(
+      'AI parse failed after 3 attempt(s). Deterministic fallback also failed:'
+    );
   });
 });

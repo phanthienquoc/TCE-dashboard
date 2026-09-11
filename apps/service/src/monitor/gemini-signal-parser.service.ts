@@ -42,10 +42,19 @@ export class GeminiSignalParserService {
 
     const reason = lastError instanceof Error ? lastError.message : String(lastError);
     this.logger.warn(`Gemini signal parsing failed; using deterministic parser: ${reason}`);
-    return {
-      ...parseTradingSignal(rawText),
-      agentNote: `AI parse failed after ${this.maxAttempts} attempt(s); fallback deterministic parser used. ${reason}`,
-    };
+    try {
+      const fallbackSignal = parseTradingSignal(rawText);
+      return {
+        ...fallbackSignal,
+        agentNote: `AI parse failed after ${this.maxAttempts} attempt(s); fallback deterministic parser used. ${reason}`,
+      };
+    } catch (fallbackError) {
+      const fallbackReason =
+        fallbackError instanceof Error ? fallbackError.message : String(fallbackError);
+      throw new Error(
+        `AI parse failed after ${this.maxAttempts} attempt(s). Deterministic fallback also failed: ${fallbackReason}. AI reason: ${reason}`
+      );
+    }
   }
 
   private async extract(

@@ -2,8 +2,8 @@ import { parseTradingSignal } from './trading-signal.parser';
 
 describe('parseTradingSignal', () => {
   it('parses the canonical signal', () => {
-    expect(parseTradingSignal(`XAUUSD BUY\nENTRY 4582\nTP 4588\nSL 4567`)).toEqual({
-      symbol: 'XAUUSD',
+    expect(parseTradingSignal(`XAUUSD BUY\nENTRY 4582\nTP 4588\nSL 4567`)).toMatchObject({
+      symbol: 'XAUUSDT',
       side: 'BUY',
       entry: 4582,
       takeProfit: 4588,
@@ -26,8 +26,8 @@ TP 4460
 TP 4456
 
 SL 4499`);
-    expect(signal).toEqual({
-      symbol: 'XAUUSD',
+    expect(signal).toMatchObject({
+      symbol: 'XAUUSDT',
       side: 'SELL',
       entry: 4493,
       takeProfit: 4478,
@@ -35,6 +35,31 @@ SL 4499`);
       entryMin: 4485,
       entryMax: 4488,
       takeProfits: [4482, 4478, 4472, 4468, 4460, 4456],
+    });
+  });
+
+  it('parses BUY NOW with the entry zone on the following line', () => {
+    const signal = parseTradingSignal(`#XAUUSD BUY NOW
+4338__4334
+
+TP 4342
+TP 4346
+TP 4350
+TP 4355
+TP 4360
+TP 4380
+
+SL 4324`);
+    expect(signal).toMatchObject({
+      symbol: 'XAUUSDT',
+      side: 'BUY',
+      entry: 4339,
+      price: 4339,
+      takeProfit: 4346,
+      stopLoss: 4324,
+      entryMin: 4334,
+      entryMax: 4338,
+      takeProfits: [4342, 4346, 4350, 4355, 4360, 4380],
     });
   });
 
