@@ -8,7 +8,7 @@ export type GeminiConnectionResult = {
 
 @Injectable()
 export class GeminiConnectionService {
-  private readonly timeoutMs = 8000;
+  private readonly timeoutMs = 15000;
   private readonly demoPrompt = 'Explain how AI works in a few words';
 
   async testConnection(apiKey: string, model: string): Promise<GeminiConnectionResult> {
@@ -24,12 +24,12 @@ export class GeminiConnectionService {
       let response: Response;
       try {
         response = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(normalizedModel)}:generateContent`,
+          `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(normalizedModel)}:generateContent?key=${encodeURIComponent(normalizedKey)}`,
           {
             method: 'POST',
             headers: {
+              accept: 'application/json',
               'content-type': 'application/json',
-              'x-goog-api-key': normalizedKey,
             },
             body: JSON.stringify({
               contents: [
@@ -37,17 +37,32 @@ export class GeminiConnectionService {
                   parts: [{ text: this.demoPrompt }],
                 },
               ],
+              generationConfig: {
+                maxOutputTokens: 32,
+                temperature: 0,
+              },
             }),
             signal: controller.signal,
           }
         );
       } catch (error) {
-        if (error instanceof DOMException && error.name === 'AbortError')
+        if (error instanceof DOMException && error.name === 'AbortError') {
           throw new Error('Gemini connection timed out');
+        }
         throw new Error('Gemini provider is unreachable');
       }
 
-      if (!response.ok) throw new Error(this.mapHttpFailure(response.status));
+      if (!response.ok) {
+        let providerMessage = '';
+        try {
+          const body = (await response.json()) as { error?: { message?: string } };
+          providerMessage =
+            typeof body.error?.message === 'string' ? body.error.message.trim() : '';
+        } catch {
+          // Keep the stable mapped error below when the provider response is not JSON.
+        }
+        throw new Error(this.mapHttpFailure(response.status, providerMessage));
+      }
 
       const body = (await response.json()) as {
         candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
@@ -68,7 +83,14 @@ export class GeminiConnectionService {
     }
   }
 
-  private mapHttpFailure(status: number): string {
+  private mapHttpFailure(status: number, providerMessage = ''): string {
+    if (status === 400) {
+      if (/api.?key|key/i.test(providerMessage))
+        return 'Gemini request rejected. Check the API key and request configuration.';
+      if (/model/i.test(providerMessage))
+        return 'Gemini model request is invalid for this API version.';
+      return 'Gemini request was rejected. Check the API key and model.';
+    }
     if (status === 401) return 'Gemini authentication failed. Check the API key.';
     if (status === 403) return 'Gemini access denied. Check API access and billing/quota settings.';
     if (status === 404) return 'Gemini model was not found or is unavailable for this API key.';
