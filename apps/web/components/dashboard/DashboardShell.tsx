@@ -10,7 +10,8 @@ import { dashboardApi, platformApi } from '../../lib/api';
 import { useToast } from '../ui/toast';
 import TradeTicket from './TradeTicket';
 
-export type DashboardView = 'overview' | 'pools' | 'positions' | 'orders' | 'engine' | 'settings' | 'profile';
+export type DashboardView =
+  'overview' | 'pools' | 'positions' | 'orders' | 'engine' | 'settings' | 'profile';
 export type TradePayload = {
   side: 'BUY' | 'SELL';
   quantity: number;
