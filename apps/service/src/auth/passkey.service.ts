@@ -11,9 +11,10 @@ import { JwtService } from './jwt.service';
 import { AuthService } from './auth.service';
 import { PasskeyRepository } from './passkey.repository';
 
+const isProduction = () => process.env.NODE_ENV === 'production';
 const rpName = () => process.env.PASSKEY_RP_NAME || 'TCE Treasury Cash Extraction';
-const rpID = () => process.env.PASSKEY_RP_ID || 'localhost';
-const origin = () => process.env.PASSKEY_ORIGIN || 'http://localhost:5173';
+const rpID = () => process.env.PASSKEY_RP_ID || (isProduction() ? '' : 'localhost');
+const origin = () => process.env.PASSKEY_ORIGIN || (isProduction() ? '' : 'http://localhost:5173');
 
 @Injectable()
 export class PasskeyService {
@@ -24,7 +25,16 @@ export class PasskeyService {
     private readonly auth: AuthService
   ) {}
   private requireConfig() {
-    if (!rpID() || !origin()) throw new BadRequestException('Passkey is not configured');
+    const configuredRpID = rpID();
+    const configuredOrigin = origin();
+    if (!configuredRpID || !configuredOrigin)
+      throw new BadRequestException('Passkey is not configured for this environment');
+    if (
+      isProduction() &&
+      (configuredRpID === 'localhost' || configuredOrigin.startsWith('http://localhost'))
+    ) {
+      throw new BadRequestException('Passkey production domain is misconfigured');
+    }
   }
   async registrationOptions(userId: string) {
     this.requireConfig();
