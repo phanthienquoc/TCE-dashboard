@@ -82,7 +82,10 @@ export class GeminiSignalParserService {
       const body = (await response.json()) as {
         candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
       };
-      const text = body.candidates?.[0]?.content?.parts?.map(part => part.text ?? '').join('').trim();
+      const text = body.candidates?.[0]?.content?.parts
+        ?.map(part => part.text ?? '')
+        .join('')
+        .trim();
       if (!text) throw new Error('Gemini returned an empty response');
       return this.normalizeCanonicalText(text);
     } finally {
@@ -119,14 +122,23 @@ export class GeminiSignalParserService {
       '<telegram_message>',
       rawText,
       '</telegram_message>',
-    ].filter(Boolean).join('\n');
+    ]
+      .filter(Boolean)
+      .join('\n');
   }
 
   private normalizeCanonicalText(text: string): string {
-    const cleaned = text.replace(/```(?:text)?/gi, '').replace(/```/g, '').replace(/\r/g, '').trim();
+    const cleaned = text
+      .replace(/```(?:text)?/gi, '')
+      .replace(/```/g, '')
+      .replace(/\r/g, '')
+      .trim();
     if (cleaned.toUpperCase() === 'INVALID')
       throw new Error('Gemini could not produce a valid canonical signal');
-    const lines = cleaned.split('\n').map(line => line.trim()).filter(Boolean);
+    const lines = cleaned
+      .split('\n')
+      .map(line => line.trim())
+      .filter(Boolean);
     if (lines.length !== 4)
       throw new Error(`Gemini returned non-canonical signal output (${lines.length} lines)`);
     return lines.join('\n');
