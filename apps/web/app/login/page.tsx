@@ -2,7 +2,7 @@
 
 import { FormEvent, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowRight, ShieldCheck } from 'lucide-react';
+import { ArrowRight, KeyRound, ShieldCheck } from 'lucide-react';
 import { useAuthStore } from '../../lib/store';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
@@ -10,6 +10,7 @@ import { Input } from '../../components/ui/input';
 export default function LoginPage() {
   const router = useRouter();
   const login = useAuthStore(s => s.login);
+  const loginWithPasskey = useAuthStore(s => s.loginWithPasskey);
   const mfa = useAuthStore(s => s.mfa);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -17,6 +18,7 @@ export default function LoginPage() {
   const [pending, setPending] = useState<string | null>(null);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+
   const submit = async (event: FormEvent) => {
     event.preventDefault();
     if (busy) return;
@@ -38,6 +40,25 @@ export default function LoginPage() {
       setBusy(false);
     }
   };
+
+  const passkeySubmit = async () => {
+    if (busy) return;
+    setBusy(true);
+    setError('');
+    try {
+      const result = await loginWithPasskey();
+      if (result.mfaRequired) {
+        setPending(result.userId!);
+        return;
+      }
+      router.replace('/');
+    } catch (err: any) {
+      setError(err?.response?.data?.message ?? err?.message ?? 'Unable to sign in with passkey');
+    } finally {
+      setBusy(false);
+    }
+  };
+
   return (
     <main className="auth-shell">
       <div className="auth-glow" aria-hidden="true" />
@@ -117,6 +138,23 @@ export default function LoginPage() {
             <span>{busy ? 'Working…' : pending ? 'Verify code' : 'Sign in'}</span>
             <ArrowRight size={18} strokeWidth={2} aria-hidden="true" />
           </Button>
+          {!pending && (
+            <>
+              <div className="auth-divider" aria-hidden="true">
+                <span>or</span>
+              </div>
+              <Button
+                className="auth-submit"
+                type="button"
+                variant="outline"
+                disabled={busy}
+                onClick={() => void passkeySubmit()}
+              >
+                <KeyRound size={18} strokeWidth={2} aria-hidden="true" />
+                <span>{busy ? 'Working…' : 'Sign in with passkey'}</span>
+              </Button>
+            </>
+          )}
         </form>
         <footer className="auth-footer">TCE Dashboard · Protected access</footer>
       </section>
