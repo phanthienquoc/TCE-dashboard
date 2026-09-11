@@ -10,7 +10,7 @@ import { dashboardApi, platformApi } from '../../lib/api';
 import { useToast } from '../ui/toast';
 import TradeTicket from './TradeTicket';
 
-export type DashboardView = 'overview' | 'pools' | 'positions' | 'orders' | 'scan' | 'settings';
+export type DashboardView = 'overview' | 'pools' | 'positions' | 'orders' | 'engine' | 'settings' | 'profile';
 export type TradePayload = {
   side: 'BUY' | 'SELL';
   quantity: number;
@@ -226,8 +226,8 @@ export default function DashboardShell({
         ? 'Opportunities'
         : view === 'positions'
           ? 'Exposure'
-          : view === 'scan'
-            ? 'Market Scan'
+          : view === 'profile'
+            ? 'Profile'
             : view === 'settings'
               ? 'System'
               : 'Execution';

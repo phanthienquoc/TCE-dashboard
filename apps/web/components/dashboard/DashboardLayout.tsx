@@ -1,7 +1,7 @@
 'use client';
 
 import type { ReactNode } from 'react';
-import { ArrowLeftRight, Cpu, Home, Layers3, Search, Settings } from 'lucide-react';
+import { ArrowLeftRight, Cpu, Home, Layers3, UserCircle } from 'lucide-react';
 import { NavigationDock } from '../navigation/NavigationDock';
 
 type DashboardNavigationId =
@@ -9,19 +9,18 @@ type DashboardNavigationId =
   | 'pools'
   | 'positions'
   | 'orders'
-  | 'scan'
   | 'engine'
   | 'events'
   | 'notifications'
-  | 'settings';
+  | 'settings'
+  | 'profile';
 
 export const dashboardNavigation = [
   { id: 'overview' as const, label: 'Home', icon: Home, href: '/overview' },
   { id: 'pools' as const, label: 'Pools', icon: Layers3, href: '/pools' },
   { id: 'positions' as const, label: 'Positions', icon: ArrowLeftRight, href: '/position' },
-  { id: 'scan' as const, label: 'Scan', icon: Search, href: '/scan' },
   { id: 'engine' as const, label: 'Engine', icon: Cpu, href: '/engines' },
-  { id: 'settings' as const, label: 'More', icon: Settings, href: '/settings' },
+  { id: 'profile' as const, label: 'Profile', icon: UserCircle, href: '/profile' },
 ];
 
 export default function DashboardLayout({
