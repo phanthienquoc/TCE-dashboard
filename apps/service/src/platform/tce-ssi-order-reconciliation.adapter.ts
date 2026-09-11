@@ -173,7 +173,7 @@ export class TceSsiOrderReconciliationAdapter implements TceOrderReconciliationP
       symbol: order.symbol,
       side: order.side,
       quantity: order.quantity,
-      filledQuantity: order.filledQuantity,
+      filledQuantity: order.filledQuantity ?? 0,
       state,
       providerStatus: order.status,
       observedAt: order.modifyTime ?? order.createdAt ?? query.requestedAt,
