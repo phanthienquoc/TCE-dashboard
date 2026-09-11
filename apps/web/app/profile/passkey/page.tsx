@@ -77,7 +77,11 @@ export default function ProfilePasskeyPage() {
   };
 
   const removePasskey = async (passkey: PasskeyRecord) => {
-    if (!window.confirm(`Remove “${passkey.friendly_name}”? You will no longer be able to use it to sign in.`))
+    if (
+      !window.confirm(
+        `Remove “${passkey.friendly_name}”? You will no longer be able to use it to sign in.`
+      )
+    )
       return;
     setBusy(true);
     setError('');
@@ -110,7 +114,9 @@ export default function ProfilePasskeyPage() {
               <ShieldCheck className="size-5" />
               <div>
                 <strong>Passwordless sign-in</strong>
-                <span>Use Face ID, Touch ID, a security key, or your device PIN to access TCE.</span>
+                <span>
+                  Use Face ID, Touch ID, a security key, or your device PIN to access TCE.
+                </span>
               </div>
             </div>
             <button
@@ -168,7 +174,7 @@ export default function ProfilePasskeyPage() {
                   <div>
                     <strong>{passkey.friendly_name}</strong>
                     <span>
-                      Added {new Date(passkey.created_at).toLocaleDateString()} 
+                      Added {new Date(passkey.created_at).toLocaleDateString()}
                       {passkey.last_used_at
                         ? ` · Last used ${new Date(passkey.last_used_at).toLocaleDateString()}`
                         : ''}
