@@ -86,7 +86,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       prefetchAfterAuth();
       return result;
     } catch (err: any) {
-      set({ status: 'anonymous', error: err?.response?.data?.message ?? err?.message ?? 'Passkey sign-in failed' });
+      set({
+        status: 'anonymous',
+        error: err?.response?.data?.message ?? err?.message ?? 'Passkey sign-in failed',
+      });
       throw err;
     } finally {
       set({ loading: false });
