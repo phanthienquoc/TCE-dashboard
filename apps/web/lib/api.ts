@@ -92,7 +92,7 @@ export const platformApi = {
   binanceSl: (body: Record<string, unknown>) => api.post('/platform/credentials/binance/sl', body),
   binanceClose: (body: Record<string, unknown>) =>
     api.post('/platform/credentials/binance/close', body),
-  geminiTest: (body: { environment: string; credentials: { apiKey: string; model: string } }) =>
+  geminiTest: (body: { environment: string; credentials: { apiKey: string; text: string } }) =>
     api.post('/platform/credentials/gemini/test', body),
   telegramBots: () => api.get('/platform/telegram/bots'),
   telegramSave: (body: { token: string; chatId?: string; environment?: string; name?: string }) =>
