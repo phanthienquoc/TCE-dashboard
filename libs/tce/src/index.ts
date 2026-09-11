@@ -33,3 +33,4 @@ export * from './reconciliation/order-status';
 export * from './reconciliation/order-state-reconciler';
 export * from './reconciliation/reconciliation-persistence';
 export * from './reconciliation/reconciliation-lifecycle-events';
+export * from './reconciliation/reconciliation-recovery';
