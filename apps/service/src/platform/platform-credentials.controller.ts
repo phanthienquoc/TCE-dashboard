@@ -88,14 +88,17 @@ export class PlatformCredentialsController {
     @Body()
     body?: {
       environment?: string;
-      credentials?: { apiKey?: string; model?: string };
+      credentials?: { apiKey?: string; text?: string };
     }
   ) {
     void (body?.environment ?? 'production');
     this.userId(auth);
     const apiKey = typeof body?.credentials?.apiKey === 'string' ? body.credentials.apiKey : '';
-    const model = typeof body?.credentials?.model === 'string' ? body.credentials.model : '';
-    return this.gemini.testConnection(apiKey, model);
+    const text =
+      typeof body?.credentials?.text === 'string'
+        ? body.credentials.text
+        : 'Explain how AI works in a few words';
+    return this.gemini.testConnection(apiKey, text);
   }
   @Post('binance/order') orderBinance(
     @Headers('authorization') auth: string | undefined,

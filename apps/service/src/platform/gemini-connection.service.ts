@@ -9,13 +9,14 @@ export type GeminiConnectionResult = {
 @Injectable()
 export class GeminiConnectionService {
   private readonly timeoutMs = 15000;
-  private readonly demoPrompt = 'Explain how AI works in a few words';
+  private readonly model = 'gemini-flash-latest';
+  private readonly defaultText = 'Explain how AI works in a few words';
 
-  async testConnection(apiKey: string, model: string): Promise<GeminiConnectionResult> {
+  async testConnection(apiKey: string, text = this.defaultText): Promise<GeminiConnectionResult> {
     const normalizedKey = apiKey.trim();
-    const normalizedModel = model.replace(/^models\//i, '').trim();
+    const normalizedText = text.trim();
     if (!normalizedKey) throw new Error('Gemini API key is required');
-    if (!normalizedModel) throw new Error('Gemini model is required');
+    if (!normalizedText) throw new Error('Gemini test text is required');
 
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), this.timeoutMs);
@@ -24,23 +25,20 @@ export class GeminiConnectionService {
       let response: Response;
       try {
         response = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(normalizedModel)}:generateContent?key=${encodeURIComponent(normalizedKey)}`,
+          `https://generativelanguage.googleapis.com/v1beta/models/${this.model}:generateContent`,
           {
             method: 'POST',
             headers: {
               accept: 'application/json',
               'content-type': 'application/json',
+              'x-goog-api-key': normalizedKey,
             },
             body: JSON.stringify({
               contents: [
                 {
-                  parts: [{ text: this.demoPrompt }],
+                  parts: [{ text: normalizedText }],
                 },
               ],
-              generationConfig: {
-                maxOutputTokens: 32,
-                temperature: 0,
-              },
             }),
             signal: controller.signal,
           }
@@ -67,15 +65,15 @@ export class GeminiConnectionService {
       const body = (await response.json()) as {
         candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
       };
-      const text = body.candidates?.[0]?.content?.parts
+      const responseText = body.candidates?.[0]?.content?.parts
         ?.map(part => part.text ?? '')
         .join('')
         .trim();
-      if (!text) throw new Error('Gemini returned an empty response');
+      if (!responseText) throw new Error('Gemini returned an empty response');
 
       return {
         ok: true,
-        model: normalizedModel,
+        model: this.model,
         message: 'Gemini connection successful.',
       };
     } finally {

@@ -7,7 +7,7 @@ describe('GeminiConnectionService', () => {
     global.fetch = originalFetch;
   });
 
-  it('constructs the generateContent request and accepts a valid response', async () => {
+  it('constructs the fixed generateContent request and accepts a valid response', async () => {
     const fetchMock = jest.fn().mockResolvedValue({
       ok: true,
       status: 200,
@@ -19,32 +19,36 @@ describe('GeminiConnectionService', () => {
 
     const result = await new GeminiConnectionService().testConnection(
       'secret-key',
-      'gemini-2.5-flash'
+      'Explain how AI works in a few words'
     );
 
     expect(result).toEqual({
       ok: true,
-      model: 'gemini-2.5-flash',
+      model: 'gemini-flash-latest',
       message: 'Gemini connection successful.',
     });
 
     expect(fetchMock).toHaveBeenCalledWith(
-      'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=secret-key',
+      'https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent',
       expect.objectContaining({
         method: 'POST',
         headers: {
           accept: 'application/json',
           'content-type': 'application/json',
+          'x-goog-api-key': 'secret-key',
         },
         body: JSON.stringify({
-          contents: [{ parts: [{ text: 'Explain how AI works in a few words' }] }],
-          generationConfig: { maxOutputTokens: 32, temperature: 0 },
+          contents: [
+            {
+              parts: [{ text: 'Explain how AI works in a few words' }],
+            },
+          ],
         }),
       })
     );
   });
 
-  it('strips a models/ prefix before building the provider URL', async () => {
+  it('uses the default test text when none is provided', async () => {
     const fetchMock = jest.fn().mockResolvedValue({
       ok: true,
       status: 200,
@@ -54,11 +58,15 @@ describe('GeminiConnectionService', () => {
     });
     global.fetch = fetchMock as typeof fetch;
 
-    await new GeminiConnectionService().testConnection('secret-key', 'models/gemini-2.5-flash');
+    await new GeminiConnectionService().testConnection('secret-key');
 
-    expect(fetchMock.mock.calls[0]?.[0]).toBe(
-      'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=secret-key'
-    );
+    expect(JSON.parse(fetchMock.mock.calls[0]?.[1]?.body as string)).toEqual({
+      contents: [
+        {
+          parts: [{ text: 'Explain how AI works in a few words' }],
+        },
+      ],
+    });
   });
 
   it('maps auth, billing, quota, model and malformed-request failures', async () => {
@@ -80,7 +88,7 @@ describe('GeminiConnectionService', () => {
       }) as typeof fetch;
 
       await expect(
-        new GeminiConnectionService().testConnection('secret-key', 'gemini-2.5-flash')
+        new GeminiConnectionService().testConnection('secret-key')
       ).rejects.toThrow(expected);
     }
   });

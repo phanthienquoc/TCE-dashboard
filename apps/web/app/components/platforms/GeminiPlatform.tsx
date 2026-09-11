@@ -7,33 +7,8 @@ import { platformApi } from '../../../lib/api';
 type Props = { onMessage?: (message: string) => void };
 type ResultState = { ok: boolean; message: string } | null;
 
-type GeminiModel = {
-  id: string;
-  label: string;
-  description: string;
-  freeTier: boolean;
-};
-
-const GEMINI_MODELS: GeminiModel[] = [
-  {
-    id: 'gemini-2.5-flash',
-    label: 'Gemini 2.5 Flash',
-    description: 'Best default for TCE signal parsing and reasoning',
-    freeTier: true,
-  },
-  {
-    id: 'gemini-2.5-flash-lite',
-    label: 'Gemini 2.5 Flash-Lite',
-    description: 'Fastest and most budget-friendly 2.5 model',
-    freeTier: true,
-  },
-  {
-    id: 'gemini-3.1-flash-lite',
-    label: 'Gemini 3.1 Flash-Lite',
-    description: 'High-volume, cost-efficient agentic workloads',
-    freeTier: true,
-  },
-];
+const GEMINI_MODEL = 'gemini-flash-latest';
+const DEFAULT_TEST_TEXT = 'Explain how AI works in a few words';
 
 const pick = (source: Record<string, unknown>, ...keys: string[]) => {
   for (const key of keys) {
@@ -54,13 +29,13 @@ function credentialsFromJson(value: unknown) {
   const source = { ...root, ...nested };
   return {
     apiKey: pick(source, 'apiKey', 'api_key', 'geminiApiKey', 'gemini_api_key'),
-    model: pick(source, 'model', 'modelName', 'model_name'),
+    text: pick(source, 'text', 'prompt', 'testText', 'test_text'),
   };
 }
 
 export default function GeminiPlatform({ onMessage }: Props) {
   const [apiKey, setApiKey] = useState('');
-  const [model, setModel] = useState(GEMINI_MODELS[0].id);
+  const [text, setText] = useState(DEFAULT_TEST_TEXT);
   const [fileName, setFileName] = useState('');
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<ResultState>(null);
@@ -76,7 +51,7 @@ export default function GeminiPlatform({ onMessage }: Props) {
       const next = credentialsFromJson(parsed);
       if (!next.apiKey) throw new Error('JSON must contain apiKey (or geminiApiKey)');
       setApiKey(next.apiKey);
-      if (next.model && GEMINI_MODELS.some(item => item.id === next.model)) setModel(next.model);
+      if (next.text) setText(next.text);
       setFileName(file.name);
       setResult({ ok: true, message: `Loaded Gemini credentials from ${file.name}.` });
       onMessage?.(`Loaded Gemini credentials from ${file.name}`);
@@ -94,19 +69,23 @@ export default function GeminiPlatform({ onMessage }: Props) {
       setResult({ ok: false, message: 'Gemini API Key is required.' });
       return;
     }
+    if (!text.trim()) {
+      setResult({ ok: false, message: 'Test text is required.' });
+      return;
+    }
     setBusy(true);
     setResult(null);
     try {
       const response = await platformApi.geminiTest({
         environment: 'production',
-        credentials: { apiKey: apiKey.trim(), model },
+        credentials: { apiKey: apiKey.trim(), text: text.trim() },
       });
       const data = response.data as { message?: string; model?: string };
       setResult({
         ok: true,
-        message: data.message ?? `Gemini connection successful for ${data.model ?? model}.`,
+        message: data.message ?? `Gemini connection successful for ${data.model ?? GEMINI_MODEL}.`,
       });
-      onMessage?.(`Gemini connection test successful for ${data.model ?? model}`);
+      onMessage?.(`Gemini connection test successful for ${data.model ?? GEMINI_MODEL}`);
     } catch (error) {
       const value = error as { response?: { data?: { message?: string } }; message?: string };
       const message =
@@ -126,10 +105,12 @@ export default function GeminiPlatform({ onMessage }: Props) {
     setBusy(true);
     setResult(null);
     try {
-      await platformApi.save('gemini', 'production', { apiKey: apiKey.trim(), model });
-      const selected = GEMINI_MODELS.find(item => item.id === model);
-      setResult({ ok: true, message: `${selected?.label ?? model} credentials saved securely.` });
-      onMessage?.(`Gemini credentials saved with ${model}`);
+      await platformApi.save('gemini', 'production', {
+        apiKey: apiKey.trim(),
+        model: GEMINI_MODEL,
+      });
+      setResult({ ok: true, message: 'Gemini credentials saved securely.' });
+      onMessage?.(`Gemini credentials saved with ${GEMINI_MODEL}`);
     } catch (error) {
       const value = error as { response?: { data?: { message?: string } }; message?: string };
       const message = value?.response?.data?.message ?? value?.message ?? 'Save failed';
@@ -155,27 +136,11 @@ export default function GeminiPlatform({ onMessage }: Props) {
       </div>
 
       <div className="border-t border-emerald-200/[0.07] px-5 pb-5 pt-4">
-        <label className="block text-xs text-[#9c91a3]">
-          Model
-          <select
-            className="mt-1.5 h-11 w-full rounded-xl border border-white/10 bg-black/20 px-3 text-sm outline-none focus:border-emerald-300/30"
-            value={model}
-            onChange={event => setModel(event.target.value)}
-            disabled={busy}
-          >
-            {GEMINI_MODELS.map(item => (
-              <option key={item.id} value={item.id}>
-                {item.label} · {item.freeTier ? 'Free tier' : 'Paid'}
-              </option>
-            ))}
-          </select>
-          <span className="mt-1 block text-[11px] text-[#81748a]">
-            {GEMINI_MODELS.find(item => item.id === model)?.description} · Free-tier availability
-            and limits are subject to Google AI Studio pricing.
-          </span>
-        </label>
+        <div className="mb-4 rounded-xl border border-emerald-200/10 bg-black/20 px-3 py-2 text-xs text-[#9c91a3]">
+          Fixed model: <span className="font-medium text-emerald-200">{GEMINI_MODEL}</span>
+        </div>
 
-        <div className="mb-4 mt-4 flex flex-wrap items-center gap-2">
+        <div className="mb-4 flex flex-wrap items-center gap-2">
           <input
             ref={fileInputRef}
             type="file"
@@ -214,10 +179,27 @@ export default function GeminiPlatform({ onMessage }: Props) {
           />
         </label>
 
+        <label className="mt-4 block text-xs text-[#9c91a3]">
+          Test text
+          <textarea
+            className="mt-1.5 min-h-24 w-full resize-y rounded-xl border border-white/10 bg-black/20 px-3 py-2 text-sm outline-none focus:border-emerald-300/30"
+            value={text}
+            onChange={event => {
+              setText(event.target.value);
+              setResult(null);
+            }}
+            disabled={busy}
+            spellCheck
+          />
+          <span className="mt-1 block text-[11px] text-[#81748a]">
+            Editable. Defaults to the Gemini API sample text.
+          </span>
+        </label>
+
         <div className="mt-4 flex flex-wrap gap-2">
           <button
             type="button"
-            disabled={busy || !apiKey.trim()}
+            disabled={busy || !apiKey.trim() || !text.trim()}
             onClick={() => void testConnection()}
             className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-emerald-300/20 bg-emerald-300/[0.05] px-4 text-sm font-semibold text-emerald-100 disabled:opacity-50"
           >
