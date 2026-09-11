@@ -22,9 +22,10 @@ const CANONICAL_RE = new RegExp(
   'i'
 );
 const TELEGRAM_HEAD_RE = new RegExp(
-  `^\\s*#?([A-Z0-9._-]+)\\s+(BUY|SELL)\\s+(${PRICE})\\s*[-_]\\s*(${PRICE})\\s*$`,
+  `^\\s*#?([A-Z0-9._-]+)\\s+(BUY|SELL)(?:\\s+(?:NOW|MARKET))?(?:\\s+(${PRICE})\\s*[-_]\\s*(${PRICE}))?\\s*$`,
   'i'
 );
+const ENTRY_ZONE_RE = new RegExp(`^\\s*(${PRICE})\\s*[-_]\\s*(${PRICE})\\s*$`, 'i');
 const TP_RE = new RegExp(`^\\s*TP(?:\\s*\\d+)?\\s+(${PRICE})\\s*$`, 'i');
 const SL_RE = new RegExp(`^\\s*SL(?:\\s*\\d+)?\\s+(${PRICE})\\s*$`, 'i');
 
@@ -89,7 +90,6 @@ export function parseTradingSignal(input: string): TradingSignal {
   const text = String(input ?? '')
     .replace(/[\u2013\u2014]/g, '-')
     .replace(/\*\*/g, '')
-    .replace(/__/g, '')
     .replace(/`/g, '')
     .trim();
   const canonical = CANONICAL_RE.exec(text);
@@ -109,17 +109,28 @@ export function parseTradingSignal(input: string): TradingSignal {
   const head = lines.length ? TELEGRAM_HEAD_RE.exec(lines[0]) : null;
   if (!head)
     throw new Error(
-      'Invalid signal. Expected canonical TCE format or #SYMBOL BUY|SELL ENTRY_LOW_ENTRY_HIGH with TP/SL lines.'
+      'Invalid signal. Expected canonical TCE format or #SYMBOL BUY|SELL [NOW] ENTRY_LOW_ENTRY_HIGH with TP/SL lines.'
     );
   const symbol = normalizeExecutionSymbol(head[1]);
   const side = head[2].toUpperCase() as TradingSignal['side'];
-  const entryA = Number(head[3]);
-  const entryB = Number(head[4]);
+  let entryA = head[3] ? Number(head[3]) : undefined;
+  let entryB = head[4] ? Number(head[4]) : undefined;
+  let remainingLines = lines.slice(1);
+  if (entryA == null || entryB == null) {
+    const entryZone = remainingLines[0] ? ENTRY_ZONE_RE.exec(remainingLines[0]) : null;
+    if (!entryZone)
+      throw new Error(
+        'Telegram signal requires an entry zone on the header or the following line.'
+      );
+    entryA = Number(entryZone[1]);
+    entryB = Number(entryZone[2]);
+    remainingLines = remainingLines.slice(1);
+  }
   const entryMin = Math.min(entryA, entryB);
   const entryMax = Math.max(entryA, entryB);
   const takeProfits: number[] = [];
   let stopLoss: number | undefined;
-  for (const line of lines.slice(1)) {
+  for (const line of remainingLines) {
     const tp = TP_RE.exec(line);
     if (tp) {
       takeProfits.push(Number(tp[1]));
@@ -143,10 +154,11 @@ export function parseTradingSignal(input: string): TradingSignal {
   if (side === 'SELL') {
     if (!(stopLoss > entry && takeProfits.every(tp => tp < entryMin)))
       throw new Error('SELL entry zone requires every TP < entry zone < SL after +5 entry offset');
-  } else if (!(stopLoss < entryMin && takeProfits.every(tp => tp > entry)))
+  } else if (!(stopLoss < entryMin && takeProfits.every(tp => tp > entry))) {
     throw new Error(
       'BUY entry zone requires SL < entry zone and every TP > entry after +5 entry offset'
     );
+  }
   return toTradingSignal(symbol, side, entry, takeProfit, stopLoss, {
     entryMin,
     entryMax,
