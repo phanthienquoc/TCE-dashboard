@@ -27,7 +27,7 @@ const nowIso = () => new Date().toISOString();
 
 const unavailable = (
   context: TceTradingAuthorizationContext,
-  message: string,
+  message: string
 ): ContractResult<TceTradingAuthorization> => ({
   ok: false,
   error: {
@@ -40,7 +40,7 @@ const unavailable = (
 
 const authorizationState = (
   context: TceTradingAuthorizationContext,
-  state: 'APPROVAL_REQUIRED' | 'EXPIRED',
+  state: 'APPROVAL_REQUIRED' | 'EXPIRED'
 ): ContractResult<TceTradingAuthorization> => ({
   ok: true,
   data: {
@@ -54,17 +54,31 @@ const authorizationState = (
 
 export const mapSsiAuthorizationFailure = (
   context: TceTradingAuthorizationContext,
-  message: string,
+  message: string
 ): ContractResult<TceTradingAuthorization> => {
-  if (message.startsWith('SSI_REAUTH_REQUIRED')) return authorizationState(context, 'APPROVAL_REQUIRED');
-  if (message.toLowerCase().includes('token expired')) return authorizationState(context, 'EXPIRED');
+  if (message.startsWith('SSI_REAUTH_REQUIRED'))
+    return authorizationState(context, 'APPROVAL_REQUIRED');
+  if (message.toLowerCase().includes('token expired'))
+    return authorizationState(context, 'EXPIRED');
   return unavailable(context, message);
 };
 
 export const mapSsiApprovalChallenge = (
   context: TceTradingAuthorizationContext,
-  challenge: SsiApprovalChallenge,
-): ContractResult<Pick<TceTradingAuthorization, 'state' | 'provider' | 'accountId' | 'environment' | 'checkedAt' | 'transactionId' | 'approvalAction' | 'approvalMessage'>> => ({
+  challenge: SsiApprovalChallenge
+): ContractResult<
+  Pick<
+    TceTradingAuthorization,
+    | 'state'
+    | 'provider'
+    | 'accountId'
+    | 'environment'
+    | 'checkedAt'
+    | 'transactionId'
+    | 'approvalAction'
+    | 'approvalMessage'
+  >
+> => ({
   ok: true,
   data: {
     state: 'APPROVAL_REQUIRED',
@@ -83,11 +97,11 @@ export class TceSsiTradingAuthorizationAdapter implements TceTradingAuthorizatio
   constructor(
     @Inject(CONTRACT_TOKENS.credentials)
     private readonly credentials: PlatformCredentialPort,
-    private readonly supabase: SupabaseClientService,
+    private readonly supabase: SupabaseClientService
   ) {}
 
   async ensureAuthorized(
-    context: TceTradingAuthorizationContext,
+    context: TceTradingAuthorizationContext
   ): Promise<ContractResult<TceTradingAuthorization>> {
     const account = await this.resolveAccount(context);
     if (!account.ok) return account;
@@ -127,7 +141,10 @@ export class TceSsiTradingAuthorizationAdapter implements TceTradingAuthorizatio
     }
 
     try {
-      const connection = await adapter.connect({ userId: account.data.userId, environment: context.environment });
+      const connection = await adapter.connect({
+        userId: account.data.userId,
+        environment: context.environment,
+      });
       if (!connection.ok) return mapSsiAuthorizationFailure(context, connection.error.message);
 
       const refreshed = adapter.getTokenSnapshot();
@@ -151,8 +168,22 @@ export class TceSsiTradingAuthorizationAdapter implements TceTradingAuthorizatio
   }
 
   async requestApproval(
-    context: TceTradingAuthorizationContext,
-  ): Promise<ContractResult<Pick<TceTradingAuthorization, 'state' | 'provider' | 'accountId' | 'environment' | 'checkedAt' | 'transactionId' | 'approvalAction' | 'approvalMessage'>>> {
+    context: TceTradingAuthorizationContext
+  ): Promise<
+    ContractResult<
+      Pick<
+        TceTradingAuthorization,
+        | 'state'
+        | 'provider'
+        | 'accountId'
+        | 'environment'
+        | 'checkedAt'
+        | 'transactionId'
+        | 'approvalAction'
+        | 'approvalMessage'
+      >
+    >
+  > {
     const account = await this.resolveAccount(context);
     if (!account.ok) return account;
 
@@ -178,12 +209,15 @@ export class TceSsiTradingAuthorizationAdapter implements TceTradingAuthorizatio
       if (!challenge.ok) return mapSsiAuthorizationFailure(context, challenge.error.message);
       return mapSsiApprovalChallenge(context, challenge.data);
     } catch (error) {
-      return mapSsiAuthorizationFailure(context, this.message(error, 'SSI approval request failed'));
+      return mapSsiAuthorizationFailure(
+        context,
+        this.message(error, 'SSI approval request failed')
+      );
     }
   }
 
   private async resolveAccount(
-    context: TceTradingAuthorizationContext,
+    context: TceTradingAuthorizationContext
   ): Promise<ContractResult<Readonly<{ userId: string; externalAccountNo?: string | null }>>> {
     const { data, error } = await this.supabase.db
       .from('tce_accounts')
@@ -211,7 +245,9 @@ export class TceSsiTradingAuthorizationAdapter implements TceTradingAuthorizatio
         tokenType: raw.tokenType ? String(raw.tokenType) : undefined,
         expiresAt: raw.expiresAt ? Number(raw.expiresAt) : undefined,
         refreshToken: raw.refreshToken ? String(raw.refreshToken) : undefined,
-        refreshTokenExpiresAt: raw.refreshTokenExpiresAt ? Number(raw.refreshTokenExpiresAt) : undefined,
+        refreshTokenExpiresAt: raw.refreshTokenExpiresAt
+          ? Number(raw.refreshTokenExpiresAt)
+          : undefined,
         refreshExpiresAt: raw.refreshExpiresAt ? Number(raw.refreshExpiresAt) : undefined,
       },
       onTokenUpdated: async token => {

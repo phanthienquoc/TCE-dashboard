@@ -17,7 +17,7 @@ const errorResult = (
   query: TceReconciliationQuery,
   code: 'INVALID_QUERY' | 'PROVIDER_UNAVAILABLE' | 'PROVIDER_REJECTED' | 'TIMEOUT_UNKNOWN',
   message: string,
-  retryable = false,
+  retryable = false
 ): TceOrderReconciliationResult => ({
   ok: false,
   correlationId: query.correlationId,
@@ -33,7 +33,7 @@ export class TceSsiOrderReconciliationAdapter implements TceOrderReconciliationP
   constructor(
     private readonly ssi: SsiApplicationService,
     private readonly supabase: SupabaseClientService,
-    private readonly authorization: TceSsiTradingAuthorizationAdapter,
+    private readonly authorization: TceSsiTradingAuthorizationAdapter
   ) {}
 
   async listOpenOrders(query: TceReconciliationQuery): Promise<TceOrderReconciliationResult> {
@@ -53,21 +53,41 @@ export class TceSsiOrderReconciliationAdapter implements TceOrderReconciliationP
     if (!auth.ok)
       return errorResult(query, 'PROVIDER_UNAVAILABLE', auth.error.message, auth.error.retryable);
     if (auth.data.state !== 'READY')
-      return errorResult(query, 'PROVIDER_UNAVAILABLE', `SSI authorization is ${auth.data.state}`, true);
+      return errorResult(
+        query,
+        'PROVIDER_UNAVAILABLE',
+        `SSI authorization is ${auth.data.state}`,
+        true
+      );
     if (auth.data.accountId !== query.accountId || auth.data.environment !== query.environment)
-      return errorResult(query, 'INVALID_QUERY', 'SSI authorization identity does not match reconciliation account/environment');
+      return errorResult(
+        query,
+        'INVALID_QUERY',
+        'SSI authorization identity does not match reconciliation account/environment'
+      );
 
     const result = await this.ssi.current(account.userId, query.environment, {});
     if (!result.ok) {
       const lower = result.error.message.toLowerCase();
-      const code = lower.includes('timeout') || lower.includes('timed out') ? 'TIMEOUT_UNKNOWN' : 'PROVIDER_REJECTED';
-      return errorResult(query, code, result.error.message, code === 'TIMEOUT_UNKNOWN' || result.error.retryable);
+      const code =
+        lower.includes('timeout') || lower.includes('timed out')
+          ? 'TIMEOUT_UNKNOWN'
+          : 'PROVIDER_REJECTED';
+      return errorResult(
+        query,
+        code,
+        result.error.message,
+        code === 'TIMEOUT_UNKNOWN' || result.error.retryable
+      );
     }
 
     const orders = result.data.orders.map(order => this.toReconciledOrder(order, query));
     const unknownProviderOrders = orders.filter(order => order.state === 'UNKNOWN');
-    const openOrders = orders.filter(order =>
-      order.state === 'SUBMITTED' || order.state === 'PARTIALLY_FILLED' || order.state === 'CANCEL_PENDING'
+    const openOrders = orders.filter(
+      order =>
+        order.state === 'SUBMITTED' ||
+        order.state === 'PARTIALLY_FILLED' ||
+        order.state === 'CANCEL_PENDING'
     );
 
     return {
@@ -80,7 +100,10 @@ export class TceSsiOrderReconciliationAdapter implements TceOrderReconciliationP
     };
   }
 
-  async getOrder(query: TceReconciliationQuery, providerOrderId: string): Promise<TceOrderReconciliationResult> {
+  async getOrder(
+    query: TceReconciliationQuery,
+    providerOrderId: string
+  ): Promise<TceOrderReconciliationResult> {
     const normalizedProviderOrderId = String(providerOrderId ?? '').trim();
     if (!normalizedProviderOrderId)
       return errorResult(query, 'INVALID_QUERY', 'providerOrderId is required');
@@ -88,8 +111,9 @@ export class TceSsiOrderReconciliationAdapter implements TceOrderReconciliationP
     const result = await this.listOpenOrders(query);
     if (!result.ok) return result;
 
-    const order = result.orders.find(item => item.providerOrderId === normalizedProviderOrderId)
-      ?? result.unknownProviderOrders.find(item => item.providerOrderId === normalizedProviderOrderId);
+    const order =
+      result.orders.find(item => item.providerOrderId === normalizedProviderOrderId) ??
+      result.unknownProviderOrders.find(item => item.providerOrderId === normalizedProviderOrderId);
     return {
       ...result,
       orders: order && order.state !== 'UNKNOWN' ? [order] : [],
@@ -98,8 +122,17 @@ export class TceSsiOrderReconciliationAdapter implements TceOrderReconciliationP
   }
 
   private validateQuery(query: TceReconciliationQuery) {
-    if (!query.accountId.trim() || !query.environment.trim() || !query.correlationId.trim() || !query.requestedAt.trim())
-      return errorResult(query, 'INVALID_QUERY', 'accountId, environment, correlationId and requestedAt are required');
+    if (
+      !query.accountId.trim() ||
+      !query.environment.trim() ||
+      !query.correlationId.trim() ||
+      !query.requestedAt.trim()
+    )
+      return errorResult(
+        query,
+        'INVALID_QUERY',
+        'accountId, environment, correlationId and requestedAt are required'
+      );
     if (Number.isNaN(Date.parse(query.requestedAt)))
       return errorResult(query, 'INVALID_QUERY', 'requestedAt must be a valid ISO timestamp');
     return undefined;
@@ -114,14 +147,25 @@ export class TceSsiOrderReconciliationAdapter implements TceOrderReconciliationP
     if (error)
       return {
         ok: false as const,
-        result: errorResult(query, 'PROVIDER_UNAVAILABLE', `Unable to resolve TCE account: ${error.message}`, true),
+        result: errorResult(
+          query,
+          'PROVIDER_UNAVAILABLE',
+          `Unable to resolve TCE account: ${error.message}`,
+          true
+        ),
       };
     if (!data?.user_id)
-      return { ok: false as const, result: errorResult(query, 'INVALID_QUERY', 'TCE account is not configured') };
+      return {
+        ok: false as const,
+        result: errorResult(query, 'INVALID_QUERY', 'TCE account is not configured'),
+      };
     return { ok: true as const, userId: String(data.user_id) };
   }
 
-  private toReconciledOrder(order: AccountOrder, query: TceReconciliationQuery): TceReconciledOrder {
+  private toReconciledOrder(
+    order: AccountOrder,
+    query: TceReconciliationQuery
+  ): TceReconciledOrder {
     const state = mapProviderOrderStatus(order.status);
     return {
       providerOrderId: order.externalId,

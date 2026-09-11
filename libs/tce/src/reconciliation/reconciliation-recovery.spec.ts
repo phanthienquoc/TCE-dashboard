@@ -107,7 +107,7 @@ test('missing or mismatched persisted runs fail closed without publishing', asyn
   const mismatch = await recoverReconciliationRun(
     { ...request, accountId: 'wrong-account' },
     await persistence(),
-    sink,
+    sink
   );
 
   assert.equal(result.status, 'NOT_FOUND');

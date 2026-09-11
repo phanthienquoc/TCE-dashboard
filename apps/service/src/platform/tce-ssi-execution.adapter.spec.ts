@@ -47,7 +47,12 @@ function adapter(auth = readyAuth) {
     db: {
       from: () => ({
         select: () => ({
-          eq: () => ({ maybeSingle: async () => ({ data: { id: 'account-1', user_id: 'user-1' }, error: null }) }),
+          eq: () => ({
+            maybeSingle: async () => ({
+              data: { id: 'account-1', user_id: 'user-1' },
+              error: null,
+            }),
+          }),
         }),
       }),
     },
@@ -126,7 +131,12 @@ test('maps provider timeout to UNKNOWN-safe reconciliation result', async () => 
   const instance = adapter();
   (instance as any).ssi.placeOrder = async () => ({
     ok: false,
-    error: { code: 'PROVIDER_ERROR', message: 'request timed out', retryable: false, provider: 'ssi' },
+    error: {
+      code: 'PROVIDER_ERROR',
+      message: 'request timed out',
+      retryable: false,
+      provider: 'ssi',
+    },
   });
   const result = await instance.submit(command());
   assert.equal(result.ok, false);

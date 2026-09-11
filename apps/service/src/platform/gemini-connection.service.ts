@@ -32,9 +32,11 @@ export class GeminiConnectionService {
               'x-goog-api-key': normalizedKey,
             },
             body: JSON.stringify({
-              contents: [{
-                parts: [{ text: this.demoPrompt }],
-              }],
+              contents: [
+                {
+                  parts: [{ text: this.demoPrompt }],
+                },
+              ],
             }),
             signal: controller.signal,
           }

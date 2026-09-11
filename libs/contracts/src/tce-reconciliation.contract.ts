@@ -1,11 +1,7 @@
 import type { TceOrderSide, TceOrderState } from './tce-auto-trade.contract';
 
 export type TceReconciliationErrorCode =
-  | 'INVALID_QUERY'
-  | 'PROVIDER_UNAVAILABLE'
-  | 'PROVIDER_REJECTED'
-  | 'TIMEOUT_UNKNOWN'
-  | 'UNKNOWN';
+  'INVALID_QUERY' | 'PROVIDER_UNAVAILABLE' | 'PROVIDER_REJECTED' | 'TIMEOUT_UNKNOWN' | 'UNKNOWN';
 
 export type TceReconciliationQuery = Readonly<{
   accountId: string;

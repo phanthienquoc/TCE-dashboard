@@ -34,7 +34,7 @@ const invalid = <T>(message: string): ContractResult<T> => ({
 const approvalRequest = (
   approvalId: string,
   context: TceTradingAuthorizationContext,
-  authorization: TceTradingAuthorization,
+  authorization: TceTradingAuthorization
 ): TceAssistedApprovalRequest => ({
   approvalId,
   accountId: context.accountId,
@@ -56,7 +56,7 @@ export class TceAssistedApprovalHandoff {
   constructor(private readonly authorization: TceTradingAuthorizationPort) {}
 
   async request(
-    context: TceTradingAuthorizationContext,
+    context: TceTradingAuthorizationContext
   ): Promise<ContractResult<TceAssistedApprovalRequest>> {
     if (context.mode !== 'ASSISTED') {
       return invalid('ASSISTED approval handoff requires ASSISTED execution mode');
@@ -82,7 +82,7 @@ export class TceAssistedApprovalHandoff {
   }
 
   async complete(
-    completion: TceAssistedApprovalCompletion,
+    completion: TceAssistedApprovalCompletion
   ): Promise<ContractResult<TceTradingAuthorization>> {
     const pending = this.pending.get(completion.approvalId);
     if (!pending) return invalid('Unknown or expired ASSISTED approval request');

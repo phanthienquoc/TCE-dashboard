@@ -23,7 +23,13 @@ describe('InMemoryReconciliationPersistence', () => {
       accountId: 'acct-1',
       environment: 'PAPER' as const,
       recordedAt: '2026-09-11T00:00:00.000Z',
-      deltas: [{ disposition: 'MISSING_PROVIDER_ORDER' as const, localOrderId: 'local-1', reason: 'missing' }],
+      deltas: [
+        {
+          disposition: 'MISSING_PROVIDER_ORDER' as const,
+          localOrderId: 'local-1',
+          reason: 'missing',
+        },
+      ],
     };
     const second = { ...first, recordedAt: '2026-09-11T00:01:00.000Z' };
 
