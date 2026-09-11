@@ -173,9 +173,7 @@ export class TelegramBotService implements OnModuleInit {
   async removeBot(userId: string, environment = 'production', name = 'default') {
     const credentialName = this.normalizeName(name);
     const bots = await this.listBots(userId);
-    const bot = bots.find(
-      row => row.environment === environment && row.name === credentialName
-    );
+    const bot = bots.find(row => row.environment === environment && row.name === credentialName);
     if (bot) this.stopPolling(bot.id);
     await this.credentials.remove(userId, 'telegram', environment, credentialName);
     await this.supabase.db

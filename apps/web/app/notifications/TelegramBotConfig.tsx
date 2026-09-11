@@ -127,7 +127,9 @@ export default function TelegramBotConfig() {
       await load();
     } catch (error: any) {
       setOk(false);
-      setMessage(error?.response?.data?.message ?? error?.message ?? 'Unable to change Telegram state');
+      setMessage(
+        error?.response?.data?.message ?? error?.message ?? 'Unable to change Telegram state'
+      );
     } finally {
       setBusy(false);
     }
@@ -339,11 +341,13 @@ export default function TelegramBotConfig() {
               className="h-10 w-full rounded-xl border border-white/10 bg-[#120b18] px-3 text-sm text-white"
             >
               <option value="">Select bot</option>
-              {bots.filter(bot => bot.isActive && !bot.isPaused).map(bot => (
-                <option key={bot.id} value={bot.id}>
-                  {bot.name} · {bot.environment}
-                </option>
-              ))}
+              {bots
+                .filter(bot => bot.isActive && !bot.isPaused)
+                .map(bot => (
+                  <option key={bot.id} value={bot.id}>
+                    {bot.name} · {bot.environment}
+                  </option>
+                ))}
             </select>
             <Input
               value={serviceName}
