@@ -36,7 +36,9 @@ export type TceReconciliationLifecycleContext = Readonly<{
   observedAt: string;
 }>;
 
-const EVENT_TYPE: Readonly<Record<ReconciliationDelta['disposition'], TceReconciliationLifecycleEventType>> = {
+const EVENT_TYPE: Readonly<
+  Record<ReconciliationDelta['disposition'], TceReconciliationLifecycleEventType>
+> = {
   CONVERGED: 'RECONCILIATION_CONVERGED',
   PARTIAL_FILL: 'RECONCILIATION_PARTIAL_FILL',
   TERMINAL: 'RECONCILIATION_TERMINAL',
@@ -59,11 +61,13 @@ function identity(delta: ReconciliationDelta): string {
 
 export function createReconciliationLifecycleEvent(
   context: TceReconciliationLifecycleContext,
-  delta: ReconciliationDelta,
+  delta: ReconciliationDelta
 ): TceReconciliationLifecycleEvent {
   const type = EVENT_TYPE[delta.disposition];
   const eventId = createHash('sha256')
-    .update(`${context.runId}|${context.accountId}|${context.environment}|${context.correlationId}|${identity(delta)}`)
+    .update(
+      `${context.runId}|${context.accountId}|${context.environment}|${context.correlationId}|${identity(delta)}`
+    )
     .digest('hex')
     .slice(0, 32);
 
@@ -89,7 +93,7 @@ export function createReconciliationLifecycleEvent(
 
 export function createReconciliationLifecycleEvents(
   context: TceReconciliationLifecycleContext,
-  deltas: readonly ReconciliationDelta[],
+  deltas: readonly ReconciliationDelta[]
 ): readonly TceReconciliationLifecycleEvent[] {
   return deltas.map(delta => createReconciliationLifecycleEvent(context, delta));
 }

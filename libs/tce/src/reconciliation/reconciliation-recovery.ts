@@ -47,7 +47,7 @@ export class InMemoryReconciliationLifecycleSink implements TceReconciliationLif
 
 function matchesRequest(
   record: ReconciliationPersistenceRecord,
-  request: TceReconciliationRecoveryRequest,
+  request: TceReconciliationRecoveryRequest
 ): boolean {
   return (
     record.runId === request.runId &&
@@ -59,7 +59,7 @@ function matchesRequest(
 export async function recoverReconciliationRun(
   request: TceReconciliationRecoveryRequest,
   persistence: TceReconciliationPersistencePort,
-  sink: TceReconciliationLifecycleSink,
+  sink: TceReconciliationLifecycleSink
 ): Promise<TceReconciliationRecoveryResult> {
   const record = await persistence.get(request.runId);
   if (!record || !matchesRequest(record, request)) {

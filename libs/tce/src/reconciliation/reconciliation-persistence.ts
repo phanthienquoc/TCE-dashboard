@@ -20,12 +20,12 @@ export class InMemoryReconciliationPersistence implements TceReconciliationPersi
     if (this.records.has(record.runId)) return;
     this.records.set(record.runId, {
       ...record,
-      deltas: record.deltas.map((delta) => ({ ...delta })),
+      deltas: record.deltas.map(delta => ({ ...delta })),
     });
   }
 
   async get(runId: string): Promise<ReconciliationPersistenceRecord | undefined> {
     const record = this.records.get(runId);
-    return record ? { ...record, deltas: record.deltas.map((delta) => ({ ...delta })) } : undefined;
+    return record ? { ...record, deltas: record.deltas.map(delta => ({ ...delta })) } : undefined;
   }
 }

@@ -21,8 +21,16 @@ describe('SupabaseReconciliationLifecycleSink', () => {
   };
 
   it('reads durable event identity from Supabase', async () => {
-    const maybeSingle = jest.fn().mockResolvedValue({ data: { event_id: event.eventId }, error: null });
-    const db = { from: jest.fn().mockReturnValue({ select: jest.fn().mockReturnValue({ eq: jest.fn().mockReturnValue({ maybeSingle }) }) }) } as any;
+    const maybeSingle = jest
+      .fn()
+      .mockResolvedValue({ data: { event_id: event.eventId }, error: null });
+    const db = {
+      from: jest
+        .fn()
+        .mockReturnValue({
+          select: jest.fn().mockReturnValue({ eq: jest.fn().mockReturnValue({ maybeSingle }) }),
+        }),
+    } as any;
     const sink = new SupabaseReconciliationLifecycleSink(db);
     await expect(sink.has(event.eventId)).resolves.toBe(true);
   });
@@ -32,13 +40,15 @@ describe('SupabaseReconciliationLifecycleSink', () => {
     const db = { from: jest.fn().mockReturnValue({ insert }) } as any;
     const sink = new SupabaseReconciliationLifecycleSink(db);
     await sink.publish(event);
-    expect(insert).toHaveBeenCalledWith(expect.objectContaining({
-      event_id: event.eventId,
-      run_id: event.runId,
-      account_id: event.accountId,
-      event_type: event.type,
-      disposition: event.disposition,
-    }));
+    expect(insert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        event_id: event.eventId,
+        run_id: event.runId,
+        account_id: event.accountId,
+        event_type: event.type,
+        disposition: event.disposition,
+      })
+    );
   });
 
   it('treats the database unique constraint as idempotent', async () => {
@@ -50,6 +60,8 @@ describe('SupabaseReconciliationLifecycleSink', () => {
 
   it('fails closed on missing identity', async () => {
     const sink = new SupabaseReconciliationLifecycleSink({} as any);
-    await expect(sink.publish({ ...event, accountId: '' })).rejects.toThrow('runId, accountId and environment are required');
+    await expect(sink.publish({ ...event, accountId: '' })).rejects.toThrow(
+      'runId, accountId and environment are required'
+    );
   });
 });

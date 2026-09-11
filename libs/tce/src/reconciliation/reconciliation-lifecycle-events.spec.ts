@@ -60,7 +60,7 @@ test('maps every reconciliation disposition to an explicit lifecycle event type'
 
   const events = createReconciliationLifecycleEvents(
     context,
-    dispositions.map(disposition => ({ disposition, reason: disposition })),
+    dispositions.map(disposition => ({ disposition, reason: disposition }))
   );
 
   assert.deepEqual(
@@ -72,15 +72,23 @@ test('maps every reconciliation disposition to an explicit lifecycle event type'
       'RECONCILIATION_MISSING_PROVIDER_ORDER',
       'RECONCILIATION_ORPHAN_PROVIDER_ORDER',
       'RECONCILIATION_REQUIRED',
-    ],
+    ]
   );
 });
 
 test('preserves fail-closed orphan and missing semantics without adding mutation instructions', () => {
   const events = createReconciliationLifecycleEvents(context, [
     { disposition: 'ORPHAN_PROVIDER_ORDER', providerOrderId: 'orphan', reason: 'No local order.' },
-    { disposition: 'MISSING_PROVIDER_ORDER', localOrderId: 'missing', reason: 'No provider order.' },
-    { disposition: 'RECONCILIATION_REQUIRED', localOrderId: 'unknown', reason: 'Unknown provider state.' },
+    {
+      disposition: 'MISSING_PROVIDER_ORDER',
+      localOrderId: 'missing',
+      reason: 'No provider order.',
+    },
+    {
+      disposition: 'RECONCILIATION_REQUIRED',
+      localOrderId: 'unknown',
+      reason: 'Unknown provider state.',
+    },
   ]);
 
   assert.equal(events[0]?.type, 'RECONCILIATION_ORPHAN_PROVIDER_ORDER');
