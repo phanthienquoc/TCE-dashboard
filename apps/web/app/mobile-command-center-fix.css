@@ -270,4 +270,135 @@
   .tce-list-stack > .tce-rotation-row {
     margin: 0;
   }
+
+  /* Pools mobile density / iOS safe-area */
+  .tce-mobile-view {
+    padding-top: max(10px, env(safe-area-inset-top));
+    padding-bottom: calc(88px + env(safe-area-inset-bottom));
+  }
+
+  .tce-mobile-header {
+    margin-bottom: 10px;
+  }
+
+  .tce-section {
+    margin-top: 14px;
+  }
+
+  .tce-section-title {
+    margin-bottom: 8px;
+  }
+
+  .tce-status-card {
+    padding: 12px;
+    border-radius: 14px;
+  }
+
+  .tce-stat-grid {
+    gap: 8px;
+    margin-top: 8px;
+  }
+
+  .tce-stat {
+    min-height: 58px;
+    padding: 10px;
+    border-radius: 12px;
+  }
+
+  .tce-stat strong {
+    font-size: 17px;
+  }
+
+  .tce-pool-balance-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 7px;
+  }
+
+  .tce-pool-balance {
+    padding: 10px;
+    border-radius: 12px;
+  }
+
+  .tce-pool-balance-top {
+    align-items: baseline;
+    gap: 4px;
+  }
+
+  .tce-pool-balance-top strong:first-child {
+    font-size: 12px;
+  }
+
+  .tce-pool-balance-top span {
+    font-size: 8px;
+  }
+
+  .tce-pool-balance > strong {
+    margin-top: 7px;
+    font-size: 15px;
+  }
+
+  .tce-pool-progress {
+    height: 4px;
+    margin-top: 7px;
+  }
+
+  .tce-pool-balance-meta {
+    display: block;
+    margin-top: 6px;
+  }
+
+  .tce-pool-balance-meta span {
+    display: block;
+    font-size: 8px;
+    line-height: 1.25;
+  }
+
+  .tce-pool-balance-meta span:last-child {
+    margin-top: 3px;
+    text-align: left;
+  }
+
+  .tce-rotation-row,
+  .tce-decision-row {
+    padding: 11px;
+    border-radius: 12px;
+  }
+
+  .tce-rotation-row strong,
+  .tce-decision-row strong {
+    font-size: 15px;
+  }
+
+  .tce-rotation-row .tce-rotation-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 7px 12px;
+    margin-top: 9px;
+  }
+
+  .tce-rotation-row .tce-rotation-grid > div {
+    min-width: 0;
+    padding-top: 6px;
+    border-top: 1px solid var(--tce-border);
+  }
+
+  .tce-rotation-row .tce-rotation-grid span {
+    margin-top: 0;
+    font-size: 8px;
+  }
+
+  .tce-rotation-row .tce-rotation-grid b {
+    display: block;
+    margin-top: 2px;
+    font-size: 11px;
+  }
+
+  .tce-list-stack {
+    gap: 7px;
+  }
+
+  .tce-list-stack > .tce-rotation-row,
+  .tce-list-stack > .tce-decision-row {
+    margin: 0;
+  }
 }
