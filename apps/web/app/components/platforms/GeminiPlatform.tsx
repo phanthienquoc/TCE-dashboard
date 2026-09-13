@@ -122,51 +122,55 @@ export default function GeminiPlatform({ onMessage }: Props) {
   };
 
   return (
-    <section className="mb-5 overflow-hidden rounded-[22px] border border-emerald-200/[0.09] bg-[#0d1714] shadow-[0_18px_50px_rgba(0,0,0,.18)]">
-      <div className="flex min-h-16 items-center justify-between gap-4 px-5">
+    <section className="overflow-hidden rounded-[22px] border border-emerald-200/[0.09] bg-[#0d1714] shadow-[0_18px_50px_rgba(0,0,0,.18)]">
+      <div className="flex min-h-14 items-center justify-between gap-3 px-4 sm:px-5">
         <div className="flex min-w-0 items-center gap-3">
           <div className="grid size-9 shrink-0 place-items-center rounded-xl bg-emerald-400/10 text-emerald-200">
             <KeyRound className="size-4" />
           </div>
           <div className="min-w-0">
             <p className="font-semibold tracking-tight">Gemini Engine</p>
-            <p className="mt-0.5 truncate text-xs text-[#81748a]">Signal Parser · Production</p>
+            <p className="mt-0.5 truncate text-[11px] text-[#81748a]">Signal Parser · Production</p>
           </div>
         </div>
+        <span className="shrink-0 rounded-full border border-emerald-300/10 bg-emerald-300/[0.04] px-2.5 py-1 text-[10px] font-medium text-emerald-200">
+          {GEMINI_MODEL}
+        </span>
       </div>
 
-      <div className="border-t border-emerald-200/[0.07] px-5 pb-5 pt-4">
-        <div className="mb-4 rounded-xl border border-emerald-200/10 bg-black/20 px-3 py-2 text-xs text-[#9c91a3]">
-          Fixed model: <span className="font-medium text-emerald-200">{GEMINI_MODEL}</span>
+      <div className="border-t border-emerald-200/[0.07] px-4 pb-4 pt-3 sm:px-5">
+        <div className="flex items-center justify-between gap-2">
+          <p className="text-[11px] font-medium uppercase tracking-wide text-[#81748a]">Credential</p>
+          <div>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".json,application/json"
+              className="hidden"
+              onChange={event => void uploadJson(event.target.files?.[0])}
+            />
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => fileInputRef.current?.click()}
+              className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-emerald-200/10 bg-emerald-300/[0.05] px-2.5 text-xs font-medium text-emerald-100 disabled:opacity-50"
+            >
+              <Upload className="size-3.5" /> Import JSON
+            </button>
+          </div>
         </div>
 
-        <div className="mb-4 flex flex-wrap items-center gap-2">
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept=".json,application/json"
-            className="hidden"
-            onChange={event => void uploadJson(event.target.files?.[0])}
-          />
-          <button
-            type="button"
-            disabled={busy}
-            onClick={() => fileInputRef.current?.click()}
-            className="inline-flex min-h-10 items-center gap-2 rounded-xl border border-emerald-200/10 bg-emerald-300/[0.05] px-3 text-sm font-medium text-emerald-100 disabled:opacity-50"
-          >
-            <Upload className="size-4" /> Upload JSON
-          </button>
-          {fileName && (
-            <span className="inline-flex min-h-10 items-center gap-2 rounded-xl border border-emerald-300/10 bg-emerald-300/[0.04] px-3 text-xs text-emerald-200">
-              <FileJson className="size-4" /> {fileName}
-            </span>
-          )}
-        </div>
+        {fileName && (
+          <div className="mt-2 flex min-w-0 items-center gap-2 rounded-lg border border-emerald-300/10 bg-emerald-300/[0.03] px-2.5 py-1.5 text-[11px] text-emerald-200">
+            <FileJson className="size-3.5 shrink-0" />
+            <span className="truncate">{fileName}</span>
+          </div>
+        )}
 
-        <label className="block text-xs text-[#9c91a3]">
+        <label className="mt-3 block text-[11px] text-[#9c91a3]">
           Gemini API Key
           <input
-            className="mt-1.5 h-11 w-full rounded-xl border border-white/10 bg-black/20 px-3 text-sm outline-none focus:border-emerald-300/30"
+            className="mt-1 h-10 w-full rounded-xl border border-white/10 bg-black/20 px-3 text-sm outline-none focus:border-emerald-300/30"
             type="password"
             value={apiKey}
             onChange={event => {
@@ -179,10 +183,10 @@ export default function GeminiPlatform({ onMessage }: Props) {
           />
         </label>
 
-        <label className="mt-4 block text-xs text-[#9c91a3]">
+        <label className="mt-2.5 block text-[11px] text-[#9c91a3]">
           Test text
-          <textarea
-            className="mt-1.5 min-h-24 w-full resize-y rounded-xl border border-white/10 bg-black/20 px-3 py-2 text-sm outline-none focus:border-emerald-300/30"
+          <input
+            className="mt-1 h-10 w-full rounded-xl border border-white/10 bg-black/20 px-3 text-sm outline-none focus:border-emerald-300/30"
             value={text}
             onChange={event => {
               setText(event.target.value);
@@ -191,49 +195,38 @@ export default function GeminiPlatform({ onMessage }: Props) {
             disabled={busy}
             spellCheck
           />
-          <span className="mt-1 block text-[11px] text-[#81748a]">
-            Editable. Defaults to the Gemini API sample text.
-          </span>
         </label>
 
-        <div className="mt-4 flex flex-wrap gap-2">
+        <div className="mt-3 flex gap-2">
           <button
             type="button"
             disabled={busy || !apiKey.trim() || !text.trim()}
             onClick={() => void testConnection()}
-            className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-emerald-300/20 bg-emerald-300/[0.05] px-4 text-sm font-semibold text-emerald-100 disabled:opacity-50"
+            className="inline-flex h-10 flex-1 items-center justify-center gap-1.5 rounded-xl border border-emerald-300/20 bg-emerald-300/[0.05] px-3 text-xs font-semibold text-emerald-100 disabled:opacity-50"
           >
-            {busy ? <Loader2 className="size-4 animate-spin" /> : <Wifi className="size-4" />}
-            Test Connection
+            {busy ? <Loader2 className="size-3.5 animate-spin" /> : <Wifi className="size-3.5" />}
+            Test connection
           </button>
           <button
             type="button"
             disabled={busy || !apiKey.trim()}
             onClick={() => void save()}
-            className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-emerald-300 px-4 text-sm font-semibold text-slate-950 disabled:opacity-50"
+            className="inline-flex h-10 flex-1 items-center justify-center gap-1.5 rounded-xl bg-emerald-300 px-3 text-xs font-semibold text-slate-950 disabled:opacity-50"
           >
-            {busy ? (
-              <Loader2 className="size-4 animate-spin" />
-            ) : (
-              <CheckCircle2 className="size-4" />
-            )}
-            Save Credential
+            {busy ? <Loader2 className="size-3.5 animate-spin" /> : <CheckCircle2 className="size-3.5" />}
+            Save credential
           </button>
         </div>
 
         {result && (
           <div
-            className={`mt-4 flex items-start gap-2 rounded-xl border px-3 py-2 text-sm ${
+            className={`mt-2.5 flex items-start gap-2 rounded-xl border px-2.5 py-2 text-xs ${
               result.ok
                 ? 'border-emerald-300/10 bg-emerald-300/[0.04] text-emerald-200'
                 : 'border-red-300/10 bg-red-300/[0.04] text-red-200'
             }`}
           >
-            {result.ok ? (
-              <CheckCircle2 className="mt-0.5 size-4 shrink-0" />
-            ) : (
-              <XCircle className="mt-0.5 size-4 shrink-0" />
-            )}
+            {result.ok ? <CheckCircle2 className="mt-0.5 size-3.5 shrink-0" /> : <XCircle className="mt-0.5 size-3.5 shrink-0" />}
             <span>{result.message}</span>
           </div>
         )}
