@@ -8,6 +8,11 @@ import { dashboardApi } from '../../../../lib/api';
 import { getEngine, type EngineId } from '../../../engines/engine-registry';
 import { useEffect, useState } from 'react';
 
+type EngineStatusRow = {
+  engineId?: string;
+  status?: string;
+};
+
 export default function EngineSettingsPage() {
   const { engineid } = useParams<{ engineid: string }>();
   const engine = getEngine(engineid);
@@ -19,7 +24,8 @@ export default function EngineSettingsPage() {
     void dashboardApi
       .engines()
       .then(({ data }) => {
-        const row = (data ?? []).find(item => String(item.engineId) === engine.id);
+        const rows = Array.isArray(data) ? (data as EngineStatusRow[]) : [];
+        const row = rows.find(item => String(item.engineId) === engine.id);
         if (row) setEnabled(String(row.status).toUpperCase() === 'ACTIVE');
       })
       .catch(() => undefined);
