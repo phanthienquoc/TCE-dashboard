@@ -7,19 +7,12 @@ export default function CronIndexPage() {
   return (
     <DashboardShell view="settings">
       {() => (
-        <div className="tce-mobile-view">
-          <section className="tce-settings-group">
-            <div className="tce-settings-group-title">CRON JOBS</div>
-            <Link className="tce-setting-row" href="/settings/cron/auto-profit-exit">
-              <span className="tce-setting-icon">◷</span>
-              <div>
-                <strong>Auto Profit Exit</strong>
-                <span>SELL profitable stock positions</span>
-              </div>
-              <span className="tce-setting-chevron">›</span>
-            </Link>
-          </section>
-        </div>
+        <main className="tce-settings-card">
+          <span className="tce-label">CRON JOBS</span>
+          <h1>Automation schedules</h1>
+          <p className="text-sm text-muted">Manage background TCE jobs.</p>
+          <Link href="/settings/cron/auto-profit-exit">Automatic Profit Exit</Link>
+        </main>
       )}
     </DashboardShell>
   );
