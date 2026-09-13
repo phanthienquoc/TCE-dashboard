@@ -120,7 +120,9 @@ export default function ProfilePasskeyPage() {
                 <ShieldCheck className="size-5" />
               </div>
               <div className="min-w-0">
-                <strong className="block text-[15px] text-[var(--tce-text)]">Passwordless sign-in</strong>
+                <strong className="block text-[15px] text-[var(--tce-text)]">
+                  Passwordless sign-in
+                </strong>
                 <span className="mt-1.5 block text-[10px] leading-[1.55] text-[var(--tce-muted)]">
                   Use Face ID, Touch ID, a security key, or your device PIN to access TCE.
                 </span>
@@ -165,7 +167,9 @@ export default function ProfilePasskeyPage() {
             <div className="mb-2.5 flex items-end justify-between px-1">
               <div>
                 <span className="tce-label">REGISTERED</span>
-                <strong className="mt-1 block text-[15px] text-[var(--tce-text)]">Your passkeys</strong>
+                <strong className="mt-1 block text-[15px] text-[var(--tce-text)]">
+                  Your passkeys
+                </strong>
               </div>
               <span className="rounded-full bg-white/[0.035] px-2 py-1 text-[9px] font-bold text-[var(--tce-muted)]">
                 {passkeys.length}
@@ -174,15 +178,21 @@ export default function ProfilePasskeyPage() {
 
             {loading ? (
               <div className="rounded-2xl border border-white/[0.07] bg-[rgba(11,23,30,0.72)] px-4 py-4">
-                <strong className="block text-[12px] text-[var(--tce-text)]">Loading passkeys…</strong>
-                <span className="mt-1 block text-[9px] text-[var(--tce-muted)]">Checking registered devices.</span>
+                <strong className="block text-[12px] text-[var(--tce-text)]">
+                  Loading passkeys…
+                </strong>
+                <span className="mt-1 block text-[9px] text-[var(--tce-muted)]">
+                  Checking registered devices.
+                </span>
               </div>
             ) : passkeys.length === 0 ? (
               <div className="rounded-2xl border border-dashed border-white/[0.1] bg-white/[0.018] px-4 py-5 text-center">
                 <div className="mx-auto grid size-10 place-items-center rounded-xl bg-white/[0.035] text-[var(--tce-muted)]">
                   <KeyRound className="size-5" />
                 </div>
-                <strong className="mt-3 block text-[12px] text-[var(--tce-text)]">No passkeys registered</strong>
+                <strong className="mt-3 block text-[12px] text-[var(--tce-text)]">
+                  No passkeys registered
+                </strong>
                 <span className="mt-1 block text-[9px] text-[var(--tce-muted)]">
                   Register one above to enable passwordless sign-in.
                 </span>
@@ -198,7 +208,9 @@ export default function ProfilePasskeyPage() {
                       <KeyRound className="size-5" />
                     </div>
                     <div className="min-w-0 flex-1">
-                      <strong className="block truncate text-[13px] text-[var(--tce-text)]">{passkey.friendly_name}</strong>
+                      <strong className="block truncate text-[13px] text-[var(--tce-text)]">
+                        {passkey.friendly_name}
+                      </strong>
                       <span className="mt-1 block truncate text-[9px] text-[var(--tce-muted)]">
                         Added {new Date(passkey.created_at).toLocaleDateString()}
                         {passkey.last_used_at
