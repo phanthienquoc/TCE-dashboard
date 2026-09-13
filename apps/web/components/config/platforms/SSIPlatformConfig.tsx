@@ -9,20 +9,29 @@ export default function SSIPlatformConfig({}: PlatformConfigProps) {
       <SSIPlatform />
       <style jsx global>{`
         /* Keep verification data attached to the success state instead of below the action stack. */
-        .ssi-credential-ui section div:has(> div[class*="rounded-xl"][class*="text-slate-400"]) {
+        .ssi-credential-ui section div:has(> div[class*='rounded-xl'][class*='text-slate-400']) {
           display: flex;
           flex-direction: column;
         }
 
-        .ssi-credential-ui section div:has(> div[class*="rounded-xl"][class*="text-slate-400"]) > div[class*="rounded-2xl"] {
+        .ssi-credential-ui
+          section
+          div:has(> div[class*='rounded-xl'][class*='text-slate-400'])
+          > div[class*='rounded-2xl'] {
           order: 0;
         }
 
-        .ssi-credential-ui section div:has(> div[class*="rounded-xl"][class*="text-slate-400"]) > div[class*="grid"] {
+        .ssi-credential-ui
+          section
+          div:has(> div[class*='rounded-xl'][class*='text-slate-400'])
+          > div[class*='grid'] {
           order: 2;
         }
 
-        .ssi-credential-ui section div:has(> div[class*="rounded-xl"][class*="text-slate-400"]) > div[class*="rounded-xl"][class*="text-slate-400"] {
+        .ssi-credential-ui
+          section
+          div:has(> div[class*='rounded-xl'][class*='text-slate-400'])
+          > div[class*='rounded-xl'][class*='text-slate-400'] {
           order: 1;
           margin-top: -1rem;
           border-top: 0;
@@ -33,7 +42,7 @@ export default function SSIPlatformConfig({}: PlatformConfigProps) {
         }
 
         /* Success/error feedback is transient; surface it as a compact toast. */
-        .ssi-credential-ui section > div > div[class*="mt-4"][class*="rounded-2xl"] {
+        .ssi-credential-ui section > div > div[class*='mt-4'][class*='rounded-2xl'] {
           position: fixed;
           z-index: 50;
           right: max(1rem, env(safe-area-inset-right));
@@ -45,7 +54,7 @@ export default function SSIPlatformConfig({}: PlatformConfigProps) {
         }
 
         @media (min-width: 640px) {
-          .ssi-credential-ui section > div > div[class*="mt-4"][class*="rounded-2xl"] {
+          .ssi-credential-ui section > div > div[class*='mt-4'][class*='rounded-2xl'] {
             right: 1.5rem;
             bottom: 1.5rem;
             width: min(28rem, calc(100vw - 3rem));
