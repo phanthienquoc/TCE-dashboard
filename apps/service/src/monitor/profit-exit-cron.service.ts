@@ -70,7 +70,18 @@ export function evaluateAutoSell(
     return { action: 'SKIP', reason: 'invalid_target_price' };
   const currentProfitPct = ((currentPrice - buyPrice) / buyPrice) * 100;
   const priceDistancePct = Math.abs(currentProfitPct);
-  if (currentPrice >= targetPrice) return { action: 'SKIP', reason: 'target_reached' };
+  if (currentPrice >= targetPrice)
+    return {
+      action: 'NOTIFY',
+      buyPrice,
+      currentPrice,
+      targetPrice,
+      profitPct: target,
+      currentProfitPct,
+      priceDistancePct,
+      costBasis,
+      marketValue: targetPrice * quantity,
+    };
   if (priceDistancePct > PRICE_ALERT_BAND_PCT)
     return { action: 'SKIP', reason: 'outside_price_alert_band' };
   return {
@@ -233,20 +244,6 @@ export class ProfitExitCronService implements OnModuleInit, OnModuleDestroy {
             });
             continue;
           }
-          if (quantity <= 0) {
-            candidates.push({
-              symbol,
-              profitPct: targetPct,
-              currentProfitPct,
-              currentPrice,
-              buyPrice,
-              targetPrice,
-              quantity,
-              action: 'SKIP',
-              reason: 'invalid_quantity',
-            });
-            continue;
-          }
 
           candidates.push({
             symbol,
@@ -257,11 +254,16 @@ export class ProfitExitCronService implements OnModuleInit, OnModuleDestroy {
             targetPrice: decision.targetPrice,
             quantity,
             action: 'NOTIFY',
-            reason: 'inside_price_alert_band',
+            reason:
+              decision.currentPrice >= decision.targetPrice
+                ? 'sell_ready'
+                : 'inside_price_alert_band',
           });
           if (!options.dryRun) {
             messages.push(
-              `TCE AUTO-SELL SIGNAL — ${symbol}: Giá mua ${decision.buyPrice.toFixed(2)}, giá hiện tại ${decision.currentPrice.toFixed(2)} (${decision.currentProfitPct >= 0 ? '+' : ''}${decision.currentProfitPct.toFixed(2)}%), TP ${decision.targetPrice.toFixed(2)} (+${decision.profitPct.toFixed(2)}%), vùng theo dõi ±${PRICE_ALERT_BAND_PCT}% giá mua, KL ${quantity}. Chưa đạt TP — chỉ tracking, KHÔNG gọi SSI placeOrder.`
+              decision.currentPrice >= decision.targetPrice
+                ? `TCE AUTO-SELL READY — ${symbol}: Giá mua ${decision.buyPrice.toFixed(2)}, giá hiện tại ${decision.currentPrice.toFixed(2)} (+${decision.currentProfitPct.toFixed(2)}%), TP ${decision.targetPrice.toFixed(2)} (+${decision.profitPct.toFixed(2)}%), KL ${quantity}. SELL candidate ready for explicit submission.`
+                : `TCE AUTO-SELL TRACK — ${symbol}: Giá mua ${decision.buyPrice.toFixed(2)}, giá hiện tại ${decision.currentPrice.toFixed(2)} (${decision.currentProfitPct >= 0 ? '+' : ''}${decision.currentProfitPct.toFixed(2)}%), TP ${decision.targetPrice.toFixed(2)} (+${decision.profitPct.toFixed(2)}%), vùng theo dõi ±${PRICE_ALERT_BAND_PCT}% giá mua, KL ${quantity}.`
             );
           }
           notified += 1;
@@ -347,7 +349,7 @@ export class ProfitExitCronService implements OnModuleInit, OnModuleDestroy {
         messages,
         target_basis: 'avg_cost',
         alert_band_pct: PRICE_ALERT_BAND_PCT,
-        execution: 'NOTIFY_ONLY',
+        execution: 'EXPLICIT_SUBMIT_REQUIRED',
       },
     });
     if (error) this.logger.warn(`Unable to audit profit-exit run: ${error.message}`);
