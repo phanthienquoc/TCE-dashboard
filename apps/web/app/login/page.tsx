@@ -1,6 +1,6 @@
 'use client';
 
-import { FormEvent, useState } from 'react';
+import { FormEvent, useEffect, useState, type CSSProperties } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowRight, KeyRound, ShieldCheck } from 'lucide-react';
 import { useAuthStore } from '../../lib/store';
@@ -18,6 +18,57 @@ export default function LoginPage() {
   const [pending, setPending] = useState<string | null>(null);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  const [keyboardShift, setKeyboardShift] = useState(0);
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || window.innerWidth > 767) return;
+
+    const viewport = window.visualViewport;
+    if (!viewport) return;
+
+    let frame = 0;
+    const updateKeyboardShift = () => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => {
+        const active = document.activeElement;
+        const card = document.querySelector<HTMLElement>('.auth-card');
+        if (!(active instanceof HTMLElement) || !card) {
+          setKeyboardShift(0);
+          return;
+        }
+
+        const isField = active.matches('input, textarea, select');
+        const keyboardOpen = window.innerHeight - viewport.height > 120;
+        if (!isField || !keyboardOpen) {
+          setKeyboardShift(0);
+          return;
+        }
+
+        const viewportBottom = viewport.offsetTop + viewport.height;
+        const fieldBottom = active.getBoundingClientRect().bottom;
+        const overlap = fieldBottom + 20 - viewportBottom;
+        setKeyboardShift(Math.min(320, Math.max(0, overlap)));
+      });
+    };
+
+    const onFocus = () => window.setTimeout(updateKeyboardShift, 40);
+    const onBlur = () => window.setTimeout(updateKeyboardShift, 80);
+
+    viewport.addEventListener('resize', updateKeyboardShift);
+    viewport.addEventListener('scroll', updateKeyboardShift);
+    document.addEventListener('focusin', onFocus);
+    document.addEventListener('focusout', onBlur);
+
+    updateKeyboardShift();
+
+    return () => {
+      cancelAnimationFrame(frame);
+      viewport.removeEventListener('resize', updateKeyboardShift);
+      viewport.removeEventListener('scroll', updateKeyboardShift);
+      document.removeEventListener('focusin', onFocus);
+      document.removeEventListener('focusout', onBlur);
+    };
+  }, []);
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
@@ -69,7 +120,11 @@ export default function LoginPage() {
           <b>TCE Dashboard</b>
         </div>
       </div>
-      <section className="auth-card" aria-labelledby="login-title">
+      <section
+        className="auth-card"
+        aria-labelledby="login-title"
+        style={{ '--auth-keyboard-shift': `${keyboardShift}px` } as CSSProperties}
+      >
         <header className="auth-header">
           <span className="auth-kicker">SECURE ACCESS</span>
           <h1 id="login-title">Welcome back</h1>
