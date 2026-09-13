@@ -15,11 +15,26 @@ import { ScheduledTasksModule } from './scheduled-tasks.module';
 @Controller()
 class HealthController {
   @Get('health')
-  health() { return { ok: true, service: 'tce-service', timestamp: new Date().toISOString() }; }
+  health() {
+    return { ok: true, service: 'tce-service', timestamp: new Date().toISOString() };
+  }
 }
 
 @Module({
-  imports: [DbModule, AuthModule, DashboardModule, PlatformCredentialsModule, PlatformConfigModule, TceEngineModule, TelegramDebugModule, TelegramBotModule, StockEventsModule, SystemUpdatesModule, DreModule, ScheduledTasksModule],
+  imports: [
+    DbModule,
+    AuthModule,
+    DashboardModule,
+    PlatformCredentialsModule,
+    PlatformConfigModule,
+    TceEngineModule,
+    TelegramDebugModule,
+    TelegramBotModule,
+    StockEventsModule,
+    SystemUpdatesModule,
+    DreModule,
+    ScheduledTasksModule,
+  ],
   controllers: [HealthController],
 })
 export class AppModule {}
