@@ -2,13 +2,15 @@ import { Body, Controller, Get, Headers, Post, UnauthorizedException } from '@ne
 import { JwtService } from '../auth/jwt.service';
 import { SupabaseClientService } from '../db/supabase.client';
 import { normalizeHoldSymbols, ProfitExitCronService } from './profit-exit-cron.service';
+import { ProfitExitExecutionService } from './profit-exit-execution.service';
 
 @Controller('profit-exit-settings')
 export class ProfitExitSettingsController {
   constructor(
     private readonly supabase: SupabaseClientService,
     private readonly jwt: JwtService,
-    private readonly cron: ProfitExitCronService
+    private readonly cron: ProfitExitCronService,
+    private readonly execution: ProfitExitExecutionService
   ) {}
 
   private async accountId(auth?: string) {
@@ -43,15 +45,12 @@ export class ProfitExitSettingsController {
     ]);
     if (error) throw error;
     if (positionsError) throw positionsError;
-    const availableSymbols = normalizeHoldSymbols(
-      (positions ?? []).map(position => position.symbol)
-    );
     return {
       enabled: data?.auto_sell_enabled ?? false,
       profitTargetPct: Number(data?.auto_sell_profit_target_pct ?? 10),
       intervalMinutes: Number(data?.auto_sell_interval_minutes ?? 60),
       holdSymbols: normalizeHoldSymbols(data?.auto_sell_hold_symbols),
-      availableSymbols,
+      availableSymbols: normalizeHoldSymbols((positions ?? []).map(position => position.symbol)),
       lastRunAt: data?.auto_sell_last_run_at ?? null,
     };
   }
@@ -102,6 +101,9 @@ export class ProfitExitSettingsController {
   @Post('trigger')
   async trigger(@Headers('authorization') auth?: string) {
     const accountId = await this.accountId(auth);
-    return this.cron.run({ accountId, force: true, dryRun: true });
+    const scan = await this.cron.run({ accountId, force: true, dryRun: false });
+    if (scan.reason === 'config_not_found' || scan.reason === 'error') return scan;
+    const execution = await this.execution.executeReady(accountId);
+    return { ...scan, ...execution };
   }
 }
