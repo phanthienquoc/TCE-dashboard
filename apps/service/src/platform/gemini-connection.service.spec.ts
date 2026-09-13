@@ -44,6 +44,7 @@ describe('GeminiConnectionService', () => {
             },
           ],
         }),
+        signal: expect.any(AbortSignal),
       })
     );
   });
