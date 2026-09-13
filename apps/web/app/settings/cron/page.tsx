@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { ChevronLeft, ChevronRight, Clock3 } from 'lucide-react';
-import DashboardShell from '../../../../components/dashboard/DashboardShell';
+import DashboardShell from '../../../components/dashboard/DashboardShell';
 
 export default function CronIndexPage() {
   return (
