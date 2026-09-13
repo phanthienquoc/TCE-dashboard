@@ -10,29 +10,16 @@ import { TelegramDebugModule } from './telegram/telegram-debug.module';
 import { StockEventsModule } from './stock-events/stock-events.module';
 import { SystemUpdatesModule } from './system-updates/system-updates.module';
 import { DreModule } from './dre/dre.module';
+import { ScheduledTasksModule } from './scheduled-tasks.module';
 
 @Controller()
 class HealthController {
   @Get('health')
-  health() {
-    return { ok: true, service: 'tce-service', timestamp: new Date().toISOString() };
-  }
+  health() { return { ok: true, service: 'tce-service', timestamp: new Date().toISOString() }; }
 }
 
 @Module({
-  imports: [
-    DbModule,
-    AuthModule,
-    DashboardModule,
-    PlatformCredentialsModule,
-    PlatformConfigModule,
-    TceEngineModule,
-    TelegramDebugModule,
-    TelegramBotModule,
-    StockEventsModule,
-    SystemUpdatesModule,
-    DreModule,
-  ],
+  imports: [DbModule, AuthModule, DashboardModule, PlatformCredentialsModule, PlatformConfigModule, TceEngineModule, TelegramDebugModule, TelegramBotModule, StockEventsModule, SystemUpdatesModule, DreModule, ScheduledTasksModule],
   controllers: [HealthController],
 })
 export class AppModule {}
