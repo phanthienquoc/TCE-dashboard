@@ -29,7 +29,8 @@ export default function PlatformConfigTab() {
         <p className="eyebrow">Platform configuration</p>
         <h2 className="mt-1 text-xl font-semibold text-foreground">Connections & environments</h2>
         <p className="mt-1 text-sm leading-6 text-muted">
-          Configure each platform independently. Authentication and persistence stay inside its renderer.
+          Configure each platform independently. Authentication and persistence stay inside its
+          renderer.
         </p>
       </div>
 
