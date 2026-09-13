@@ -33,6 +33,7 @@ export * from './reconciliation/order-status';
 export * from './reconciliation/order-state-reconciler';
 export * from './reconciliation/position-state-reconciler';
 export * from './reconciliation/position-recovery';
+export * from './reconciliation/authoritative-position-projection';
 export * from './reconciliation/reconciliation-persistence';
 export * from './reconciliation/reconciliation-lifecycle-events';
 export * from './reconciliation/reconciliation-recovery';
