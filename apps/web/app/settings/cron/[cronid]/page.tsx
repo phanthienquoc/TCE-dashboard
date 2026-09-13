@@ -30,9 +30,27 @@ type TriggerResult = {
     buyPrice: number;
     targetPrice: number;
     quantity: number;
-    action: 'NOTIFY' | 'SKIP_HOLD';
+    action: 'NOTIFY' | 'SKIP' | 'SKIP_HOLD';
+    reason?: string;
   }>;
 };
+
+const REASON_LABELS: Record<string, string> = {
+  inside_price_alert_band: 'Inside ±7% tracking band',
+  target_reached: 'Target already reached',
+  outside_price_alert_band: 'Outside ±7% alert band',
+  missing_market_price: 'Missing market price',
+  invalid_quantity: 'Invalid quantity',
+  invalid_cost_basis: 'Invalid cost basis',
+  invalid_buy_price: 'Invalid buy price',
+  invalid_target: 'Invalid profit target',
+  invalid_target_price: 'Invalid target price',
+  hold_symbol: 'HOLD symbol',
+};
+
+function reasonLabel(reason?: string) {
+  return reason ? REASON_LABELS[reason] ?? reason.replaceAll('_', ' ') : 'No reason';
+}
 
 export default function CronManagementPage() {
   const params = useParams<{ cronid: string }>();
@@ -71,10 +89,11 @@ export default function CronManagementPage() {
       const r = await api.post<TriggerResult>('/profit-exit-settings/trigger', {});
       setTriggerResult(r.data);
       const notified = Number(r.data.notified ?? 0);
+      const evaluated = Number(r.data.evaluated ?? 0);
       setMessage(
         notified > 0
-          ? `${notified} tracking message${notified === 1 ? '' : 's'} returned to UI`
-          : 'No profit-exit tracking message was triggered'
+          ? `${notified} tracking message${notified === 1 ? '' : 's'} returned; ${evaluated} position${evaluated === 1 ? '' : 's'} evaluated`
+          : `No tracking message triggered; ${evaluated} position${evaluated === 1 ? '' : 's'} evaluated`
       );
       setConfig(c => ({ ...c, lastRunAt: new Date().toISOString() }));
     } catch {
@@ -285,27 +304,47 @@ export default function CronManagementPage() {
               ) : null}
               {triggerResult.candidates?.length ? (
                 <div className="mt-3 space-y-2">
-                  {triggerResult.candidates.map((candidate, index) => (
-                    <div
-                      key={`${candidate.symbol}-${index}`}
-                      className="rounded-xl border border-white/10 px-3 py-2 text-sm"
-                    >
-                      <div className="flex items-center justify-between">
-                        <span className="text-white">{candidate.symbol}</span>
-                        <span className="text-amber-200">{candidate.action}</span>
+                  {triggerResult.candidates.map((candidate, index) => {
+                    const isNotify = candidate.action === 'NOTIFY';
+                    return (
+                      <div
+                        key={`${candidate.symbol}-${index}`}
+                        className={`rounded-xl border px-3 py-3 ${
+                          isNotify
+                            ? 'border-amber-400/20 bg-amber-400/5'
+                            : 'border-white/10 bg-black/10'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between gap-3">
+                          <div className="flex items-center gap-2">
+                            <span className="text-white">{candidate.symbol}</span>
+                            <span
+                              className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${
+                                isNotify
+                                  ? 'bg-amber-400/10 text-amber-200'
+                                  : candidate.action === 'SKIP_HOLD'
+                                    ? 'bg-slate-400/10 text-slate-400'
+                                    : 'bg-white/5 text-slate-400'
+                              }`}
+                            >
+                              {candidate.action}
+                            </span>
+                          </div>
+                          <span className="text-xs text-slate-500">{reasonLabel(candidate.reason)}</span>
+                        </div>
+                        <p className="mt-1 text-xs text-slate-400">
+                          Buy {candidate.buyPrice > 0 ? candidate.buyPrice.toFixed(2) : '—'} · Now{' '}
+                          {candidate.currentPrice > 0 ? candidate.currentPrice.toFixed(2) : '—'} · TP{' '}
+                          {candidate.targetPrice > 0 ? candidate.targetPrice.toFixed(2) : '—'} ·{' '}
+                          {candidate.currentProfitPct >= 0 ? '+' : ''}
+                          {candidate.currentProfitPct.toFixed(2)}%
+                        </p>
                       </div>
-                      <p className="mt-1 text-xs text-slate-400">
-                        Buy {candidate.buyPrice} · Now {candidate.currentPrice} · TP{' '}
-                        {candidate.targetPrice} · {candidate.currentProfitPct >= 0 ? '+' : ''}
-                        {candidate.currentProfitPct.toFixed(2)}%
-                      </p>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               ) : (
-                <p className="mt-3 text-sm text-slate-500">
-                  No position is currently inside the ±7% tracking band before TP.
-                </p>
+                <p className="mt-3 text-sm text-slate-500">No open positions were evaluated.</p>
               )}
             </section>
           )}

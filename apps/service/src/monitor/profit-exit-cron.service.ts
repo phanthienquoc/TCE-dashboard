@@ -135,7 +135,8 @@ export class ProfitExitCronService implements OnModuleInit, OnModuleDestroy {
       buyPrice: number;
       targetPrice: number;
       quantity: number;
-      action: 'NOTIFY' | 'SKIP_HOLD';
+      action: 'NOTIFY' | 'SKIP' | 'SKIP_HOLD';
+      reason?: string;
     }> = [];
     try {
       let query = this.supabase.db
@@ -178,26 +179,68 @@ export class ProfitExitCronService implements OnModuleInit, OnModuleDestroy {
         let accountNotified = 0;
         for (const position of (positions ?? []) as Position[]) {
           const symbol = position.symbol.trim().toUpperCase();
+          const targetPct = Number(config.auto_sell_profit_target_pct ?? DEFAULT_PROFIT_TARGET_PCT);
+          const rawQuantity = Number(position.quantity);
+          const quantity = Math.trunc(rawQuantity);
+          const avgCost = Number(position.avg_cost ?? 0);
+          const costBasis = Number(position.cost_basis ?? avgCost * rawQuantity);
+          const buyPrice = avgCost > 0 ? avgCost : costBasis / rawQuantity;
+          const currentPrice = Number(position.market_price ?? 0);
+          const targetPrice =
+            Number.isFinite(buyPrice) && buyPrice > 0 && Number.isFinite(targetPct) && targetPct >= 0
+              ? buyPrice * (1 + targetPct / 100)
+              : 0;
+          const currentProfitPct =
+            Number.isFinite(buyPrice) && buyPrice > 0 && Number.isFinite(currentPrice) && currentPrice > 0
+              ? ((currentPrice - buyPrice) / buyPrice) * 100
+              : 0;
+
           if (holdSymbols.has(symbol)) {
             held += 1;
             candidates.push({
               symbol,
-              profitPct: 0,
-              currentProfitPct: 0,
-              currentPrice: Number(position.market_price ?? 0),
-              buyPrice: Number(position.avg_cost ?? 0),
-              targetPrice: 0,
-              quantity: Number(position.quantity),
+              profitPct: targetPct,
+              currentProfitPct,
+              currentPrice,
+              buyPrice,
+              targetPrice,
+              quantity,
               action: 'SKIP_HOLD',
+              reason: 'hold_symbol',
             });
             continue;
           }
+
           evaluated += 1;
-          const targetPct = Number(config.auto_sell_profit_target_pct ?? DEFAULT_PROFIT_TARGET_PCT);
           const decision = evaluateAutoSell(position, targetPct);
-          if (decision.action !== 'NOTIFY') continue;
-          const quantity = Math.trunc(Number(position.quantity));
-          if (quantity <= 0) continue;
+          if (decision.action !== 'NOTIFY') {
+            candidates.push({
+              symbol,
+              profitPct: targetPct,
+              currentProfitPct,
+              currentPrice,
+              buyPrice,
+              targetPrice,
+              quantity,
+              action: 'SKIP',
+              reason: decision.reason,
+            });
+            continue;
+          }
+          if (quantity <= 0) {
+            candidates.push({
+              symbol,
+              profitPct: targetPct,
+              currentProfitPct,
+              currentPrice,
+              buyPrice,
+              targetPrice,
+              quantity,
+              action: 'SKIP',
+              reason: 'invalid_quantity',
+            });
+            continue;
+          }
 
           candidates.push({
             symbol,
@@ -208,6 +251,7 @@ export class ProfitExitCronService implements OnModuleInit, OnModuleDestroy {
             targetPrice: decision.targetPrice,
             quantity,
             action: 'NOTIFY',
+            reason: 'inside_price_alert_band',
           });
           if (!options.dryRun) {
             messages.push(
