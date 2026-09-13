@@ -57,11 +57,13 @@ export function reconcilePositionStates(
 ): PositionReconciliationDelta[] {
   const localBySymbol = new Map(localPositions.map(position => [key(position.symbol), position]));
   const providerBySymbol = new Map<string, ProviderPosition>();
+  const ambiguousProviderSymbols = new Set<string>();
   const deltas: PositionReconciliationDelta[] = [];
 
   for (const provider of providerPositions) {
     const symbol = key(provider.symbol);
     if (!validPosition(provider) || providerBySymbol.has(symbol)) {
+      if (symbol) ambiguousProviderSymbols.add(symbol);
       deltas.push({
         symbol: symbol || 'UNKNOWN',
         disposition: 'RECONCILIATION_REQUIRED',
@@ -110,7 +112,7 @@ export function reconcilePositionStates(
   }
 
   for (const [symbol, provider] of providerBySymbol) {
-    if (localBySymbol.has(symbol)) continue;
+    if (localBySymbol.has(symbol) || ambiguousProviderSymbols.has(symbol)) continue;
     deltas.push({
       symbol,
       disposition: 'UNEXPECTED_PROVIDER_POSITION',

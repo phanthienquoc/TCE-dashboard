@@ -55,6 +55,7 @@ test('fails closed for invalid or duplicate provider truth', () => {
     ]
   );
 
-  assert.ok(deltas[1]);
-  assert.equal(deltas[1].disposition, 'RECONCILIATION_REQUIRED');
+  assert.equal(deltas.length, 1);
+  assert.equal(deltas[0]?.symbol, 'DPM');
+  assert.equal(deltas[0]?.disposition, 'RECONCILIATION_REQUIRED');
 });
