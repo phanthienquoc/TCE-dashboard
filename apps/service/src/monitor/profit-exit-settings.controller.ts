@@ -99,8 +99,6 @@ export class ProfitExitSettingsController {
   @Post('trigger')
   async trigger(@Headers('authorization') auth?: string) {
     const accountId = await this.accountId(auth);
-    const scan = await this.cron.run({ accountId, force: true, dryRun: false });
-    if (scan.reason === 'config_not_found' || scan.reason === 'error') return scan;
-    return { ...scan, submitted: 0, results: [] };
+    return this.cron.run({ accountId, force: true, dryRun: false });
   }
 }
