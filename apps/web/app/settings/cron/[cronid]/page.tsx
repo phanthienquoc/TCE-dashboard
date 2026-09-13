@@ -49,7 +49,7 @@ const REASON_LABELS: Record<string, string> = {
 };
 
 function reasonLabel(reason?: string) {
-  return reason ? REASON_LABELS[reason] ?? reason.replaceAll('_', ' ') : 'No reason';
+  return reason ? (REASON_LABELS[reason] ?? reason.replaceAll('_', ' ')) : 'No reason';
 }
 
 export default function CronManagementPage() {
@@ -330,12 +330,14 @@ export default function CronManagementPage() {
                               {candidate.action}
                             </span>
                           </div>
-                          <span className="text-xs text-slate-500">{reasonLabel(candidate.reason)}</span>
+                          <span className="text-xs text-slate-500">
+                            {reasonLabel(candidate.reason)}
+                          </span>
                         </div>
                         <p className="mt-1 text-xs text-slate-400">
                           Buy {candidate.buyPrice > 0 ? candidate.buyPrice.toFixed(2) : '—'} · Now{' '}
-                          {candidate.currentPrice > 0 ? candidate.currentPrice.toFixed(2) : '—'} · TP{' '}
-                          {candidate.targetPrice > 0 ? candidate.targetPrice.toFixed(2) : '—'} ·{' '}
+                          {candidate.currentPrice > 0 ? candidate.currentPrice.toFixed(2) : '—'} ·
+                          TP {candidate.targetPrice > 0 ? candidate.targetPrice.toFixed(2) : '—'} ·{' '}
                           {candidate.currentProfitPct >= 0 ? '+' : ''}
                           {candidate.currentProfitPct.toFixed(2)}%
                         </p>
