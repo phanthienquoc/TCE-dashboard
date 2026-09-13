@@ -35,11 +35,17 @@ export class ProfitExitSettingsController {
         )
         .eq('account_id', accountId)
         .maybeSingle(),
-      this.supabase.db.from('tce_positions').select('symbol').eq('account_id', accountId).neq('status', 'CLOSED'),
+      this.supabase.db
+        .from('tce_positions')
+        .select('symbol')
+        .eq('account_id', accountId)
+        .neq('status', 'CLOSED'),
     ]);
     if (error) throw error;
     if (positionsError) throw positionsError;
-    const availableSymbols = normalizeHoldSymbols((positions ?? []).map(position => position.symbol));
+    const availableSymbols = normalizeHoldSymbols(
+      (positions ?? []).map(position => position.symbol)
+    );
     return {
       enabled: data?.auto_sell_enabled ?? false,
       profitTargetPct: Number(data?.auto_sell_profit_target_pct ?? 10),

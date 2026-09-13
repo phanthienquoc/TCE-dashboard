@@ -84,12 +84,14 @@ export function evaluateAutoSell(
 
 export function normalizeHoldSymbols(symbols: unknown): string[] {
   if (!Array.isArray(symbols)) return [];
-  return [...new Set(
-    symbols
-      .filter((symbol): symbol is string => typeof symbol === 'string')
-      .map(symbol => symbol.trim().toUpperCase())
-      .filter(Boolean)
-  )].sort();
+  return [
+    ...new Set(
+      symbols
+        .filter((symbol): symbol is string => typeof symbol === 'string')
+        .map(symbol => symbol.trim().toUpperCase())
+        .filter(Boolean)
+    ),
+  ].sort();
 }
 
 @Injectable()
@@ -134,7 +136,14 @@ export class ProfitExitCronService implements OnModuleInit, OnModuleDestroy {
       const { data: configs, error } = await query;
       if (error) throw error;
       if (options.accountId && !configs?.length) {
-        return { skipped: false, reason: 'config_not_found', created: 0, evaluated: 0, held: 0, candidates: [] };
+        return {
+          skipped: false,
+          reason: 'config_not_found',
+          created: 0,
+          evaluated: 0,
+          held: 0,
+          candidates: [],
+        };
       }
 
       for (const config of (configs ?? []) as AutoSellConfig[]) {
@@ -159,7 +168,13 @@ export class ProfitExitCronService implements OnModuleInit, OnModuleDestroy {
           const symbol = position.symbol.trim().toUpperCase();
           if (holdSymbols.has(symbol)) {
             held += 1;
-            candidates.push({ symbol, profitPct: 0, targetPrice: 0, quantity: Number(position.quantity), action: 'SKIP_HOLD' });
+            candidates.push({
+              symbol,
+              profitPct: 0,
+              targetPrice: 0,
+              quantity: Number(position.quantity),
+              action: 'SKIP_HOLD',
+            });
             continue;
           }
           evaluated += 1;
@@ -170,7 +185,13 @@ export class ProfitExitCronService implements OnModuleInit, OnModuleDestroy {
           if (decision.action !== 'CREATE') continue;
           const quantity = Math.trunc(Number(position.quantity));
           if (quantity <= 0) continue;
-          candidates.push({ symbol, profitPct: decision.profitPct, targetPrice: decision.targetPrice, quantity, action: 'CREATE' });
+          candidates.push({
+            symbol,
+            profitPct: decision.profitPct,
+            targetPrice: decision.targetPrice,
+            quantity,
+            action: 'CREATE',
+          });
           if (options.dryRun) continue;
 
           const note = `TCE_AUTO_SELL:${position.id}:${Number(config.auto_sell_profit_target_pct ?? DEFAULT_PROFIT_TARGET_PCT)}`;
@@ -218,13 +239,28 @@ export class ProfitExitCronService implements OnModuleInit, OnModuleDestroy {
           await this.audit(config.account_id, startedAt, positions?.length ?? 0, accountCreated);
         }
       }
-      return { skipped: false, created, evaluated, held, dryRun: options.dryRun === true, candidates };
+      return {
+        skipped: false,
+        created,
+        evaluated,
+        held,
+        dryRun: options.dryRun === true,
+        candidates,
+      };
     } catch (error) {
       this.logger.error(
         'Profit-exit cron failed',
         error instanceof Error ? error.stack : String(error)
       );
-      return { skipped: false, reason: 'error', created, evaluated, held, dryRun: options.dryRun === true, candidates };
+      return {
+        skipped: false,
+        reason: 'error',
+        created,
+        evaluated,
+        held,
+        dryRun: options.dryRun === true,
+        candidates,
+      };
     } finally {
       this.running = false;
     }

@@ -37,7 +37,9 @@ describe('ProfitExitSettingsController', () => {
         return {
           select: jest.fn(() => ({
             eq: jest.fn(() => ({
-              neq: jest.fn(() => Promise.resolve({ data: [{ symbol: 'vnm' }, { symbol: 'fpt' }], error: null })),
+              neq: jest.fn(() =>
+                Promise.resolve({ data: [{ symbol: 'vnm' }, { symbol: 'fpt' }], error: null })
+              ),
             })),
           })),
         };

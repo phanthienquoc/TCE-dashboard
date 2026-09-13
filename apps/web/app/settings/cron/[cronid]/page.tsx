@@ -7,7 +7,12 @@ import Link from 'next/link';
 import DashboardShell from '../../../../components/dashboard/DashboardShell';
 import { api } from '../../../../lib/api';
 
-const DEFAULTS = { enabled: false, profitTargetPct: 10, intervalMinutes: 60, holdSymbols: [] as string[] };
+const DEFAULTS = {
+  enabled: false,
+  profitTargetPct: 10,
+  intervalMinutes: 60,
+  holdSymbols: [] as string[],
+};
 type Config = typeof DEFAULTS & { lastRunAt: string | null; availableSymbols?: string[] };
 type TriggerResult = {
   created: number;
@@ -132,7 +137,9 @@ export default function CronManagementPage() {
                   max="1000"
                   step="0.5"
                   value={config.profitTargetPct}
-                  onChange={e => setConfig(c => ({ ...c, profitTargetPct: Number(e.target.value) }))}
+                  onChange={e =>
+                    setConfig(c => ({ ...c, profitTargetPct: Number(e.target.value) }))
+                  }
                 />
               </label>
               <label className="flex min-h-[72px] items-center gap-4 px-4">
@@ -146,7 +153,9 @@ export default function CronManagementPage() {
                   min="1"
                   max="1440"
                   value={config.intervalMinutes}
-                  onChange={e => setConfig(c => ({ ...c, intervalMinutes: Number(e.target.value) }))}
+                  onChange={e =>
+                    setConfig(c => ({ ...c, intervalMinutes: Number(e.target.value) }))
+                  }
                 />
               </label>
             </div>
@@ -178,7 +187,8 @@ export default function CronManagementPage() {
                 <p className="px-1 py-2 text-sm text-slate-500">No open positions available.</p>
               )}
               <p className="mt-3 px-1 text-xs text-slate-500">
-                HOLD symbols are never allowed to create an auto-sell order, even when the profit target is reached.
+                HOLD symbols are never allowed to create an auto-sell order, even when the profit
+                target is reached.
               </p>
             </div>
           </section>
@@ -190,7 +200,9 @@ export default function CronManagementPage() {
             <div className="overflow-hidden rounded-3xl border border-white/10 bg-white/[0.035]">
               <div className="flex min-h-[60px] items-center px-4">
                 <span className="flex-1 text-sm text-slate-300">Last Run</span>
-                <span className="text-sm text-white">{config.lastRunAt ? new Date(config.lastRunAt).toLocaleString() : 'Never'}</span>
+                <span className="text-sm text-white">
+                  {config.lastRunAt ? new Date(config.lastRunAt).toLocaleString() : 'Never'}
+                </span>
               </div>
               <div className="flex min-h-[60px] items-center border-t border-white/10 px-4">
                 <span className="flex-1 text-sm text-slate-300">Order Policy</span>
@@ -223,15 +235,27 @@ export default function CronManagementPage() {
             <section className="rounded-3xl border border-white/10 bg-white/[0.035] p-4">
               <p className="text-sm font-semibold text-white">Dry-run result</p>
               <p className="mt-1 text-sm text-slate-400">
-                Evaluated {triggerResult.evaluated}, HOLD {triggerResult.held}, profit candidates {triggerResult.candidates.filter(item => item.action === 'CREATE').length}.
+                Evaluated {triggerResult.evaluated}, HOLD {triggerResult.held}, profit candidates{' '}
+                {triggerResult.candidates.filter(item => item.action === 'CREATE').length}.
               </p>
               {triggerResult.candidates.length > 0 && (
                 <div className="mt-3 space-y-2">
                   {triggerResult.candidates.map((candidate, index) => (
-                    <div key={`${candidate.symbol}-${index}`} className="flex items-center justify-between rounded-xl border border-white/10 px-3 py-2 text-sm">
-                      <span className={candidate.action === 'SKIP_HOLD' ? 'text-amber-300' : 'text-white'}>{candidate.symbol}</span>
+                    <div
+                      key={`${candidate.symbol}-${index}`}
+                      className="flex items-center justify-between rounded-xl border border-white/10 px-3 py-2 text-sm"
+                    >
+                      <span
+                        className={
+                          candidate.action === 'SKIP_HOLD' ? 'text-amber-300' : 'text-white'
+                        }
+                      >
+                        {candidate.symbol}
+                      </span>
                       <span className="text-slate-400">
-                        {candidate.action === 'SKIP_HOLD' ? 'HOLD' : `${candidate.profitPct.toFixed(2)}% · would SELL ${candidate.quantity}`}
+                        {candidate.action === 'SKIP_HOLD'
+                          ? 'HOLD'
+                          : `${candidate.profitPct.toFixed(2)}% · would SELL ${candidate.quantity}`}
                       </span>
                     </div>
                   ))}
