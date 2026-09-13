@@ -6,5 +6,7 @@ export default {
   },
   test: {
     environment: 'node',
+    globals: true,
+    setupFiles: ['./vitest.ci.setup.mjs'],
   },
 };
