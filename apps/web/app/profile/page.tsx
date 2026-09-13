@@ -63,7 +63,9 @@ export default function ProfilePage() {
               <ShieldCheck className="size-5 shrink-0" />
               <div className="min-w-0 flex-1">
                 <strong>Multi-factor authentication</strong>
-                <span>{mfaEnabled ? 'Enabled · Account protected' : 'Not enabled · Recommended'}</span>
+                <span>
+                  {mfaEnabled ? 'Enabled · Account protected' : 'Not enabled · Recommended'}
+                </span>
               </div>
               <span
                 className={`shrink-0 rounded-full px-2 py-1 text-[10px] font-bold uppercase tracking-[0.06em] ${
