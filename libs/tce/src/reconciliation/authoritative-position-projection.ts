@@ -5,14 +5,14 @@ export type AuthoritativeHolding = Readonly<{
   symbol: string;
   quantity: number;
   avgCost: number;
-  currentPrice?: number;
+  currentPrice: number;
   targetPrice?: number;
   sellableAt?: string;
   slotId?: string;
   pool?: 'A' | 'B' | 'C';
   status: 'HOLDING';
   costBasis: number;
-  unrealizedPnl?: number;
+  unrealizedPnl: number;
 }>;
 
 export type AuthoritativeProjection = Readonly<{
@@ -29,7 +29,8 @@ const validProvider = (position: ProviderPosition) =>
   position.quantity > 0 &&
   Number.isFinite(position.avgCost) &&
   position.avgCost > 0 &&
-  (position.currentPrice === undefined || (Number.isFinite(position.currentPrice) && position.currentPrice > 0));
+  Number.isFinite(position.currentPrice) &&
+  position.currentPrice > 0;
 
 export function projectAuthoritativeHoldings(
   localPositions: readonly LocalPosition[],
@@ -61,6 +62,9 @@ export function projectAuthoritativeHoldings(
       return { authoritative: false, holdings: [], reason: `Local position is not open: ${symbol}.` };
     }
     const currentPrice = provider.currentPrice;
+    if (currentPrice === undefined) {
+      return { authoritative: false, holdings: [], reason: `Provider current price is missing: ${symbol}.` };
+    }
     holdings.push({
       id: local.id,
       symbol,
@@ -73,7 +77,7 @@ export function projectAuthoritativeHoldings(
       pool: local.pool,
       status: 'HOLDING',
       costBasis: provider.quantity * provider.avgCost,
-      unrealizedPnl: currentPrice === undefined ? undefined : (currentPrice - provider.avgCost) * provider.quantity,
+      unrealizedPnl: (currentPrice - provider.avgCost) * provider.quantity,
     });
   }
 

@@ -3,14 +3,11 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "engines": {
-    "node": ">=24.0.0",
-    "npm": ">=10.0.0"
-  },
+  "engines": {"node": ">=24.0.0", "npm": ">=10.0.0"},
   "scripts": {
     "dev": "nx serve web",
     "build": "nx run-many -t build --projects=web,service",
-    "test": "tsx --tsconfig tsconfig.base.json --test $(find libs/binance/src libs/ssi/src libs/tce/src apps/service/src/platform -type f -name '*.spec.ts' ! -name 'assisted-approval.spec.ts' ! -name 'hunting-dividend.engine.spec.ts' ! -name 'trading-authorization.spec.ts') && npx --yes vitest@5.0.0 run --globals libs/tce/src/execution/assisted-approval.spec.ts libs/tce/src/decision/hunting-dividend.engine.spec.ts libs/tce/src/execution/trading-authorization.spec.ts",
+    "test": "tsx --tsconfig tsconfig.base.json --test $(find libs/binance/src libs/ssi/src libs/tce/src apps/service/src/platform -type f -name '*.spec.ts' ! -name 'assisted-approval.spec.ts' ! -name 'hunting-dividend.engine.spec.ts' ! -name 'trading-authorization.spec.ts' ! -name 'gemini-connection.service.spec.ts' ! -name 'tce-ssi-trading-authorization.adapter.spec.ts' ! -name 'reconciliation-persistence.spec.ts') && npx --yes vitest@5.0.0 run --globals apps/service/src/platform/gemini-connection.service.spec.ts apps/service/src/platform/tce-ssi-trading-authorization.adapter.spec.ts libs/tce/src/reconciliation/reconciliation-persistence.spec.ts libs/tce/src/execution/assisted-approval.spec.ts libs/tce/src/decision/hunting-dividend.engine.spec.ts libs/tce/src/execution/trading-authorization.spec.ts",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "lint": "eslint .",
