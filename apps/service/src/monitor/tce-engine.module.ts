@@ -8,9 +8,10 @@ import { TceSignalService } from './tce-signal.service';
 import { BinanceEngineService } from './binance-engine.service';
 import { BinancePositionWatcherService } from './binance-position-watcher.service';
 import { GeminiSignalParserService } from './gemini-signal-parser.service';
+import { ScheduledTasksModule } from '../scheduled-tasks.module';
 
 @Module({
-  imports: [DbModule, AuthModule, PlatformCredentialsModule],
+  imports: [DbModule, AuthModule, PlatformCredentialsModule, ScheduledTasksModule],
   controllers: [TceEngineController],
   providers: [
     TceEngineService,
