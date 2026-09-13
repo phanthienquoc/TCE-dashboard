@@ -1,4 +1,5 @@
 import {
+  mapSsiApprovalChallenge,
   mapSsiAuthorizationFailure,
   TceSsiTradingAuthorizationAdapter,
 } from './tce-ssi-trading-authorization.adapter';
