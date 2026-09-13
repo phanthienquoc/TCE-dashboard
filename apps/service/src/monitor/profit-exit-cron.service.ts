@@ -4,18 +4,8 @@ import { SupabaseClientService } from '../db/supabase.client';
 const DEFAULT_TZ = 'Asia/Ho_Chi_Minh';
 const DEFAULT_INTERVAL_MINUTES = 60;
 const DEFAULT_PROFIT_TARGET_PCT = 10;
+const PRICE_ALERT_BAND_PCT = 7;
 const TICK_MS = 60 * 1000;
-const ACTIVE_ORDER_STATUSES = [
-  'READY',
-  'PENDING',
-  'SUBMITTED',
-  'PARTIALLY_FILLED',
-  'PROCESSING',
-  'ACCEPTED',
-  'EXECUTING',
-  'PROTECTED',
-  'OPEN',
-] as const;
 
 type AutoSellConfig = {
   account_id: string;
@@ -30,6 +20,7 @@ type AutoSellConfig = {
 type Position = {
   id: string;
   account_id: string;
+  user_id: string;
   symbol: string;
   quantity: number;
   avg_cost: number | null;
@@ -43,22 +34,27 @@ type RunOptions = { accountId?: string; force?: boolean; dryRun?: boolean };
 
 export type AutoSellDecision =
   | {
-      action: 'CREATE';
+      action: 'NOTIFY';
+      buyPrice: number;
+      currentPrice: number;
       targetPrice: number;
       profitPct: number;
+      currentProfitPct: number;
+      priceDistancePct: number;
       costBasis: number;
       marketValue: number;
     }
   | { action: 'SKIP'; reason: string };
 
 export function evaluateAutoSell(
-  position: Pick<Position, 'quantity' | 'avg_cost' | 'cost_basis'>,
+  position: Pick<Position, 'quantity' | 'avg_cost' | 'cost_basis' | 'market_price'>,
   targetPct: number
 ): AutoSellDecision {
   const quantity = Number(position.quantity);
   const avgCost = Number(position.avg_cost ?? 0);
   const costBasis = Number(position.cost_basis ?? avgCost * quantity);
   const buyPrice = avgCost > 0 ? avgCost : costBasis / quantity;
+  const currentPrice = Number(position.market_price ?? 0);
   const target = Number(targetPct);
   if (!Number.isFinite(quantity) || quantity <= 0)
     return { action: 'SKIP', reason: 'invalid_quantity' };
@@ -66,14 +62,25 @@ export function evaluateAutoSell(
     return { action: 'SKIP', reason: 'invalid_cost_basis' };
   if (!Number.isFinite(buyPrice) || buyPrice <= 0)
     return { action: 'SKIP', reason: 'invalid_buy_price' };
+  if (!Number.isFinite(currentPrice) || currentPrice <= 0)
+    return { action: 'SKIP', reason: 'missing_market_price' };
   if (!Number.isFinite(target) || target < 0) return { action: 'SKIP', reason: 'invalid_target' };
   const targetPrice = buyPrice * (1 + target / 100);
   if (!Number.isFinite(targetPrice) || targetPrice <= 0)
     return { action: 'SKIP', reason: 'invalid_target_price' };
+  const currentProfitPct = ((currentPrice - buyPrice) / buyPrice) * 100;
+  const priceDistancePct = Math.abs(currentProfitPct);
+  if (currentPrice >= targetPrice) return { action: 'SKIP', reason: 'target_reached' };
+  if (priceDistancePct > PRICE_ALERT_BAND_PCT)
+    return { action: 'SKIP', reason: 'outside_price_alert_band' };
   return {
-    action: 'CREATE',
+    action: 'NOTIFY',
+    buyPrice,
+    currentPrice,
     targetPrice,
     profitPct: target,
+    currentProfitPct,
+    priceDistancePct,
     costBasis,
     marketValue: targetPrice * quantity,
   };
@@ -102,7 +109,9 @@ export class ProfitExitCronService implements OnModuleInit, OnModuleDestroy {
   onModuleInit() {
     this.timer = setInterval(() => void this.run(), TICK_MS);
     void this.run();
-    this.logger.log('Profit-exit cron started; default is disabled, 60m interval, 10% target');
+    this.logger.log(
+      `Profit-exit tracker started; default is disabled, 60m interval, 10% target, ±${PRICE_ALERT_BAND_PCT}% alert band`
+    );
   }
 
   onModuleDestroy() {
@@ -110,17 +119,23 @@ export class ProfitExitCronService implements OnModuleInit, OnModuleDestroy {
   }
 
   async run(options: RunOptions = {}) {
-    if (this.running) return { skipped: true, reason: 'already_running', created: 0 };
+    if (this.running)
+      return { skipped: true, reason: 'already_running', created: 0, notified: 0, messages: [] };
     this.running = true;
     let created = 0;
+    let notified = 0;
     let evaluated = 0;
     let held = 0;
+    const messages: string[] = [];
     const candidates: Array<{
       symbol: string;
       profitPct: number;
+      currentProfitPct: number;
+      currentPrice: number;
+      buyPrice: number;
       targetPrice: number;
       quantity: number;
-      action: 'CREATE' | 'SKIP_HOLD';
+      action: 'NOTIFY' | 'SKIP_HOLD';
     }> = [];
     try {
       let query = this.supabase.db
@@ -137,8 +152,10 @@ export class ProfitExitCronService implements OnModuleInit, OnModuleDestroy {
           skipped: false,
           reason: 'config_not_found',
           created: 0,
+          notified: 0,
           evaluated: 0,
           held: 0,
+          messages: [],
           candidates: [],
         };
 
@@ -150,7 +167,7 @@ export class ProfitExitCronService implements OnModuleInit, OnModuleDestroy {
         const { data: positions, error: positionError } = await this.supabase.db
           .from('tce_positions')
           .select(
-            'id,account_id,symbol,quantity,avg_cost,cost_basis,market_price,market_value,status'
+            'id,account_id,user_id,symbol,quantity,avg_cost,cost_basis,market_price,market_value,status'
           )
           .eq('account_id', config.account_id)
           .neq('status', 'CLOSED')
@@ -158,7 +175,7 @@ export class ProfitExitCronService implements OnModuleInit, OnModuleDestroy {
         if (positionError) throw positionError;
 
         const holdSymbols = new Set(normalizeHoldSymbols(config.auto_sell_hold_symbols));
-        let accountCreated = 0;
+        let accountNotified = 0;
         for (const position of (positions ?? []) as Position[]) {
           const symbol = position.symbol.trim().toUpperCase();
           if (holdSymbols.has(symbol)) {
@@ -166,6 +183,9 @@ export class ProfitExitCronService implements OnModuleInit, OnModuleDestroy {
             candidates.push({
               symbol,
               profitPct: 0,
+              currentProfitPct: 0,
+              currentPrice: Number(position.market_price ?? 0),
+              buyPrice: Number(position.avg_cost ?? 0),
               targetPrice: 0,
               quantity: Number(position.quantity),
               action: 'SKIP_HOLD',
@@ -175,89 +195,67 @@ export class ProfitExitCronService implements OnModuleInit, OnModuleDestroy {
           evaluated += 1;
           const targetPct = Number(config.auto_sell_profit_target_pct ?? DEFAULT_PROFIT_TARGET_PCT);
           const decision = evaluateAutoSell(position, targetPct);
-          if (decision.action !== 'CREATE') continue;
+          if (decision.action !== 'NOTIFY') continue;
           const quantity = Math.trunc(Number(position.quantity));
           if (quantity <= 0) continue;
-
-          const notePrefix = `TCE_AUTO_SELL:${position.id}:`;
-          const { data: existingOrders, error: existingOrderError } = await this.supabase.db
-            .from('tce_orders')
-            .select('id,status')
-            .eq('account_id', config.account_id)
-            .eq('symbol', symbol)
-            .eq('side', 'SELL')
-            .like('note', `${notePrefix}%`)
-            .limit(1);
-          if (existingOrderError) throw existingOrderError;
-          if ((existingOrders ?? []).length) continue;
 
           candidates.push({
             symbol,
             profitPct: decision.profitPct,
+            currentProfitPct: decision.currentProfitPct,
+            currentPrice: decision.currentPrice,
+            buyPrice: decision.buyPrice,
             targetPrice: decision.targetPrice,
             quantity,
-            action: 'CREATE',
+            action: 'NOTIFY',
           });
-          if (options.dryRun) continue;
-
-          const { data: activeOrders, error: orderLookupError } = await this.supabase.db
-            .from('tce_orders')
-            .select('id,status')
-            .eq('account_id', config.account_id)
-            .eq('symbol', symbol)
-            .eq('side', 'SELL')
-            .in('status', [...ACTIVE_ORDER_STATUSES])
-            .limit(1);
-          if (orderLookupError) throw orderLookupError;
-          if ((activeOrders ?? []).length) continue;
-
-          const note = `${notePrefix}${targetPct}`;
-          const { error: insertError } = await this.supabase.db.from('tce_orders').insert({
-            account_id: config.account_id,
-            order_date: new Date().toISOString().slice(0, 10),
-            symbol,
-            side: 'SELL',
-            price: decision.targetPrice,
-            quantity,
-            gross_value: Math.round(decision.marketValue),
-            fee_tax: 0,
-            net_cashflow: Math.round(decision.marketValue),
-            cycle_no: 0,
-            status: 'READY',
-            note,
-          });
-          if (insertError) throw insertError;
-          created += 1;
-          accountCreated += 1;
+          if (!options.dryRun) {
+            messages.push(
+              `TCE AUTO-SELL SIGNAL — ${symbol}: Giá mua ${decision.buyPrice.toFixed(2)}, giá hiện tại ${decision.currentPrice.toFixed(2)} (${decision.currentProfitPct >= 0 ? '+' : ''}${decision.currentProfitPct.toFixed(2)}%), TP ${decision.targetPrice.toFixed(2)} (+${decision.profitPct.toFixed(2)}%), vùng theo dõi ±${PRICE_ALERT_BAND_PCT}% giá mua, KL ${quantity}. Chưa đạt TP — chỉ tracking, KHÔNG gọi SSI placeOrder.`
+            );
+          }
+          notified += 1;
+          accountNotified += 1;
         }
         if (!options.dryRun) {
           await this.supabase.db
             .from('tce_strategy_config')
             .update({ auto_sell_last_run_at: startedAt, updated_at: startedAt })
             .eq('account_id', config.account_id);
-          await this.audit(config.account_id, startedAt, positions?.length ?? 0, accountCreated);
+          await this.audit(
+            config.account_id,
+            startedAt,
+            positions?.length ?? 0,
+            accountNotified,
+            candidates.filter(candidate => candidate.action === 'NOTIFY').length,
+            messages
+          );
         }
       }
       return {
         skipped: false,
         created,
+        notified,
         evaluated,
         held,
         dryRun: options.dryRun === true,
+        messages,
         candidates,
       };
     } catch (error) {
       this.logger.error(
-        'Profit-exit cron failed',
+        'Profit-exit tracking failed',
         error instanceof Error ? error.stack : String(error)
       );
       return {
         skipped: false,
         reason: 'error',
         created,
+        notified,
         evaluated,
         held,
         dryRun: options.dryRun === true,
+        messages,
         candidates,
       };
     } finally {
@@ -275,7 +273,14 @@ export class ProfitExitCronService implements OnModuleInit, OnModuleDestroy {
     return Number.isFinite(last) && Date.now() - last >= intervalMinutes * 60 * 1000;
   }
 
-  private async audit(accountId: string, startedAt: string, monitored: number, created: number) {
+  private async audit(
+    accountId: string,
+    startedAt: string,
+    monitored: number,
+    notified: number,
+    signals: number,
+    messages: string[]
+  ) {
     const { error } = await this.supabase.db.from('tce_monitor_runs').insert({
       account_id: accountId,
       run_type: 'AUTO_SELL',
@@ -283,12 +288,16 @@ export class ProfitExitCronService implements OnModuleInit, OnModuleDestroy {
       finished_at: new Date().toISOString(),
       market_session: true,
       positions_monitored: monitored,
-      signals_found: created,
+      signals_found: signals,
       skipped: false,
       metadata: {
         source: 'tce-profit-exit-cron',
-        created_sell_orders: created,
+        created_sell_orders: 0,
+        notified,
+        messages,
         target_basis: 'avg_cost',
+        alert_band_pct: PRICE_ALERT_BAND_PCT,
+        execution: 'NOTIFY_ONLY',
       },
     });
     if (error) this.logger.warn(`Unable to audit profit-exit run: ${error.message}`);

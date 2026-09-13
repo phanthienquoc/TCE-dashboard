@@ -2,15 +2,13 @@ import { Body, Controller, Get, Headers, Post, UnauthorizedException } from '@ne
 import { JwtService } from '../auth/jwt.service';
 import { SupabaseClientService } from '../db/supabase.client';
 import { normalizeHoldSymbols, ProfitExitCronService } from './profit-exit-cron.service';
-import { ProfitExitExecutionService } from './profit-exit-execution.service';
 
 @Controller('profit-exit-settings')
 export class ProfitExitSettingsController {
   constructor(
     private readonly supabase: SupabaseClientService,
     private readonly jwt: JwtService,
-    private readonly cron: ProfitExitCronService,
-    private readonly execution: ProfitExitExecutionService
+    private readonly cron: ProfitExitCronService
   ) {}
 
   private async accountId(auth?: string) {
@@ -103,7 +101,6 @@ export class ProfitExitSettingsController {
     const accountId = await this.accountId(auth);
     const scan = await this.cron.run({ accountId, force: true, dryRun: false });
     if (scan.reason === 'config_not_found' || scan.reason === 'error') return scan;
-    const execution = await this.execution.executeReady(accountId);
-    return { ...scan, ...execution };
+    return { ...scan, submitted: 0, results: [] };
   }
 }

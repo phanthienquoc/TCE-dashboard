@@ -16,23 +16,21 @@ const DEFAULTS = {
 type Config = typeof DEFAULTS & { lastRunAt: string | null; availableSymbols?: string[] };
 type TriggerResult = {
   created: number;
+  notified: number;
   evaluated: number;
   held: number;
   submitted: number;
+  messages?: string[];
   dryRun?: boolean;
   candidates: Array<{
     symbol: string;
     profitPct: number;
+    currentProfitPct: number;
+    currentPrice: number;
+    buyPrice: number;
     targetPrice: number;
     quantity: number;
-    action: 'CREATE' | 'SKIP_HOLD';
-  }>;
-  results?: Array<{
-    orderId: string;
-    symbol: string;
-    status: string;
-    providerOrderId?: string;
-    error?: string;
+    action: 'NOTIFY' | 'SKIP_HOLD';
   }>;
 };
 
@@ -72,15 +70,15 @@ export default function CronManagementPage() {
     try {
       const r = await api.post<TriggerResult>('/profit-exit-settings/trigger', {});
       setTriggerResult(r.data);
-      const submitted = Number(r.data.submitted ?? 0);
+      const notified = Number(r.data.notified ?? 0);
       setMessage(
-        submitted > 0
-          ? `Submitted ${submitted} order${submitted === 1 ? '' : 's'} to SSI`
-          : 'No profit candidates were submitted'
+        notified > 0
+          ? `${notified} tracking message${notified === 1 ? '' : 's'} returned to UI`
+          : 'No profit-exit tracking message was triggered'
       );
       setConfig(c => ({ ...c, lastRunAt: new Date().toISOString() }));
     } catch {
-      setMessage('Unable to trigger SSI submission');
+      setMessage('Unable to trigger profit-exit tracking');
     } finally {
       setTriggering(false);
     }
@@ -110,7 +108,7 @@ export default function CronManagementPage() {
             </Link>
             <h1 className="text-2xl font-semibold text-white">{title}</h1>
             <p className="mt-1 text-sm text-slate-400">
-              Configure automatic profit-exit SELL orders and their SSI execution.
+              Track open positions near the buy price and return tracking messages to the UI; no SSI order submission.
             </p>
           </header>
 
@@ -142,7 +140,7 @@ export default function CronManagementPage() {
               <label className="flex min-h-[72px] items-center gap-4 border-b border-white/10 px-4">
                 <span className="flex-1">
                   <strong className="block text-[16px] text-white">Profit Target</strong>
-                  <span className="text-sm text-slate-400">Percent above total buy cost</span>
+                  <span className="text-sm text-slate-400">Target above average buy price</span>
                 </span>
                 <input
                   className="w-24 rounded-xl border border-white/10 bg-black/20 px-3 py-2 text-right text-white"
@@ -159,7 +157,7 @@ export default function CronManagementPage() {
               <label className="flex min-h-[72px] items-center gap-4 px-4">
                 <span className="flex-1">
                   <strong className="block text-[16px] text-white">Run Every</strong>
-                  <span className="text-sm text-slate-400">Scheduler check interval</span>
+                  <span className="text-sm text-slate-400">Scheduler tracking interval</span>
                 </span>
                 <input
                   className="w-24 rounded-xl border border-white/10 bg-black/20 px-3 py-2 text-right text-white"
@@ -172,6 +170,28 @@ export default function CronManagementPage() {
                   }
                 />
               </label>
+            </div>
+          </section>
+
+          <section>
+            <p className="mb-2 px-1 text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+              Alert Band
+            </p>
+            <div className="rounded-3xl border border-white/10 bg-white/[0.035] p-4">
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <strong className="block text-[16px] text-white">Buy price ±7%</strong>
+                  <span className="text-sm text-slate-400">
+                    Return a UI message only while current price is below TP and inside this band.
+                  </span>
+                </div>
+                <span className="rounded-full border border-amber-400/20 bg-amber-400/10 px-3 py-1 text-sm font-semibold text-amber-200">
+                  ±7%
+                </span>
+              </div>
+              <p className="mt-3 text-xs text-slate-500">
+                The tracker never creates a SELL order and never calls SSI placeOrder.
+              </p>
             </div>
           </section>
 
@@ -201,8 +221,7 @@ export default function CronManagementPage() {
                 <p className="px-1 py-2 text-sm text-slate-500">No open positions available.</p>
               )}
               <p className="mt-3 px-1 text-xs text-slate-500">
-                HOLD symbols are never allowed to create an auto-sell order, even when the profit
-                target is reached.
+                HOLD symbols never generate tracking messages.
               </p>
             </div>
           </section>
@@ -220,7 +239,7 @@ export default function CronManagementPage() {
               </div>
               <div className="flex min-h-[60px] items-center border-t border-white/10 px-4">
                 <span className="flex-1 text-sm text-slate-300">Order Policy</span>
-                <span className="text-sm text-emerald-300">HOLD guarded · SSI LIVE</span>
+                <span className="text-sm text-amber-200">TRACK + RESPONSE · NO SSI SUBMIT</span>
               </div>
             </div>
           </section>
@@ -232,7 +251,7 @@ export default function CronManagementPage() {
               onClick={() => void trigger()}
               className="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-amber-400/30 bg-amber-400/10 px-4 py-3 font-semibold text-amber-200 disabled:opacity-50"
             >
-              <Play className="size-4" /> {triggering ? 'Submitting…' : 'Trigger & Submit'}
+              <Play className="size-4" /> {triggering ? 'Tracking…' : 'Trigger Tracking'}
             </button>
             <button
               type="button"
@@ -246,34 +265,45 @@ export default function CronManagementPage() {
 
           {triggerResult && (
             <section className="rounded-3xl border border-white/10 bg-white/[0.035] p-4">
-              <p className="text-sm font-semibold text-white">Live execution result</p>
+              <p className="text-sm font-semibold text-white">System response</p>
               <p className="mt-1 text-sm text-slate-400">
-                Evaluated {triggerResult.evaluated}, HOLD {triggerResult.held}, created{' '}
-                {triggerResult.created}, submitted {triggerResult.submitted}.
+                Evaluated {triggerResult.evaluated}, HOLD {triggerResult.held}, messages{' '}
+                {triggerResult.notified}, SSI submitted {triggerResult.submitted}.
               </p>
-              {triggerResult.results?.length ? (
+              {triggerResult.messages?.length ? (
                 <div className="mt-3 space-y-2">
-                  {triggerResult.results.map(result => (
+                  {triggerResult.messages.map((item, index) => (
                     <div
-                      key={result.orderId}
+                      key={`${index}-${item}`}
+                      className="rounded-xl border border-amber-400/20 bg-amber-400/5 px-3 py-2 text-sm text-amber-100"
+                    >
+                      {item}
+                    </div>
+                  ))}
+                </div>
+              ) : null}
+              {triggerResult.candidates?.length ? (
+                <div className="mt-3 space-y-2">
+                  {triggerResult.candidates.map((candidate, index) => (
+                    <div
+                      key={`${candidate.symbol}-${index}`}
                       className="rounded-xl border border-white/10 px-3 py-2 text-sm"
                     >
                       <div className="flex items-center justify-between">
-                        <span className="text-white">{result.symbol}</span>
-                        <span className="text-slate-300">{result.status}</span>
+                        <span className="text-white">{candidate.symbol}</span>
+                        <span className="text-amber-200">{candidate.action}</span>
                       </div>
-                      {result.providerOrderId && (
-                        <p className="mt-1 text-xs text-slate-500">
-                          SSI order: {result.providerOrderId}
-                        </p>
-                      )}
-                      {result.error && <p className="mt-1 text-xs text-red-300">{result.error}</p>}
+                      <p className="mt-1 text-xs text-slate-400">
+                        Buy {candidate.buyPrice} · Now {candidate.currentPrice} · TP{' '}
+                        {candidate.targetPrice} · {candidate.currentProfitPct >= 0 ? '+' : ''}
+                        {candidate.currentProfitPct.toFixed(2)}%
+                      </p>
                     </div>
                   ))}
                 </div>
               ) : (
                 <p className="mt-3 text-sm text-slate-500">
-                  No eligible profit-exit order was submitted.
+                  No position is currently inside the ±7% tracking band before TP.
                 </p>
               )}
             </section>
