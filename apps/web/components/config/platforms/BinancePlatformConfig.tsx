@@ -102,7 +102,9 @@ export default function BinancePlatformConfig({ busy, setBusy }: PlatformConfigP
         <div className="flex items-center justify-between gap-3">
           <div className="min-w-0">
             <CardTitle>Binance Futures</CardTitle>
-            <CardDescription className="mt-0.5">Credentials & connection verification</CardDescription>
+            <CardDescription className="mt-0.5">
+              Credentials & connection verification
+            </CardDescription>
           </div>
           <span className="shrink-0 rounded-full border border-emerald-300/15 bg-emerald-300/[0.04] px-2.5 py-1 text-[11px] text-emerald-200">
             Testnet first
@@ -175,7 +177,11 @@ export default function BinancePlatformConfig({ busy, setBusy }: PlatformConfigP
           </label>
         </div>
         <div className="flex flex-wrap items-center gap-2 border-t border-white/5 pt-3">
-          <Button className="h-10" disabled={!!busy} onClick={() => void run(() => platformApi.save('binance', env, credentials), 'Saved')}>
+          <Button
+            className="h-10"
+            disabled={!!busy}
+            onClick={() => void run(() => platformApi.save('binance', env, credentials), 'Saved')}
+          >
             Save
           </Button>
           <Button
