@@ -15,10 +15,25 @@ function SettingsGroup({ title, children }: { title: string; children: React.Rea
   );
 }
 
-function SettingsLink({ href, icon, title, detail }: { href: string; icon: React.ReactNode; title: string; detail: string }) {
+function SettingsLink({
+  href,
+  icon,
+  title,
+  detail,
+}: {
+  href: string;
+  icon: React.ReactNode;
+  title: string;
+  detail: string;
+}) {
   return (
-    <Link href={href} className="flex min-h-16 items-center gap-3 border-b border-violet-200/[0.07] px-4 py-3 last:border-b-0 transition hover:bg-white/[0.04] active:bg-white/[0.06]">
-      <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-white/[0.07] text-white/80">{icon}</span>
+    <Link
+      href={href}
+      className="flex min-h-16 items-center gap-3 border-b border-violet-200/[0.07] px-4 py-3 last:border-b-0 transition hover:bg-white/[0.04] active:bg-white/[0.06]"
+    >
+      <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-white/[0.07] text-white/80">
+        {icon}
+      </span>
       <span className="min-w-0 flex-1">
         <strong className="block text-sm text-white">{title}</strong>
         <span className="mt-0.5 block truncate text-xs text-muted">{detail}</span>
