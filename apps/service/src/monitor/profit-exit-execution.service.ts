@@ -46,7 +46,12 @@ export class ProfitExitExecutionService {
 
       if (!Number.isInteger(quantity) || quantity <= 0 || !Number.isFinite(price) || price <= 0) {
         await this.markRejected(orderId, 'Invalid auto-sell order payload');
-        results.push({ orderId, symbol, status: 'REJECTED', error: 'Invalid auto-sell order payload' });
+        results.push({
+          orderId,
+          symbol,
+          status: 'REJECTED',
+          error: 'Invalid auto-sell order payload',
+        });
         continue;
       }
 
@@ -87,7 +92,8 @@ export class ProfitExitExecutionService {
             .from('tce_orders')
             .update({ status, updated_at: new Date().toISOString() })
             .eq('id', orderId);
-          if (updateError) this.logger.warn(`Unable to update auto-sell order ${orderId}: ${updateError.message}`);
+          if (updateError)
+            this.logger.warn(`Unable to update auto-sell order ${orderId}: ${updateError.message}`);
           results.push({ orderId, symbol, status, providerOrderId: result.providerOrderId });
           continue;
         }
@@ -97,7 +103,8 @@ export class ProfitExitExecutionService {
           .from('tce_orders')
           .update({ status, updated_at: new Date().toISOString() })
           .eq('id', orderId);
-        if (updateError) this.logger.warn(`Unable to update auto-sell order ${orderId}: ${updateError.message}`);
+        if (updateError)
+          this.logger.warn(`Unable to update auto-sell order ${orderId}: ${updateError.message}`);
         results.push({ orderId, symbol, status, error: result.error?.message });
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
@@ -113,8 +120,13 @@ export class ProfitExitExecutionService {
   private async markRejected(orderId: string, message: string) {
     const { error } = await this.supabase.db
       .from('tce_orders')
-      .update({ status: 'REJECTED', updated_at: new Date().toISOString(), note: `${READY_AUTO_SELL_PREFIX}REJECTED:${message}` })
+      .update({
+        status: 'REJECTED',
+        updated_at: new Date().toISOString(),
+        note: `${READY_AUTO_SELL_PREFIX}REJECTED:${message}`,
+      })
       .eq('id', orderId);
-    if (error) this.logger.warn(`Unable to mark auto-sell order ${orderId} rejected: ${error.message}`);
+    if (error)
+      this.logger.warn(`Unable to mark auto-sell order ${orderId} rejected: ${error.message}`);
   }
 }
