@@ -179,10 +179,7 @@
   }
 
   .tce-rotation-row .tce-positive,
-  .tce-decision-row .tce-positive {
-    font-weight: 700;
-  }
-
+  .tce-decision-row .tce-positive,
   .tce-rotation-row .tce-negative,
   .tce-decision-row .tce-negative {
     font-weight: 700;
@@ -269,5 +266,174 @@
   .tce-list-stack > .tce-decision-row,
   .tce-list-stack > .tce-rotation-row {
     margin: 0;
+  }
+
+  /* Dividend events are primary workflow cards, not generic stat containers. */
+  .tce-dividend-card {
+    position: relative;
+    padding: 0 !important;
+    overflow: hidden;
+    border-color: rgba(85, 191, 255, 0.13);
+    background: linear-gradient(145deg, rgba(15, 32, 41, 0.98), rgba(8, 20, 27, 0.98));
+  }
+
+  .tce-dividend-card::before {
+    content: '';
+    position: absolute;
+    inset: 0 auto 0 0;
+    width: 3px;
+    background: linear-gradient(180deg, var(--tce-blue), var(--tce-green));
+  }
+
+  .tce-dividend-card > button {
+    display: block;
+    width: 100%;
+    padding: 14px 14px 13px 16px;
+    color: inherit;
+    border: 0;
+    background: transparent;
+    cursor: pointer;
+  }
+
+  .tce-dividend-card > button:active {
+    background: rgba(255, 255, 255, 0.025);
+  }
+
+  .tce-dividend-card > button > div:first-child {
+    min-height: 28px;
+  }
+
+  .tce-dividend-card > button > div:first-child > strong {
+    display: inline-flex;
+    align-items: center;
+    min-height: 27px;
+    padding: 0 9px;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.06);
+    color: var(--tce-text);
+    font-size: 16px;
+    line-height: 1;
+    letter-spacing: -0.025em;
+  }
+
+  .tce-dividend-card > button > div:first-child > span:nth-child(2) {
+    display: inline-flex;
+    align-items: center;
+    min-height: 25px;
+    margin-left: 2px;
+    padding: 0 8px;
+    border: 1px solid rgba(85, 191, 255, 0.16);
+    border-radius: 999px;
+    background: rgba(85, 191, 255, 0.07);
+    color: #9acff0;
+    font-size: 9px;
+    font-weight: 700;
+    line-height: 1;
+  }
+
+  .tce-dividend-card > button > div:first-child > span:last-child {
+    display: inline-grid;
+    place-items: center;
+    width: 28px;
+    height: 28px;
+    margin-left: auto;
+    border: 1px solid var(--tce-border);
+    border-radius: 9px;
+    background: rgba(255, 255, 255, 0.035);
+    color: var(--tce-muted);
+    font-size: 17px;
+    font-weight: 500;
+    line-height: 1;
+  }
+
+  .tce-dividend-card > button > .tce-pool-grid {
+    grid-template-columns: 1.15fr 1fr 1fr;
+    gap: 7px;
+    margin-top: 11px !important;
+  }
+
+  .tce-dividend-card > button > .tce-pool-grid > div {
+    min-width: 0;
+    min-height: 58px;
+    padding: 10px 9px;
+    border-radius: 11px;
+    background: rgba(255, 255, 255, 0.028);
+    border-color: rgba(255, 255, 255, 0.065);
+  }
+
+  .tce-dividend-card > button > .tce-pool-grid > div:first-child {
+    background: rgba(49, 233, 129, 0.065);
+    border-color: rgba(49, 233, 129, 0.13);
+  }
+
+  .tce-dividend-card > button > .tce-pool-grid > div:nth-child(2) {
+    background: rgba(85, 191, 255, 0.045);
+    border-color: rgba(85, 191, 255, 0.11);
+  }
+
+  .tce-dividend-card > button > .tce-pool-grid span {
+    display: block;
+    margin: 0;
+    color: var(--tce-muted);
+    font-size: 8px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+
+  .tce-dividend-card > button > .tce-pool-grid b {
+    display: block;
+    margin-top: 6px;
+    overflow: hidden;
+    color: var(--tce-text);
+    font-size: 13px;
+    line-height: 1.1;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .tce-dividend-card > button > .tce-pool-grid > div:first-child b,
+  .tce-dividend-card > button > .tce-pool-grid > div:nth-child(3) b {
+    color: var(--tce-green);
+  }
+
+  .tce-dividend-card > button > .tce-pool-grid > div:nth-child(2) b {
+    color: #bde4f8;
+  }
+
+  .tce-dividend-card > .tce-card-actions {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    margin: 0 !important;
+    padding: 0 14px 14px 16px;
+  }
+
+  .tce-dividend-card > .tce-card-actions > span {
+    flex: 1;
+    min-width: 0;
+    padding: 9px 10px;
+    border: 1px solid var(--tce-border);
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.025);
+    color: var(--tce-muted);
+    font-size: 9px;
+    line-height: 1.2;
+  }
+
+  .tce-dividend-card > .tce-card-actions > button {
+    flex: 0 0 92px;
+    min-height: 40px;
+    border: 1px solid rgba(49, 233, 129, 0.35);
+    border-radius: 10px;
+    background: rgba(49, 233, 129, 0.11);
+    color: var(--tce-green);
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+  }
+
+  .tce-dividend-card > .tce-card-actions > button:active {
+    background: rgba(49, 233, 129, 0.18);
   }
 }
