@@ -6,11 +6,13 @@ on:
       - master
       - staging
       - development
+      - 'phase/**'
   pull_request:
     branches:
       - master
       - staging
       - development
+      - 'phase/**'
   workflow_dispatch:
 
 concurrency:
