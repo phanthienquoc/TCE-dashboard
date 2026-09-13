@@ -10,7 +10,6 @@ export class ProfitExitSettingsController {
     private readonly jwt: JwtService,
     private readonly cron: ProfitExitCronService
   ) {}
-
   private async accountId(auth?: string) {
     if (!auth?.startsWith('Bearer ')) throw new UnauthorizedException('Bearer token required');
     const userId = this.jwt.verify(auth.slice(7)).sub;
@@ -23,7 +22,6 @@ export class ProfitExitSettingsController {
     if (!account?.id) throw new UnauthorizedException('TCE account is not configured');
     return account.id as string;
   }
-
   @Get()
   async get(@Headers('authorization') auth?: string) {
     const accountId = await this.accountId(auth);
@@ -52,7 +50,6 @@ export class ProfitExitSettingsController {
       lastRunAt: data?.auto_sell_last_run_at ?? null,
     };
   }
-
   @Post()
   async set(
     @Headers('authorization') auth?: string,
@@ -95,12 +92,9 @@ export class ProfitExitSettingsController {
       lastRunAt: data.auto_sell_last_run_at ?? null,
     };
   }
-
   @Post('trigger')
   async trigger(@Headers('authorization') auth?: string) {
     const accountId = await this.accountId(auth);
-    const scan = await this.cron.run({ accountId, force: true, dryRun: false });
-    if (scan.reason === 'config_not_found' || scan.reason === 'error') return scan;
-    return { ...scan, submitted: 0, results: [] };
+    return this.cron.run({ accountId, force: true, dryRun: false });
   }
 }

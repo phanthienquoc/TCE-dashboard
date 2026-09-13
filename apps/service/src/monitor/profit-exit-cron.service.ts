@@ -16,7 +16,6 @@ type AutoSellConfig = {
   auto_sell_hold_symbols: string[] | null;
   timezone?: string | null;
 };
-
 type Position = {
   id: string;
   account_id: string;
@@ -29,7 +28,6 @@ type Position = {
   market_value: number | null;
   status: string;
 };
-
 type RunOptions = { accountId?: string; force?: boolean; dryRun?: boolean };
 
 export type AutoSellDecision =
@@ -70,7 +68,18 @@ export function evaluateAutoSell(
     return { action: 'SKIP', reason: 'invalid_target_price' };
   const currentProfitPct = ((currentPrice - buyPrice) / buyPrice) * 100;
   const priceDistancePct = Math.abs(currentProfitPct);
-  if (currentPrice >= targetPrice) return { action: 'SKIP', reason: 'target_reached' };
+  if (currentPrice >= targetPrice)
+    return {
+      action: 'NOTIFY',
+      buyPrice,
+      currentPrice,
+      targetPrice,
+      profitPct: target,
+      currentProfitPct,
+      priceDistancePct,
+      costBasis,
+      marketValue: targetPrice * quantity,
+    };
   if (priceDistancePct > PRICE_ALERT_BAND_PCT)
     return { action: 'SKIP', reason: 'outside_price_alert_band' };
   return {
@@ -103,9 +112,7 @@ export class ProfitExitCronService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(ProfitExitCronService.name);
   private timer?: NodeJS.Timeout;
   private running = false;
-
   constructor(private readonly supabase: SupabaseClientService) {}
-
   onModuleInit() {
     this.timer = setInterval(() => void this.run(), TICK_MS);
     void this.run();
@@ -113,7 +120,6 @@ export class ProfitExitCronService implements OnModuleInit, OnModuleDestroy {
       `Profit-exit tracker started; default is disabled, 60m interval, 10% target, ±${PRICE_ALERT_BAND_PCT}% alert band`
     );
   }
-
   onModuleDestroy() {
     if (this.timer) clearInterval(this.timer);
   }
@@ -122,10 +128,10 @@ export class ProfitExitCronService implements OnModuleInit, OnModuleDestroy {
     if (this.running)
       return { skipped: true, reason: 'already_running', created: 0, notified: 0, messages: [] };
     this.running = true;
-    let created = 0;
-    let notified = 0;
-    let evaluated = 0;
-    let held = 0;
+    let created = 0,
+      notified = 0,
+      evaluated = 0,
+      held = 0;
     const messages: string[] = [];
     const candidates: Array<{
       symbol: string;
@@ -159,11 +165,9 @@ export class ProfitExitCronService implements OnModuleInit, OnModuleDestroy {
           messages: [],
           candidates: [],
         };
-
       for (const config of (configs ?? []) as AutoSellConfig[]) {
         const timezone = this.safeTimezone(config.timezone);
         if (!options.force && (!this.isMarketSession(timezone) || !this.isDue(config))) continue;
-        if (!options.dryRun && !options.accountId && !config.auto_sell_enabled) continue;
         const startedAt = new Date().toISOString();
         const { data: positions, error: positionError } = await this.supabase.db
           .from('tce_positions')
@@ -174,18 +178,17 @@ export class ProfitExitCronService implements OnModuleInit, OnModuleDestroy {
           .neq('status', 'CLOSED')
           .order('symbol');
         if (positionError) throw positionError;
-
         const holdSymbols = new Set(normalizeHoldSymbols(config.auto_sell_hold_symbols));
         let accountNotified = 0;
         for (const position of (positions ?? []) as Position[]) {
           const symbol = position.symbol.trim().toUpperCase();
           const targetPct = Number(config.auto_sell_profit_target_pct ?? DEFAULT_PROFIT_TARGET_PCT);
-          const rawQuantity = Number(position.quantity);
-          const quantity = Math.trunc(rawQuantity);
-          const avgCost = Number(position.avg_cost ?? 0);
-          const costBasis = Number(position.cost_basis ?? avgCost * rawQuantity);
-          const buyPrice = avgCost > 0 ? avgCost : costBasis / rawQuantity;
-          const currentPrice = Number(position.market_price ?? 0);
+          const rawQuantity = Number(position.quantity),
+            quantity = Math.trunc(rawQuantity);
+          const avgCost = Number(position.avg_cost ?? 0),
+            costBasis = Number(position.cost_basis ?? avgCost * rawQuantity);
+          const buyPrice = avgCost > 0 ? avgCost : costBasis / rawQuantity,
+            currentPrice = Number(position.market_price ?? 0);
           const targetPrice =
             Number.isFinite(buyPrice) &&
             buyPrice > 0 &&
@@ -200,7 +203,6 @@ export class ProfitExitCronService implements OnModuleInit, OnModuleDestroy {
             currentPrice > 0
               ? ((currentPrice - buyPrice) / buyPrice) * 100
               : 0;
-
           if (holdSymbols.has(symbol)) {
             held += 1;
             candidates.push({
@@ -216,7 +218,6 @@ export class ProfitExitCronService implements OnModuleInit, OnModuleDestroy {
             });
             continue;
           }
-
           evaluated += 1;
           const decision = evaluateAutoSell(position, targetPct);
           if (decision.action !== 'NOTIFY') {
@@ -233,21 +234,7 @@ export class ProfitExitCronService implements OnModuleInit, OnModuleDestroy {
             });
             continue;
           }
-          if (quantity <= 0) {
-            candidates.push({
-              symbol,
-              profitPct: targetPct,
-              currentProfitPct,
-              currentPrice,
-              buyPrice,
-              targetPrice,
-              quantity,
-              action: 'SKIP',
-              reason: 'invalid_quantity',
-            });
-            continue;
-          }
-
+          const sellReady = decision.currentPrice >= decision.targetPrice;
           candidates.push({
             symbol,
             profitPct: decision.profitPct,
@@ -257,13 +244,14 @@ export class ProfitExitCronService implements OnModuleInit, OnModuleDestroy {
             targetPrice: decision.targetPrice,
             quantity,
             action: 'NOTIFY',
-            reason: 'inside_price_alert_band',
+            reason: sellReady ? 'sell_ready' : 'inside_price_alert_band',
           });
-          if (!options.dryRun) {
+          if (!options.dryRun)
             messages.push(
-              `TCE AUTO-SELL SIGNAL — ${symbol}: Giá mua ${decision.buyPrice.toFixed(2)}, giá hiện tại ${decision.currentPrice.toFixed(2)} (${decision.currentProfitPct >= 0 ? '+' : ''}${decision.currentProfitPct.toFixed(2)}%), TP ${decision.targetPrice.toFixed(2)} (+${decision.profitPct.toFixed(2)}%), vùng theo dõi ±${PRICE_ALERT_BAND_PCT}% giá mua, KL ${quantity}. Chưa đạt TP — chỉ tracking, KHÔNG gọi SSI placeOrder.`
+              sellReady
+                ? `TCE AUTO-SELL READY — ${symbol}: Giá mua ${decision.buyPrice.toFixed(2)}, giá hiện tại ${decision.currentPrice.toFixed(2)} (+${decision.currentProfitPct.toFixed(2)}%), TP ${decision.targetPrice.toFixed(2)} (+${decision.profitPct.toFixed(2)}%), KL ${quantity}. SELL candidate ready for explicit submission.`
+                : `TCE AUTO-SELL TRACK — ${symbol}: Giá mua ${decision.buyPrice.toFixed(2)}, giá hiện tại ${decision.currentPrice.toFixed(2)} (${decision.currentProfitPct >= 0 ? '+' : ''}${decision.currentProfitPct.toFixed(2)}%), TP ${decision.targetPrice.toFixed(2)} (+${decision.profitPct.toFixed(2)}%), vùng theo dõi ±${PRICE_ALERT_BAND_PCT}% giá mua, KL ${quantity}.`
             );
-          }
           notified += 1;
           accountNotified += 1;
         }
@@ -312,7 +300,6 @@ export class ProfitExitCronService implements OnModuleInit, OnModuleDestroy {
       this.running = false;
     }
   }
-
   private isDue(config: AutoSellConfig) {
     const intervalMinutes = Math.min(
       1440,
@@ -322,7 +309,6 @@ export class ProfitExitCronService implements OnModuleInit, OnModuleDestroy {
     const last = Date.parse(config.auto_sell_last_run_at);
     return Number.isFinite(last) && Date.now() - last >= intervalMinutes * 60 * 1000;
   }
-
   private async audit(
     accountId: string,
     startedAt: string,
@@ -331,28 +317,29 @@ export class ProfitExitCronService implements OnModuleInit, OnModuleDestroy {
     signals: number,
     messages: string[]
   ) {
-    const { error } = await this.supabase.db.from('tce_monitor_runs').insert({
-      account_id: accountId,
-      run_type: 'AUTO_SELL',
-      started_at: startedAt,
-      finished_at: new Date().toISOString(),
-      market_session: true,
-      positions_monitored: monitored,
-      signals_found: signals,
-      skipped: false,
-      metadata: {
-        source: 'tce-profit-exit-cron',
-        created_sell_orders: 0,
-        notified,
-        messages,
-        target_basis: 'avg_cost',
-        alert_band_pct: PRICE_ALERT_BAND_PCT,
-        execution: 'NOTIFY_ONLY',
-      },
-    });
+    const { error } = await this.supabase.db
+      .from('tce_monitor_runs')
+      .insert({
+        account_id: accountId,
+        run_type: 'AUTO_SELL',
+        started_at: startedAt,
+        finished_at: new Date().toISOString(),
+        market_session: true,
+        positions_monitored: monitored,
+        signals_found: signals,
+        skipped: false,
+        metadata: {
+          source: 'tce-profit-exit-cron',
+          created_sell_orders: 0,
+          notified,
+          messages,
+          target_basis: 'avg_cost',
+          alert_band_pct: PRICE_ALERT_BAND_PCT,
+          execution: 'EXPLICIT_SUBMIT_REQUIRED',
+        },
+      });
     if (error) this.logger.warn(`Unable to audit profit-exit run: ${error.message}`);
   }
-
   private safeTimezone(timezone: string | null | undefined) {
     if (!timezone) return DEFAULT_TZ;
     try {
@@ -362,7 +349,6 @@ export class ProfitExitCronService implements OnModuleInit, OnModuleDestroy {
       return DEFAULT_TZ;
     }
   }
-
   private isMarketSession(timezone: string) {
     const parts = new Intl.DateTimeFormat('en-US', {
       timeZone: timezone,
