@@ -102,6 +102,48 @@ export class TceSsiExecutionAdapter implements TceExecutionPort {
     if (!result.ok) {
       const message = result.error.message;
       const lower = message.toLowerCase();
+
+      // SSI rejects a normal LO when TP is above the current ceiling. Do not
+      // clamp the configured TP. Instead arm an SSI Stop Limit FCO at the
+      // exact TP; SSI keeps it in WAIT and only sends the sell order once the
+      // market reaches TP, at which point the price is inside the market band.
+      if (
+        hasLimit &&
+        intent.side === 'SELL' &&
+        lower.includes('price must be less than or equal to ceiling price')
+      ) {
+        const fallback = await this.ssi.placeTakeProfit(
+          String(account.data.user_id),
+          command.environment,
+          {
+            symbol: intent.symbol,
+            side: 'SELL',
+            quantity: intent.quantity,
+            price: Number(intent.limitPrice),
+            clientRequestId: command.clientRequestId,
+          }
+        );
+        if (fallback.ok) {
+          const providerOrderId = fallback.data.confirmedOrderId ?? fallback.data.orderId;
+          return {
+            ok: true,
+            operation: 'SUBMIT',
+            status: 'SUBMITTED',
+            executionIntentId: intent.id,
+            correlationId: command.authorization.correlationId,
+            idempotencyKey: command.authorization.idempotencyKey,
+            providerOrderId,
+            clientRequestId: command.clientRequestId,
+            providerStatus: fallback.data.providerStatus ?? 'WAIT',
+          };
+        }
+        return rejected(
+          command,
+          'PROVIDER_REJECTED',
+          `SSI LO rejected above ceiling and TP FCO fallback failed: ${fallback.error.message}`
+        );
+      }
+
       const code: TceExecutionErrorCode =
         lower.includes('reauth') || lower.includes('approval')
           ? 'APPROVAL_REQUIRED'

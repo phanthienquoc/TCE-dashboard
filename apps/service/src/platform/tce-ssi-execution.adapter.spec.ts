@@ -41,7 +41,7 @@ const readyAuth = {
   },
 };
 
-function adapter(auth = readyAuth) {
+function adapter(auth = readyAuth, ssiOverrides: Record<string, unknown> = {}) {
   const authorization = { ensureAuthorized: async () => auth };
   const supabase = {
     db: {
@@ -69,6 +69,17 @@ function adapter(auth = readyAuth) {
         providerStatus: 'RS',
       },
     }),
+    placeTakeProfit: async () => ({
+      ok: true as const,
+      data: {
+        orderId: 'fco-100',
+        status: 'FCO_WAIT',
+        confirmed: true,
+        confirmedOrderId: 'fco-100',
+        providerStatus: 'WAIT',
+      },
+    }),
+    ...ssiOverrides,
   };
   return new TceSsiExecutionAdapter(ssi as never, supabase as never, authorization as never);
 }
@@ -79,6 +90,76 @@ test('submits an approved LIVE intent through the SSI application boundary', asy
   assert.equal(result.status, 'SUBMITTED');
   assert.equal(result.providerOrderId, 'ssi-100');
   assert.equal(result.clientRequestId, 'client-1');
+});
+
+test('falls back to an SSI TP FCO when a SELL limit price is above ceiling', async () => {
+  let fcoCalled = false;
+  const instance = adapter(readyAuth, {
+    placeOrder: async () => ({
+      ok: false as const,
+      error: {
+        code: 'PROVIDER_ERROR',
+        message: 'HTTP 500: API error: 500 code=599999 msg="Price must be less than or equal to ceiling price"',
+        retryable: false,
+        provider: 'ssi',
+      },
+    }),
+    placeTakeProfit: async (_userId: string, _environment: string, request: Record<string, unknown>) => {
+      fcoCalled = true;
+      assert.equal(request.side, 'SELL');
+      assert.equal(request.symbol, 'DPM');
+      assert.equal(request.quantity, 100);
+      assert.equal(request.price, 42.5);
+      return {
+        ok: true as const,
+        data: {
+          orderId: 'fco-100',
+          status: 'FCO_WAIT',
+          confirmed: true,
+          confirmedOrderId: 'fco-100',
+          providerStatus: 'WAIT',
+        },
+      };
+    },
+  });
+  const result = await instance.submit(
+    command({
+      intent: {
+        ...command().intent,
+        side: 'SELL' as const,
+        symbol: 'DPM',
+        limitPrice: 42.5,
+      },
+    })
+  );
+  assert.equal(result.ok, true);
+  assert.equal(result.status, 'SUBMITTED');
+  assert.equal(result.providerOrderId, 'fco-100');
+  assert.equal(result.providerStatus, 'WAIT');
+  assert.equal(fcoCalled, true);
+});
+
+test('does not use TP FCO fallback for BUY ceiling rejection', async () => {
+  let fcoCalled = false;
+  const instance = adapter(readyAuth, {
+    placeOrder: async () => ({
+      ok: false as const,
+      error: {
+        code: 'PROVIDER_ERROR',
+        message: 'Price must be less than or equal to ceiling price',
+        retryable: false,
+        provider: 'ssi',
+      },
+    }),
+    placeTakeProfit: async () => {
+      fcoCalled = true;
+      throw new Error('must not execute');
+    },
+  });
+  const result = await instance.submit(command());
+  assert.equal(result.ok, false);
+  assert.equal(result.error?.code, 'PROVIDER_REJECTED');
+  assert.equal(fcoCalled, false);
 });
 
 test('fails closed when authorization account does not match execution account', async () => {
