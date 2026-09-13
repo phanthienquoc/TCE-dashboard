@@ -39,9 +39,7 @@ export type RebuiltOwnership = Readonly<{
   capital: number;
 }>;
 
-export function rebuildPositionOwnership(
-  positions: readonly LocalPosition[]
-): RebuiltOwnership[] {
+export function rebuildPositionOwnership(positions: readonly LocalPosition[]): RebuiltOwnership[] {
   const seen = new Set<string>();
   const ownership: RebuiltOwnership[] = [];
 
