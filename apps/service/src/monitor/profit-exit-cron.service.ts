@@ -187,11 +187,17 @@ export class ProfitExitCronService implements OnModuleInit, OnModuleDestroy {
           const buyPrice = avgCost > 0 ? avgCost : costBasis / rawQuantity;
           const currentPrice = Number(position.market_price ?? 0);
           const targetPrice =
-            Number.isFinite(buyPrice) && buyPrice > 0 && Number.isFinite(targetPct) && targetPct >= 0
+            Number.isFinite(buyPrice) &&
+            buyPrice > 0 &&
+            Number.isFinite(targetPct) &&
+            targetPct >= 0
               ? buyPrice * (1 + targetPct / 100)
               : 0;
           const currentProfitPct =
-            Number.isFinite(buyPrice) && buyPrice > 0 && Number.isFinite(currentPrice) && currentPrice > 0
+            Number.isFinite(buyPrice) &&
+            buyPrice > 0 &&
+            Number.isFinite(currentPrice) &&
+            currentPrice > 0
               ? ((currentPrice - buyPrice) / buyPrice) * 100
               : 0;
 
