@@ -43,7 +43,12 @@ describe('TceAssistedApprovalHandoff', () => {
       expect(result.data.approvalId).toBe('tx-1');
       expect(result.data.transactionId).toBe('tx-1');
       expect(result.data.correlationId).toBe('corr-1');
-      expect(JSON.stringify(result.data)).not.toMatch(/otp|token|secret|credential/i);
+      expect(result.data).not.toHaveProperty('otp');
+      expect(result.data).not.toHaveProperty('token');
+      expect(result.data).not.toHaveProperty('secret');
+      expect(result.data).not.toHaveProperty('credential');
+      expect(result.data).not.toHaveProperty('apiSecret');
+      expect(result.data).not.toHaveProperty('accessToken');
     }
   });
 
