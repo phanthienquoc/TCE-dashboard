@@ -404,4 +404,33 @@ export class SsiApplicationService {
       },
     } as ContractResult<BrokerOrderResult>;
   }
+
+  async placeTakeProfit(
+    userId: string,
+    environment: string,
+    request: Omit<BrokerOrderRequest, 'accountNo' | 'orderType'> & { accountNo?: string }
+  ) {
+    const key = `${userId}:ssi:${environment}`;
+    const existing = this.sessions.get(key);
+    const session = existing ?? (await this.adapter(userId, environment));
+    const accountNo = request.accountNo ?? session.accountNo;
+    if (!accountNo)
+      throw new NotFoundException(`SSI account is not selected for environment: ${environment}`);
+    if (request.side !== 'SELL')
+      throw new NotFoundException('SSI take-profit FCO fallback only supports SELL');
+    if (!Number.isFinite(request.price) || Number(request.price) <= 0)
+      throw new NotFoundException('SSI take-profit price must be positive');
+
+    const result = await session.adapter.placeTakeProfit({
+      accountNo,
+      symbol: request.symbol,
+      quantity: request.quantity,
+      price: Number(request.price),
+    });
+    if (!result.ok) return result as ContractResult<BrokerOrderResult>;
+
+    const accountId = await this.tceAccountId(userId);
+    void this.startOrderStream(accountId, { ...session, accountNo });
+    return result;
+  }
 }

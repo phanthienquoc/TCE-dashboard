@@ -7,6 +7,7 @@ import {
   Trading,
   OrderSide,
   OrderType,
+  FCOOperator,
 } from '@ssi.developer/ssi-sdk';
 import {
   AccountBalance,
@@ -176,9 +177,6 @@ export class SsiBrokerAdapter implements BrokerPort, SsiConnectionPort {
       const refreshTokenExpiresAt = Number(
         currentToken?.refreshTokenExpiresAt ?? currentToken?.refreshExpiresAt ?? 0
       );
-      // SSI SDK token timestamps are epoch seconds. Normalize legacy/persisted
-      // millisecond values too, otherwise a valid refresh token is incorrectly
-      // treated as expired and the flow falls through to SSI_REAUTH_REQUIRED.
       const refreshNow =
         refreshTokenExpiresAt > 0 && refreshTokenExpiresAt < 1e12
           ? Math.floor(Date.now() / 1000)
@@ -223,22 +221,11 @@ export class SsiBrokerAdapter implements BrokerPort, SsiConnectionPort {
     }
   }
 
-  /**
-   * Ensure the OTP-authorized Trading session is usable before a request.
-   * The SDK refreshes the access token using the existing refresh token;
-   * approval is only reached when that refresh path is unavailable.
-   */
   private async ensureTradingAuth() {
     await this.authenticate();
     return this.trading();
   }
 
-  /**
-   * Retry only idempotent/read-only Trading API calls after an auth expiry.
-   * Never blindly retry order placement because a successful order can be
-   * followed by a lost/expired HTTP response and a second submission could
-   * duplicate the order.
-   */
   private async tradingRead<T>(operation: (trading: Trading) => Promise<T>): Promise<T> {
     const trading = await this.ensureTradingAuth();
     try {
@@ -486,6 +473,49 @@ export class SsiBrokerAdapter implements BrokerPort, SsiConnectionPort {
         orderId: result.orderId ? String(result.orderId) : undefined,
         clientRequestId: result.clientRequestId ? String(result.clientRequestId) : clientRequestId,
         status: String(result.status ?? 'UNKNOWN'),
+      };
+    });
+  }
+
+  async placeTakeProfit(request: {
+    accountNo: string;
+    symbol: string;
+    quantity: number;
+    price: number;
+  }): Promise<ContractResult<BrokerOrderResult>> {
+    return this.result(async () => {
+      if (!request.accountNo) throw new Error('SSI account number is required');
+      if (!request.symbol) throw new Error('Order symbol is required');
+      if (!Number.isInteger(request.quantity) || request.quantity <= 0)
+        throw new Error('Take-profit quantity must be a positive integer');
+      if (!Number.isFinite(request.price) || request.price <= 0)
+        throw new Error('Take-profit price must be positive');
+
+      await this.authenticate();
+      const trading = this.trading().trading;
+      const from = `${this.latestDate().replaceAll('-', '/')} 00:00:00`;
+      const to = `${this.latestDate().replaceAll('-', '/')} 23:59:59`;
+      const result = await trading.placeFcoStopLimit(
+        request.accountNo,
+        request.symbol.toUpperCase(),
+        OrderSide.SELL,
+        request.quantity,
+        Number(request.price),
+        0,
+        Number(request.price),
+        FCOOperator.GREATER_OR_EQUAL,
+        from,
+        to
+      );
+      const fcoId = result?.fcoId ? String(result.fcoId) : undefined;
+      if (!fcoId) throw new Error('SSI did not return an FCO id for take-profit order');
+      return {
+        orderId: fcoId,
+        status: 'FCO_WAIT',
+        confirmed: true,
+        confirmedOrderId: fcoId,
+        providerStatus: 'WAIT',
+        message: `SSI take-profit FCO armed at ${Number(request.price)}`,
       };
     });
   }
