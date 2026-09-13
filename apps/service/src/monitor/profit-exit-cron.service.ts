@@ -317,27 +317,25 @@ export class ProfitExitCronService implements OnModuleInit, OnModuleDestroy {
     signals: number,
     messages: string[]
   ) {
-    const { error } = await this.supabase.db
-      .from('tce_monitor_runs')
-      .insert({
-        account_id: accountId,
-        run_type: 'AUTO_SELL',
-        started_at: startedAt,
-        finished_at: new Date().toISOString(),
-        market_session: true,
-        positions_monitored: monitored,
-        signals_found: signals,
-        skipped: false,
-        metadata: {
-          source: 'tce-profit-exit-cron',
-          created_sell_orders: 0,
-          notified,
-          messages,
-          target_basis: 'avg_cost',
-          alert_band_pct: PRICE_ALERT_BAND_PCT,
-          execution: 'EXPLICIT_SUBMIT_REQUIRED',
-        },
-      });
+    const { error } = await this.supabase.db.from('tce_monitor_runs').insert({
+      account_id: accountId,
+      run_type: 'AUTO_SELL',
+      started_at: startedAt,
+      finished_at: new Date().toISOString(),
+      market_session: true,
+      positions_monitored: monitored,
+      signals_found: signals,
+      skipped: false,
+      metadata: {
+        source: 'tce-profit-exit-cron',
+        created_sell_orders: 0,
+        notified,
+        messages,
+        target_basis: 'avg_cost',
+        alert_band_pct: PRICE_ALERT_BAND_PCT,
+        execution: 'EXPLICIT_SUBMIT_REQUIRED',
+      },
+    });
     if (error) this.logger.warn(`Unable to audit profit-exit run: ${error.message}`);
   }
   private safeTimezone(timezone: string | null | undefined) {
