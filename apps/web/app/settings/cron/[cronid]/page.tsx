@@ -108,7 +108,8 @@ export default function CronManagementPage() {
             </Link>
             <h1 className="text-2xl font-semibold text-white">{title}</h1>
             <p className="mt-1 text-sm text-slate-400">
-              Track open positions near the buy price and return tracking messages to the UI; no SSI order submission.
+              Track open positions near the buy price and return tracking messages to the UI; no SSI
+              order submission.
             </p>
           </header>
 
