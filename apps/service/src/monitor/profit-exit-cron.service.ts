@@ -194,21 +194,23 @@ export class ProfitExitCronService implements OnModuleInit, OnModuleDestroy {
   }
 
   private async audit(accountId: string, startedAt: string, monitored: number, created: number) {
-    const { error } = await this.supabase.db.from('tce_monitor_runs').insert({
-      account_id: accountId,
-      run_type: 'AUTO_SELL',
-      started_at: startedAt,
-      finished_at: new Date().toISOString(),
-      market_session: true,
-      positions_monitored: monitored,
-      signals_found: created,
-      skipped: false,
-      metadata: {
-        source: 'tce-profit-exit-cron',
-        created_sell_orders: created,
-        target_basis: 'cost_basis',
-      },
-    });
+    const { error } = await this.supabase.db
+      .from('tce_monitor_runs')
+      .insert({
+        account_id: accountId,
+        run_type: 'AUTO_SELL',
+        started_at: startedAt,
+        finished_at: new Date().toISOString(),
+        market_session: true,
+        positions_monitored: monitored,
+        signals_found: created,
+        skipped: false,
+        metadata: {
+          source: 'tce-profit-exit-cron',
+          created_sell_orders: created,
+          target_basis: 'cost_basis',
+        },
+      });
     if (error) this.logger.warn(`Unable to audit profit-exit run: ${error.message}`);
   }
 
