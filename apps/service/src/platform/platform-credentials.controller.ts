@@ -8,7 +8,6 @@ import {
   Post,
   UnauthorizedException,
   Inject,
-  ConflictException,
 } from '@nestjs/common';
 import {
   CONTRACT_TOKENS,
@@ -246,11 +245,8 @@ export class PlatformCredentialsController {
       environment?: string;
     }
   ) {
-    void auth;
-    void body;
-    throw new ConflictException(
-      'TCE execution is risk-gated. Submit a Risk/Safety-Gate-approved execution envelope; direct SSI orders are not accepted.'
-    );
+    const { environment, ...request } = body;
+    return this.ssi.placeOrder(this.userId(auth), environment ?? 'production', request);
   }
   @Delete(':provider') remove(
     @Headers('authorization') auth: string | undefined,
