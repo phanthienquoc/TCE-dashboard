@@ -1,7 +1,7 @@
 begin;
 
--- Keep production-safe deployment order explicit: the API reads these fields from
--- tce_strategy_config, so repair environments that missed 202609130001.
+-- Production repair: keep the API contract present even when the original
+-- engine-schedule migration was not applied before the service deployment.
 alter table public.tce_strategy_config
   add column if not exists auto_sell_enabled boolean not null default false,
   add column if not exists auto_sell_profit_target_pct numeric not null default 10,
