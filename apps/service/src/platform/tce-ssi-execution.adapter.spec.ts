@@ -99,12 +99,17 @@ test('falls back to an SSI TP FCO when a SELL limit price is above ceiling', asy
       ok: false as const,
       error: {
         code: 'PROVIDER_ERROR',
-        message: 'HTTP 500: API error: 500 code=599999 msg="Price must be less than or equal to ceiling price"',
+        message:
+          'HTTP 500: API error: 500 code=599999 msg="Price must be less than or equal to ceiling price"',
         retryable: false,
         provider: 'ssi',
       },
     }),
-    placeTakeProfit: async (_userId: string, _environment: string, request: Record<string, unknown>) => {
+    placeTakeProfit: async (
+      _userId: string,
+      _environment: string,
+      request: Record<string, unknown>
+    ) => {
       fcoCalled = true;
       assert.equal(request.side, 'SELL');
       assert.equal(request.symbol, 'DPM');
