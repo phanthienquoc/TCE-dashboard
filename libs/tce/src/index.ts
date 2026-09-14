@@ -38,3 +38,4 @@ export * from './reconciliation/reconciliation-persistence';
 export * from './reconciliation/reconciliation-lifecycle-events';
 export * from './reconciliation/reconciliation-recovery';
 export * from './lifecycle/dividend-lifecycle';
+export * from './lifecycle/dividend-lifecycle.repository';
