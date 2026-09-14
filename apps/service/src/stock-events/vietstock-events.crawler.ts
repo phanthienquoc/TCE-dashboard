@@ -22,10 +22,10 @@ type CrawlOptions = {
   endDate?: string | null;
   maxPages?: number;
   batchSize?: number;
-  onBatch?: (events: CrawledStockEvent[], pageNumber: number) => Promise<void>;
+  onBatch?: (events: CrawledStockEvent[], pageNumber: number, estimatedTotal: number | null) => Promise<void>;
 };
 
-type VietstockPage = { rows: unknown[]; hasMore: boolean };
+type VietstockPage = { rows: unknown[]; hasMore: boolean; total: number | null };
 type BrowserSession = { browser: Browser; page: Page; requestBody: string };
 
 const BASE_URL = 'https://finance.vietstock.vn';
@@ -50,24 +50,26 @@ export class VietstockEventsCrawler {
     const all: CrawledStockEvent[] = [];
     const session = await this.createBrowserSession(startDate, endDate);
     let batch: CrawledStockEvent[] = [];
+    let estimatedTotal: number | null = null;
 
     try {
       for (let page = 1; page <= maxPages; page += 1) {
         const result = await this.fetchPage(page, session);
         const rows = this.parseRows(result.rows);
+        estimatedTotal = result.total ?? estimatedTotal;
         if (!rows.length) break;
         if (options.onBatch) {
           batch.push(...rows);
           while (batch.length >= batchSize) {
             const nextBatch = batch.splice(0, batchSize);
-            await options.onBatch(nextBatch, page);
+            await options.onBatch(nextBatch, page, estimatedTotal);
           }
         } else {
           all.push(...rows);
         }
         if (!result.hasMore || result.rows.length < PAGE_SIZE) break;
       }
-      if (options.onBatch && batch.length) await options.onBatch(batch, maxPages);
+      if (options.onBatch && batch.length) await options.onBatch(batch, maxPages, estimatedTotal);
     } finally {
       await session.browser.close();
     }
@@ -133,13 +135,13 @@ export class VietstockEventsCrawler {
 
   private parseApiResponse(text: string): VietstockPage {
     let payload: unknown;
-    try { payload = JSON.parse(text); } catch { const rows = this.parseHtmlRows(text); return { rows, hasMore: rows.length >= PAGE_SIZE }; }
-    if (Array.isArray(payload)) return { rows: payload, hasMore: payload.length >= PAGE_SIZE };
-    if (!payload || typeof payload !== 'object') return { rows: [], hasMore: false };
+    try { payload = JSON.parse(text); } catch { const rows = this.parseHtmlRows(text); return { rows, hasMore: rows.length >= PAGE_SIZE, total: null }; }
+    if (Array.isArray(payload)) return { rows: payload, hasMore: payload.length >= PAGE_SIZE, total: null };
+    if (!payload || typeof payload !== 'object') return { rows: [], hasMore: false, total: null };
     const value = payload as Record<string, unknown>;
     const rows = this.firstArray(value, ['data', 'Data', 'items', 'Items', 'aaData', 'rows', 'Rows']);
     const total = this.firstNumber(value, ['recordsFiltered', 'RecordsFiltered', 'total', 'Total', 'iTotalDisplayRecords']);
-    return { rows, hasMore: total != null ? rows.length > 0 : rows.length >= PAGE_SIZE };
+    return { rows, hasMore: total != null ? rows.length > 0 : rows.length >= PAGE_SIZE, total };
   }
 
   private parseRows(rows: unknown[]): CrawledStockEvent[] {
@@ -154,7 +156,6 @@ export class VietstockEventsCrawler {
     }
     return parsed;
   }
-
   private normalizeRow(row: unknown): Record<string, string> {
     if (row && typeof row === 'object' && !Array.isArray(row)) return Object.fromEntries(Object.entries(row as Record<string, unknown>).map(([key, value]) => [key, this.clean(String(value ?? ''))]));
     if (typeof row === 'string') return this.parseHtmlRow(row);
