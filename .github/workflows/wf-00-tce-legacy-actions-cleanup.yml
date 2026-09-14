@@ -1,0 +1,64 @@
+name: WF-00 TCE Legacy Actions Cleanup
+
+on:
+  push:
+    branches:
+      - master
+  workflow_dispatch:
+
+permissions:
+  actions: write
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Delete legacy workflow runs
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          legacy_names=$(cat <<'EOF'
+          .github/workflows/patch-dividend-month-groups.yml
+          Apply Service ESM Runtime Fix
+          Apply dividend month groups
+          Cleanup SSI clientId
+          Temporary Pools Capital Fix
+          Test patch workflow
+          Copilot
+          Copilot cloud agent
+          EOF
+          )
+
+          is_legacy_name() {
+            local candidate="$1"
+            while IFS= read -r legacy; do
+              [[ -z "$legacy" ]] && continue
+              if [[ "$candidate" == "$legacy" ]]; then
+                return 0
+              fi
+            done <<< "$legacy_names"
+            return 1
+          }
+
+          total=0
+          deleted=0
+
+          while IFS=$'\t' read -r run_id run_name; do
+            [[ -z "$run_id" ]] && continue
+            total=$((total + 1))
+            if is_legacy_name "$run_name"; then
+              echo "Deleting legacy workflow run: $run_id ($run_name)"
+              gh api --method DELETE "repos/$REPO/actions/runs/$run_id"
+              deleted=$((deleted + 1))
+            fi
+          done < <(
+            gh api --paginate --slurp "repos/$REPO/actions/runs?per_page=100" \
+              --jq '.[][] | .workflow_runs[] | [.id, .name] | @tsv'
+          )
+
+          echo "Inspected $total workflow runs; deleted $deleted legacy runs."
