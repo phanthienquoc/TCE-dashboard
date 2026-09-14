@@ -12,7 +12,7 @@ async function main() {
   console.log(`MongoDB events migration complete: processed=${result.processed}`);
 }
 
-main().catch((error) => {
+main().catch(error => {
   console.error(error);
   process.exitCode = 1;
 });
