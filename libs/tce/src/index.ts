@@ -40,3 +40,4 @@ export * from './reconciliation/reconciliation-recovery';
 export * from './lifecycle/dividend-lifecycle';
 export * from './lifecycle/dividend-lifecycle.repository';
 export * from './lifecycle/dividend-holding-eligibility';
+export * from './reconciliation/dividend-settlement-reconciliation';
