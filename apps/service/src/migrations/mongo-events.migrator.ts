@@ -1,5 +1,5 @@
 import { ObjectId } from 'mongodb';
-import { createClient } from '@supabase/supabase-js';
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { MongoDbClient } from '../db/mongodb.client';
 
 type MongoEvent = {
@@ -18,6 +18,8 @@ type MongoEvent = {
   crawled_at?: Date | string | null;
   synced_at?: Date | string | null;
 };
+
+type MappedEvent = NonNullable<ReturnType<typeof mapEvent>>;
 
 const BATCH_SIZE = 500;
 
@@ -66,7 +68,6 @@ function mapEvent(row: MongoEvent) {
 
 export async function migrateMongoEvents(options?: { limit?: number }) {
   const mongo = new MongoDbClient();
-  await mongo.onModuleInit?.();
 
   const url = process.env.SUPABASE_URL;
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -84,33 +85,32 @@ export async function migrateMongoEvents(options?: { limit?: number }) {
     .sort({ _id: 1 })
     .batchSize(BATCH_SIZE);
 
-  let buffer: ReturnType<typeof mapEvent>[] = [];
+  let buffer: MappedEvent[] = [];
   let processed = 0;
   const limit = options?.limit ?? Infinity;
 
-  for await (const row of cursor) {
-    if (processed >= limit) break;
-    const mapped = mapEvent(row);
-    if (!mapped) continue;
-    buffer.push(mapped);
-    processed += 1;
+  try {
+    for await (const row of cursor) {
+      if (processed >= limit) break;
+      const mapped = mapEvent(row);
+      if (!mapped) continue;
+      buffer.push(mapped);
+      processed += 1;
 
-    if (buffer.length >= BATCH_SIZE) {
-      await flush(supabase, buffer);
-      buffer = [];
+      if (buffer.length >= BATCH_SIZE) {
+        await flush(supabase, buffer);
+        buffer = [];
+      }
     }
+
+    if (buffer.length > 0) await flush(supabase, buffer);
+    return { processed };
+  } finally {
+    await mongo.onModuleDestroy?.();
   }
-
-  if (buffer.length > 0) await flush(supabase, buffer);
-  await mongo.onModuleDestroy?.();
-
-  return { processed };
 }
 
-async function flush(
-  supabase: ReturnType<typeof createClient>,
-  rows: NonNullable<ReturnType<typeof mapEvent>>[]
-) {
+async function flush(supabase: SupabaseClient<any>, rows: MappedEvent[]) {
   const { error } = await supabase.from('stock_events').upsert(rows, {
     onConflict: 'mongo_id',
     ignoreDuplicates: false,
