@@ -48,18 +48,18 @@ export class StockEventsSyncService {
     if (runError) throw runError;
 
     try {
-      const events = await this.crawler.crawl({ startDate: options.syncStartDate, endDate: options.syncEndDate });
       let inserted = 0;
       let updated = 0;
       let skipped = 0;
       let failed = 0;
       let eventError: string | null = null;
+      const symbols = new Set<string>();
 
-      for (let offset = 0; offset < events.length; offset += batchSize) {
-        const batch = events.slice(offset, offset + batchSize);
+      const processBatch = async (batch: CrawledStockEvent[]) => {
         const existing = await this.loadExisting(batch.map(event => event.mongoId));
         const upserts: Record<string, unknown>[] = [];
         for (const event of batch) {
+          symbols.add(event.symbol);
           const hash = eventHash(event);
           const current = existing.get(event.mongoId);
           if (current?.sync_status === 'SYNCED' && current.sync_hash === hash) {
@@ -90,7 +90,7 @@ export class StockEventsSyncService {
           if (current) updated += 1;
           else inserted += 1;
         }
-        if (!upserts.length) continue;
+        if (!upserts.length) return;
         const { error } = await this.db.db.from('stock_events').upsert(upserts, { onConflict: 'mongo_id' });
         if (error) {
           failed += upserts.length;
@@ -100,16 +100,26 @@ export class StockEventsSyncService {
           inserted -= upserts.filter(row => !existing.has(String(row.mongo_id))).length;
           updated -= upserts.filter(row => existing.has(String(row.mongo_id))).length;
         }
-      }
+      };
+
+      await this.crawler.crawl({
+        startDate: options.syncStartDate,
+        endDate: options.syncEndDate,
+        batchSize,
+        onBatch: async (batch, pageNumber) => {
+          this.logger.log(`Processing Stock Events batch: ${batch.length} events (through page ${pageNumber})`);
+          await processBatch(batch);
+        },
+      });
 
       let symbolsRequested = 0;
       let symbolsSynced = 0;
       if (options.priceSyncEnabled !== false) {
-        const symbols = [...new Set(events.map(event => event.symbol).filter(Boolean))].sort();
-        symbolsRequested = symbols.length;
-        if (symbols.length) {
+        const requestedSymbols = [...symbols].sort();
+        symbolsRequested = requestedSymbols.length;
+        if (requestedSymbols.length) {
           try {
-            const priceResult = await this.ssiPrices.syncSymbolsNow(options.userId, symbols, batchSize);
+            const priceResult = await this.ssiPrices.syncSymbolsNow(options.userId, requestedSymbols, batchSize);
             symbolsSynced = priceResult.data.symbolsSynced;
             if (!priceResult.ok) failed += priceResult.errors.length || Math.max(symbolsRequested - symbolsSynced, 0);
           } catch (error) {
@@ -153,51 +163,17 @@ export class StockEventsSyncService {
   }
 
   private async finishRun(runId: string, result: Partial<StockEventsSyncResult> & { errorMessage?: string | null }) {
-    await this.db.db.from('tce_cron_runs').update({
-      status: result.status,
-      finished_at: new Date().toISOString(),
-      inserted_count: result.inserted ?? 0,
-      updated_count: result.updated ?? 0,
-      skipped_count: result.skipped ?? 0,
-      failed_count: result.failed ?? 0,
-      symbols_requested: result.symbolsRequested ?? 0,
-      symbols_synced: result.symbolsSynced ?? 0,
-      error_message: result.errorMessage ?? null,
-      metadata: { sync: 'vietstock-events', priceSource: 'ssi' },
-    }).eq('id', runId);
+    await this.db.db.from('tce_cron_runs').update({ status: result.status, finished_at: new Date().toISOString(), inserted_count: result.inserted ?? 0, updated_count: result.updated ?? 0, skipped_count: result.skipped ?? 0, failed_count: result.failed ?? 0, symbols_requested: result.symbolsRequested ?? 0, symbols_synced: result.symbolsSynced ?? 0, error_message: result.errorMessage ?? null, metadata: { sync: 'vietstock-events', priceSource: 'ssi' } }).eq('id', runId);
   }
 
   private async notify(options: StockEventsSyncOptions, result: StockEventsSyncResult) {
     if (!options.telegramCredentialId) return;
-    const message = [
-      'TCE Stock Events Sync',
-      `Status: ${result.status}`,
-      `Inserted: ${result.inserted}`,
-      `Updated: ${result.updated}`,
-      `Skipped: ${result.skipped}`,
-      `Failed: ${result.failed}`,
-      `SSI prices: ${result.symbolsSynced}/${result.symbolsRequested}`,
-    ].join('\n');
-    try {
-      await this.telegram.sendToCredential(options.userId, options.telegramCredentialId, message);
-    } catch (error) {
-      this.logger.warn(`Telegram sync notification failed: ${error instanceof Error ? error.message : String(error)}`);
-    }
+    const message = ['TCE Stock Events Sync', `Status: ${result.status}`, `Inserted: ${result.inserted}`, `Updated: ${result.updated}`, `Skipped: ${result.skipped}`, `Failed: ${result.failed}`, `SSI prices: ${result.symbolsSynced}/${result.symbolsRequested}`].join('\n');
+    try { await this.telegram.sendToCredential(options.userId, options.telegramCredentialId, message); } catch (error) { this.logger.warn(`Telegram sync notification failed: ${error instanceof Error ? error.message : String(error)}`); }
   }
 }
 
 function eventHash(event: CrawledStockEvent) {
-  const payload = {
-    symbol: event.symbol,
-    exchange: event.exchange,
-    exRightDate: event.exRightDate,
-    recordDate: event.recordDate,
-    paymentDate: event.paymentDate,
-    eventContent: event.eventContent,
-    ratioText: event.ratioText,
-    dividendValue: event.dividendValue,
-    referencePrice: event.referencePrice,
-    gdkhqTimestamp: event.gdkhqTimestamp,
-  };
+  const payload = { symbol: event.symbol, exchange: event.exchange, exRightDate: event.exRightDate, recordDate: event.recordDate, paymentDate: event.paymentDate, eventContent: event.eventContent, ratioText: event.ratioText, dividendValue: event.dividendValue, referencePrice: event.referencePrice, gdkhqTimestamp: event.gdkhqTimestamp };
   return createHash('sha256').update(JSON.stringify(payload)).digest('hex');
 }
