@@ -18,6 +18,7 @@ export type StockEventsCronConfig = {
 
 const JOB_KEY = 'stock-events-sync';
 const STALE_RUN_MINUTES = 30;
+type TriggerResponse = { status: 'RUNNING'; alreadyRunning: boolean };
 
 @Injectable()
 export class StockEventsCronService implements OnModuleInit, OnModuleDestroy {
@@ -30,9 +31,7 @@ export class StockEventsCronService implements OnModuleInit, OnModuleDestroy {
     private readonly sync: StockEventsSyncService,
   ) {}
 
-  async onModuleInit() {
-    await this.reload();
-  }
+  async onModuleInit() { await this.reload(); }
 
   onModuleDestroy() {
     for (const name of this.scheduler.getCronJobs().keys()) {
@@ -77,9 +76,26 @@ export class StockEventsCronService implements OnModuleInit, OnModuleDestroy {
     return this.mapConfig(data);
   }
 
-  async trigger(userId: string): Promise<StockEventsSyncResult> {
+  async trigger(userId: string): Promise<TriggerResponse> {
     const job = await this.ensureConfig(userId);
-    return this.execute(job, true);
+    const jobId = String(job.id);
+    await this.recoverStaleRuns(jobId);
+    if (this.running.has(jobId)) return { status: 'RUNNING', alreadyRunning: true };
+
+    const { data: activeRun, error } = await this.db.db
+      .from('tce_cron_runs')
+      .select('id')
+      .eq('job_id', jobId)
+      .eq('status', 'RUNNING')
+      .limit(1)
+      .maybeSingle();
+    if (error) throw error;
+    if (activeRun) return { status: 'RUNNING', alreadyRunning: true };
+
+    void this.execute(job, true).catch(error => {
+      this.logger.error(`Stock event manual trigger ${jobId} failed`, error instanceof Error ? error.stack : String(error));
+    });
+    return { status: 'RUNNING', alreadyRunning: false };
   }
 
   async runs(userId: string, limit = 20) {
@@ -186,7 +202,10 @@ export class StockEventsCronService implements OnModuleInit, OnModuleDestroy {
         priceSyncEnabled: Boolean(job.price_sync_enabled),
         telegramCredentialId: job.telegram_credential_id,
       });
-      await this.db.db.from('tce_cron_jobs').update({ last_run_at: new Date().toISOString(), updated_at: new Date().toISOString() }).eq('id', jobId);
+      await this.db.db
+        .from('tce_cron_jobs')
+        .update({ last_run_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+        .eq('id', jobId);
       return result;
     } finally {
       this.running.delete(jobId);
