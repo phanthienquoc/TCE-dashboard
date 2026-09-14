@@ -1,3 +1,4 @@
+import { describe, expect, it } from 'vitest';
 import { validateStockEvents } from './stock-events.validation';
 
 describe('validateStockEvents', () => {
