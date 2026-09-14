@@ -8,10 +8,12 @@ ENV PUPPETEER_CACHE_DIR=/app/.cache/puppeteer
 COPY package.json ./
 RUN npm install --include=dev --no-audit --no-fund
 
-# Puppeteer does not guarantee that Chrome for Testing is present in the
-# runtime image. Install the exact headless shell binary expected by the
-# crawler and keep it in the image-local cache.
-RUN npx puppeteer browsers install chrome-headless-shell
+# Chrome for Testing added Linux arm64 assets in Chrome 153. Puppeteer 25.10
+# still pins 152, which has no Linux arm64 headless-shell asset. Install the
+# current arm64-compatible shell explicitly and point Puppeteer at it below.
+RUN rm -rf /app/.cache/puppeteer/chrome-headless-shell \
+  && npx puppeteer browsers install chrome-headless-shell@153.0.8010.36 \
+  && test -x /app/.cache/puppeteer/chrome-headless-shell/linux_arm-153.0.8010.36/chrome-headless-shell-linux-arm64/chrome-headless-shell
 
 FROM node:24-bookworm-slim AS build
 WORKDIR /app
@@ -44,6 +46,7 @@ WORKDIR /app
 ENV NODE_ENV=production
 ENV PORT=8210
 ENV PUPPETEER_CACHE_DIR=/app/.cache/puppeteer
+ENV PUPPETEER_EXECUTABLE_PATH=/app/.cache/puppeteer/chrome-headless-shell/linux_arm-153.0.8010.36/chrome-headless-shell-linux-arm64/chrome-headless-shell
 COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/.cache ./.cache
 COPY --from=build /app/package.json ./package.json
