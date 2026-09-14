@@ -5,7 +5,8 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "start": "node dist/main.js",
-    "dev": "tsx watch src/main.ts"
+    "dev": "tsx watch src/main.ts",
+    "migrate:events": "tsx src/migrations/run-mongo-events.ts"
   },
   "engines": {
     "node": ">=24.0.0",
