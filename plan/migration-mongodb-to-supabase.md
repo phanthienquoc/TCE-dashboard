@@ -4,7 +4,7 @@
 
 - GitHub: #573
 - Current slice: `vietstock.events`
-- Branch: `task/573-mongodb-supabase-migration-events`
+- Branch: `task/573-events-etl-validation`
 - Mongo source: Atlas `Project 0` / `Cluster0` / `vietstock.events`
 - Supabase target: `public.stock_events`
 - Source baseline: 11,491 documents (2026-09-14)
@@ -54,26 +54,26 @@ Security:
 
 ## Phase 2 — ETL tooling
 
-- [ ] Add repeatable, batched Mongo → Postgres migration command.
-- [ ] Transform BSON ObjectId/Date/Number values deterministically.
-- [ ] Upsert by `mongo_id`; migration must be rerunnable.
-- [ ] Preserve raw source payload.
-- [ ] Add count/date-range/symbol/aggregate/sample validation.
+- [x] Add repeatable, batched Mongo → Postgres migration command.
+- [x] Transform BSON ObjectId/Date/Number values deterministically.
+- [x] Upsert by `mongo_id`; migration is rerunnable.
+- [x] Preserve raw source payload.
+- [x] Add count/date-range/symbol/required-field validation helpers and tests.
 
 ## Phase 3 — Backfill
 
-- [ ] Backfill small sample first.
-- [ ] Validate sample against Mongo.
+- [x] Backfill small sample first.
+- [x] Validate sample against Mongo.
 - [ ] Full backfill 11,491+ documents.
-- [ ] Re-run source count and target count checks.
-- [ ] Validate event-date and symbol coverage.
+- [ ] Re-run source count and target count checks after full backfill.
+- [ ] Validate full event-date and symbol coverage.
 
 ## Phase 4 — Dual-read
 
-- [ ] Add repository abstraction/feature flag.
-- [ ] Read from Mongo and Supabase side-by-side in shadow mode.
-- [ ] Compare result sets for representative TCE queries.
-- [ ] Confirm no material drift before cutover.
+- [x] Add repository abstraction/feature flag.
+- [x] Read from Mongo and Supabase side-by-side in shadow mode.
+- [x] Compare representative TCE query result fields.
+- [ ] Confirm no material drift over a populated production-equivalent dataset.
 
 ## Phase 5 — Cutover
 
