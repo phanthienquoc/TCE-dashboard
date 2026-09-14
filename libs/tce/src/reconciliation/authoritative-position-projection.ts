@@ -29,6 +29,7 @@ const validProvider = (position: ProviderPosition) =>
   position.quantity > 0 &&
   Number.isFinite(position.avgCost) &&
   position.avgCost > 0 &&
+  position.currentPrice != null &&
   Number.isFinite(position.currentPrice) &&
   position.currentPrice > 0;
 
