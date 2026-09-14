@@ -2,357 +2,67 @@
 
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
-import { ChevronLeft, Play } from 'lucide-react';
+import { ChevronLeft, ExternalLink, Play } from 'lucide-react';
 import Link from 'next/link';
 import DashboardShell from '../../../../components/dashboard/DashboardShell';
 import { api } from '../../../../lib/api';
 
-const DEFAULTS = {
-  enabled: false,
-  profitTargetPct: 10,
-  intervalMinutes: 60,
-  holdSymbols: [] as string[],
+type StockCronConfig = {
+  enabled: boolean; schedule: string; timezone: string; syncStartDate: string | null; syncEndDate: string | null;
+  batchSize: number; priceSyncEnabled: boolean; telegramCredentialId: string | null; lastRunAt: string | null;
 };
-type Config = typeof DEFAULTS & { lastRunAt: string | null; availableSymbols?: string[] };
-type TriggerResult = {
-  created: number;
-  notified: number;
-  evaluated: number;
-  held: number;
-  submitted: number;
-  messages?: string[];
-  dryRun?: boolean;
-  candidates: Array<{
-    symbol: string;
-    profitPct: number;
-    currentProfitPct: number;
-    currentPrice: number;
-    buyPrice: number;
-    targetPrice: number;
-    quantity: number;
-    action: 'NOTIFY' | 'SKIP' | 'SKIP_HOLD';
-    reason?: string;
-  }>;
+type TelegramBot = { id: string; environment: string; name: string; isActive: boolean; isPaused: boolean };
+type StockRun = {
+  id: string; status: 'RUNNING' | 'SUCCEEDED' | 'PARTIAL' | 'FAILED'; started_at: string; finished_at: string | null;
+  inserted_count: number; updated_count: number; skipped_count: number; failed_count: number; symbols_requested: number; symbols_synced: number; error_message: string | null;
 };
 
-const REASON_LABELS: Record<string, string> = {
-  inside_price_alert_band: 'Inside ±7% tracking band',
-  target_reached: 'Target already reached',
-  outside_price_alert_band: 'Outside ±7% alert band',
-  missing_market_price: 'Missing market price',
-  invalid_quantity: 'Invalid quantity',
-  invalid_cost_basis: 'Invalid cost basis',
-  invalid_buy_price: 'Invalid buy price',
-  invalid_target: 'Invalid profit target',
-  invalid_target_price: 'Invalid target price',
-  hold_symbol: 'HOLD symbol',
-};
-
-function reasonLabel(reason?: string) {
-  return reason ? (REASON_LABELS[reason] ?? reason.replaceAll('_', ' ')) : 'No reason';
-}
+type ProfitConfig = { enabled: boolean; profitTargetPct: number; intervalMinutes: number; holdSymbols: string[]; lastRunAt: string | null; availableSymbols?: string[] };
+type TriggerResult = { notified: number; evaluated: number; held: number; submitted: number; messages?: string[]; candidates?: Array<{symbol:string; currentPrice:number; buyPrice:number; targetPrice:number; currentProfitPct:number; action:string; reason?:string}> };
 
 export default function CronManagementPage() {
-  const params = useParams<{ cronid: string }>();
-  const [config, setConfig] = useState<Config>({ ...DEFAULTS, lastRunAt: null });
+  const { cronid } = useParams<{ cronid: string }>();
+  return cronid === 'stock-events-sync' ? <StockEventsCronPage /> : <ProfitExitCronPage />;
+}
+
+function ProfitExitCronPage() {
+  const [config, setConfig] = useState<ProfitConfig>({ enabled: false, profitTargetPct: 10, intervalMinutes: 60, holdSymbols: [], lastRunAt: null });
   const [saving, setSaving] = useState(false);
   const [triggering, setTriggering] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
-  const [triggerResult, setTriggerResult] = useState<TriggerResult | null>(null);
-
-  useEffect(() => {
-    void api
-      .get<Config>('/profit-exit-settings')
-      .then(r => setConfig({ ...r.data, holdSymbols: r.data.holdSymbols ?? [] }))
-      .catch(() => setMessage('Unable to load cron configuration'));
-  }, []);
-
-  async function save() {
-    setSaving(true);
-    setMessage(null);
-    try {
-      const r = await api.post<Config>('/profit-exit-settings', config);
-      setConfig(c => ({ ...c, ...r.data, holdSymbols: r.data.holdSymbols ?? c.holdSymbols }));
-      setMessage('Saved');
-    } catch {
-      setMessage('Unable to save');
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  async function trigger() {
-    setTriggering(true);
-    setMessage(null);
-    setTriggerResult(null);
-    try {
-      const r = await api.post<TriggerResult>('/profit-exit-settings/trigger', {});
-      setTriggerResult(r.data);
-      const notified = Number(r.data.notified ?? 0);
-      const evaluated = Number(r.data.evaluated ?? 0);
-      setMessage(
-        notified > 0
-          ? `${notified} tracking message${notified === 1 ? '' : 's'} returned; ${evaluated} position${evaluated === 1 ? '' : 's'} evaluated`
-          : `No tracking message triggered; ${evaluated} position${evaluated === 1 ? '' : 's'} evaluated`
-      );
-      setConfig(c => ({ ...c, lastRunAt: new Date().toISOString() }));
-    } catch {
-      setMessage('Unable to trigger profit-exit tracking');
-    } finally {
-      setTriggering(false);
-    }
-  }
-
-  function toggleHold(symbol: string) {
-    setConfig(c => ({
-      ...c,
-      holdSymbols: c.holdSymbols.includes(symbol)
-        ? c.holdSymbols.filter(item => item !== symbol)
-        : [...c.holdSymbols, symbol].sort(),
-    }));
-  }
-
-  const title = params.cronid === 'auto-profit-exit' ? 'Auto Profit Exit' : params.cronid;
+  const [result, setResult] = useState<TriggerResult | null>(null);
+  useEffect(() => { void api.get<ProfitConfig>('/profit-exit-settings').then(r => setConfig({ ...r.data, holdSymbols: r.data.holdSymbols ?? [] })).catch(() => setMessage('Unable to load cron configuration')); }, []);
+  async function save() { setSaving(true); setMessage(null); try { const r = await api.post<ProfitConfig>('/profit-exit-settings', config); setConfig(c => ({ ...c, ...r.data, holdSymbols: r.data.holdSymbols ?? c.holdSymbols })); setMessage('Saved'); } catch { setMessage('Unable to save'); } finally { setSaving(false); } }
+  async function trigger() { setTriggering(true); setMessage(null); setResult(null); try { const r = await api.post<TriggerResult>('/profit-exit-settings/trigger', {}); setResult(r.data); setConfig(c => ({ ...c, lastRunAt: new Date().toISOString() })); setMessage(`${r.data.notified ?? 0} tracking messages · ${r.data.evaluated ?? 0} positions evaluated`); } catch { setMessage('Unable to trigger profit-exit tracking'); } finally { setTriggering(false); } }
   const symbols = config.availableSymbols ?? [];
-  return (
-    <DashboardShell view="settings">
-      {() => (
-        <div className="tce-mobile-view space-y-6">
-          <header className="px-1 pt-2">
-            <Link
-              href="/settings/cron"
-              className="mb-4 inline-flex items-center gap-1 text-sm text-sky-300"
-            >
-              <ChevronLeft className="size-4" /> Cron Jobs
-            </Link>
-            <h1 className="text-2xl font-semibold text-white">{title}</h1>
-            <p className="mt-1 text-sm text-slate-400">
-              Track open positions near the buy price and return tracking messages to the UI; no SSI
-              order submission.
-            </p>
-          </header>
+  return <DashboardShell view="settings">{() => <div className="tce-mobile-view space-y-6">
+    <header className="px-1 pt-2"><Link href="/settings/cron" className="mb-4 inline-flex items-center gap-1 text-sm text-sky-300"><ChevronLeft className="size-4" /> Cron Jobs</Link><h1 className="text-2xl font-semibold text-white">Auto Profit Exit</h1><p className="mt-1 text-sm text-slate-400">Track open positions near the buy price; no SSI order submission.</p></header>
+    <section><p className="mb-2 px-1 text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Status</p><div className="overflow-hidden rounded-3xl border border-white/10 bg-white/[0.035]"><label className="flex min-h-[72px] items-center gap-4 px-4"><span className="flex-1"><strong className="block text-[16px] text-white">Enabled</strong><span className="text-sm text-slate-400">Run during Vietnam market sessions</span></span><input type="checkbox" className="size-5 accent-sky-400" checked={config.enabled} onChange={e => setConfig(c => ({ ...c, enabled: e.target.checked }))} /></label></div></section>
+    <section><p className="mb-2 px-1 text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Schedule</p><div className="grid gap-3 rounded-3xl border border-white/10 bg-white/[0.035] p-4 sm:grid-cols-2"><label className="block"><span className="mb-1 block text-sm text-white">Profit Target %</span><input className="w-full rounded-xl border border-white/10 bg-black/20 px-3 py-2 text-white" type="number" min="0" step="0.5" value={config.profitTargetPct} onChange={e => setConfig(c => ({ ...c, profitTargetPct: Number(e.target.value) }))} /></label><label className="block"><span className="mb-1 block text-sm text-white">Run Every (minutes)</span><input className="w-full rounded-xl border border-white/10 bg-black/20 px-3 py-2 text-white" type="number" min="1" max="1440" value={config.intervalMinutes} onChange={e => setConfig(c => ({ ...c, intervalMinutes: Number(e.target.value) }))} /></label></div></section>
+    <section><p className="mb-2 px-1 text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">HOLD Symbols</p><div className="rounded-3xl border border-white/10 bg-white/[0.035] p-4">{symbols.length ? <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">{symbols.map(symbol => <label key={symbol} className="flex items-center gap-2 rounded-xl border border-white/10 px-3 py-2 text-sm text-slate-200"><input type="checkbox" className="size-4 accent-amber-400" checked={config.holdSymbols.includes(symbol)} onChange={() => setConfig(c => ({ ...c, holdSymbols: c.holdSymbols.includes(symbol) ? c.holdSymbols.filter(v => v !== symbol) : [...c.holdSymbols, symbol].sort() }))} />{symbol}</label>)}</div> : <p className="text-sm text-slate-500">No open positions available.</p>}</div></section>
+    <section><div className="flex gap-3"><button type="button" disabled={triggering} onClick={() => void trigger()} className="inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-2xl border border-amber-400/30 bg-amber-400/10 px-4 py-3 font-semibold text-amber-200"><Play className="size-4" />{triggering ? 'Tracking…' : 'Trigger Tracking'}</button><button type="button" disabled={saving} onClick={() => void save()} className="min-h-11 flex-1 rounded-2xl bg-sky-500 px-4 py-3 font-semibold text-white">{saving ? 'Saving…' : 'Save Changes'}</button></div>{message ? <p className="mt-3 text-center text-sm text-slate-400">{message}</p> : null}</section>
+    {result ? <section className="rounded-3xl border border-white/10 bg-white/[0.035] p-4"><p className="text-sm font-semibold text-white">System response</p><p className="mt-1 text-sm text-slate-400">Evaluated {result.evaluated}, HOLD {result.held}, messages {result.notified}, SSI submitted {result.submitted}.</p>{result.messages?.map(item => <p key={item} className="mt-2 text-sm text-amber-200">{item}</p>)}</section> : null}
+  </div>}</DashboardShell>;
+}
 
-          <section>
-            <p className="mb-2 px-1 text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
-              Status
-            </p>
-            <div className="overflow-hidden rounded-3xl border border-white/10 bg-white/[0.035]">
-              <label className="flex min-h-[72px] items-center gap-4 px-4">
-                <span className="flex-1">
-                  <strong className="block text-[16px] text-white">Enabled</strong>
-                  <span className="text-sm text-slate-400">Run during Vietnam market sessions</span>
-                </span>
-                <input
-                  type="checkbox"
-                  className="size-5 accent-sky-400"
-                  checked={config.enabled}
-                  onChange={e => setConfig(c => ({ ...c, enabled: e.target.checked }))}
-                />
-              </label>
-            </div>
-          </section>
-
-          <section>
-            <p className="mb-2 px-1 text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
-              Schedule
-            </p>
-            <div className="overflow-hidden rounded-3xl border border-white/10 bg-white/[0.035]">
-              <label className="flex min-h-[72px] items-center gap-4 border-b border-white/10 px-4">
-                <span className="flex-1">
-                  <strong className="block text-[16px] text-white">Profit Target</strong>
-                  <span className="text-sm text-slate-400">Target above average buy price</span>
-                </span>
-                <input
-                  className="w-24 rounded-xl border border-white/10 bg-black/20 px-3 py-2 text-right text-white"
-                  type="number"
-                  min="0"
-                  max="1000"
-                  step="0.5"
-                  value={config.profitTargetPct}
-                  onChange={e =>
-                    setConfig(c => ({ ...c, profitTargetPct: Number(e.target.value) }))
-                  }
-                />
-              </label>
-              <label className="flex min-h-[72px] items-center gap-4 px-4">
-                <span className="flex-1">
-                  <strong className="block text-[16px] text-white">Run Every</strong>
-                  <span className="text-sm text-slate-400">Scheduler tracking interval</span>
-                </span>
-                <input
-                  className="w-24 rounded-xl border border-white/10 bg-black/20 px-3 py-2 text-right text-white"
-                  type="number"
-                  min="1"
-                  max="1440"
-                  value={config.intervalMinutes}
-                  onChange={e =>
-                    setConfig(c => ({ ...c, intervalMinutes: Number(e.target.value) }))
-                  }
-                />
-              </label>
-            </div>
-          </section>
-
-          <section>
-            <p className="mb-2 px-1 text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
-              Alert Band
-            </p>
-            <div className="rounded-3xl border border-white/10 bg-white/[0.035] p-4">
-              <div className="flex items-center justify-between gap-4">
-                <div>
-                  <strong className="block text-[16px] text-white">Buy price ±7%</strong>
-                  <span className="text-sm text-slate-400">
-                    Return a UI message only while current price is below TP and inside this band.
-                  </span>
-                </div>
-                <span className="rounded-full border border-amber-400/20 bg-amber-400/10 px-3 py-1 text-sm font-semibold text-amber-200">
-                  ±7%
-                </span>
-              </div>
-              <p className="mt-3 text-xs text-slate-500">
-                The tracker never creates a SELL order and never calls SSI placeOrder.
-              </p>
-            </div>
-          </section>
-
-          <section>
-            <p className="mb-2 px-1 text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
-              HOLD Symbols
-            </p>
-            <div className="rounded-3xl border border-white/10 bg-white/[0.035] p-3">
-              {symbols.length ? (
-                <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-                  {symbols.map(symbol => (
-                    <label
-                      key={symbol}
-                      className="flex cursor-pointer items-center gap-2 rounded-xl border border-white/10 bg-black/10 px-3 py-2 text-sm text-slate-200"
-                    >
-                      <input
-                        type="checkbox"
-                        className="size-4 accent-amber-400"
-                        checked={config.holdSymbols.includes(symbol)}
-                        onChange={() => toggleHold(symbol)}
-                      />
-                      {symbol}
-                    </label>
-                  ))}
-                </div>
-              ) : (
-                <p className="px-1 py-2 text-sm text-slate-500">No open positions available.</p>
-              )}
-              <p className="mt-3 px-1 text-xs text-slate-500">
-                HOLD symbols never generate tracking messages.
-              </p>
-            </div>
-          </section>
-
-          <section>
-            <p className="mb-2 px-1 text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
-              Runtime
-            </p>
-            <div className="overflow-hidden rounded-3xl border border-white/10 bg-white/[0.035]">
-              <div className="flex min-h-[60px] items-center px-4">
-                <span className="flex-1 text-sm text-slate-300">Last Run</span>
-                <span className="text-sm text-white">
-                  {config.lastRunAt ? new Date(config.lastRunAt).toLocaleString() : 'Never'}
-                </span>
-              </div>
-              <div className="flex min-h-[60px] items-center border-t border-white/10 px-4">
-                <span className="flex-1 text-sm text-slate-300">Order Policy</span>
-                <span className="text-sm text-amber-200">TRACK + RESPONSE · NO SSI SUBMIT</span>
-              </div>
-            </div>
-          </section>
-
-          <div className="grid gap-3 sm:grid-cols-2">
-            <button
-              type="button"
-              disabled={triggering}
-              onClick={() => void trigger()}
-              className="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-amber-400/30 bg-amber-400/10 px-4 py-3 font-semibold text-amber-200 disabled:opacity-50"
-            >
-              <Play className="size-4" /> {triggering ? 'Tracking…' : 'Trigger Tracking'}
-            </button>
-            <button
-              type="button"
-              disabled={saving}
-              onClick={() => void save()}
-              className="w-full rounded-2xl bg-sky-500 px-4 py-3 font-semibold text-white disabled:opacity-50"
-            >
-              {saving ? 'Saving…' : 'Save Changes'}
-            </button>
-          </div>
-
-          {triggerResult && (
-            <section className="rounded-3xl border border-white/10 bg-white/[0.035] p-4">
-              <p className="text-sm font-semibold text-white">System response</p>
-              <p className="mt-1 text-sm text-slate-400">
-                Evaluated {triggerResult.evaluated}, HOLD {triggerResult.held}, messages{' '}
-                {triggerResult.notified}, SSI submitted {triggerResult.submitted}.
-              </p>
-              {triggerResult.messages?.length ? (
-                <div className="mt-3 space-y-2">
-                  {triggerResult.messages.map((item, index) => (
-                    <div
-                      key={`${index}-${item}`}
-                      className="rounded-xl border border-amber-400/20 bg-amber-400/5 px-3 py-2 text-sm text-amber-100"
-                    >
-                      {item}
-                    </div>
-                  ))}
-                </div>
-              ) : null}
-              {triggerResult.candidates?.length ? (
-                <div className="mt-3 space-y-2">
-                  {triggerResult.candidates.map((candidate, index) => {
-                    const isNotify = candidate.action === 'NOTIFY';
-                    return (
-                      <div
-                        key={`${candidate.symbol}-${index}`}
-                        className={`rounded-xl border px-3 py-3 ${
-                          isNotify
-                            ? 'border-amber-400/20 bg-amber-400/5'
-                            : 'border-white/10 bg-black/10'
-                        }`}
-                      >
-                        <div className="flex items-center justify-between gap-3">
-                          <div className="flex items-center gap-2">
-                            <span className="text-white">{candidate.symbol}</span>
-                            <span
-                              className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${
-                                isNotify
-                                  ? 'bg-amber-400/10 text-amber-200'
-                                  : candidate.action === 'SKIP_HOLD'
-                                    ? 'bg-slate-400/10 text-slate-400'
-                                    : 'bg-white/5 text-slate-400'
-                              }`}
-                            >
-                              {candidate.action}
-                            </span>
-                          </div>
-                          <span className="text-xs text-slate-500">
-                            {reasonLabel(candidate.reason)}
-                          </span>
-                        </div>
-                        <p className="mt-1 text-xs text-slate-400">
-                          Buy {candidate.buyPrice > 0 ? candidate.buyPrice.toFixed(2) : '—'} · Now{' '}
-                          {candidate.currentPrice > 0 ? candidate.currentPrice.toFixed(2) : '—'} ·
-                          TP {candidate.targetPrice > 0 ? candidate.targetPrice.toFixed(2) : '—'} ·{' '}
-                          {candidate.currentProfitPct >= 0 ? '+' : ''}
-                          {candidate.currentProfitPct.toFixed(2)}%
-                        </p>
-                      </div>
-                    );
-                  })}
-                </div>
-              ) : (
-                <p className="mt-3 text-sm text-slate-500">No open positions were evaluated.</p>
-              )}
-            </section>
-          )}
-          {message && <p className="text-center text-sm text-slate-400">{message}</p>}
-        </div>
-      )}
-    </DashboardShell>
-  );
+function StockEventsCronPage() {
+  const [config, setConfig] = useState<StockCronConfig>({ enabled:false, schedule:'*/15 * * * *', timezone:'Asia/Ho_Chi_Minh', syncStartDate:null, syncEndDate:null, batchSize:200, priceSyncEnabled:true, telegramCredentialId:null, lastRunAt:null });
+  const [bots, setBots] = useState<TelegramBot[]>([]);
+  const [runs, setRuns] = useState<StockRun[]>([]);
+  const [saving, setSaving] = useState(false);
+  const [triggering, setTriggering] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
+  useEffect(() => { void Promise.all([api.get<StockCronConfig>('/stock-events-cron/settings'), api.get<TelegramBot[]>('/platform/telegram/bots'), api.get<StockRun[]>('/stock-events-cron/runs?limit=10')]).then(([settings, telegram, history]) => { setConfig(c => ({...c, ...settings.data})); setBots(telegram.data ?? []); setRuns(history.data ?? []); }).catch(() => setMessage('Unable to load stock events cron configuration')); }, []);
+  async function save() { setSaving(true); setMessage(null); try { const response = await api.post<StockCronConfig>('/stock-events-cron/settings', config); setConfig(c => ({...c, ...response.data})); setMessage('Saved'); } catch (error) { setMessage(error instanceof Error ? error.message : 'Unable to save'); } finally { setSaving(false); } }
+  async function trigger() { setTriggering(true); setMessage(null); try { const response = await api.post<StockRun>('/stock-events-cron/trigger', {}); const history = await api.get<StockRun[]>('/stock-events-cron/runs?limit=10'); setRuns(history.data ?? []); setMessage(`Sync ${response.data.status.toLowerCase()}`); } catch (error) { setMessage(error instanceof Error ? error.message : 'Unable to trigger sync'); } finally { setTriggering(false); } }
+  return <DashboardShell view="settings">{() => <div className="tce-mobile-view space-y-6">
+    <header className="px-1 pt-2"><Link href="/settings/cron" className="mb-4 inline-flex items-center gap-1 text-sm text-sky-300"><ChevronLeft className="size-4" /> Cron Jobs</Link><h1 className="text-2xl font-semibold text-white">Stock Events Sync</h1><p className="mt-1 text-sm text-slate-400">Vietstock events → Supabase, with live price enrichment from SSI.</p></header>
+    <section><p className="mb-2 px-1 text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Status</p><div className="rounded-3xl border border-white/10 bg-white/[0.035]"><label className="flex min-h-[72px] items-center gap-4 px-4"><span className="flex-1"><strong className="block text-[16px] text-white">Enabled</strong><span className="text-sm text-slate-400">Dynamic NestJS scheduler</span></span><input type="checkbox" className="size-5 accent-sky-400" checked={config.enabled} onChange={e => setConfig(c => ({...c, enabled:e.target.checked}))} /></label></div></section>
+    <section><p className="mb-2 px-1 text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Schedule</p><div className="rounded-3xl border border-white/10 bg-white/[0.035] p-4 space-y-3"><label className="block"><span className="mb-1 block text-sm text-white">Cron expression</span><input className="w-full rounded-xl border border-white/10 bg-black/20 px-3 py-2 text-white" value={config.schedule} onChange={e => setConfig(c => ({...c, schedule:e.target.value}))} /></label><label className="block"><span className="mb-1 block text-sm text-white">Timezone</span><input className="w-full rounded-xl border border-white/10 bg-black/20 px-3 py-2 text-white" value={config.timezone} onChange={e => setConfig(c => ({...c, timezone:e.target.value}))} /></label></div></section>
+    <section><p className="mb-2 px-1 text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Sync Window</p><div className="grid gap-3 rounded-3xl border border-white/10 bg-white/[0.035] p-4 sm:grid-cols-2"><label className="block"><span className="mb-1 block text-sm text-white">Start date</span><input type="date" className="w-full rounded-xl border border-white/10 bg-black/20 px-3 py-2 text-white" value={config.syncStartDate ?? ''} onChange={e => setConfig(c => ({...c, syncStartDate:e.target.value || null}))} /></label><label className="block"><span className="mb-1 block text-sm text-white">End date</span><input type="date" className="w-full rounded-xl border border-white/10 bg-black/20 px-3 py-2 text-white" value={config.syncEndDate ?? ''} onChange={e => setConfig(c => ({...c, syncEndDate:e.target.value || null}))} /></label></div><p className="mt-2 px-1 text-xs text-slate-500">SYNCED + unchanged hash ⇒ skip. Changed event ⇒ resync.</p></section>
+    <section><p className="mb-2 px-1 text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Batch + Price</p><div className="rounded-3xl border border-white/10 bg-white/[0.035]"><label className="flex min-h-[72px] items-center gap-4 border-b border-white/10 px-4"><span className="flex-1"><strong className="block text-[16px] text-white">Batch size</strong><span className="text-sm text-slate-400">50–500 events per upsert</span></span><input type="number" min="50" max="500" step="50" className="w-24 rounded-xl border border-white/10 bg-black/20 px-3 py-2 text-right text-white" value={config.batchSize} onChange={e => setConfig(c => ({...c, batchSize:Number(e.target.value)}))} /></label><label className="flex min-h-[72px] items-center gap-4 px-4"><span className="flex-1"><strong className="block text-[16px] text-white">SSI price enrichment</strong><span className="text-sm text-slate-400">Use existing SSI service in batches</span></span><input type="checkbox" className="size-5 accent-emerald-400" checked={config.priceSyncEnabled} onChange={e => setConfig(c => ({...c, priceSyncEnabled:e.target.checked}))} /></label></div></section>
+    <section><div className="mb-2 flex items-center justify-between px-1"><p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Telegram</p><Link href="/notifications/new" className="inline-flex items-center gap-1 text-xs font-medium text-sky-300">Add bot <ExternalLink className="size-3" /></Link></div><div className="rounded-3xl border border-white/10 bg-white/[0.035] p-4"><select className="w-full rounded-xl border border-white/10 bg-black/20 px-3 py-2 text-white" value={config.telegramCredentialId ?? ''} onChange={e => setConfig(c => ({...c, telegramCredentialId:e.target.value || null}))}><option value="">No Telegram notification</option>{bots.filter(bot => bot.isActive && !bot.isPaused).map(bot => <option key={bot.id} value={bot.id}>{bot.name} · {bot.environment}</option>)}</select><p className="mt-2 text-xs text-slate-500">Send sync summary after each run.</p></div></section>
+    <section><div className="flex gap-3"><button type="button" disabled={saving} onClick={() => void save()} className="min-h-11 flex-1 rounded-2xl bg-white px-4 py-3 text-sm font-semibold text-slate-950">{saving ? 'Saving…' : 'Save cron'}</button><button type="button" disabled={triggering} onClick={() => void trigger()} className="inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-semibold text-white"><Play className="size-4" />{triggering ? 'Running…' : 'Run now'}</button></div>{message ? <p className="mt-3 text-sm text-slate-300">{message}</p> : null}</section>
+    <section><p className="mb-2 px-1 text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Recent runs</p><div className="overflow-hidden rounded-3xl border border-white/10 bg-white/[0.035]">{runs.length ? runs.map(run => <div key={run.id} className="border-b border-white/10 px-4 py-3 last:border-b-0"><div className="flex items-center justify-between gap-3"><strong className="text-sm text-white">{run.status}</strong><span className="text-xs text-slate-500">{new Date(run.started_at).toLocaleString('vi-VN')}</span></div><p className="mt-1 text-xs text-slate-400">+{run.inserted_count} new · {run.updated_count} updated · {run.skipped_count} skipped · {run.failed_count} failed · SSI {run.symbols_synced}/{run.symbols_requested}</p>{run.error_message ? <p className="mt-1 text-xs text-rose-300">{run.error_message}</p> : null}</div>) : <p className="px-4 py-4 text-sm text-slate-500">No runs yet.</p>}</div></section>
+  </div>}</DashboardShell>;
 }

@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { ChevronLeft, ChevronRight, Clock3 } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Clock3, DatabaseZap } from 'lucide-react';
 import DashboardShell from '../../../components/dashboard/DashboardShell';
 
 export default function CronIndexPage() {
@@ -37,6 +37,23 @@ export default function CronIndexPage() {
                   </strong>
                   <span className="block truncate text-sm text-slate-400">
                     SELL profitable stock positions
+                  </span>
+                </span>
+                <ChevronRight className="size-5 text-slate-500" />
+              </Link>
+              <Link
+                href="/settings/cron/stock-events-sync"
+                className="flex min-h-[76px] items-center gap-4 px-4 active:bg-white/5"
+              >
+                <span className="flex size-10 items-center justify-center rounded-xl bg-white/5 text-emerald-300">
+                  <DatabaseZap className="size-5" />
+                </span>
+                <span className="min-w-0 flex-1">
+                  <strong className="block text-[16px] font-medium text-white">
+                    Stock Events Sync
+                  </strong>
+                  <span className="block truncate text-sm text-slate-400">
+                    Vietstock events → Supabase + SSI market prices
                   </span>
                 </span>
                 <ChevronRight className="size-5 text-slate-500" />
