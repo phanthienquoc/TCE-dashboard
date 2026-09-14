@@ -197,9 +197,10 @@ function StockEventsCronPage() {
   const [saving, setSaving] = useState(false);
   const [triggering, setTriggering] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const [tab, setTab] = useState<'runs' | 'config'>('runs');
 
   async function refreshRuns() {
-    const history = await api.get<StockRun[]>('/stock-events-cron/runs?limit=10');
+    const history = await api.get<StockRun[]>('/stock-events-cron/runs?limit=20');
     setRuns(history.data ?? []);
   }
 
@@ -207,17 +208,18 @@ function StockEventsCronPage() {
     void Promise.all([
       api.get<StockCronConfig>('/stock-events-cron/settings'),
       api.get<TelegramBot[]>('/platform/telegram/bots'),
-      api.get<StockRun[]>('/stock-events-cron/runs?limit=10'),
+      api.get<StockRun[]>('/stock-events-cron/runs?limit=20'),
     ])
       .then(([settings, telegram, history]) => {
         setConfig(c => ({ ...c, ...settings.data }));
         setBots(telegram.data ?? []);
         setRuns(history.data ?? []);
       })
-      .catch(() => setMessage('Unable to load stock events cron configuration'));
+      .catch(() => setMessage('Unable to load stock events cron data'));
   }, []);
 
-  const hasRunning = runs.some(run => run.status === 'RUNNING');
+  const runningRuns = runs.filter(run => run.status === 'RUNNING');
+  const hasRunning = runningRuns.length > 0;
 
   useEffect(() => {
     if (!hasRunning) return;
@@ -245,12 +247,10 @@ function StockEventsCronPage() {
     setTriggering(true);
     setMessage(null);
     try {
-      const responsePromise = api.post<StockRun>('/stock-events-cron/trigger', {});
-      await new Promise(resolve => window.setTimeout(resolve, 350));
+      const response = await api.post<StockRun>('/stock-events-cron/trigger', {});
       await refreshRuns().catch(() => undefined);
-      const response = await responsePromise;
-      await refreshRuns();
-      setMessage(`Sync ${response.data.status.toLowerCase()}`);
+      setMessage(response.data.status === 'RUNNING' ? 'Sync started' : `Sync ${response.data.status.toLowerCase()}`);
+      setTab('runs');
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'Unable to trigger sync');
     } finally {
@@ -258,49 +258,103 @@ function StockEventsCronPage() {
     }
   }
 
-  const activeRun = runs.find(run => run.status === 'RUNNING') ?? runs[0] ?? null;
-  const progress = activeRun?.metadata?.progress;
-  const progressPct = Math.min(Math.max(Math.round(progress?.progressPct ?? (activeRun?.status === 'SUCCEEDED' ? 100 : 0)), 0), 100);
-  const phaseLabel = progress?.phase === 'SSI_PRICE' ? 'Enriching prices from SSI' : progress?.phase === 'COMPLETED' ? 'Sync completed' : progress?.phase === 'FAILED' ? 'Sync failed' : 'Fetching events from Vietstock';
+  const sortedRuns = [...runs].sort((a, b) => {
+    if (a.status === 'RUNNING' && b.status !== 'RUNNING') return -1;
+    if (a.status !== 'RUNNING' && b.status === 'RUNNING') return 1;
+    return new Date(b.started_at).getTime() - new Date(a.started_at).getTime();
+  });
 
   return (
     <DashboardShell view="settings">
       {() => (
-        <div className="tce-mobile-view space-y-6">
+        <div className="tce-mobile-view space-y-5">
           <header className="px-1 pt-2">
             <Link href="/settings/cron" className="mb-4 inline-flex items-center gap-1 text-sm text-sky-300"><ChevronLeft className="size-4" /> Cron Jobs</Link>
-            <h1 className="text-2xl font-semibold text-white">Stock Events Sync</h1>
-            <p className="mt-1 text-sm text-slate-400">Vietstock events → Supabase, with live price enrichment from SSI.</p>
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h1 className="text-2xl font-semibold text-white">Stock Events Sync</h1>
+                <p className="mt-1 text-sm text-slate-400">Vietstock events → Supabase + SSI price enrichment.</p>
+              </div>
+              {hasRunning ? <span className="mt-1 inline-flex shrink-0 items-center gap-1.5 rounded-full border border-emerald-400/20 bg-emerald-400/10 px-2.5 py-1 text-xs font-semibold text-emerald-300"><Loader2 className="size-3 animate-spin" /> {runningRuns.length} running</span> : null}
+            </div>
           </header>
 
-          {activeRun ? (
-            <section className="overflow-hidden rounded-3xl border border-emerald-400/15 bg-white/[0.035] p-4 shadow-[0_0_40px_rgba(16,185,129,0.06)]">
-              <div className="flex items-start justify-between gap-3">
-                <div className="flex items-center gap-2">
-                  {activeRun.status === 'RUNNING' ? <span className="inline-flex items-center gap-2 rounded-full border border-emerald-400/20 bg-emerald-400/10 px-3 py-1 text-xs font-bold tracking-wide text-emerald-300"><Loader2 className="size-3.5 animate-spin" /> RUNNING</span> : activeRun.status === 'FAILED' ? <span className="inline-flex items-center gap-2 rounded-full border border-red-400/20 bg-red-400/10 px-3 py-1 text-xs font-bold tracking-wide text-red-300"><AlertCircle className="size-3.5" /> FAILED</span> : <span className="inline-flex items-center gap-2 rounded-full border border-emerald-400/20 bg-emerald-400/10 px-3 py-1 text-xs font-bold tracking-wide text-emerald-300"><CheckCircle2 className="size-3.5" /> {activeRun.status}</span>}
-                </div>
-                <div className="text-right text-xs text-slate-500">Started {new Date(activeRun.started_at).toLocaleTimeString('vi-VN')}<br />{activeRun.finished_at ? `Finished ${new Date(activeRun.finished_at).toLocaleTimeString('vi-VN')}` : 'Live'}</div>
-              </div>
-              <div className="mt-5 flex items-end justify-between gap-3"><div><p className="text-sm font-medium text-slate-300">Phase</p><p className="mt-1 text-base font-semibold text-white">{phaseLabel}</p></div><strong className="text-4xl font-semibold tracking-tight text-white">{progressPct}%</strong></div>
-              <div className="mt-3 h-2.5 overflow-hidden rounded-full bg-white/10"><div className="h-full rounded-full bg-emerald-400 transition-all duration-700" style={{ width: `${progressPct}%` }} /></div>
-              <div className="mt-3 flex justify-between text-xs text-slate-400"><span>{progress?.processedEvents ?? activeRun.inserted_count + activeRun.updated_count + activeRun.skipped_count} / {progress?.estimatedTotalEvents ?? '—'} events</span><span>Page {progress?.currentPage ?? '—'}</span></div>
-              <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
-                <Metric label="Inserted" value={progress?.inserted ?? activeRun.inserted_count} />
-                <Metric label="Updated" value={progress?.updated ?? activeRun.updated_count} />
-                <Metric label="Skipped" value={progress?.skipped ?? activeRun.skipped_count} />
-                <Metric label="Failed" value={progress?.failed ?? activeRun.failed_count} />
-              </div>
-              <div className="mt-3 rounded-2xl border border-white/10 bg-black/20 px-3 py-2.5 text-sm text-slate-300"><span className="font-semibold text-white">SSI price enrichment</span><span className="float-right">{progress?.symbolsSynced ?? activeRun.symbols_synced} / {progress?.symbolsRequested ?? activeRun.symbols_requested}</span></div>
-            </section>
-          ) : null}
+          <div className="grid grid-cols-2 rounded-2xl border border-white/10 bg-white/[0.035] p-1">
+            <button type="button" onClick={() => setTab('runs')} className={`min-h-11 rounded-xl px-3 text-sm font-semibold transition ${tab === 'runs' ? 'bg-white text-slate-950 shadow-sm' : 'text-slate-400'}`}>
+              Jobs {runs.length ? <span className="ml-1 text-xs opacity-60">{runs.length}</span> : null}
+            </button>
+            <button type="button" onClick={() => setTab('config')} className={`min-h-11 rounded-xl px-3 text-sm font-semibold transition ${tab === 'config' ? 'bg-white text-slate-950 shadow-sm' : 'text-slate-400'}`}>
+              Config
+            </button>
+          </div>
 
-          <section><p className="mb-2 px-1 text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Status</p><div className="rounded-3xl border border-white/10 bg-white/[0.035]"><label className="flex min-h-[72px] items-center gap-4 px-4"><span className="flex-1"><strong className="block text-[16px] text-white">Enabled</strong><span className="text-sm text-slate-400">Dynamic NestJS scheduler</span></span><input type="checkbox" className="size-5 accent-sky-400" checked={config.enabled} onChange={e => setConfig(c => ({ ...c, enabled: e.target.checked }))} /></label></div></section>
-          <section><p className="mb-2 px-1 text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Schedule</p><div className="rounded-3xl border border-white/10 bg-white/[0.035] p-4 space-y-3"><label className="block"><span className="mb-1 block text-sm text-white">Cron expression</span><input className="w-full rounded-xl border border-white/10 bg-black/20 px-3 py-2 text-white" value={config.schedule} onChange={e => setConfig(c => ({ ...c, schedule: e.target.value }))} /></label><label className="block"><span className="mb-1 block text-sm text-white">Timezone</span><input className="w-full rounded-xl border border-white/10 bg-black/20 px-3 py-2 text-white" value={config.timezone} onChange={e => setConfig(c => ({ ...c, timezone: e.target.value }))} /></label></div></section>
-          <section><p className="mb-2 px-1 text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Sync Window</p><div className="grid gap-3 rounded-3xl border border-white/10 bg-white/[0.035] p-4 sm:grid-cols-2"><label className="block"><span className="mb-1 block text-sm text-white">Start date</span><input type="date" className="w-full rounded-xl border border-white/10 bg-black/20 px-3 py-2 text-white" value={config.syncStartDate ?? ''} onChange={e => setConfig(c => ({ ...c, syncStartDate: e.target.value || null }))} /></label><label className="block"><span className="mb-1 block text-sm text-white">End date</span><input type="date" className="w-full rounded-xl border border-white/10 bg-black/20 px-3 py-2 text-white" value={config.syncEndDate ?? ''} onChange={e => setConfig(c => ({ ...c, syncEndDate: e.target.value || null }))} /></label></div><p className="mt-2 px-1 text-xs text-slate-500">SYNCED + unchanged hash ⇒ skip. Changed event ⇒ resync.</p></section>
-          <section><p className="mb-2 px-1 text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Batch + Price</p><div className="rounded-3xl border border-white/10 bg-white/[0.035]"><label className="flex min-h-[72px] items-center gap-4 border-b border-white/10 px-4"><span className="flex-1"><strong className="block text-[16px] text-white">Batch size</strong><span className="text-sm text-slate-400">50–500 events per upsert</span></span><input type="number" min="50" max="500" step="50" className="w-24 rounded-xl border border-white/10 bg-black/20 px-3 py-2 text-right text-white" value={config.batchSize} onChange={e => setConfig(c => ({ ...c, batchSize: Number(e.target.value) }))} /></label><label className="flex min-h-[72px] items-center gap-4 px-4"><span className="flex-1"><strong className="block text-[16px] text-white">SSI price enrichment</strong><span className="text-sm text-slate-400">Use existing SSI service in batches</span></span><input type="checkbox" className="size-5 accent-emerald-400" checked={config.priceSyncEnabled} onChange={e => setConfig(c => ({ ...c, priceSyncEnabled: e.target.checked }))} /></label></div></section>
-          <section><div className="mb-2 flex items-center justify-between px-1"><p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Telegram</p><Link href="/notifications/new" className="inline-flex items-center gap-1 text-xs font-medium text-sky-300">Add bot <ExternalLink className="size-3" /></Link></div><div className="rounded-3xl border border-white/10 bg-white/[0.035] p-4"><select className="w-full rounded-xl border border-white/10 bg-black/20 px-3 py-2 text-white" value={config.telegramCredentialId ?? ''} onChange={e => setConfig(c => ({ ...c, telegramCredentialId: e.target.value || null }))}><option value="">No Telegram notification</option>{bots.filter(bot => bot.isActive && !bot.isPaused).map(bot => <option key={bot.id} value={bot.id}>{bot.name} · {bot.environment}</option>)}</select><p className="mt-2 text-xs text-slate-500">Send sync summary after each run.</p></div></section>
-          <section><div className="flex gap-3"><button type="button" disabled={saving} onClick={() => void save()} className="min-h-11 flex-1 rounded-2xl bg-white px-4 py-3 text-sm font-semibold text-slate-950">{saving ? 'Saving…' : 'Save cron'}</button><button type="button" disabled={triggering || hasRunning} onClick={() => void trigger()} className="inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-semibold text-white"><Play className="size-4" />{hasRunning ? 'Running…' : triggering ? 'Starting…' : 'Run now'}</button></div>{message ? <p className="mt-3 text-sm text-slate-300">{message}</p> : null}</section>
-          <section><div className="mb-2 flex items-center justify-between px-1"><p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Recent runs</p>{hasRunning ? <span className="text-xs font-medium text-emerald-300">Live · auto refresh</span> : null}</div><div className="overflow-hidden rounded-3xl border border-white/10 bg-white/[0.035]">{runs.length ? runs.map(run => <div key={run.id} className="border-b border-white/10 px-4 py-3 last:border-0"><div className="flex items-center justify-between gap-3"><div className="flex items-center gap-2"><span className={`size-2.5 rounded-full ${run.status === 'RUNNING' ? 'animate-pulse bg-emerald-400' : run.status === 'FAILED' ? 'bg-red-400' : 'bg-sky-400'}`} /><strong className="text-sm text-white">{run.status}</strong></div><span className="text-xs text-slate-500">{new Date(run.started_at).toLocaleString('vi-VN')}</span></div><p className="mt-1 text-xs text-slate-400">+{run.inserted_count} new · {run.updated_count} updated · {run.skipped_count} skipped · {run.failed_count} failed · SSI {run.symbols_synced}/{run.symbols_requested}{run.status === 'RUNNING' && run.metadata?.progress ? ` · ${Math.round(run.metadata.progress.progressPct)}%` : ''}</p>{run.error_message ? <p className="mt-1 text-xs text-red-300">{run.error_message}</p> : null}</div>) : <p className="px-4 py-6 text-sm text-slate-500">No runs yet.</p>}</div></section>
+          {tab === 'runs' ? (
+            <>
+              <section className="flex items-center justify-between gap-3 px-1">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Job history</p>
+                  <p className="mt-1 text-sm text-slate-400">Running jobs are always pinned to the top.</p>
+                </div>
+                {hasRunning ? <span className="text-xs font-medium text-emerald-300">Live · auto refresh</span> : null}
+              </section>
+
+              <section className="space-y-3">
+                {sortedRuns.length ? sortedRuns.map(run => {
+                  const progress = run.metadata?.progress;
+                  const progressPct = Math.min(Math.max(Math.round(progress?.progressPct ?? (run.status === 'SUCCEEDED' ? 100 : 0)), 0), 100);
+                  const phaseLabel = progress?.phase === 'SSI_PRICE' ? 'Enriching prices from SSI' : progress?.phase === 'COMPLETED' ? 'Sync completed' : progress?.phase === 'FAILED' ? 'Sync failed' : 'Fetching events from Vietstock';
+                  return (
+                    <article key={run.id} className={`overflow-hidden rounded-3xl border bg-white/[0.035] ${run.status === 'RUNNING' ? 'border-emerald-400/25 shadow-[0_0_30px_rgba(16,185,129,0.06)]' : 'border-white/10'}`}>
+                      <div className="px-4 py-3.5">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="flex items-center gap-2">
+                            <span className={`size-2.5 rounded-full ${run.status === 'RUNNING' ? 'animate-pulse bg-emerald-400' : run.status === 'FAILED' ? 'bg-red-400' : run.status === 'PARTIAL' ? 'bg-amber-400' : 'bg-sky-400'}`} />
+                            <strong className="text-sm text-white">{run.status}</strong>
+                            {run.status === 'RUNNING' ? <span className="text-xs font-medium text-emerald-300">LIVE</span> : null}
+                          </div>
+                          <span className="text-right text-xs text-slate-500">{new Date(run.started_at).toLocaleString('vi-VN')}</span>
+                        </div>
+                        <div className="mt-2 text-xs text-slate-400">+{run.inserted_count} new · {run.updated_count} updated · {run.skipped_count} skipped · {run.failed_count} failed · SSI {run.symbols_synced}/{run.symbols_requested}</div>
+
+                        {run.status === 'RUNNING' ? (
+                          <div className="mt-4 border-t border-white/10 pt-3">
+                            <div className="flex items-end justify-between gap-3">
+                              <div><p className="text-xs text-slate-500">Current phase</p><p className="mt-0.5 text-sm font-semibold text-white">{phaseLabel}</p></div>
+                              <strong className="text-2xl font-semibold text-white">{progressPct}%</strong>
+                            </div>
+                            <div className="mt-2 h-2 overflow-hidden rounded-full bg-white/10"><div className="h-full rounded-full bg-emerald-400 transition-all duration-700" style={{ width: `${progressPct}%` }} /></div>
+                            <div className="mt-2 flex justify-between text-xs text-slate-400"><span>{progress?.processedEvents ?? 0} / {progress?.estimatedTotalEvents ?? '—'} events</span><span>Page {progress?.currentPage ?? '—'}</span></div>
+                            <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                              <Metric label="Inserted" value={progress?.inserted ?? run.inserted_count} />
+                              <Metric label="Updated" value={progress?.updated ?? run.updated_count} />
+                              <Metric label="Skipped" value={progress?.skipped ?? run.skipped_count} />
+                              <Metric label="Failed" value={progress?.failed ?? run.failed_count} />
+                            </div>
+                          </div>
+                        ) : null}
+
+                        {run.error_message ? <p className="mt-2 text-xs text-red-300">{run.error_message}</p> : null}
+                        {run.finished_at ? <p className="mt-2 text-xs text-slate-500">Finished {new Date(run.finished_at).toLocaleString('vi-VN')}</p> : null}
+                      </div>
+                    </article>
+                  );
+                }) : <div className="rounded-3xl border border-white/10 bg-white/[0.035] px-4 py-10 text-center text-sm text-slate-500">No jobs have run yet.</div>}
+              </section>
+
+              <button type="button" disabled={triggering || hasRunning} onClick={() => void trigger()} className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-semibold text-white disabled:opacity-50">
+                <Play className="size-4" />{hasRunning ? 'A job is already running' : triggering ? 'Starting…' : 'Run now'}
+              </button>
+            </>
+          ) : (
+            <>
+              <section><p className="mb-2 px-1 text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Status</p><div className="rounded-3xl border border-white/10 bg-white/[0.035]"><label className="flex min-h-[72px] items-center gap-4 px-4"><span className="flex-1"><strong className="block text-[16px] text-white">Enabled</strong><span className="text-sm text-slate-400">Dynamic NestJS scheduler</span></span><input type="checkbox" className="size-5 accent-sky-400" checked={config.enabled} onChange={e => setConfig(c => ({ ...c, enabled: e.target.checked }))} /></label></div></section>
+              <section><p className="mb-2 px-1 text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Schedule</p><div className="rounded-3xl border border-white/10 bg-white/[0.035] p-4 space-y-3"><label className="block"><span className="mb-1 block text-sm text-white">Cron expression</span><input className="w-full rounded-xl border border-white/10 bg-black/20 px-3 py-2 text-white" value={config.schedule} onChange={e => setConfig(c => ({ ...c, schedule: e.target.value }))} /></label><label className="block"><span className="mb-1 block text-sm text-white">Timezone</span><input className="w-full rounded-xl border border-white/10 bg-black/20 px-3 py-2 text-white" value={config.timezone} onChange={e => setConfig(c => ({ ...c, timezone: e.target.value }))} /></label></div></section>
+              <section><p className="mb-2 px-1 text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Sync Window</p><div className="grid gap-3 rounded-3xl border border-white/10 bg-white/[0.035] p-4 sm:grid-cols-2"><label className="block"><span className="mb-1 block text-sm text-white">Start date</span><input type="date" className="w-full rounded-xl border border-white/10 bg-black/20 px-3 py-2 text-white" value={config.syncStartDate ?? ''} onChange={e => setConfig(c => ({ ...c, syncStartDate: e.target.value || null }))} /></label><label className="block"><span className="mb-1 block text-sm text-white">End date</span><input type="date" className="w-full rounded-xl border border-white/10 bg-black/20 px-3 py-2 text-white" value={config.syncEndDate ?? ''} onChange={e => setConfig(c => ({ ...c, syncEndDate: e.target.value || null }))} /></label></div><p className="mt-2 px-1 text-xs text-slate-500">SYNCED + unchanged hash ⇒ skip. Changed event ⇒ resync.</p></section>
+              <section><p className="mb-2 px-1 text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Batch + Price</p><div className="rounded-3xl border border-white/10 bg-white/[0.035]"><label className="flex min-h-[72px] items-center gap-4 border-b border-white/10 px-4"><span className="flex-1"><strong className="block text-[16px] text-white">Batch size</strong><span className="text-sm text-slate-400">50–500 events per upsert</span></span><input type="number" min="50" max="500" step="50" className="w-24 rounded-xl border border-white/10 bg-black/20 px-3 py-2 text-right text-white" value={config.batchSize} onChange={e => setConfig(c => ({ ...c, batchSize: Number(e.target.value) }))} /></label><label className="flex min-h-[72px] items-center gap-4 px-4"><span className="flex-1"><strong className="block text-[16px] text-white">SSI price enrichment</strong><span className="text-sm text-slate-400">Use existing SSI service in batches</span></span><input type="checkbox" className="size-5 accent-emerald-400" checked={config.priceSyncEnabled} onChange={e => setConfig(c => ({ ...c, priceSyncEnabled: e.target.checked }))} /></label></div></section>
+              <section><div className="mb-2 flex items-center justify-between px-1"><p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Telegram</p><Link href="/notifications/new" className="inline-flex items-center gap-1 text-xs font-medium text-sky-300">Add bot <ExternalLink className="size-3" /></Link></div><div className="rounded-3xl border border-white/10 bg-white/[0.035] p-4"><select className="w-full rounded-xl border border-white/10 bg-black/20 px-3 py-2 text-white" value={config.telegramCredentialId ?? ''} onChange={e => setConfig(c => ({ ...c, telegramCredentialId: e.target.value || null }))}><option value="">No Telegram notification</option>{bots.filter(bot => bot.isActive && !bot.isPaused).map(bot => <option key={bot.id} value={bot.id}>{bot.name} · {bot.environment}</option>)}</select><p className="mt-2 text-xs text-slate-500">Send sync summary after each run.</p></div></section>
+              <section><div className="flex gap-3"><button type="button" disabled={saving} onClick={() => void save()} className="min-h-11 flex-1 rounded-2xl bg-white px-4 py-3 text-sm font-semibold text-slate-950">{saving ? 'Saving…' : 'Save cron'}</button><button type="button" onClick={() => setTab('runs')} className="min-h-11 flex-1 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-semibold text-white">View jobs</button></div>{message ? <p className="mt-3 text-sm text-slate-300">{message}</p> : null}</section>
+            </>
+          )}
         </div>
       )}
     </DashboardShell>
