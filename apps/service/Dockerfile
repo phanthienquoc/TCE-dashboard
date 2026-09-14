@@ -8,6 +8,11 @@ ENV PUPPETEER_CACHE_DIR=/app/.cache/puppeteer
 COPY package.json ./
 RUN npm install --include=dev --no-audit --no-fund
 
+# Puppeteer does not guarantee that Chrome for Testing is present in the
+# runtime image. Install the exact headless shell binary expected by the
+# crawler and keep it in the image-local cache.
+RUN npx puppeteer browsers install chrome-headless-shell
+
 FROM node:24-bookworm-slim AS build
 WORKDIR /app
 ENV PUPPETEER_CACHE_DIR=/app/.cache/puppeteer
