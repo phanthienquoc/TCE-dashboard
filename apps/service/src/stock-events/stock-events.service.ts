@@ -49,6 +49,7 @@ export class StockEventsService {
           eventContent: row['Nội dung sự kiện'] ?? '',
           dividendRate: row['Tỷ lệ'] ?? '',
           dividendValue: Number(row.dividendValue ?? 0),
+          price: row.price == null ? null : Number(row.price),
           crawledAt: normalizeDate(row.crawled_at),
         }))
         .filter(row => row.ticker && row.exDividendDate);

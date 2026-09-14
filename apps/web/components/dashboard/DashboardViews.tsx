@@ -747,7 +747,7 @@ function DividendCard({
   onOrder: () => void;
 }) {
   const event = item.events[0];
-  const price = marketPrice ?? pool?.currentPrice ?? pool?.current_price;
+  const price = marketPrice ?? event?.price ?? pool?.currentPrice ?? pool?.current_price;
   const dividendValue = Number(event?.dividendValue ?? 0);
   const entryLow = pool?.entryLow ?? pool?.entry_low;
   const entryHigh = pool?.entryHigh ?? pool?.entry_high;
