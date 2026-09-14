@@ -85,7 +85,9 @@ export class VietstockEventsCrawler {
   }
 
   private async createBrowserSession(fromDate: string, toDate: string): Promise<BrowserSession> {
-    const browser = await puppeteer.launch({ headless: 'shell', args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'] });
+    const executablePath = process.env.PUPPETEER_EXECUTABLE_PATH;
+    if (!executablePath) throw new Error('PUPPETEER_EXECUTABLE_PATH is not configured');
+    const browser = await puppeteer.launch({ executablePath, headless: 'shell', args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'] });
     const page = await browser.newPage();
     await page.setUserAgent(USER_AGENT);
     await page.setExtraHTTPHeaders({ 'Accept-Language': 'vi-VN,vi;q=0.9,en;q=0.7' });
