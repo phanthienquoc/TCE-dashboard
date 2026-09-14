@@ -1,0 +1,215 @@
+import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
+import { SchedulerRegistry } from '@nestjs/schedule';
+import { CronJob } from 'cron';
+import { SupabaseClientService } from '../db/supabase.client';
+import { StockEventsSyncResult, StockEventsSyncService } from './stock-events-sync.service';
+
+export type StockEventsCronConfig = {
+  enabled: boolean;
+  schedule: string;
+  timezone: string;
+  syncStartDate: string | null;
+  syncEndDate: string | null;
+  batchSize: number;
+  priceSyncEnabled: boolean;
+  telegramCredentialId: string | null;
+  lastRunAt: string | null;
+};
+
+const JOB_KEY = 'stock-events-sync';
+
+@Injectable()
+export class StockEventsCronService implements OnModuleInit, OnModuleDestroy {
+  private readonly logger = new Logger(StockEventsCronService.name);
+  private readonly running = new Set<string>();
+
+  constructor(
+    private readonly db: SupabaseClientService,
+    private readonly scheduler: SchedulerRegistry,
+    private readonly sync: StockEventsSyncService,
+  ) {}
+
+  async onModuleInit() {
+    await this.reload();
+  }
+
+  onModuleDestroy() {
+    for (const name of this.scheduler.getCronJobs().keys()) {
+      if (name.startsWith(`${JOB_KEY}:`)) this.scheduler.deleteCronJob(name);
+    }
+  }
+
+  async getConfig(userId: string): Promise<StockEventsCronConfig> {
+    const job = await this.ensureConfig(userId);
+    return this.mapConfig(job);
+  }
+
+  async saveConfig(userId: string, input: Partial<StockEventsCronConfig>) {
+    const existing = await this.ensureConfig(userId);
+    const schedule = String(input.schedule ?? existing.schedule ?? '*/15 * * * *').trim();
+    const timezone = String(input.timezone ?? existing.timezone ?? 'Asia/Ho_Chi_Minh').trim();
+    const start = normalizeDate(input.syncStartDate ?? existing.sync_start_date);
+    const end = normalizeDate(input.syncEndDate ?? existing.sync_end_date);
+    if (start && end && start > end) throw new Error('Sync start date must be before or equal to end date');
+    validateCronExpression(schedule, timezone);
+    const batchSize = Math.min(Math.max(Math.trunc(Number(input.batchSize ?? existing.batch_size ?? 200)), 50), 500);
+    const payload = {
+      enabled: input.enabled === undefined ? Boolean(existing.enabled) : input.enabled === true,
+      schedule,
+      timezone,
+      sync_start_date: start,
+      sync_end_date: end,
+      batch_size: batchSize,
+      price_sync_enabled: input.priceSyncEnabled === undefined ? Boolean(existing.price_sync_enabled) : input.priceSyncEnabled !== false,
+      telegram_credential_id: input.telegramCredentialId === undefined ? existing.telegram_credential_id ?? null : input.telegramCredentialId || null,
+      updated_at: new Date().toISOString(),
+    };
+    const { data, error } = await this.db.db
+      .from('tce_cron_jobs')
+      .update(payload)
+      .eq('id', existing.id)
+      .eq('user_id', userId)
+      .select('*')
+      .single();
+    if (error) throw error;
+    await this.reconfigure(data);
+    return this.mapConfig(data);
+  }
+
+  async trigger(userId: string): Promise<StockEventsSyncResult> {
+    const job = await this.ensureConfig(userId);
+    return this.execute(job, true);
+  }
+
+  async runs(userId: string, limit = 20) {
+    const job = await this.ensureConfig(userId);
+    const { data, error } = await this.db.db
+      .from('tce_cron_runs')
+      .select('id,status,started_at,finished_at,inserted_count,updated_count,skipped_count,failed_count,symbols_requested,symbols_synced,error_message')
+      .eq('job_id', job.id)
+      .order('started_at', { ascending: false })
+      .limit(Math.min(Math.max(Number(limit) || 20, 1), 50));
+    if (error) throw error;
+    return data ?? [];
+  }
+
+  private async reload() {
+    const { data, error } = await this.db.db.from('tce_cron_jobs').select('*').eq('job_key', JOB_KEY).eq('enabled', true);
+    if (error) {
+      this.logger.warn(`Unable to load stock events cron jobs: ${error.message}`);
+      return;
+    }
+    for (const job of data ?? []) await this.reconfigure(job);
+  }
+
+  private async ensureConfig(userId: string) {
+    const { data: account, error: accountError } = await this.db.db
+      .from('tce_accounts')
+      .select('id')
+      .eq('user_id', userId)
+      .maybeSingle();
+    if (accountError) throw accountError;
+    if (!account?.id) throw new Error('TCE account is not configured');
+    const { data, error } = await this.db.db
+      .from('tce_cron_jobs')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('job_key', JOB_KEY)
+      .maybeSingle();
+    if (error) throw error;
+    if (data) return data;
+    const { data: created, error: createError } = await this.db.db
+      .from('tce_cron_jobs')
+      .insert({
+        user_id: userId,
+        account_id: account.id,
+        job_key: JOB_KEY,
+        name: 'Stock Events Sync',
+        enabled: false,
+        schedule: '*/15 * * * *',
+        timezone: 'Asia/Ho_Chi_Minh',
+        sync_start_date: null,
+        sync_end_date: null,
+        batch_size: 200,
+        price_sync_enabled: true,
+      })
+      .select('*')
+      .single();
+    if (createError) throw createError;
+    return created;
+  }
+
+  private jobName(job: any) {
+    return `${JOB_KEY}:${String(job.user_id)}`;
+  }
+
+  private async reconfigure(job: any) {
+    const jobName = this.jobName(job);
+    try {
+      this.scheduler.deleteCronJob(jobName);
+    } catch {
+      // no-op
+    }
+    if (!job.enabled) return;
+    validateCronExpression(String(job.schedule), String(job.timezone));
+    const cron = CronJob.from({
+      cronTime: String(job.schedule),
+      timeZone: String(job.timezone),
+      onTick: () => {
+        void this.execute(job, false).catch(error => {
+          this.logger.error(`Stock event cron ${jobName} failed`, error instanceof Error ? error.stack : String(error));
+        });
+      },
+      start: true,
+    });
+    this.scheduler.addCronJob(jobName, cron);
+  }
+
+  private async execute(job: any, forced: boolean) {
+    const jobId = String(job.id);
+    if (this.running.has(jobId)) throw new Error('Stock events sync is already running');
+    if (!forced && !job.enabled) return {} as StockEventsSyncResult;
+    this.running.add(jobId);
+    try {
+      const result = await this.sync.run({
+        userId: String(job.user_id),
+        jobId,
+        syncStartDate: job.sync_start_date,
+        syncEndDate: job.sync_end_date,
+        batchSize: Number(job.batch_size ?? 200),
+        priceSyncEnabled: Boolean(job.price_sync_enabled),
+        telegramCredentialId: job.telegram_credential_id,
+      });
+      await this.db.db.from('tce_cron_jobs').update({ last_run_at: new Date().toISOString(), updated_at: new Date().toISOString() }).eq('id', jobId);
+      return result;
+    } finally {
+      this.running.delete(jobId);
+    }
+  }
+
+  private mapConfig(job: any): StockEventsCronConfig {
+    return {
+      enabled: Boolean(job.enabled),
+      schedule: String(job.schedule),
+      timezone: String(job.timezone),
+      syncStartDate: job.sync_start_date ?? null,
+      syncEndDate: job.sync_end_date ?? null,
+      batchSize: Number(job.batch_size ?? 200),
+      priceSyncEnabled: Boolean(job.price_sync_enabled),
+      telegramCredentialId: job.telegram_credential_id ?? null,
+      lastRunAt: job.last_run_at ?? null,
+    };
+  }
+}
+
+function normalizeDate(value?: string | null) {
+  if (value == null || value === '') return null;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(String(value))) throw new Error('Date must use YYYY-MM-DD');
+  return String(value);
+}
+
+function validateCronExpression(expression: string, timeZone: string) {
+  if (!expression || expression.split(/\s+/).length !== 5) throw new Error('Cron schedule must use 5 fields');
+  if (!timeZone.includes('/')) throw new Error('Invalid timezone');
+  CronJob.from({ cronTime: expression, timeZone, onTick: () => undefined });
+}
