@@ -1,0 +1,1 @@
+The application repository now contains the repeatable ETL and read-path controls. The actual 11,491+ row production backfill must be executed from an environment with both MongoDB Atlas and Supabase credentials; source data is never copied into Git.
