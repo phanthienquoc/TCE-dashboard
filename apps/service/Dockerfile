@@ -12,7 +12,7 @@ FROM node:24-bookworm-slim AS build
 WORKDIR /app
 ENV PUPPETEER_CACHE_DIR=/app/.cache/puppeteer
 COPY --from=deps /app/node_modules ./node_modules
-COPY --from=deps /app/.cache ./ .cache
+COPY --from=deps /app/.cache ./.cache
 COPY package.json ./package.json
 COPY tsconfig.base.json nx.json ./
 COPY apps/service ./apps/service
@@ -40,10 +40,10 @@ ENV NODE_ENV=production
 ENV PORT=8210
 ENV PUPPETEER_CACHE_DIR=/app/.cache/puppeteer
 COPY --from=build /app/node_modules ./node_modules
-COPY --from=build /app/.cache ./ .cache
+COPY --from=build /app/.cache ./.cache
 COPY --from=build /app/package.json ./package.json
 COPY --from=build /app/dist ./dist
 EXPOSE 8210
 USER node
-HEALTHCHECK --interval=15s --timeout=3s --start-period=10s CMD wget -q -O /dev/null http://127.0.0.1:8210/api/health || exit 1
+HEALTHCHECK --interval=15s --timeout=3s --start-period=10s CMD node -e "fetch('http://127.0.0.1:8210/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
 CMD ["node","dist/apps/service/src/main.js"]
