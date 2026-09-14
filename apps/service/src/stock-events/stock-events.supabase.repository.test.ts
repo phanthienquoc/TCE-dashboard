@@ -1,14 +1,15 @@
+import { describe, expect, it, vi } from 'vitest';
 import { StockEventsSupabaseRepository } from './stock-events.supabase.repository';
 
 describe('StockEventsSupabaseRepository', () => {
   it('maps the canonical row shape to the API event shape', async () => {
     const supabase = {
       db: {
-        from: jest.fn(() => ({
-          select: jest.fn(() => ({
-            gte: jest.fn(() => ({
-              order: jest.fn(() => ({
-                limit: jest.fn().mockResolvedValue({
+        from: vi.fn(() => ({
+          select: vi.fn(() => ({
+            gte: vi.fn(() => ({
+              order: vi.fn(() => ({
+                limit: vi.fn().mockResolvedValue({
                   data: [{
                     id: 'uuid', mongo_id: 'mongo-1', symbol: 'AAA', ex_right_date: '2026-01-02',
                     gdkhq_timestamp: '2026-01-02T00:00:00.000Z', payment_date: '2026-01-10',
