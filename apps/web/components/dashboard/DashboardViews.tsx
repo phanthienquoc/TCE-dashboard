@@ -224,40 +224,86 @@ export function PoolsView({ data, actions }: ViewProps) {
 export function PositionsView({ data, actions }: ViewProps) {
   const [tab, setTab] = useState<'current' | 'dividend' | 'history'>('current');
   const [expandedDividend, setExpandedDividend] = useState<string | null>(null);
+  const [collapsedDividendMonths, setCollapsedDividendMonths] = useState<Set<string>>(new Set());
   const events = useStockEventStore(s => s.events);
   const loading = useStockEventStore(s => s.loading);
   const error = useStockEventStore(s => s.error);
   const load = useStockEventStore(s => s.load);
   const marketPrices = useDashboardStore(s => s.marketPrices);
   const syncMarketPrices = useDashboardStore(s => s.syncMarketPrices);
+
   useEffect(() => {
-    void load();
+    void load(200, false, null);
   }, [load]);
-  const dividendPools = useMemo(() => {
-    const grouped = new Map<string, StockEvent[]>();
+
+  const dividendMonthGroups = useMemo(() => {
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+    const currentMonthIndex = now.getFullYear() * 12 + now.getMonth();
+    const grouped = new Map<string, Map<string, StockEvent[]>>();
+
     for (const event of events) {
+      const date = dividendEventDate(event);
       const ticker = String(event.ticker ?? '')
         .trim()
         .toUpperCase();
-      if (!ticker) continue;
-      grouped.set(ticker, [...(grouped.get(ticker) ?? []), event]);
+      if (!date || !ticker || date.getTime() < today) continue;
+
+      const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+      const monthTickers = grouped.get(monthKey) ?? new Map<string, StockEvent[]>();
+      monthTickers.set(ticker, [...(monthTickers.get(ticker) ?? []), event]);
+      grouped.set(monthKey, monthTickers);
     }
+
     return [...grouped.entries()]
-      .map(([symbol, tickerEvents]) => ({ symbol, events: tickerEvents }))
-      .sort((a, b) => a.symbol.localeCompare(b.symbol));
+      .map(([monthKey, monthTickers]) => ({
+        monthKey,
+        cards: [...monthTickers.entries()]
+          .map(([symbol, tickerEvents]) => ({
+            symbol,
+            events: [...tickerEvents].sort(
+              (a, b) =>
+                (dividendEventDate(b)?.getTime() ?? 0) - (dividendEventDate(a)?.getTime() ?? 0)
+            ),
+          }))
+          .sort(
+            (a, b) =>
+              (dividendEventDate(b.events[0])?.getTime() ?? 0) -
+              (dividendEventDate(a.events[0])?.getTime() ?? 0)
+          ),
+      }))
+      .sort((a, b) => {
+        const aIndex = dividendMonthIndex(a.monthKey);
+        const bIndex = dividendMonthIndex(b.monthKey);
+        const nextMonthIndex = currentMonthIndex + 1;
+        const aOrder =
+          aIndex === currentMonthIndex
+            ? Number.MAX_SAFE_INTEGER
+            : Math.max(0, aIndex - nextMonthIndex);
+        const bOrder =
+          bIndex === currentMonthIndex
+            ? Number.MAX_SAFE_INTEGER
+            : Math.max(0, bIndex - nextMonthIndex);
+        return aOrder - bOrder;
+      });
   }, [events]);
+
   const dividendSymbolsKey = useMemo(
-    () => dividendPools.map(item => item.symbol).join(','),
-    [dividendPools]
+    () => dividendMonthGroups.flatMap(group => group.cards.map(item => item.symbol)).join(','),
+    [dividendMonthGroups]
   );
+
   useEffect(() => {
-    const symbols = dividendPools.map(item => item.symbol);
+    const symbols = [
+      ...new Set(dividendMonthGroups.flatMap(group => group.cards.map(item => item.symbol))),
+    ];
     if (!symbols.length) return;
     const snapshot = { pools: symbols.map(symbol => ({ symbol })) };
     void syncMarketPrices(snapshot);
     const timer = window.setInterval(() => void syncMarketPrices(snapshot), 15 * 60 * 1000);
     return () => window.clearInterval(timer);
   }, [dividendSymbolsKey, syncMarketPrices]);
+
   return (
     <div className="tce-mobile-view">
       <MobileHeader
@@ -289,38 +335,77 @@ export function PositionsView({ data, actions }: ViewProps) {
         </div>
       )}
       {tab === 'dividend' && (
-        <div className="tce-list-stack">
+        <div className="tce-list-stack tce-dividend-month-groups">
           {loading ? (
             <EmptyState text="Loading dividend events…" />
           ) : error ? (
             <EmptyState text={error} />
-          ) : dividendPools.length ? (
-            dividendPools.map(item => {
-              const pool = data.pools.find(
-                p => String(p.symbol ?? p.code ?? '').toUpperCase() === item.symbol
-              );
+          ) : dividendMonthGroups.length ? (
+            dividendMonthGroups.map(group => {
+              const collapsed = collapsedDividendMonths.has(group.monthKey);
               return (
-                <DividendCard
-                  key={item.symbol}
-                  item={item}
-                  pool={pool}
-                  marketPrice={marketPrices[item.symbol]?.price}
-                  expanded={expandedDividend === item.symbol}
-                  onToggle={() =>
-                    setExpandedDividend(current => (current === item.symbol ? null : item.symbol))
-                  }
-                  onOrder={() =>
-                    actions.openTrade({
-                      ...pool,
-                      symbol: item.symbol,
-                      currentPrice:
-                        marketPrices[item.symbol]?.price ??
-                        pool?.currentPrice ??
-                        pool?.current_price,
-                      side: 'BUY',
-                    })
-                  }
-                />
+                <section className="tce-dividend-month-group" key={group.monthKey}>
+                  <button
+                    type="button"
+                    className="tce-dividend-month-header"
+                    aria-expanded={!collapsed}
+                    onClick={() =>
+                      setCollapsedDividendMonths(current => {
+                        const next = new Set(current);
+                        if (next.has(group.monthKey)) next.delete(group.monthKey);
+                        else next.add(group.monthKey);
+                        return next;
+                      })
+                    }
+                  >
+                    <span className="tce-dividend-month-title">
+                      {dividendMonthLabel(group.monthKey)}
+                    </span>
+                    <span className="tce-dividend-month-count">
+                      {group.cards.length} {group.cards.length === 1 ? 'event' : 'events'}
+                    </span>
+                    <ChevronDown
+                      className={`tce-dividend-month-chevron${collapsed ? '' : ' is-open'}`}
+                      aria-hidden="true"
+                    />
+                  </button>
+                  {!collapsed && (
+                    <div className="tce-list-stack tce-dividend-month-cards">
+                      {group.cards.map(item => {
+                        const pool = data.pools.find(
+                          p => String(p.symbol ?? p.code ?? '').toUpperCase() === item.symbol
+                        );
+                        const expansionKey = `${group.monthKey}:${item.symbol}`;
+                        return (
+                          <DividendCard
+                            key={expansionKey}
+                            item={item}
+                            pool={pool}
+                            marketPrice={marketPrices[item.symbol]?.price}
+                            expanded={expandedDividend === expansionKey}
+                            onToggle={() =>
+                              setExpandedDividend(current =>
+                                current === expansionKey ? null : expansionKey
+                              )
+                            }
+                            onOrder={() =>
+                              actions.openTrade({
+                                ...pool,
+                                symbol: item.symbol,
+                                currentPrice:
+                                  marketPrices[item.symbol]?.price ??
+                                  item.events[0]?.price ??
+                                  pool?.currentPrice ??
+                                  pool?.current_price,
+                                side: 'BUY',
+                              })
+                            }
+                          />
+                        );
+                      })}
+                    </div>
+                  )}
+                </section>
               );
             })
           ) : (
@@ -333,6 +418,29 @@ export function PositionsView({ data, actions }: ViewProps) {
       )}
     </div>
   );
+}
+
+function dividendEventDate(event: StockEvent): Date | null {
+  const raw = event.exDividendTimestamp ?? event.exDividendDate ?? event.exDate;
+  if (!raw) return null;
+  const value = String(raw).trim();
+  const parsed = new Date(value);
+  if (!Number.isNaN(parsed.getTime())) return parsed;
+  const match = value.match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})$/);
+  if (!match) return null;
+  const [, day, month, year] = match;
+  const fallback = new Date(Number(year), Number(month) - 1, Number(day));
+  return Number.isNaN(fallback.getTime()) ? null : fallback;
+}
+
+function dividendMonthIndex(monthKey: string): number {
+  const [year, month] = monthKey.split('-').map(Number);
+  return year * 12 + (month - 1);
+}
+
+function dividendMonthLabel(monthKey: string): string {
+  const [year, month] = monthKey.split('-');
+  return `${month}/${year}`;
 }
 
 export function ScanView({ data }: ViewProps) {
@@ -640,7 +748,7 @@ function DividendCard({
   onOrder: () => void;
 }) {
   const event = item.events[0];
-  const price = marketPrice ?? pool?.currentPrice ?? pool?.current_price;
+  const price = marketPrice ?? event?.price ?? pool?.currentPrice ?? pool?.current_price;
   const dividendValue = Number(event?.dividendValue ?? 0);
   const entryLow = pool?.entryLow ?? pool?.entry_low;
   const entryHigh = pool?.entryHigh ?? pool?.entry_high;
