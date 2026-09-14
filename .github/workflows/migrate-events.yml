@@ -1,0 +1,48 @@
+name: Migrate MongoDB Events to Supabase
+
+on:
+  workflow_dispatch:
+    inputs:
+      limit:
+        description: "Optional positive row limit; leave blank for full migration"
+        required: false
+        default: ""
+        type: string
+
+concurrency:
+  group: mongo-events-migration
+  cancel-in-progress: false
+
+jobs:
+  migrate-events:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      MONGO_URI: ${{ secrets.MONGO_URI }}
+      MONGO_DB_NAME: vietstock
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      MONGO_EVENTS_MIGRATION_LIMIT: ${{ inputs.limit }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm install --include=dev --no-audit --no-fund
+
+      - name: Validate migration input
+        shell: bash
+        run: |
+          if [[ -n "$MONGO_EVENTS_MIGRATION_LIMIT" && ! "$MONGO_EVENTS_MIGRATION_LIMIT" =~ ^[1-9][0-9]*$ ]]; then
+            echo "limit must be a positive integer or blank"
+            exit 1
+          fi
+
+      - name: Run events migration
+        run: npm --prefix apps/service run migrate:events
