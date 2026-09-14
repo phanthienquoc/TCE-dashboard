@@ -17,6 +17,7 @@ export type StockEventsCronConfig = {
 };
 
 const JOB_KEY = 'stock-events-sync';
+const STALE_RUN_MINUTES = 30;
 
 @Injectable()
 export class StockEventsCronService implements OnModuleInit, OnModuleDestroy {
@@ -83,9 +84,10 @@ export class StockEventsCronService implements OnModuleInit, OnModuleDestroy {
 
   async runs(userId: string, limit = 20) {
     const job = await this.ensureConfig(userId);
+    await this.recoverStaleRuns(String(job.id));
     const { data, error } = await this.db.db
       .from('tce_cron_runs')
-      .select('id,status,started_at,finished_at,inserted_count,updated_count,skipped_count,failed_count,symbols_requested,symbols_synced,error_message')
+      .select('id,status,started_at,finished_at,inserted_count,updated_count,skipped_count,failed_count,symbols_requested,symbols_synced,error_message,metadata')
       .eq('job_id', job.id)
       .order('started_at', { ascending: false })
       .limit(Math.min(Math.max(Number(limit) || 20, 1), 50));
@@ -94,12 +96,15 @@ export class StockEventsCronService implements OnModuleInit, OnModuleDestroy {
   }
 
   private async reload() {
-    const { data, error } = await this.db.db.from('tce_cron_jobs').select('*').eq('job_key', JOB_KEY).eq('enabled', true);
+    const { data, error } = await this.db.db.from('tce_cron_jobs').select('*').eq('job_key', JOB_KEY);
     if (error) {
       this.logger.warn(`Unable to load stock events cron jobs: ${error.message}`);
       return;
     }
-    for (const job of data ?? []) await this.reconfigure(job);
+    for (const job of data ?? []) {
+      await this.recoverStaleRuns(String(job.id));
+      await this.reconfigure(job);
+    }
   }
 
   private async ensureConfig(userId: string) {
@@ -167,8 +172,9 @@ export class StockEventsCronService implements OnModuleInit, OnModuleDestroy {
 
   private async execute(job: any, forced: boolean) {
     const jobId = String(job.id);
-    if (this.running.has(jobId)) throw new Error('Stock events sync is already running');
     if (!forced && !job.enabled) return {} as StockEventsSyncResult;
+    await this.recoverStaleRuns(jobId);
+    if (this.running.has(jobId)) throw new Error('Stock events sync is already running');
     this.running.add(jobId);
     try {
       const result = await this.sync.run({
@@ -185,6 +191,26 @@ export class StockEventsCronService implements OnModuleInit, OnModuleDestroy {
     } finally {
       this.running.delete(jobId);
     }
+  }
+
+  private async recoverStaleRuns(jobId: string) {
+    const cutoff = new Date(Date.now() - STALE_RUN_MINUTES * 60_000).toISOString();
+    const { data, error } = await this.db.db
+      .from('tce_cron_runs')
+      .update({
+        status: 'FAILED',
+        finished_at: new Date().toISOString(),
+        error_message: 'Recovered stale RUNNING run after service restart',
+      })
+      .eq('job_id', jobId)
+      .eq('status', 'RUNNING')
+      .lt('started_at', cutoff)
+      .select('id');
+    if (error) {
+      this.logger.warn(`Unable to recover stale stock event runs: ${error.message}`);
+      return;
+    }
+    if (data?.length) this.logger.warn(`Recovered ${data.length} stale stock event run(s) for job ${jobId}`);
   }
 
   private mapConfig(job: any): StockEventsCronConfig {
