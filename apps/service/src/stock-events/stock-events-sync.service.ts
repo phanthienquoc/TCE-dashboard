@@ -128,8 +128,10 @@ export class StockEventsSyncService {
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       await this.finishRun(String(run.id), { status: 'FAILED', inserted: 0, updated: 0, skipped: 0, failed: 1, symbolsRequested: 0, symbolsSynced: 0, errorMessage: message });
-      await this.notify(options, { runId: String(run.id), status: 'FAILED', inserted: 0, updated: 0, skipped: 0, failed: 1, symbolsRequested: 0, symbolsSynced: 0 });
-      throw error;
+      const result = { runId: String(run.id), status: 'FAILED' as const, inserted: 0, updated: 0, skipped: 0, failed: 1, symbolsRequested: 0, symbolsSynced: 0 } satisfies StockEventsSyncResult;
+      await this.notify(options, result);
+      this.logger.error(`Stock event sync failed: ${message}`);
+      return result;
     }
   }
 
