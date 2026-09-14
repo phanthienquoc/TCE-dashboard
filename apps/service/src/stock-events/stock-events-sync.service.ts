@@ -26,6 +26,21 @@ export type StockEventsSyncResult = {
   symbolsSynced: number;
 };
 
+type SyncProgress = {
+  phase: 'EVENTS' | 'SSI_PRICE' | 'COMPLETED' | 'FAILED';
+  progressPct: number;
+  processedEvents: number;
+  estimatedTotalEvents: number | null;
+  currentPage: number;
+  inserted: number;
+  updated: number;
+  skipped: number;
+  failed: number;
+  symbolsRequested: number;
+  symbolsSynced: number;
+  updatedAt: string;
+};
+
 @Injectable()
 export class StockEventsSyncService {
   private readonly logger = new Logger(StockEventsSyncService.name);
@@ -42,7 +57,7 @@ export class StockEventsSyncService {
     const startedAt = new Date().toISOString();
     const { data: run, error: runError } = await this.db.db
       .from('tce_cron_runs')
-      .insert({ job_id: options.jobId, status: 'RUNNING', started_at: startedAt })
+      .insert({ job_id: options.jobId, status: 'RUNNING', started_at: startedAt, metadata: { sync: 'vietstock-events', priceSource: 'ssi', progress: this.initialProgress() } })
       .select('id')
       .single();
     if (runError) throw runError;
@@ -53,6 +68,9 @@ export class StockEventsSyncService {
       let skipped = 0;
       let failed = 0;
       let eventError: string | null = null;
+      let processedEvents = 0;
+      let estimatedTotalEvents: number | null = null;
+      let currentPage = 0;
       const symbols = new Set<string>();
 
       const processBatch = async (batch: CrawledStockEvent[]) => {
@@ -106,9 +124,25 @@ export class StockEventsSyncService {
         startDate: options.syncStartDate,
         endDate: options.syncEndDate,
         batchSize,
-        onBatch: async (batch, pageNumber) => {
-          this.logger.log(`Processing Stock Events batch: ${batch.length} events (through page ${pageNumber})`);
+        onBatch: async (batch, pageNumber, total) => {
+          currentPage = pageNumber;
+          estimatedTotalEvents = total ?? estimatedTotalEvents;
           await processBatch(batch);
+          processedEvents += batch.length;
+          await this.updateProgress(String(run.id), {
+            phase: 'EVENTS',
+            progressPct: this.eventProgress(processedEvents, estimatedTotalEvents),
+            processedEvents,
+            estimatedTotalEvents,
+            currentPage,
+            inserted,
+            updated,
+            skipped,
+            failed,
+            symbolsRequested: symbols.size,
+            symbolsSynced: 0,
+            updatedAt: new Date().toISOString(),
+          });
         },
       });
 
@@ -117,6 +151,20 @@ export class StockEventsSyncService {
       if (options.priceSyncEnabled !== false) {
         const requestedSymbols = [...symbols].sort();
         symbolsRequested = requestedSymbols.length;
+        await this.updateProgress(String(run.id), {
+          phase: 'SSI_PRICE',
+          progressPct: 80,
+          processedEvents,
+          estimatedTotalEvents,
+          currentPage,
+          inserted,
+          updated,
+          skipped,
+          failed,
+          symbolsRequested,
+          symbolsSynced: 0,
+          updatedAt: new Date().toISOString(),
+        });
         if (requestedSymbols.length) {
           try {
             const priceResult = await this.ssiPrices.syncSymbolsNow(options.userId, requestedSymbols, batchSize);
@@ -132,17 +180,52 @@ export class StockEventsSyncService {
 
       const status = failed > 0 ? (inserted + updated + skipped > 0 ? 'PARTIAL' : 'FAILED') : 'SUCCEEDED';
       await this.finishRun(String(run.id), { status, inserted, updated, skipped, failed, symbolsRequested, symbolsSynced, errorMessage: eventError });
+      await this.updateProgress(String(run.id), {
+        phase: status === 'FAILED' ? 'FAILED' : 'COMPLETED',
+        progressPct: status === 'FAILED' ? Math.min(this.finalProgress(processedEvents, estimatedTotalEvents, symbolsRequested, symbolsSynced), 99) : 100,
+        processedEvents,
+        estimatedTotalEvents,
+        currentPage,
+        inserted,
+        updated,
+        skipped,
+        failed,
+        symbolsRequested,
+        symbolsSynced,
+        updatedAt: new Date().toISOString(),
+      });
       const result = { runId: String(run.id), status, inserted, updated, skipped, failed, symbolsRequested, symbolsSynced } satisfies StockEventsSyncResult;
       await this.notify(options, result);
       return result;
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       await this.finishRun(String(run.id), { status: 'FAILED', inserted: 0, updated: 0, skipped: 0, failed: 1, symbolsRequested: 0, symbolsSynced: 0, errorMessage: message });
+      await this.updateProgress(String(run.id), { ...this.initialProgress(), phase: 'FAILED', progressPct: 0, failed: 1, updatedAt: new Date().toISOString() });
       const result = { runId: String(run.id), status: 'FAILED' as const, inserted: 0, updated: 0, skipped: 0, failed: 1, symbolsRequested: 0, symbolsSynced: 0 } satisfies StockEventsSyncResult;
       await this.notify(options, result);
       this.logger.error(`Stock event sync failed: ${message}`);
       return result;
     }
+  }
+
+  private initialProgress(): SyncProgress {
+    return { phase: 'EVENTS', progressPct: 0, processedEvents: 0, estimatedTotalEvents: null, currentPage: 0, inserted: 0, updated: 0, skipped: 0, failed: 0, symbolsRequested: 0, symbolsSynced: 0, updatedAt: new Date().toISOString() };
+  }
+
+  private eventProgress(processed: number, total: number | null) {
+    if (!total || total <= 0) return 1;
+    return Math.min(Math.max(Math.round((processed / total) * 80), 1), 80);
+  }
+
+  private finalProgress(processed: number, total: number | null, requested: number, synced: number) {
+    const eventPct = total ? Math.min((processed / total) * 80, 80) : 80;
+    const pricePct = requested ? (synced / requested) * 20 : 20;
+    return Math.round(eventPct + pricePct);
+  }
+
+  private async updateProgress(runId: string, progress: SyncProgress) {
+    const { error } = await this.db.db.from('tce_cron_runs').update({ metadata: { sync: 'vietstock-events', priceSource: 'ssi', progress } }).eq('id', runId);
+    if (error) this.logger.warn(`Unable to persist stock event progress: ${error.message}`);
   }
 
   private async loadExisting(mongoIds: string[]) {
