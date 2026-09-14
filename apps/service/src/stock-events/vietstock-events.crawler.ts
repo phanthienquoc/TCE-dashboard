@@ -78,21 +78,38 @@ export class VietstockEventsCrawler {
     if (!response.ok) throw new Error(`Vietstock events page HTTP ${response.status}`);
 
     const html = await response.text();
-    const token = html.match(
-      /name=["']__RequestVerificationToken["'][^>]*value=["']([^"']+)["']/i,
-    )?.[1];
+    const token = this.extractVerificationToken(html);
     if (!token) throw new Error('Vietstock events verification token not found');
-
-    const cookies = response.headers.get('set-cookie') ?? '';
-    const tokenCookie = cookies
-      .split(/,(?=\s*[^;,=]+=[^;,]+)/)
-      .map(cookie => cookie.trim().split(';')[0])
-      .find(cookie => cookie.startsWith('__RequestVerificationToken='));
 
     return {
       token,
-      cookie: tokenCookie ?? `__RequestVerificationToken=${token}`,
+      cookie: this.extractCookies(response.headers.get('set-cookie')),
     };
+  }
+
+  private extractVerificationToken(html: string) {
+    const inputTags = html.match(/<input\b[^>]*>/gi) ?? [];
+    for (const input of inputTags) {
+      if (!/name\s*=\s*["']__RequestVerificationToken["']/i.test(input)) continue;
+      const value = input.match(/value\s*=\s*["']([^"']+)["']/i)?.[1];
+      if (value) return value;
+    }
+
+    return (
+      html.match(/(?:name|id)\s*=\s*["']__RequestVerificationToken["'][^>]*value\s*=\s*["']([^"']+)["']/i)?.[1] ??
+      html.match(/value\s*=\s*["']([^"']+)["'][^>]*(?:name|id)\s*=\s*["']__RequestVerificationToken["']/i)?.[1] ??
+      html.match(/__RequestVerificationToken[^A-Za-z0-9_-]{1,40}([A-Za-z0-9_-]{40,})/i)?.[1] ??
+      null
+    );
+  }
+
+  private extractCookies(setCookie: string | null) {
+    if (!setCookie) return '';
+    return setCookie
+      .split(/,(?=\s*[^;,=]+=[^;,]+)/)
+      .map(cookie => cookie.trim().split(';')[0])
+      .filter(Boolean)
+      .join('; ');
   }
 
   private async fetchPage(
@@ -119,7 +136,7 @@ export class VietstockEventsCrawler {
         ...this.pageHeaders(),
         Accept: '*/*',
         'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
-        Cookie: session.cookie,
+        ...(session.cookie ? { Cookie: session.cookie } : {}),
         Referer: new URL(EVENTS_PAGE, BASE_URL).toString(),
       },
       body,
