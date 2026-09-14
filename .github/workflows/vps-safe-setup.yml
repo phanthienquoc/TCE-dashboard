@@ -1,4 +1,4 @@
-name: TCE VPS Safe Setup
+name: WF-08 TCE VPS Safe Setup
 
 on:
   workflow_dispatch:
