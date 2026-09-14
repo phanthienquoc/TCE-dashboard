@@ -58,7 +58,7 @@ jobs:
             fi
           done < <(
             gh api --paginate --slurp "repos/$REPO/actions/runs?per_page=100" \
-              --jq '.[][] | .workflow_runs[] | [.id, .name] | @tsv'
+              --jq '.[] | .workflow_runs[] | [.id, .name] | @tsv'
           )
 
           echo "Inspected $total workflow runs; deleted $deleted legacy runs."
