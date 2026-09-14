@@ -41,3 +41,5 @@ export * from './lifecycle/dividend-lifecycle';
 export * from './lifecycle/dividend-lifecycle.repository';
 export * from './lifecycle/dividend-holding-eligibility';
 export * from './reconciliation/dividend-settlement-reconciliation';
+export * from './dividend/dividend-payment-confirmation';
+export * from './dividend/dividend-event-anomaly';
