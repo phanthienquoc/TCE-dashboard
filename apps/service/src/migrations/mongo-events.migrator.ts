@@ -6,7 +6,7 @@ type MongoEvent = {
   _id?: ObjectId;
   symbol?: string;
   'Mã CK'?: string;
-  'Sàn'?: string;
+  Sàn?: string;
   'Ngày GDKHQ'?: string | null;
   'Ngày ĐKCC'?: string | null;
   'Ngày thực hiện'?: string | null;
@@ -107,7 +107,10 @@ export async function migrateMongoEvents(options?: { limit?: number }) {
   return { processed };
 }
 
-async function flush(supabase: ReturnType<typeof createClient>, rows: NonNullable<ReturnType<typeof mapEvent>>[]) {
+async function flush(
+  supabase: ReturnType<typeof createClient>,
+  rows: NonNullable<ReturnType<typeof mapEvent>>[]
+) {
   const { error } = await supabase.from('stock_events').upsert(rows, {
     onConflict: 'mongo_id',
     ignoreDuplicates: false,
