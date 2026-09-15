@@ -1,6 +1,6 @@
 'use client';
 
-import { CalendarDays, Filter, RefreshCw } from 'lucide-react';
+import { RefreshCw } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import DashboardLayout from '../../../components/dashboard/DashboardLayout';
 import {
@@ -21,17 +21,20 @@ const currentMonth = () => {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
 };
+
 const monthLabel = (key: string) => {
   const [y, m] = key.split('-');
   return `${m}/${y}`;
 };
-const monthTabs = () => {
+
+const monthOptions = () => {
   const d = new Date();
   return Array.from({ length: 12 }, (_, i) => {
     const x = new Date(d.getFullYear(), d.getMonth() + i, 1);
     return `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, '0')}`;
   });
 };
+
 const date = (value: string | null) => {
   if (!value) return '—';
   const d = new Date(value);
@@ -45,6 +48,7 @@ export default function StockDividendPoolPage() {
   const load = useStockDividendPoolStore(s => s.load);
   const [month, setMonth] = useState(currentMonth);
   const [sort, setSort] = useState<'score' | 'yield' | 'exDate'>('score');
+
   useEffect(() => void load(month), [load, month]);
 
   const rows = useMemo(
@@ -58,6 +62,7 @@ export default function StockDividendPoolPage() {
       ),
     [items, sort]
   );
+
   const columns: TableColumn<StockDividendPoolItem>[] = [
     {
       key: 'rank',
@@ -80,9 +85,7 @@ export default function StockDividendPoolPage() {
       label: 'Dividend',
       render: r => (
         <div>
-          <div className="font-semibold text-foreground">
-            {r.dividendValue.toLocaleString('vi-VN')}
-          </div>
+          <div className="font-semibold text-foreground">{r.dividendValue.toLocaleString('vi-VN')}</div>
           <Caption>{r.dividendRate || '—'}</Caption>
         </div>
       ),
@@ -105,7 +108,9 @@ export default function StockDividendPoolPage() {
       render: r => <span className="font-semibold">{r.score.toFixed(1)}</span>,
     },
   ];
-  const tabs = useMemo(monthTabs, []);
+
+  const months = useMemo(monthOptions, []);
+
   return (
     <DashboardLayout activeId="events">
       <div className="mx-auto w-full max-w-6xl space-y-4 pb-4">
@@ -116,60 +121,46 @@ export default function StockDividendPoolPage() {
             Dividend candidates filtered by ex-dividend month and ranked by TCE criteria.
           </Subheadline>
         </header>
+
         {error ? (
           <section className="rounded-xl border border-danger/30 bg-danger/10 p-4 text-sm text-danger">
             {error}
           </section>
         ) : null}
-        <section className="flex flex-wrap items-center gap-2 rounded-xl border border-border bg-surface-strong p-3">
-          <div className="flex items-center gap-2 text-sm font-medium text-muted">
-            <Filter className="h-4 w-4" /> Ex-date month
-          </div>
-          <div className="flex gap-1 overflow-x-auto">
-            {tabs.map(v => (
-              <Button
-                key={v}
-                variant={v === month ? 'primary' : 'secondary'}
-                size="sm"
-                onClick={() => setMonth(v)}
-              >
-                <CalendarDays className="mr-1.5 h-4 w-4" />
-                {monthLabel(v)}
-              </Button>
+
+        <section className="flex flex-wrap items-center gap-3 rounded-xl border border-border bg-surface-strong p-3">
+          <label htmlFor="dividend-month" className="text-sm font-medium text-muted">
+            Ex-date month
+          </label>
+          <select
+            id="dividend-month"
+            value={month}
+            onChange={event => setMonth(event.target.value)}
+            className="min-w-36 rounded-lg border border-border bg-surface px-3 py-2 text-sm font-medium text-foreground outline-none focus:ring-2 focus:ring-primary/40"
+          >
+            {months.map(value => (
+              <option key={value} value={value}>
+                {monthLabel(value)}
+              </option>
             ))}
-          </div>
+          </select>
+
           <div className="ml-auto flex gap-1">
-            <Button
-              size="sm"
-              variant={sort === 'score' ? 'primary' : 'secondary'}
-              onClick={() => setSort('score')}
-            >
+            <Button size="sm" variant={sort === 'score' ? 'primary' : 'secondary'} onClick={() => setSort('score')}>
               Score
             </Button>
-            <Button
-              size="sm"
-              variant={sort === 'yield' ? 'primary' : 'secondary'}
-              onClick={() => setSort('yield')}
-            >
+            <Button size="sm" variant={sort === 'yield' ? 'primary' : 'secondary'} onClick={() => setSort('yield')}>
               Yield
             </Button>
-            <Button
-              size="sm"
-              variant={sort === 'exDate' ? 'primary' : 'secondary'}
-              onClick={() => setSort('exDate')}
-            >
+            <Button size="sm" variant={sort === 'exDate' ? 'primary' : 'secondary'} onClick={() => setSort('exDate')}>
               Ex-date
             </Button>
-            <Button
-              size="sm"
-              variant="secondary"
-              onClick={() => void load(month)}
-              aria-label="Refresh"
-            >
+            <Button size="sm" variant="secondary" onClick={() => void load(month)} aria-label="Refresh">
               <RefreshCw className="h-4 w-4" />
             </Button>
           </div>
         </section>
+
         <section className="rounded-xl border border-border bg-surface-strong p-4">
           {loading ? (
             <div className="p-6 text-sm text-muted">Loading dividend pool…</div>
