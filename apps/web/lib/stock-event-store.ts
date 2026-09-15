@@ -13,6 +13,11 @@ export type StockEvent = {
   dividendRate: string;
   dividendValue: number;
   price: number | null;
+  currentPrice: number | null;
+  currentPriceDate: string | null;
+  dividendYieldPct: number | null;
+  oneYearLow: number | null;
+  oneYearHigh: number | null;
   crawledAt?: string | null;
   // Compatibility aliases consumed by legacy dashboard views.
   gdkhqTimestamp?: string | null;

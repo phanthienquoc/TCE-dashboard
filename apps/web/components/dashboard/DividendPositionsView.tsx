@@ -79,18 +79,22 @@ export function DividendPositionsView({ data, actions }: ViewProps) {
                 const event = item.events[0];
                 const livePrice = marketPrices[item.symbol]?.price;
                 const marketPrice = Number(livePrice) > 0 ? livePrice : undefined;
-                const price = marketPrice ?? event?.price ?? pool?.currentPrice ?? pool?.current_price;
+                // FE stock-price API remains the live source; the event market snapshot is the fallback.
+                const price = marketPrice ?? event?.currentPrice ?? event?.price ?? pool?.currentPrice ?? pool?.current_price;
                 const key = `${group.monthKey}:${item.symbol}`;
                 return <article className="tce-dividend-card" key={key}>
                   <button type="button" className="w-full text-left" onClick={() => setExpanded(expanded === key ? null : key)} aria-expanded={expanded === key}>
                     <div className="flex items-center gap-2"><strong>{item.symbol}</strong>{event && <span className="tce-muted">{formatDate(event.exDividendTimestamp ?? event.exDividendDate ?? event.exDate)}</span>}<span className="ml-auto">{expanded === key ? '−' : '+'}</span></div>
                     <div className="tce-pool-grid mt-2">
                       <div><span>Dividend</span><b>{Number(event?.dividendValue ?? 0) ? `${money(Number(event?.dividendValue))} ₫` : '—'}</b></div>
-                      <div><span>Price</span><b>{formatNumber(price)}</b></div>
-                      <div><span>TP</span><b>{formatNumber(pool?.targetPrice ?? pool?.target_price)}</b></div>
+                      <div><span>Current Price</span><b>{formatNumber(price)}</b></div>
+                      <div><span>Yield</span><b>{formatPercent(event?.dividendYieldPct)}</b></div>
+                      <div><span>1Y Low</span><b>{formatNumber(event?.oneYearLow)}</b></div>
+                      <div><span>1Y High</span><b>{formatNumber(event?.oneYearHigh)}</b></div>
+                      <div><span>1Y Range</span><b>{formatRange(event?.oneYearLow, event?.oneYearHigh)}</b></div>
                     </div>
                   </button>
-                  {expanded === key && <div className="tce-card-actions mt-3"><span className="text-xs">Entry {formatEntry(pool?.entryLow ?? pool?.entry_low, pool?.entryHigh ?? pool?.entry_high)}</span><button type="button" onClick={() => actions.openTrade({ ...pool, symbol: item.symbol, currentPrice: price, side: 'BUY' })}>BUY</button></div>}
+                  {expanded === key && <div className="tce-card-actions mt-3"><span className="text-xs">Entry {formatEntry(pool?.entryLow ?? pool?.entry_low, pool?.entryHigh ?? pool?.entry_high)}</span><span className="text-xs">TP {formatNumber(pool?.targetPrice ?? pool?.target_price)}</span><button type="button" onClick={() => actions.openTrade({ ...pool, symbol: item.symbol, currentPrice: price, side: 'BUY' })}>BUY</button></div>}
                 </article>;
               }) : <EmptyState text="No dividend events scheduled" />}
             </div>}
@@ -136,6 +140,8 @@ function dividendEventDate(event: StockEvent): Date | null {
 }
 function dividendMonthLabel(monthKey: string): string { const [year, month] = monthKey.split('-').map(Number); return `${String(month).padStart(2, '0')}/${year}`; }
 function formatNumber(value: unknown): string { const n = Number(value); return Number.isFinite(n) && n > 0 ? n.toLocaleString('vi-VN') : '—'; }
+function formatPercent(value: unknown): string { const n = Number(value); return Number.isFinite(n) ? `${n.toFixed(2)}%` : '—'; }
+function formatRange(low: unknown, high: unknown): string { const l = Number(low); const h = Number(high); if (!Number.isFinite(l) || !Number.isFinite(h) || l <= 0 || h <= 0) return '—'; return `${l.toLocaleString('vi-VN')} – ${h.toLocaleString('vi-VN')}`; }
 function money(value: number): string { return value.toLocaleString('vi-VN'); }
 function formatDate(value: unknown): string { if (!value) return '—'; const date = new Date(String(value)); if (Number.isNaN(date.getTime())) return String(value); return `${String(date.getDate()).padStart(2, '0')}-${String(date.getMonth() + 1).padStart(2, '0')}`; }
 function formatEntry(low: unknown, high: unknown): string { const l = Number(low); const h = Number(high); if (l > 0 && h > 0) return `${formatNumber(l)} – ${formatNumber(h)}`; if (l > 0) return formatNumber(l); if (h > 0) return formatNumber(h); return '—'; }
