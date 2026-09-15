@@ -2,20 +2,22 @@ import { Injectable, ServiceUnavailableException } from '@nestjs/common';
 import { SupabaseClientService } from '../db/supabase.client';
 
 const DEFAULT_LIMIT = 20;
-const DEFAULT_TABLE = 'events';
+const DEFAULT_TABLE = 'tce_stock_event_market_metrics';
 
 type StockEventRow = {
-  id?: string | number | null;
-  _id?: unknown;
+  id?: string | null;
+  mongo_id?: string | null;
   symbol?: string | null;
-  'Mã CK'?: string | null;
-  'Ngày GDKHQ'?: string | null;
-  'Ngày thực hiện'?: string | null;
-  'Nội dung sự kiện'?: string | null;
-  'Tỷ lệ'?: string | null;
+  ex_right_date?: string | null;
   gdkhq_timestamp?: string | null;
-  dividendValue?: number | string | null;
-  price?: number | string | null;
+  payment_date?: string | null;
+  event_content?: string | null;
+  ratio_text?: string | null;
+  dividend_value?: number | string | null;
+  reference_price?: number | string | null;
+  current_price?: number | string | null;
+  current_price_date?: string | null;
+  dividend_yield_pct?: number | string | null;
 };
 
 @Injectable()
@@ -39,7 +41,9 @@ export class StockDividendPoolService {
     try {
       const { data, error } = await this.supabase.db
         .from(table)
-        .select('*')
+        .select(
+          'id,mongo_id,symbol,ex_right_date,gdkhq_timestamp,payment_date,event_content,ratio_text,dividend_value,reference_price,current_price,current_price_date,dividend_yield_pct'
+        )
         .gte('gdkhq_timestamp', rangeStart.toISOString())
         .lt('gdkhq_timestamp', end.toISOString())
         .order('gdkhq_timestamp', { ascending: true })
@@ -49,27 +53,35 @@ export class StockDividendPoolService {
 
       return (data as StockEventRow[])
         .map(row => {
-          const ticker = String(row['Mã CK'] ?? row.symbol ?? '').trim();
-          const dividendValue = Number(row.dividendValue ?? 0);
-          const price = Number(row.price ?? 0);
-          const yieldPct = price > 0 ? (dividendValue / price) * 100 : 0;
-          const exDate = normalizeDate(row.gdkhq_timestamp);
+          const ticker = String(row.symbol ?? '').trim();
+          const dividendValue = Number(row.dividend_value ?? 0);
+          const price = Number(row.current_price ?? row.reference_price ?? 0);
+          const yieldPct =
+            row.dividend_yield_pct == null
+              ? price > 0
+                ? (dividendValue / price) * 100
+                : 0
+              : Number(row.dividend_yield_pct);
+          const exDate = normalizeDate(row.ex_right_date ?? row.gdkhq_timestamp);
           const days = exDate
             ? Math.max(0, Math.ceil((new Date(exDate).getTime() - today.getTime()) / 86_400_000))
             : 999;
           const dividendScore = Math.min(45, yieldPct * 4.5);
           const valueScore = Math.min(35, dividendValue / 1000);
           const timingScore = Math.max(0, 20 - Math.min(days, 20));
+
           return {
-            id: String(row.id ?? row._id ?? ''),
+            id: String(row.mongo_id ?? row.id ?? ''),
             ticker,
-            exDividendDate: row['Ngày GDKHQ'] ?? exDate ?? '',
-            exDividendTimestamp: exDate,
-            paymentDate: row['Ngày thực hiện'] ?? null,
-            eventContent: row['Nội dung sự kiện'] ?? '',
-            dividendRate: row['Tỷ lệ'] ?? '',
+            exDividendDate: row.ex_right_date ?? exDate ?? '',
+            exDividendTimestamp: normalizeDate(row.gdkhq_timestamp),
+            paymentDate: row.payment_date ?? null,
+            eventContent: row.event_content ?? '',
+            dividendRate: row.ratio_text ?? '',
             dividendValue,
             price: price || null,
+            currentPrice: row.current_price == null ? null : Number(row.current_price),
+            currentPriceDate: row.current_price_date ?? null,
             dividendYieldPct: Number(yieldPct.toFixed(2)),
             score: Number((dividendScore + valueScore + timingScore).toFixed(2)),
             daysToExDate: days,
