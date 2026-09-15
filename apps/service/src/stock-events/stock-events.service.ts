@@ -55,7 +55,7 @@ export class StockEventsService {
     const db = await this.mongo.getDb();
     const rows = await db.collection<StockEventRow>(collectionName).find({ gdkhq_timestamp: { $gte: today } }).sort({ gdkhq_timestamp: 1 }).limit(limit).toArray();
     return rows.map(row => ({
-      id: String(row._id ?? ''), ticker: row['Mã CK'] ?? row.symbol ?? '', exDividendDate: row['Ngày GDKHQ'] ?? normalizeDate(row.gdkhq_timestamp) ?? '', exDividendTimestamp: normalizeDate(row.gdkhq_timestamp), executionDate: row['Ngày thực hiện'] ?? null, eventContent: row['Nội dung sự kiện'] ?? '', dividendRate: row['Tỷ lệ'] ?? '', dividendValue: Number(row.dividendValue ?? 0), price: row.price == null ? null : Number(row.price), crawledAt: normalizeDate(row.crawled_at),
+      id: String(row._id ?? ''), ticker: row['Mã CK'] ?? row.symbol ?? '', exDividendDate: row['Ngày GDKHQ'] ?? normalizeDate(row.gdkhq_timestamp) ?? '', exDividendTimestamp: normalizeDate(row.gdkhq_timestamp), executionDate: row['Ngày thực hiện'] ?? null, eventContent: row['Nội dung sự kiện'] ?? '', dividendRate: row['Tỷ lệ'] ?? '', dividendValue: Number(row.dividendValue ?? 0), price: row.price == null ? null : Number(row.price), currentPrice: null, currentPriceDate: null, dividendYieldPct: null, oneYearLow: null, oneYearHigh: null, crawledAt: normalizeDate(row.crawled_at),
     })).filter(row => row.ticker && row.exDividendDate);
   }
 }
