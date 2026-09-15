@@ -35,6 +35,7 @@ type StockEventState = {
 };
 
 let inFlight: Promise<void> | null = null;
+let inFlightKey: string | null = null;
 
 export const useStockEventStore = create<StockEventState>((set, get) => ({
   events: [],
@@ -45,10 +46,17 @@ export const useStockEventStore = create<StockEventState>((set, get) => ({
   // Default to the current calendar month using the event's ex-date (GDKHQ).
   // Pass null explicitly when a caller needs the complete upcoming event feed.
   load: async (limit = 200, force = false, month = currentMonthKey()) => {
+    const requestKey = `${limit}:${month ?? '*'}`;
+
     if (get().initialized && !force) return;
-    if (inFlight) return inFlight;
+    if (inFlight) {
+      if (inFlightKey === requestKey) return inFlight;
+      await inFlight;
+      return get().load(limit, true, month);
+    }
 
     set({ loading: true, error: null });
+    inFlightKey = requestKey;
     inFlight = api
       .get<StockEvent[]>('/stock-events', { params: { limit } })
       .then(response => {
@@ -82,6 +90,7 @@ export const useStockEventStore = create<StockEventState>((set, get) => ({
       })
       .finally(() => {
         inFlight = null;
+        inFlightKey = null;
       });
 
     return inFlight;

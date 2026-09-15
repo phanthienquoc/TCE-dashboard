@@ -21,7 +21,7 @@ export function DividendPositionsView({ data, actions }: ViewProps) {
   const syncMarketPrices = useDashboardStore(s => s.syncMarketPrices);
 
   useEffect(() => {
-    void load(500, false, null);
+    void load(500, true, null);
   }, [load]);
 
   const monthGroups = useMemo(
@@ -75,7 +75,7 @@ export function DividendPositionsView({ data, actions }: ViewProps) {
             {monthOptions.map(month => <option key={month} value={month}>{dividendMonthLabel(month)}</option>)}
           </select>
         </label>
-        {loading ? <EmptyState text="Loading dividend events…" /> : error ? <EmptyState text={error} /> : monthGroups.map(group => (
+        {loading ? <EmptyState text="Loading dividend events…" /> : error ? <EmptyState text={error} /> : monthGroups.length ? monthGroups.map(group => (
           <section className="tce-dividend-month-group" key={group.monthKey}>
             <div className="tce-dividend-month-header" aria-label={`${dividendMonthLabel(group.monthKey)} events`}>
               <span className="tce-dividend-month-title">{dividendMonthLabel(group.monthKey)}</span>
@@ -83,7 +83,7 @@ export function DividendPositionsView({ data, actions }: ViewProps) {
               <ChevronDown className="tce-dividend-month-chevron is-open" aria-hidden="true" />
             </div>
             <div className="tce-list-stack tce-dividend-month-cards">
-              {group.cards.length ? group.cards.map(item => {
+              {group.cards.map(item => {
                 const pool = data.pools.find(p => String(p.symbol ?? p.code ?? '').toUpperCase() === item.symbol);
                 const event = item.events[0];
                 const livePrice = marketPrices[item.symbol]?.price;
@@ -104,10 +104,10 @@ export function DividendPositionsView({ data, actions }: ViewProps) {
                   </button>
                   {expanded === key && <div className="tce-card-actions mt-3"><span className="text-xs">Entry {formatEntry(pool?.entryLow ?? pool?.entry_low, pool?.entryHigh ?? pool?.entry_high)}</span><span className="text-xs">TP {formatNumber(pool?.targetPrice ?? pool?.target_price)}</span><button type="button" onClick={() => actions.openTrade({ ...pool, symbol: item.symbol, currentPrice: price, side: 'BUY' })}>BUY</button></div>}
                 </article>;
-              }) : <EmptyState text={`No dividend events scheduled for ${dividendMonthLabel(selectedMonth)}`} />}
+              })}
             </div>
           </section>
-        ))}
+        )) : <EmptyState text={`No dividend events scheduled for ${dividendMonthLabel(selectedMonth)}`} />}
       </div>}
       {tab === 'history' && <EmptyState text="Position history is ready for the next history feed." />}
     </div>
