@@ -18,6 +18,7 @@ export type StockEventsCronConfig = {
 
 const JOB_KEY = 'stock-events-sync';
 const STALE_RUN_MINUTES = 30;
+const DEFAULT_FUTURE_SYNC_DAYS = 365;
 type TriggerResponse = { status: 'RUNNING'; alreadyRunning: boolean };
 
 @Injectable()
@@ -166,11 +167,7 @@ export class StockEventsCronService implements OnModuleInit, OnModuleDestroy {
 
   private async reconfigure(job: any) {
     const jobName = this.jobName(job);
-    try {
-      this.scheduler.deleteCronJob(jobName);
-    } catch {
-      // no-op
-    }
+    try { this.scheduler.deleteCronJob(jobName); } catch { /* no-op */ }
     if (!job.enabled) return;
     validateCronExpression(String(job.schedule), String(job.timezone));
     const cron = CronJob.from({
@@ -193,11 +190,13 @@ export class StockEventsCronService implements OnModuleInit, OnModuleDestroy {
     if (this.running.has(jobId)) throw new Error('Stock events sync is already running');
     this.running.add(jobId);
     try {
+      const startDate = job.sync_start_date ?? todayVietnam();
+      const endDate = job.sync_end_date ?? addDays(startDate, DEFAULT_FUTURE_SYNC_DAYS);
       const result = await this.sync.run({
         userId: String(job.user_id),
         jobId,
-        syncStartDate: job.sync_start_date,
-        syncEndDate: job.sync_end_date,
+        syncStartDate: startDate,
+        syncEndDate: endDate,
         batchSize: Number(job.batch_size ?? 200),
         priceSyncEnabled: Boolean(job.price_sync_enabled),
         telegramCredentialId: job.telegram_credential_id,
@@ -216,11 +215,7 @@ export class StockEventsCronService implements OnModuleInit, OnModuleDestroy {
     const cutoff = new Date(Date.now() - STALE_RUN_MINUTES * 60_000).toISOString();
     const { data, error } = await this.db.db
       .from('tce_cron_runs')
-      .update({
-        status: 'FAILED',
-        finished_at: new Date().toISOString(),
-        error_message: 'Recovered stale RUNNING run after service restart',
-      })
+      .update({ status: 'FAILED', finished_at: new Date().toISOString(), error_message: 'Recovered stale RUNNING run after service restart' })
       .eq('job_id', jobId)
       .eq('status', 'RUNNING')
       .lt('started_at', cutoff)
@@ -251,6 +246,16 @@ function normalizeDate(value?: string | null) {
   if (value == null || value === '') return null;
   if (!/^\d{4}-\d{2}-\d{2}$/.test(String(value))) throw new Error('Date must use YYYY-MM-DD');
   return String(value);
+}
+
+function todayVietnam() {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Ho_Chi_Minh', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
+}
+
+function addDays(value: string, days: number) {
+  const date = new Date(`${value}T00:00:00Z`);
+  date.setUTCDate(date.getUTCDate() + days);
+  return date.toISOString().slice(0, 10);
 }
 
 function validateCronExpression(expression: string, timeZone: string) {
