@@ -61,8 +61,53 @@ export const dashboardApi = {
   all: (status?: string) => api.get('/dashboard', { params: status ? { status } : undefined }),
   account: () => api.get('/dashboard/account'),
   positions: () => api.get('/dashboard/positions'),
-  marketPrices: (symbols: string[]) =>
-    api.get('/dashboard/market-prices', { params: { symbols: symbols.join(',') } }),
+  marketPrices: async (symbols: string[]) => {
+    const response = await api.get('/dashboard/market-prices', {
+      params: { symbols: symbols.join(',') },
+    });
+    const requested = new Set(
+      symbols.map(symbol => String(symbol).trim().toUpperCase()).filter(Boolean)
+    );
+    const marketRows = Array.isArray(response.data?.data) ? response.data.data : [];
+    const marketSymbols = new Set(
+      marketRows
+        .map((quote: any) => String(quote?.symbol ?? '').trim().toUpperCase())
+        .filter(Boolean)
+    );
+    const missingSymbols = [...requested].filter(symbol => !marketSymbols.has(symbol));
+
+    if (!missingSymbols.length || response.data?.ok === false) return response;
+
+    try {
+      const fallbackResponse = await api.get('/stock-events', {
+        params: { limit: 200 },
+      });
+      const events = Array.isArray(fallbackResponse.data) ? fallbackResponse.data : [];
+      const fallbackRows = events
+        .map((event: any) => ({
+          symbol: String(event?.ticker ?? '').trim().toUpperCase(),
+          price: Number(event?.price),
+        }))
+        .filter(
+          (quote: { symbol: string; price: number }) =>
+            missingSymbols.includes(quote.symbol) && Number.isFinite(quote.price)
+        );
+
+      if (fallbackRows.length) {
+        return {
+          ...response,
+          data: {
+            ...response.data,
+            data: [...marketRows, ...fallbackRows],
+          },
+        };
+      }
+    } catch (error) {
+      console.error('[FE_STOCK_EVENT_PRICE_FALLBACK]', error);
+    }
+
+    return response;
+  },
   orders: () => api.get('/dashboard/orders'),
   pools: (status?: string) =>
     api.get('/dashboard/pools', { params: status ? { status } : undefined }),
