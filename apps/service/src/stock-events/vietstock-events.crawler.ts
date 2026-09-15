@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import puppeteer, { type Browser, type Page } from 'puppeteer';
+import puppeteer, { type Browser } from 'puppeteer';
 
 export type CrawledStockEvent = {
   mongoId: string;
@@ -26,7 +26,7 @@ type CrawlOptions = {
 };
 
 type VietstockPage = { rows: unknown[]; hasMore: boolean; total: number | null };
-type BrowserSession = { browser: Browser; page: Page; requestBody: string };
+type BrowserSession = { browser: Browser; requestBody: string; cookieHeader: string; referer: string };
 
 const BASE_URL = 'https://finance.vietstock.vn';
 const EVENTS_PAGE = '/lich-su-kien.htm';
@@ -88,11 +88,22 @@ export class VietstockEventsCrawler {
   private async createBrowserSession(fromDate: string, toDate: string): Promise<BrowserSession> {
     const executablePath = process.env.PUPPETEER_EXECUTABLE_PATH;
     if (!executablePath) throw new Error('PUPPETEER_EXECUTABLE_PATH is not configured');
-    const browser = await puppeteer.launch({ executablePath, headless: 'shell', args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'] });
+
+    const browser = await puppeteer.launch({
+      executablePath,
+      headless: 'shell',
+      args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
+    });
     const page = await browser.newPage();
     await page.setUserAgent(USER_AGENT);
     await page.setExtraHTTPHeaders({ 'Accept-Language': 'vi-VN,vi;q=0.9,en;q=0.7' });
+
     try {
+      // The browser is only used to establish a Vietstock session. Disable page
+      // JavaScript so background navigation cannot detach the frame while we
+      // are extracting the server-rendered verification token and cookies.
+      await page.setJavaScriptEnabled(false);
+
       const url = new URL(EVENTS_PAGE, BASE_URL);
       url.searchParams.set('group', String(GROUP));
       url.searchParams.set('exchange', String(EXCHANGE));
@@ -100,16 +111,16 @@ export class VietstockEventsCrawler {
       url.searchParams.set('toDate', this.toVietstockDate(toDate));
       url.searchParams.set('page', '1');
       url.searchParams.set('tab', '1');
-      await page.goto(url.toString(), { waitUntil: 'domcontentloaded', timeout: 45_000 });
-      await new Promise(resolve => setTimeout(resolve, 5_000));
 
-      const token = await page.evaluate(() => document.querySelector<HTMLInputElement>('input[name="__RequestVerificationToken"]')?.value || document.querySelector<HTMLInputElement>('#__RequestVerificationToken')?.value || '');
+      const response = await page.goto(url.toString(), { waitUntil: 'domcontentloaded', timeout: 45_000 });
+      const html = response ? await response.text() : await page.content();
+      const token = this.extractVerificationToken(html);
       if (!token) throw new Error('Vietstock events verification token not found');
 
-      // Build the documented Events API request explicitly instead of reusing an
-      // arbitrary request emitted by the page. The page may fire the endpoint
-      // with an internal/default filter before the requested date range is ready,
-      // which can make a valid sync silently return zero rows.
+      const cookies = await page.cookies();
+      const cookieHeader = cookies.map(cookie => `${cookie.name}=${cookie.value}`).join('; ');
+      if (!cookieHeader) throw new Error('Vietstock events session cookies not found');
+
       const body = new URLSearchParams({
         transferTypeID: '0',
         stockCode: '',
@@ -121,7 +132,13 @@ export class VietstockEventsCrawler {
         orderDir: 'DESC',
         __RequestVerificationToken: token,
       });
-      return { browser, page, requestBody: body.toString() };
+
+      return {
+        browser,
+        requestBody: body.toString(),
+        cookieHeader,
+        referer: url.toString(),
+      };
     } catch (error) {
       await browser.close().catch(() => undefined);
       throw error;
@@ -129,15 +146,41 @@ export class VietstockEventsCrawler {
   }
 
   private async fetchPage(pageNumber: number, session: BrowserSession): Promise<VietstockPage> {
-    const text = await session.page.evaluate(async ({ requestBody, page }) => {
-      const params = new URLSearchParams(requestBody);
-      params.set('page', String(page));
-      const response = await fetch('/data/eventstransferdata', { method: 'POST', headers: { Accept: '*/*', 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8', 'X-Requested-With': 'XMLHttpRequest' }, body: params.toString(), credentials: 'same-origin' });
-      const body = await response.text();
-      if (!response.ok) throw new Error(`Vietstock events API HTTP ${response.status}`);
-      return body;
-    }, { requestBody: session.requestBody, page: pageNumber });
+    const params = new URLSearchParams(session.requestBody);
+    params.set('page', String(pageNumber));
+
+    const response = await fetch(new URL(EVENTS_API, BASE_URL), {
+      method: 'POST',
+      headers: {
+        Accept: '*/*',
+        'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+        'X-Requested-With': 'XMLHttpRequest',
+        'User-Agent': USER_AGENT,
+        'Accept-Language': 'vi-VN,vi;q=0.9,en;q=0.7',
+        Cookie: session.cookieHeader,
+        Referer: session.referer,
+        Origin: BASE_URL,
+      },
+      body: params.toString(),
+    });
+
+    const text = await response.text();
+    if (!response.ok) throw new Error(`Vietstock events API HTTP ${response.status}`);
     return this.parseApiResponse(text);
+  }
+
+  private extractVerificationToken(html: string): string {
+    const inputMatches = [
+      /<input\b[^>]*\bname=["']__RequestVerificationToken["'][^>]*\bvalue=["']([^"']+)["'][^>]*>/i,
+      /<input\b[^>]*\bvalue=["']([^"']+)["'][^>]*\bname=["']__RequestVerificationToken["'][^>]*>/i,
+      /<input\b[^>]*\bid=["']__RequestVerificationToken["'][^>]*\bvalue=["']([^"']+)["'][^>]*>/i,
+      /<input\b[^>]*\bvalue=["']([^"']+)["'][^>]*\bid=["']__RequestVerificationToken["'][^>]*>/i,
+    ];
+    for (const pattern of inputMatches) {
+      const match = html.match(pattern);
+      if (match?.[1]) return match[1];
+    }
+    return '';
   }
 
   private parseApiResponse(text: string): VietstockPage {
