@@ -1,6 +1,7 @@
 import { systemUpdatesApi } from './api';
 
 const LAST_SEEN_KEY = 'tce:last-system-update-version';
+let pwaReloadListenerAttached = false;
 
 export type SystemUpdate = {
   id: string;
@@ -20,7 +21,30 @@ const base64ToUint8Array = (value: string) => {
 
 export async function registerSystemServiceWorker() {
   if (!('serviceWorker' in navigator)) return null;
-  return navigator.serviceWorker.register('/sw.js', { scope: '/' });
+
+  const hadController = Boolean(navigator.serviceWorker.controller);
+  const registration = await navigator.serviceWorker.register('/sw.js', { scope: '/' });
+
+  if (hadController) {
+    if (!pwaReloadListenerAttached) {
+      pwaReloadListenerAttached = true;
+      navigator.serviceWorker.addEventListener(
+        'controllerchange',
+        () => {
+          window.location.reload();
+        },
+        { once: true }
+      );
+    }
+
+    try {
+      await registration.update();
+    } catch (error) {
+      console.debug('[PWA_UPDATE]', error);
+    }
+  }
+
+  return registration;
 }
 
 export async function enableSystemUpdateNotifications() {

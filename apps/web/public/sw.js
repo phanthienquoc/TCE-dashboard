@@ -1,3 +1,25 @@
+const SW_VERSION = '2026-09-15-pwa-cache-v2';
+
+self.addEventListener('install', event => {
+  self.skipWaiting();
+});
+
+self.addEventListener('activate', event => {
+  event.waitUntil(self.clients.claim());
+});
+
+self.addEventListener('fetch', event => {
+  const request = event.request;
+  if (request.method !== 'GET') return;
+
+  const url = new URL(request.url);
+  const isApiRequest = url.pathname === '/api' || url.pathname.startsWith('/api/');
+
+  if (isApiRequest) {
+    event.respondWith(fetch(request, { cache: 'no-store' }));
+  }
+});
+
 self.addEventListener('push', event => {
   let data = {};
   try {
@@ -9,7 +31,7 @@ self.addEventListener('push', event => {
   const title = data.title || 'TCE Dashboard updated';
   const body = data.body || 'A new TCE Dashboard version is available.';
   const url = data.url || '/dashboard';
-  const version = data.version || '';
+  const version = data.version || SW_VERSION;
 
   event.waitUntil(
     Promise.all([
