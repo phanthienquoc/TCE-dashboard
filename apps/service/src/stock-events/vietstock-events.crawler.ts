@@ -57,6 +57,7 @@ export class VietstockEventsCrawler {
         const result = await this.fetchPage(page, session);
         const rows = this.parseRows(result.rows);
         estimatedTotal = result.total ?? estimatedTotal;
+        this.logger.log(`Vietstock events page=${page}: raw=${result.rows.length}, parsed=${rows.length}, total=${result.total ?? 'unknown'}`);
         if (!rows.length) break;
         if (options.onBatch) {
           batch.push(...rows);
@@ -91,11 +92,6 @@ export class VietstockEventsCrawler {
     const page = await browser.newPage();
     await page.setUserAgent(USER_AGENT);
     await page.setExtraHTTPHeaders({ 'Accept-Language': 'vi-VN,vi;q=0.9,en;q=0.7' });
-    let requestBody: string | null = null;
-    const requestListener = (request: import('puppeteer').HTTPRequest) => {
-      if (request.method() === 'POST' && request.url().includes(EVENTS_API) && request.postData()) requestBody = request.postData() ?? null;
-    };
-    page.on('request', requestListener);
     try {
       const url = new URL(EVENTS_PAGE, BASE_URL);
       url.searchParams.set('group', String(GROUP));
@@ -106,18 +102,27 @@ export class VietstockEventsCrawler {
       url.searchParams.set('tab', '1');
       await page.goto(url.toString(), { waitUntil: 'domcontentloaded', timeout: 45_000 });
       await new Promise(resolve => setTimeout(resolve, 5_000));
-      page.off('request', requestListener);
-      if (!requestBody) {
-        const token = await page.evaluate(() => document.querySelector<HTMLInputElement>('input[name="__RequestVerificationToken"]')?.value || document.querySelector<HTMLInputElement>('#__RequestVerificationToken')?.value || '');
-        if (token) {
-          const body = new URLSearchParams({ transferTypeID: '0', stockCode: '', fDate: fromDate, tDate: toDate, page: '1', pageSize: String(PAGE_SIZE), orderBy: 'EventID', orderDir: 'DESC', __RequestVerificationToken: token });
-          requestBody = body.toString();
-        }
-      }
-      if (!requestBody) throw new Error('Vietstock events browser request not captured');
-      return { browser, page, requestBody };
+
+      const token = await page.evaluate(() => document.querySelector<HTMLInputElement>('input[name="__RequestVerificationToken"]')?.value || document.querySelector<HTMLInputElement>('#__RequestVerificationToken')?.value || '');
+      if (!token) throw new Error('Vietstock events verification token not found');
+
+      // Build the documented Events API request explicitly instead of reusing an
+      // arbitrary request emitted by the page. The page may fire the endpoint
+      // with an internal/default filter before the requested date range is ready,
+      // which can make a valid sync silently return zero rows.
+      const body = new URLSearchParams({
+        transferTypeID: '0',
+        stockCode: '',
+        fDate: fromDate,
+        tDate: toDate,
+        page: '1',
+        pageSize: String(PAGE_SIZE),
+        orderBy: 'EventID',
+        orderDir: 'DESC',
+        __RequestVerificationToken: token,
+      });
+      return { browser, page, requestBody: body.toString() };
     } catch (error) {
-      page.off('request', requestListener);
       await browser.close().catch(() => undefined);
       throw error;
     }
@@ -142,7 +147,7 @@ export class VietstockEventsCrawler {
     if (!payload || typeof payload !== 'object') return { rows: [], hasMore: false, total: null };
     const value = payload as Record<string, unknown>;
     const rows = this.firstArray(value, ['data', 'Data', 'items', 'Items', 'aaData', 'rows', 'Rows']);
-    const total = this.firstNumber(value, ['recordsFiltered', 'RecordsFiltered', 'total', 'Total', 'iTotalDisplayRecords']);
+    const total = this.firstNumber(value, ['recordsFiltered', 'RecordsFiltered', 'recordsTotal', 'RecordsTotal', 'total', 'Total', 'iTotalDisplayRecords']);
     return { rows, hasMore: total != null ? rows.length > 0 : rows.length >= PAGE_SIZE, total };
   }
 
@@ -150,11 +155,11 @@ export class VietstockEventsCrawler {
     const parsed: CrawledStockEvent[] = [];
     for (const row of rows) {
       const data = this.normalizeRow(row);
-      const symbol = this.pick(data, ['Mã CK', 'Mã chứng khoán', 'Code', 'StockCode', 'stockCode']).toUpperCase();
-      const eventContent = this.pick(data, ['Nội dung sự kiện', 'EventContent', 'EventName', 'Content']);
-      const exRightDate = this.parseAnyDate(this.pick(data, ['Ngày GDKHQ', 'ExRightDate', 'ExDate', 'GDKHQDate']));
+      const symbol = this.pick(data, ['Mã CK', 'Mã chứng khoán', 'Code', 'StockCode', 'stockCode', 'Symbol', 'symbol']).toUpperCase();
+      const eventContent = this.pick(data, ['Nội dung sự kiện', 'EventContent', 'EventName', 'Content', 'eventContent']);
+      const exRightDate = this.parseAnyDate(this.pick(data, ['Ngày GDKHQ', 'ExRightDate', 'ExDate', 'GDKHQDate', 'exRightDate']));
       if (!symbol || !exRightDate) continue;
-      parsed.push({ mongoId: `${symbol}:${exRightDate}:${eventContent}`, symbol, exchange: this.pick(data, ['Sàn', 'Sàn GD', 'Exchange']) || null, exRightDate, recordDate: this.parseAnyDate(this.pick(data, ['Ngày ĐKCC', 'RecordDate'])), paymentDate: this.parseAnyDate(this.pick(data, ['Ngày thực hiện', 'PaymentDate'])), gdkhqTimestamp: `${exRightDate}T00:00:00.000Z`, eventContent, ratioText: this.pick(data, ['Tỷ lệ', 'Ratio', 'RatioText']), dividendValue: this.parseDividendValue(eventContent), referencePrice: this.parseNumber(this.pick(data, ['Giá tham chiếu', 'ReferencePrice'])), rawData: data, crawledAt: new Date().toISOString() });
+      parsed.push({ mongoId: `${symbol}:${exRightDate}:${eventContent}`, symbol, exchange: this.pick(data, ['Sàn', 'Sàn GD', 'Exchange', 'exchange']) || null, exRightDate, recordDate: this.parseAnyDate(this.pick(data, ['Ngày ĐKCC', 'RecordDate', 'recordDate'])), paymentDate: this.parseAnyDate(this.pick(data, ['Ngày thực hiện', 'PaymentDate', 'paymentDate'])), gdkhqTimestamp: `${exRightDate}T00:00:00.000Z`, eventContent, ratioText: this.pick(data, ['Tỷ lệ', 'Ratio', 'RatioText', 'ratioText']), dividendValue: this.parseDividendValue(eventContent), referencePrice: this.parseNumber(this.pick(data, ['Giá tham chiếu', 'ReferencePrice', 'referencePrice'])), rawData: data, crawledAt: new Date().toISOString() });
     }
     return parsed;
   }
