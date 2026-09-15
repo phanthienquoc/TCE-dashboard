@@ -12,7 +12,7 @@ type MonthGroup = { monthKey: string; cards: Array<{ symbol: string; events: Sto
 export function DividendPositionsView({ data, actions }: ViewProps) {
   const [tab, setTab] = useState<'current' | 'dividend' | 'history'>('dividend');
   const [expanded, setExpanded] = useState<string | null>(null);
-  const [collapsedMonths, setCollapsedMonths] = useState<Set<string>>(new Set());
+  const [selectedMonth, setSelectedMonth] = useState(currentMonthKey);
   const events = useStockEventStore(s => s.events);
   const loading = useStockEventStore(s => s.loading);
   const error = useStockEventStore(s => s.error);
@@ -24,7 +24,11 @@ export function DividendPositionsView({ data, actions }: ViewProps) {
     void load(500, false, null);
   }, [load]);
 
-  const monthGroups = useMemo(() => buildFutureMonthGroups(events), [events]);
+  const monthGroups = useMemo(
+    () => buildFutureMonthGroups(events).filter(group => group.monthKey === selectedMonth),
+    [events, selectedMonth]
+  );
+  const monthOptions = useMemo(() => futureMonthKeys(), []);
   const symbolsKey = useMemo(
     () => monthGroups.flatMap(group => group.cards.map(card => card.symbol)).join(','),
     [monthGroups]
@@ -65,21 +69,25 @@ export function DividendPositionsView({ data, actions }: ViewProps) {
         </article>) : <EmptyState text="No current positions" />}
       </div>}
       {tab === 'dividend' && <div className="tce-list-stack tce-dividend-month-groups">
-        {loading ? <EmptyState text="Loading dividend events…" /> : error ? <EmptyState text={error} /> : monthGroups.map(group => {
-          const collapsed = collapsedMonths.has(group.monthKey);
-          return <section className="tce-dividend-month-group" key={group.monthKey}>
-            <button type="button" className="tce-dividend-month-header" aria-expanded={!collapsed} onClick={() => setCollapsedMonths(current => { const next = new Set(current); if (next.has(group.monthKey)) next.delete(group.monthKey); else next.add(group.monthKey); return next; })}>
+        <label className="tce-dividend-month-header" htmlFor="positions-dividend-month">
+          <span className="tce-dividend-month-title">Ex-date month</span>
+          <select id="positions-dividend-month" value={selectedMonth} onChange={event => { setSelectedMonth(event.target.value); setExpanded(null); }}>
+            {monthOptions.map(month => <option key={month} value={month}>{dividendMonthLabel(month)}</option>)}
+          </select>
+        </label>
+        {loading ? <EmptyState text="Loading dividend events…" /> : error ? <EmptyState text={error} /> : monthGroups.map(group => (
+          <section className="tce-dividend-month-group" key={group.monthKey}>
+            <div className="tce-dividend-month-header" aria-label={`${dividendMonthLabel(group.monthKey)} events`}>
               <span className="tce-dividend-month-title">{dividendMonthLabel(group.monthKey)}</span>
               <span className="tce-dividend-month-count">{group.cards.length} {group.cards.length === 1 ? 'event' : 'events'}</span>
-              <ChevronDown className={`tce-dividend-month-chevron${collapsed ? '' : ' is-open'}`} aria-hidden="true" />
-            </button>
-            {!collapsed && <div className="tce-list-stack tce-dividend-month-cards">
+              <ChevronDown className="tce-dividend-month-chevron is-open" aria-hidden="true" />
+            </div>
+            <div className="tce-list-stack tce-dividend-month-cards">
               {group.cards.length ? group.cards.map(item => {
                 const pool = data.pools.find(p => String(p.symbol ?? p.code ?? '').toUpperCase() === item.symbol);
                 const event = item.events[0];
                 const livePrice = marketPrices[item.symbol]?.price;
                 const marketPrice = Number(livePrice) > 0 ? livePrice : undefined;
-                // FE stock-price API remains the live source; the event market snapshot is the fallback.
                 const price = marketPrice ?? event?.currentPrice ?? event?.price ?? pool?.currentPrice ?? pool?.current_price;
                 const key = `${group.monthKey}:${item.symbol}`;
                 return <article className="tce-dividend-card" key={key}>
@@ -96,14 +104,28 @@ export function DividendPositionsView({ data, actions }: ViewProps) {
                   </button>
                   {expanded === key && <div className="tce-card-actions mt-3"><span className="text-xs">Entry {formatEntry(pool?.entryLow ?? pool?.entry_low, pool?.entryHigh ?? pool?.entry_high)}</span><span className="text-xs">TP {formatNumber(pool?.targetPrice ?? pool?.target_price)}</span><button type="button" onClick={() => actions.openTrade({ ...pool, symbol: item.symbol, currentPrice: price, side: 'BUY' })}>BUY</button></div>}
                 </article>;
-              }) : <EmptyState text="No dividend events scheduled" />}
-            </div>}
-          </section>;
-        })}
+              }) : <EmptyState text={`No dividend events scheduled for ${dividendMonthLabel(selectedMonth)}`} />}
+            </div>
+          </section>
+        ))}
       </div>}
       {tab === 'history' && <EmptyState text="Position history is ready for the next history feed." />}
     </div>
   );
+}
+
+function currentMonthKey(): string {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+}
+
+function futureMonthKeys(): string[] {
+  const now = new Date();
+  const start = new Date(now.getFullYear(), now.getMonth(), 1);
+  return Array.from({ length: 13 }, (_, index) => {
+    const month = new Date(start.getFullYear(), start.getMonth() + index, 1);
+    return `${month.getFullYear()}-${String(month.getMonth() + 1).padStart(2, '0')}`;
+  });
 }
 
 function buildFutureMonthGroups(events: StockEvent[]): MonthGroup[] {
@@ -125,24 +147,14 @@ function buildFutureMonthGroups(events: StockEvent[]): MonthGroup[] {
     grouped.set(monthKey, bucket);
   }
 
-  return months
-    .map(month => {
-      const monthKey = `${month.getFullYear()}-${String(month.getMonth() + 1).padStart(2, '0')}`;
-      const bucket = grouped.get(monthKey) ?? new Map<string, StockEvent[]>();
-      const cards = [...bucket.entries()]
-        .map(([symbol, tickerEvents]) => ({
-          symbol,
-          events: tickerEvents.sort((a, b) =>
-            (dividendEventDate(a)?.getTime() ?? 0) - (dividendEventDate(b)?.getTime() ?? 0)
-          ),
-        }))
-        .sort((a, b) =>
-          (dividendEventDate(a.events[0])?.getTime() ?? 0) -
-          (dividendEventDate(b.events[0])?.getTime() ?? 0)
-        );
-      return { monthKey, cards };
-    })
-    .filter(group => group.cards.length > 0);
+  return months.map(month => {
+    const monthKey = `${month.getFullYear()}-${String(month.getMonth() + 1).padStart(2, '0')}`;
+    const bucket = grouped.get(monthKey) ?? new Map<string, StockEvent[]>();
+    const cards = [...bucket.entries()]
+      .map(([symbol, tickerEvents]) => ({ symbol, events: tickerEvents.sort((a, b) => (dividendEventDate(a)?.getTime() ?? 0) - (dividendEventDate(b)?.getTime() ?? 0)) }))
+      .sort((a, b) => (dividendEventDate(a.events[0])?.getTime() ?? 0) - (dividendEventDate(b.events[0])?.getTime() ?? 0));
+    return { monthKey, cards };
+  }).filter(group => group.cards.length > 0);
 }
 
 function dividendEventDate(event: StockEvent): Date | null {
