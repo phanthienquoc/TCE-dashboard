@@ -108,24 +108,43 @@ export function DividendPositionsView({ data, actions }: ViewProps) {
 
 function buildFutureMonthGroups(events: StockEvent[]): MonthGroup[] {
   const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
   const start = new Date(now.getFullYear(), now.getMonth(), 1);
   const months = Array.from({ length: 13 }, (_, index) => new Date(start.getFullYear(), start.getMonth() + index, 1));
+  const monthKeys = new Set(months.map(month => `${month.getFullYear()}-${String(month.getMonth() + 1).padStart(2, '0')}`));
   const grouped = new Map<string, Map<string, StockEvent[]>>();
+
   for (const event of events) {
     const date = dividendEventDate(event);
     const symbol = String(event.ticker ?? '').trim().toUpperCase();
-    if (!date || !symbol) continue;
+    if (!date || !symbol || date.getTime() < today) continue;
     const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+    if (!monthKeys.has(monthKey)) continue;
     const bucket = grouped.get(monthKey) ?? new Map<string, StockEvent[]>();
     bucket.set(symbol, [...(bucket.get(symbol) ?? []), event]);
     grouped.set(monthKey, bucket);
   }
-  return months.map(month => {
-    const monthKey = `${month.getFullYear()}-${String(month.getMonth() + 1).padStart(2, '0')}`;
-    const bucket = grouped.get(monthKey) ?? new Map<string, StockEvent[]>();
-    return { monthKey, cards: [...bucket.entries()].map(([symbol, tickerEvents]) => ({ symbol, events: tickerEvents.sort((a, b) => (dividendEventDate(b)?.getTime() ?? 0) - (dividendEventDate(a)?.getTime() ?? 0)) })).sort((a, b) => (dividendEventDate(b.events[0])?.getTime() ?? 0) - (dividendEventDate(a.events[0])?.getTime() ?? 0)) };
-  });
+
+  return months
+    .map(month => {
+      const monthKey = `${month.getFullYear()}-${String(month.getMonth() + 1).padStart(2, '0')}`;
+      const bucket = grouped.get(monthKey) ?? new Map<string, StockEvent[]>();
+      const cards = [...bucket.entries()]
+        .map(([symbol, tickerEvents]) => ({
+          symbol,
+          events: tickerEvents.sort((a, b) =>
+            (dividendEventDate(a)?.getTime() ?? 0) - (dividendEventDate(b)?.getTime() ?? 0)
+          ),
+        }))
+        .sort((a, b) =>
+          (dividendEventDate(a.events[0])?.getTime() ?? 0) -
+          (dividendEventDate(b.events[0])?.getTime() ?? 0)
+        );
+      return { monthKey, cards };
+    })
+    .filter(group => group.cards.length > 0);
 }
+
 function dividendEventDate(event: StockEvent): Date | null {
   const raw = event.exDividendTimestamp ?? event.exDividendDate ?? event.exDate;
   if (!raw) return null;
