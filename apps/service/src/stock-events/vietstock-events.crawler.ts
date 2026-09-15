@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import puppeteer, { type Browser } from 'puppeteer';
+import puppeteer, { type Browser, type Page } from 'puppeteer';
 
 export type CrawledStockEvent = {
   mongoId: string;
@@ -26,11 +26,10 @@ type CrawlOptions = {
 };
 
 type VietstockPage = { rows: unknown[]; hasMore: boolean; total: number | null };
-type BrowserSession = { browser: Browser; requestBody: string; cookieHeader: string; referer: string };
+type BrowserSession = { browser: Browser; page: Page; baseUrl: string };
 
 const BASE_URL = 'https://finance.vietstock.vn';
 const EVENTS_PAGE = '/lich-su-kien.htm';
-const EVENTS_API = '/data/eventstransferdata';
 const GROUP = 13;
 const EXCHANGE = -1;
 const PAGE_SIZE = 30;
@@ -57,7 +56,7 @@ export class VietstockEventsCrawler {
         const result = await this.fetchPage(page, session);
         const rows = this.parseRows(result.rows);
         estimatedTotal = result.total ?? estimatedTotal;
-        this.logger.log(`Vietstock events page=${page}: raw=${result.rows.length}, parsed=${rows.length}, total=${result.total ?? 'unknown'}`);
+        this.logger.log(`Vietstock events page=${page}: raw=${result.rows.length}, parsed=${rows.length}`);
         if (!rows.length) break;
         if (options.onBatch) {
           batch.push(...rows);
@@ -99,11 +98,6 @@ export class VietstockEventsCrawler {
     await page.setExtraHTTPHeaders({ 'Accept-Language': 'vi-VN,vi;q=0.9,en;q=0.7' });
 
     try {
-      // The browser is only used to establish a Vietstock session. Disable page
-      // JavaScript so background navigation cannot detach the frame while we
-      // are extracting the server-rendered verification token and cookies.
-      await page.setJavaScriptEnabled(false);
-
       const url = new URL(EVENTS_PAGE, BASE_URL);
       url.searchParams.set('group', String(GROUP));
       url.searchParams.set('exchange', String(EXCHANGE));
@@ -111,34 +105,9 @@ export class VietstockEventsCrawler {
       url.searchParams.set('toDate', this.toVietstockDate(toDate));
       url.searchParams.set('page', '1');
       url.searchParams.set('tab', '1');
-
-      const response = await page.goto(url.toString(), { waitUntil: 'domcontentloaded', timeout: 45_000 });
-      const html = response ? await response.text() : await page.content();
-      const token = this.extractVerificationToken(html);
-      if (!token) throw new Error('Vietstock events verification token not found');
-
-      const cookies = await page.cookies();
-      const cookieHeader = cookies.map(cookie => `${cookie.name}=${cookie.value}`).join('; ');
-      if (!cookieHeader) throw new Error('Vietstock events session cookies not found');
-
-      const body = new URLSearchParams({
-        transferTypeID: '0',
-        stockCode: '',
-        fDate: fromDate,
-        tDate: toDate,
-        page: '1',
-        pageSize: String(PAGE_SIZE),
-        orderBy: 'EventID',
-        orderDir: 'DESC',
-        __RequestVerificationToken: token,
-      });
-
-      return {
-        browser,
-        requestBody: body.toString(),
-        cookieHeader,
-        referer: url.toString(),
-      };
+      await page.goto(url.toString(), { waitUntil: 'domcontentloaded', timeout: 45_000 });
+      await page.waitForSelector('#event-content', { timeout: 20_000 });
+      return { browser, page, baseUrl: url.toString() };
     } catch (error) {
       await browser.close().catch(() => undefined);
       throw error;
@@ -146,52 +115,16 @@ export class VietstockEventsCrawler {
   }
 
   private async fetchPage(pageNumber: number, session: BrowserSession): Promise<VietstockPage> {
-    const params = new URLSearchParams(session.requestBody);
-    params.set('page', String(pageNumber));
+    const url = new URL(session.baseUrl);
+    url.searchParams.set('page', String(pageNumber));
 
-    const response = await fetch(new URL(EVENTS_API, BASE_URL), {
-      method: 'POST',
-      headers: {
-        Accept: '*/*',
-        'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
-        'X-Requested-With': 'XMLHttpRequest',
-        'User-Agent': USER_AGENT,
-        'Accept-Language': 'vi-VN,vi;q=0.9,en;q=0.7',
-        Cookie: session.cookieHeader,
-        Referer: session.referer,
-        Origin: BASE_URL,
-      },
-      body: params.toString(),
-    });
+    await session.page.goto(url.toString(), { waitUntil: 'domcontentloaded', timeout: 45_000 });
+    await session.page.waitForSelector('#event-content', { timeout: 20_000 });
+    await new Promise(resolve => setTimeout(resolve, 1_000));
 
-    const text = await response.text();
-    if (!response.ok) throw new Error(`Vietstock events API HTTP ${response.status}`);
-    return this.parseApiResponse(text);
-  }
-
-  private extractVerificationToken(html: string): string {
-    const inputMatches = [
-      /<input\b[^>]*\bname=["']__RequestVerificationToken["'][^>]*\bvalue=["']([^"']+)["'][^>]*>/i,
-      /<input\b[^>]*\bvalue=["']([^"']+)["'][^>]*\bname=["']__RequestVerificationToken["'][^>]*>/i,
-      /<input\b[^>]*\bid=["']__RequestVerificationToken["'][^>]*\bvalue=["']([^"']+)["'][^>]*>/i,
-      /<input\b[^>]*\bvalue=["']([^"']+)["'][^>]*\bid=["']__RequestVerificationToken["'][^>]*>/i,
-    ];
-    for (const pattern of inputMatches) {
-      const match = html.match(pattern);
-      if (match?.[1]) return match[1];
-    }
-    return '';
-  }
-
-  private parseApiResponse(text: string): VietstockPage {
-    let payload: unknown;
-    try { payload = JSON.parse(text); } catch { const rows = this.parseHtmlRows(text); return { rows, hasMore: rows.length >= PAGE_SIZE, total: null }; }
-    if (Array.isArray(payload)) return { rows: payload, hasMore: payload.length >= PAGE_SIZE, total: null };
-    if (!payload || typeof payload !== 'object') return { rows: [], hasMore: false, total: null };
-    const value = payload as Record<string, unknown>;
-    const rows = this.firstArray(value, ['data', 'Data', 'items', 'Items', 'aaData', 'rows', 'Rows']);
-    const total = this.firstNumber(value, ['recordsFiltered', 'RecordsFiltered', 'recordsTotal', 'RecordsTotal', 'total', 'Total', 'iTotalDisplayRecords']);
-    return { rows, hasMore: total != null ? rows.length > 0 : rows.length >= PAGE_SIZE, total };
+    const html = await session.page.content();
+    const rows = this.parseHtmlRows(html);
+    return { rows, hasMore: rows.length >= PAGE_SIZE, total: null };
   }
 
   private parseRows(rows: unknown[]): CrawledStockEvent[] {
@@ -202,26 +135,110 @@ export class VietstockEventsCrawler {
       const eventContent = this.pick(data, ['Nội dung sự kiện', 'EventContent', 'EventName', 'Content', 'eventContent']);
       const exRightDate = this.parseAnyDate(this.pick(data, ['Ngày GDKHQ', 'ExRightDate', 'ExDate', 'GDKHQDate', 'exRightDate']));
       if (!symbol || !exRightDate) continue;
-      parsed.push({ mongoId: `${symbol}:${exRightDate}:${eventContent}`, symbol, exchange: this.pick(data, ['Sàn', 'Sàn GD', 'Exchange', 'exchange']) || null, exRightDate, recordDate: this.parseAnyDate(this.pick(data, ['Ngày ĐKCC', 'RecordDate', 'recordDate'])), paymentDate: this.parseAnyDate(this.pick(data, ['Ngày thực hiện', 'PaymentDate', 'paymentDate'])), gdkhqTimestamp: `${exRightDate}T00:00:00.000Z`, eventContent, ratioText: this.pick(data, ['Tỷ lệ', 'Ratio', 'RatioText', 'ratioText']), dividendValue: this.parseDividendValue(eventContent), referencePrice: this.parseNumber(this.pick(data, ['Giá tham chiếu', 'ReferencePrice', 'referencePrice'])), rawData: data, crawledAt: new Date().toISOString() });
+      parsed.push({
+        mongoId: `${symbol}:${exRightDate}:${eventContent}`,
+        symbol,
+        exchange: this.pick(data, ['Sàn', 'Sàn GD', 'Exchange', 'exchange']) || null,
+        exRightDate,
+        recordDate: this.parseAnyDate(this.pick(data, ['Ngày ĐKCC', 'RecordDate', 'recordDate'])),
+        paymentDate: this.parseAnyDate(this.pick(data, ['Ngày thực hiện', 'PaymentDate', 'paymentDate'])),
+        gdkhqTimestamp: `${exRightDate}T00:00:00.000Z`,
+        eventContent,
+        ratioText: this.pick(data, ['Tỷ lệ', 'Ratio', 'RatioText', 'ratioText']),
+        dividendValue: this.parseDividendValue(eventContent),
+        referencePrice: this.parseNumber(this.pick(data, ['Giá tham chiếu', 'ReferencePrice', 'referencePrice'])),
+        rawData: data,
+        crawledAt: new Date().toISOString(),
+      });
     }
     return parsed;
   }
+
   private normalizeRow(row: unknown): Record<string, string> {
-    if (row && typeof row === 'object' && !Array.isArray(row)) return Object.fromEntries(Object.entries(row as Record<string, unknown>).map(([key, value]) => [key, this.clean(String(value ?? ''))]));
+    if (row && typeof row === 'object' && !Array.isArray(row)) {
+      return Object.fromEntries(Object.entries(row as Record<string, unknown>).map(([key, value]) => [key, this.clean(String(value ?? ''))]));
+    }
     if (typeof row === 'string') return this.parseHtmlRow(row);
     return {};
   }
-  private parseHtmlRows(html: string) { const table = html.match(/<table[^>]*id=["']event-content["'][^>]*>([\s\S]*?)<\/table>/i)?.[0]; if (!table) return []; const matches = [...table.matchAll(/<tr[^>]*>([\s\S]*?)<\/tr>/gi)].map(match => match[1]); if (matches.length < 2) return []; const headers = this.cells(matches[0]).map(cell => this.clean(this.stripTags(cell).replace(/[▼▲]/g, ''))); return matches.slice(1).map(row => { const cells = this.cells(row); return Object.fromEntries(headers.map((header, index) => [header, this.clean(this.stripTags(cells[index] ?? ''))])); }); }
-  private parseHtmlRow(html: string) { const cells = this.cells(html).map(cell => this.clean(this.stripTags(cell))); return Object.fromEntries(cells.map((value, index) => [`column${index}`, value])); }
-  private cells(rowHtml: string) { return [...rowHtml.matchAll(/<t[dh][^>]*>([\s\S]*?)<\/t[dh]>/gi)].map(match => match[1]); }
-  private stripTags(value: string) { return value.replace(/<br\s*\/?>(?=.)/gi, ' ').replace(/<[^>]+>/g, ' '); }
-  private clean(value: string) { return value.replace(/&nbsp;/gi, ' ').replace(/&#x27;/gi, "'").replace(/&amp;/gi, '&').replace(/&quot;/gi, '"').replace(/\s+/g, ' ').trim(); }
-  private firstArray(value: Record<string, unknown>, keys: string[]) { for (const key of keys) if (Array.isArray(value[key])) return value[key] as unknown[]; return []; }
-  private firstNumber(value: Record<string, unknown>, keys: string[]) { for (const key of keys) { const number = Number(value[key]); if (Number.isFinite(number)) return number; } return null; }
-  private pick(data: Record<string, string>, keys: string[]) { for (const key of keys) if (data[key]) return data[key]; return ''; }
-  private parseDividendValue(content: string) { const match = content.match(/(\d{1,3}(?:[,.]\d{3})*)\s*đồng\/CP/i); return match ? Number(match[1].replace(/[,.]/g, '')) : null; }
-  private parseNumber(value?: string) { if (!value) return null; const normalized = value.replace(/,/g, '').replace(/[^0-9.-]/g, ''); const parsed = Number(normalized); return Number.isFinite(parsed) ? parsed : null; }
-  private parseAnyDate(value?: string) { if (!value) return null; const iso = value.match(/^(\d{4})-(\d{2})-(\d{2})/); if (iso) return `${iso[1]}-${iso[2]}-${iso[3]}`; const match = value.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/); if (!match) return null; return `${match[3]}-${match[2].padStart(2, '0')}-${match[1].padStart(2, '0')}`; }
-  private toVietstockDate(value: string) { const match = value.match(/^(\d{4})-(\d{2})-(\d{2})$/); return match ? `${match[3]}/${match[2]}/${match[1]}` : value; }
-  private today() { return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Ho_Chi_Minh', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date()); }
+
+  private parseHtmlRows(html: string): Record<string, string>[] {
+    const tableMatch = html.match(/<table\b[^>]*id=["']event-content["'][^>]*>[\s\S]*?<\/table>/i);
+    if (!tableMatch) return [];
+
+    const matches = [...tableMatch[0].matchAll(/<tr\b[^>]*>([\s\S]*?)<\/tr>/gi)].map(match => match[1]);
+    if (matches.length < 2) return [];
+
+    const headers = this.cells(matches[0]).map(cell => this.clean(this.stripTags(cell).replace(/[▼▲]/g, '')));
+    return matches.slice(1).map(row => {
+      const cells = this.cells(row);
+      return Object.fromEntries(headers.map((header, index) => [header, this.clean(this.stripTags(cells[index] ?? ''))]));
+    });
+  }
+
+  private parseHtmlRow(html: string) {
+    const cells = this.cells(html).map(cell => this.clean(this.stripTags(cell)));
+    return Object.fromEntries(cells.map((value, index) => [`column${index}`, value]));
+  }
+
+  private cells(rowHtml: string) {
+    return [...rowHtml.matchAll(/<t[dh]\b[^>]*>([\s\S]*?)<\/t[dh]>/gi)].map(match => match[1]);
+  }
+
+  private stripTags(value: string) {
+    return value.replace(/<br\s*\/?>(?=.)/gi, ' ').replace(/<[^>]+>/g, ' ');
+  }
+
+  private clean(value: string) {
+    return value
+      .replace(/&nbsp;/gi, ' ')
+      .replace(/&#x27;/gi, "'")
+      .replace(/&amp;/gi, '&')
+      .replace(/&quot;/gi, '"')
+      .replace(/&#39;/gi, "'")
+      .replace(/&lt;/gi, '<')
+      .replace(/&gt;/gi, '>')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
+  private pick(data: Record<string, string>, keys: string[]) {
+    for (const key of keys) if (data[key]) return data[key];
+    return '';
+  }
+
+  private parseDividendValue(content: string) {
+    const match = content.match(/(\d{1,3}(?:[,.]\d{3})*)\s*đồng\/CP/i);
+    return match ? Number(match[1].replace(/[,.]/g, '')) : null;
+  }
+
+  private parseNumber(value?: string) {
+    if (!value) return null;
+    const normalized = value.replace(/,/g, '').replace(/[^0-9.-]/g, '');
+    const parsed = Number(normalized);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+
+  private parseAnyDate(value?: string) {
+    if (!value) return null;
+    const iso = value.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (iso) return `${iso[1]}-${iso[2]}-${iso[3]}`;
+    const match = value.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+    if (!match) return null;
+    return `${match[3]}-${match[2].padStart(2, '0')}-${match[1].padStart(2, '0')}`;
+  }
+
+  private toVietstockDate(value: string) {
+    const match = value.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    return match ? `${match[3]}/${match[2]}/${match[1]}` : value;
+  }
+
+  private today() {
+    return new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Asia/Ho_Chi_Minh',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).format(new Date());
+  }
 }
