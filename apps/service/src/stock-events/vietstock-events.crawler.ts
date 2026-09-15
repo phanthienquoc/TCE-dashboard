@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import puppeteer, { type Browser, type Page } from 'puppeteer';
+import puppeteer, { type Browser } from 'puppeteer';
 
 export type CrawledStockEvent = {
   mongoId: string;
@@ -26,7 +26,7 @@ type CrawlOptions = {
 };
 
 type VietstockPage = { rows: unknown[]; hasMore: boolean; total: number | null };
-type BrowserSession = { browser: Browser; page: Page; requestBody: string };
+type BrowserSession = { browser: Browser; requestBody: string; cookieHeader: string; referer: string };
 
 const BASE_URL = 'https://finance.vietstock.vn';
 const EVENTS_PAGE = '/lich-su-kien.htm';
@@ -57,6 +57,7 @@ export class VietstockEventsCrawler {
         const result = await this.fetchPage(page, session);
         const rows = this.parseRows(result.rows);
         estimatedTotal = result.total ?? estimatedTotal;
+        this.logger.log(`Vietstock events page=${page}: raw=${result.rows.length}, parsed=${rows.length}, total=${result.total ?? 'unknown'}`);
         if (!rows.length) break;
         if (options.onBatch) {
           batch.push(...rows);
@@ -87,16 +88,22 @@ export class VietstockEventsCrawler {
   private async createBrowserSession(fromDate: string, toDate: string): Promise<BrowserSession> {
     const executablePath = process.env.PUPPETEER_EXECUTABLE_PATH;
     if (!executablePath) throw new Error('PUPPETEER_EXECUTABLE_PATH is not configured');
-    const browser = await puppeteer.launch({ executablePath, headless: 'shell', args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'] });
+
+    const browser = await puppeteer.launch({
+      executablePath,
+      headless: 'shell',
+      args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
+    });
     const page = await browser.newPage();
     await page.setUserAgent(USER_AGENT);
     await page.setExtraHTTPHeaders({ 'Accept-Language': 'vi-VN,vi;q=0.9,en;q=0.7' });
-    let requestBody: string | null = null;
-    const requestListener = (request: import('puppeteer').HTTPRequest) => {
-      if (request.method() === 'POST' && request.url().includes(EVENTS_API) && request.postData()) requestBody = request.postData() ?? null;
-    };
-    page.on('request', requestListener);
+
     try {
+      // The browser is only used to establish a Vietstock session. Disable page
+      // JavaScript so background navigation cannot detach the frame while we
+      // are extracting the server-rendered verification token and cookies.
+      await page.setJavaScriptEnabled(false);
+
       const url = new URL(EVENTS_PAGE, BASE_URL);
       url.searchParams.set('group', String(GROUP));
       url.searchParams.set('exchange', String(EXCHANGE));
@@ -104,35 +111,76 @@ export class VietstockEventsCrawler {
       url.searchParams.set('toDate', this.toVietstockDate(toDate));
       url.searchParams.set('page', '1');
       url.searchParams.set('tab', '1');
-      await page.goto(url.toString(), { waitUntil: 'domcontentloaded', timeout: 45_000 });
-      await new Promise(resolve => setTimeout(resolve, 5_000));
-      page.off('request', requestListener);
-      if (!requestBody) {
-        const token = await page.evaluate(() => document.querySelector<HTMLInputElement>('input[name="__RequestVerificationToken"]')?.value || document.querySelector<HTMLInputElement>('#__RequestVerificationToken')?.value || '');
-        if (token) {
-          const body = new URLSearchParams({ transferTypeID: '0', stockCode: '', fDate: fromDate, tDate: toDate, page: '1', pageSize: String(PAGE_SIZE), orderBy: 'EventID', orderDir: 'DESC', __RequestVerificationToken: token });
-          requestBody = body.toString();
-        }
-      }
-      if (!requestBody) throw new Error('Vietstock events browser request not captured');
-      return { browser, page, requestBody };
+
+      const response = await page.goto(url.toString(), { waitUntil: 'domcontentloaded', timeout: 45_000 });
+      const html = response ? await response.text() : await page.content();
+      const token = this.extractVerificationToken(html);
+      if (!token) throw new Error('Vietstock events verification token not found');
+
+      const cookies = await page.cookies();
+      const cookieHeader = cookies.map(cookie => `${cookie.name}=${cookie.value}`).join('; ');
+      if (!cookieHeader) throw new Error('Vietstock events session cookies not found');
+
+      const body = new URLSearchParams({
+        transferTypeID: '0',
+        stockCode: '',
+        fDate: fromDate,
+        tDate: toDate,
+        page: '1',
+        pageSize: String(PAGE_SIZE),
+        orderBy: 'EventID',
+        orderDir: 'DESC',
+        __RequestVerificationToken: token,
+      });
+
+      return {
+        browser,
+        requestBody: body.toString(),
+        cookieHeader,
+        referer: url.toString(),
+      };
     } catch (error) {
-      page.off('request', requestListener);
       await browser.close().catch(() => undefined);
       throw error;
     }
   }
 
   private async fetchPage(pageNumber: number, session: BrowserSession): Promise<VietstockPage> {
-    const text = await session.page.evaluate(async ({ requestBody, page }) => {
-      const params = new URLSearchParams(requestBody);
-      params.set('page', String(page));
-      const response = await fetch('/data/eventstransferdata', { method: 'POST', headers: { Accept: '*/*', 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8', 'X-Requested-With': 'XMLHttpRequest' }, body: params.toString(), credentials: 'same-origin' });
-      const body = await response.text();
-      if (!response.ok) throw new Error(`Vietstock events API HTTP ${response.status}`);
-      return body;
-    }, { requestBody: session.requestBody, page: pageNumber });
+    const params = new URLSearchParams(session.requestBody);
+    params.set('page', String(pageNumber));
+
+    const response = await fetch(new URL(EVENTS_API, BASE_URL), {
+      method: 'POST',
+      headers: {
+        Accept: '*/*',
+        'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+        'X-Requested-With': 'XMLHttpRequest',
+        'User-Agent': USER_AGENT,
+        'Accept-Language': 'vi-VN,vi;q=0.9,en;q=0.7',
+        Cookie: session.cookieHeader,
+        Referer: session.referer,
+        Origin: BASE_URL,
+      },
+      body: params.toString(),
+    });
+
+    const text = await response.text();
+    if (!response.ok) throw new Error(`Vietstock events API HTTP ${response.status}`);
     return this.parseApiResponse(text);
+  }
+
+  private extractVerificationToken(html: string): string {
+    const inputMatches = [
+      /<input\b[^>]*\bname=["']__RequestVerificationToken["'][^>]*\bvalue=["']([^"']+)["'][^>]*>/i,
+      /<input\b[^>]*\bvalue=["']([^"']+)["'][^>]*\bname=["']__RequestVerificationToken["'][^>]*>/i,
+      /<input\b[^>]*\bid=["']__RequestVerificationToken["'][^>]*\bvalue=["']([^"']+)["'][^>]*>/i,
+      /<input\b[^>]*\bvalue=["']([^"']+)["'][^>]*\bid=["']__RequestVerificationToken["'][^>]*>/i,
+    ];
+    for (const pattern of inputMatches) {
+      const match = html.match(pattern);
+      if (match?.[1]) return match[1];
+    }
+    return '';
   }
 
   private parseApiResponse(text: string): VietstockPage {
@@ -142,7 +190,7 @@ export class VietstockEventsCrawler {
     if (!payload || typeof payload !== 'object') return { rows: [], hasMore: false, total: null };
     const value = payload as Record<string, unknown>;
     const rows = this.firstArray(value, ['data', 'Data', 'items', 'Items', 'aaData', 'rows', 'Rows']);
-    const total = this.firstNumber(value, ['recordsFiltered', 'RecordsFiltered', 'total', 'Total', 'iTotalDisplayRecords']);
+    const total = this.firstNumber(value, ['recordsFiltered', 'RecordsFiltered', 'recordsTotal', 'RecordsTotal', 'total', 'Total', 'iTotalDisplayRecords']);
     return { rows, hasMore: total != null ? rows.length > 0 : rows.length >= PAGE_SIZE, total };
   }
 
@@ -150,11 +198,11 @@ export class VietstockEventsCrawler {
     const parsed: CrawledStockEvent[] = [];
     for (const row of rows) {
       const data = this.normalizeRow(row);
-      const symbol = this.pick(data, ['Mã CK', 'Mã chứng khoán', 'Code', 'StockCode', 'stockCode']).toUpperCase();
-      const eventContent = this.pick(data, ['Nội dung sự kiện', 'EventContent', 'EventName', 'Content']);
-      const exRightDate = this.parseAnyDate(this.pick(data, ['Ngày GDKHQ', 'ExRightDate', 'ExDate', 'GDKHQDate']));
+      const symbol = this.pick(data, ['Mã CK', 'Mã chứng khoán', 'Code', 'StockCode', 'stockCode', 'Symbol', 'symbol']).toUpperCase();
+      const eventContent = this.pick(data, ['Nội dung sự kiện', 'EventContent', 'EventName', 'Content', 'eventContent']);
+      const exRightDate = this.parseAnyDate(this.pick(data, ['Ngày GDKHQ', 'ExRightDate', 'ExDate', 'GDKHQDate', 'exRightDate']));
       if (!symbol || !exRightDate) continue;
-      parsed.push({ mongoId: `${symbol}:${exRightDate}:${eventContent}`, symbol, exchange: this.pick(data, ['Sàn', 'Sàn GD', 'Exchange']) || null, exRightDate, recordDate: this.parseAnyDate(this.pick(data, ['Ngày ĐKCC', 'RecordDate'])), paymentDate: this.parseAnyDate(this.pick(data, ['Ngày thực hiện', 'PaymentDate'])), gdkhqTimestamp: `${exRightDate}T00:00:00.000Z`, eventContent, ratioText: this.pick(data, ['Tỷ lệ', 'Ratio', 'RatioText']), dividendValue: this.parseDividendValue(eventContent), referencePrice: this.parseNumber(this.pick(data, ['Giá tham chiếu', 'ReferencePrice'])), rawData: data, crawledAt: new Date().toISOString() });
+      parsed.push({ mongoId: `${symbol}:${exRightDate}:${eventContent}`, symbol, exchange: this.pick(data, ['Sàn', 'Sàn GD', 'Exchange', 'exchange']) || null, exRightDate, recordDate: this.parseAnyDate(this.pick(data, ['Ngày ĐKCC', 'RecordDate', 'recordDate'])), paymentDate: this.parseAnyDate(this.pick(data, ['Ngày thực hiện', 'PaymentDate', 'paymentDate'])), gdkhqTimestamp: `${exRightDate}T00:00:00.000Z`, eventContent, ratioText: this.pick(data, ['Tỷ lệ', 'Ratio', 'RatioText', 'ratioText']), dividendValue: this.parseDividendValue(eventContent), referencePrice: this.parseNumber(this.pick(data, ['Giá tham chiếu', 'ReferencePrice', 'referencePrice'])), rawData: data, crawledAt: new Date().toISOString() });
     }
     return parsed;
   }
