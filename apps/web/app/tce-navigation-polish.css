@@ -208,14 +208,17 @@
 /* One shared top navigation context: the breadcrumb owns the safe-area slot. */
 @media (max-width: 767px) {
   .tce-breadcrumbs {
-    position: fixed;
-    z-index: 65;
+    position: fixed !important;
+    z-index: 110 !important;
     top: env(safe-area-inset-top);
     inset-inline: 0;
     width: 100%;
     height: 44px;
     margin: 0;
     padding: 8px max(16px, env(safe-area-inset-left)) 8px max(16px, env(safe-area-inset-right));
+    display: flex !important;
+    visibility: visible !important;
+    opacity: 1 !important;
     border-bottom: 1px solid color-mix(in srgb, var(--border) 92%, transparent);
     background: color-mix(in srgb, var(--background) 88%, transparent);
     backdrop-filter: blur(18px) saturate(125%);
