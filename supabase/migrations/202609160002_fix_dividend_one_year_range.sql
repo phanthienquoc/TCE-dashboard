@@ -39,4 +39,4 @@ left join lateral (
 ) history on true;
 
 comment on view public.tce_stock_event_market_metrics is
-  'Upcoming stock-event market metrics: latest price, dividend yield, and 365-day low/high calculated from daily OHLC high/low values.';
+  'Upcoming stock-event market metrics: 365-day low/high from the daily OHLCV table only; no fallback to quote/current-price data.';
