@@ -3,6 +3,7 @@
 import type { ReactNode } from 'react';
 import { ArrowLeftRight, Cpu, Home, Layers3, Settings, UserCircle } from 'lucide-react';
 import { NavigationDock } from '../navigation/NavigationDock';
+import Breadcrumbs from '../navigation/Breadcrumbs';
 
 type DashboardNavigationId =
   | 'overview'
@@ -38,7 +39,10 @@ export default function DashboardLayout({
   return (
     <main className="app-shell">
       <div className="dashboard-layout">
-        <div className="app-container app-content">{children}</div>
+        <div className="app-container app-content">
+          <Breadcrumbs />
+          {children}
+        </div>
         <NavigationDock items={items} />
       </div>
       {overlay}
