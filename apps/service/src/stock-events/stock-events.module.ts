@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { AuthModule } from '../auth/auth.module';
+import { PlatformCredentialsModule } from '../platform/platform-credentials.module';
 import { StockEventsController } from './stock-events.controller';
 import { StockEventsService } from './stock-events.service';
 import { StockEventsSupabaseRepository } from './stock-events.supabase.repository';
@@ -9,7 +10,7 @@ import { HuntingDividendScannerService } from './hunting-dividend-scanner.servic
 import { DividendOhlcvService } from './dividend-ohlcv.service';
 
 @Module({
-  imports: [AuthModule],
+  imports: [AuthModule, PlatformCredentialsModule],
   controllers: [StockEventsController, StockDividendPoolController],
   providers: [StockEventsService, StockEventsSupabaseRepository, StockDividendPoolService, HuntingDividendScannerService, DividendOhlcvService],
   exports: [StockEventsService, StockDividendPoolService, HuntingDividendScannerService, DividendOhlcvService],
