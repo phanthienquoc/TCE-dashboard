@@ -27,7 +27,11 @@ jobs:
       - name: Send deployment started message
         run: |
           set -euo pipefail
-          MESSAGE="🚀 TCE — production deploy started\n🌿 ${{ github.ref_name }}\n#642"
+          MESSAGE="$(printf '%s\n%s\n%s\n%s' \
+            '🚀 TCE — production deploy started' \
+            '🌿 ${{ github.ref_name }}' \
+            '#${{ github.event.pull_request.number || 'N/A' }}' \
+            '🔗 https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}')"
 
           curl --fail-with-body -sS -X POST \
             "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
@@ -308,30 +312,24 @@ jobs:
           CREDENTIAL_KEY="$(sudo kubectl -n "$NS" get secret tce-auth -o jsonpath='{.data.TCE_CREDENTIAL_ENCRYPTION_KEY}' 2>/dev/null | base64 -d || true)"
           if [ -z "$CREDENTIAL_KEY" ]; then CREDENTIAL_KEY="$(openssl rand -hex 32)"; echo "Generated persistent TCE credential encryption key for production."; else echo "Reusing existing TCE credential encryption key."; fi
           sudo kubectl -n "$NS" create secret generic tce-auth --from-literal=MFA_ENCRYPTION_KEY="$MFA_KEY" --from-literal=TCE_CREDENTIAL_ENCRYPTION_KEY="$CREDENTIAL_KEY" --dry-run=client -o yaml | sudo kubectl apply -f -
-          deploy_and_wait() {
-            local manifest="$1"; local deployment="$2"; local image="$3"
-            verify_image "$image"
-            sudo kubectl apply -f "$manifest"
-            if ! sudo kubectl -n "$NS" rollout status "deployment/$deployment" --timeout=180s; then diagnostics; exit 1; fi
-          }
-          echo "=== DEPLOY SERVICE ==="
-          deploy_and_wait /tmp/service-prod.yaml tce-service "docker.io/library/tce-service:$IMAGE_TAG"
-          echo "=== DEPLOY FRONTEND ==="
-          deploy_and_wait /tmp/frontend-prod.yaml tce-frontend "docker.io/library/tce-frontend:$IMAGE_TAG"
-          echo "=== PRODUCTION STATUS ==="
-          sudo kubectl -n "$NS" get pods,svc,ingress
-          sudo kubectl -n "$NS" get certificate,secret 2>/dev/null || true
-          cleanup
-          trap - EXIT
+          echo "=== VERIFY IMAGES ==="
+          verify_image "docker.io/library/tce-frontend:$IMAGE_TAG"
+          verify_image "docker.io/library/tce-service:$IMAGE_TAG"
+          echo "=== APPLY MANIFESTS ==="
+          sudo kubectl apply -f /tmp/frontend-prod.yaml
+          sudo kubectl apply -f /tmp/service-prod.yaml
+          echo "=== ROLLOUT ==="
+          sudo kubectl -n "$NS" rollout status deployment/tce-service --timeout=8m
+          sudo kubectl -n "$NS" rollout status deployment/tce-frontend --timeout=8m
+          echo "=== FINAL STATE ==="
+          sudo kubectl -n "$NS" get deployments,pods,svc,ingress -o wide
+          echo "Production deploy completed: $IMAGE_TAG"
           REMOTE
-      - name: Cleanup
-        if: always()
-        run: rm -rf ~/.ssh/tce_vps_key /tmp/images /tmp/release /tmp/*.yaml
 
   notify-telegram:
-    name: Notify Telegram
-    needs: deploy-production
-    if: ${{ needs.deploy-production.result == 'success' }}
+    name: Notify Telegram — deploy result
+    needs: [deploy-production]
+    if: always()
     runs-on: ubuntu-latest
     env:
       TELEGRAM_BOT_TOKEN: ${{ vars.TELEGRAM_BOT_TOKEN }}
@@ -342,13 +340,15 @@ jobs:
           set -euo pipefail
           test -n "$TELEGRAM_BOT_TOKEN" || { echo "Missing GitHub variable: TELEGRAM_BOT_TOKEN"; exit 1; }
           test -n "$TELEGRAM_CHAT_ID" || { echo "Missing GitHub variable: TELEGRAM_CHAT_ID"; exit 1; }
-      - name: Send deployment success message
+      - name: Send deployment result
         run: |
           set -euo pipefail
-          MESSAGE="🚀 *TCE — WF-03 DEPLOY SUCCESS*\n\n          📦 Environment: production\n          🌿 Branch: ${{ github.ref_name }}\n          🔖 Commit: ${{ github.sha }}\n          👤 Actor: ${{ github.actor }}\n          🕐 Time: $(TZ=Asia/Ho_Chi_Minh date '+%Y-%m-%d %H:%M:%S ICT')\n\n          ✅ Production deployment completed successfully\n          🔗 Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-
+          if [ "${{ needs.deploy-production.result }}" = "success" ]; then
+            MESSAGE="🚀 TCE — production deploy success\n\n🌿 ${{ github.ref_name }}\n📦 ${{ github.event.head_commit.message || github.workflow }}"
+          else
+            MESSAGE="🚨 TCE — production deploy failed\n\n🌿 ${{ github.ref_name }}\n📦 ${{ github.event.head_commit.message || github.workflow }}"
+          fi
           curl --fail-with-body -sS -X POST \
             "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
             -d "chat_id=${TELEGRAM_CHAT_ID}" \
-            --data-urlencode "text=${MESSAGE}" \
-            -d "parse_mode=Markdown"
+            --data-urlencode "text=${MESSAGE}"
