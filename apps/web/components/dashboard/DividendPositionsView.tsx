@@ -5,6 +5,7 @@ import { useStockEventStore, type StockEvent } from '../../lib/stock-event-store
 import { useDashboardStore } from '../../lib/store';
 import type { DashboardActions, DashboardData } from './DashboardShell';
 import { DividendOneYearCandleChart } from './DividendOneYearCandleChart';
+import TechLoading from '../navigation/TechLoading';
 
 type ViewProps = { data: DashboardData; actions: DashboardActions };
 type MonthGroup = { monthKey: string; cards: Array<{ symbol: string; events: StockEvent[] }> };
@@ -64,7 +65,7 @@ export function DividendPositionsView({ data, actions }: ViewProps) {
         <div className="tce-dividend-filter-divider" aria-hidden="true" />
         <label className="tce-dividend-filter-field" htmlFor="positions-current-price"><Tag className="size-4" aria-hidden="true" /><span><small>Current price (VND)</small><select id="positions-current-price" value={priceFilter} onChange={e => { setPriceFilter(Number(e.target.value)); setExpanded(null); }} aria-label="Current price filter">{PRICE_OPTIONS.map(v => <option key={v} value={v}>≤ {v.toLocaleString('vi-VN')}</option>)}</select></span></label>
       </div>
-      {loading ? <EmptyState text="Loading dividend events…" /> : error ? <EmptyState text={error} /> : monthGroups.length ? monthGroups.map(group => <section className="tce-dividend-month-group" key={group.monthKey}><div className="tce-list-stack tce-dividend-month-cards">{group.cards.map(item => {
+      {loading ? <div className="min-h-[24rem]"><TechLoading label="Loading dividend events" /></div> : error ? <EmptyState text={error} /> : monthGroups.length ? monthGroups.map(group => <section className="tce-dividend-month-group" key={group.monthKey}><div className="tce-list-stack tce-dividend-month-cards">{group.cards.map(item => {
         const pool = data.pools.find(p => String(p.symbol ?? p.code ?? '').toUpperCase() === item.symbol);
         const event = item.events[0];
         const livePrice = marketPrices[item.symbol]?.price;
