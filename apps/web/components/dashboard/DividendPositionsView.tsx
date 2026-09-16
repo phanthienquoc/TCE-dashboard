@@ -2,6 +2,7 @@
 
 import { ChevronDown, WalletCards, CircleDot } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { useStockEventStore, type StockEvent } from '../../lib/stock-event-store';
 import { useDashboardStore } from '../../lib/store';
 import type { DashboardActions, DashboardData } from './DashboardShell';
@@ -11,6 +12,7 @@ type ViewProps = { data: DashboardData; actions: DashboardActions };
 type MonthGroup = { monthKey: string; cards: Array<{ symbol: string; events: StockEvent[] }> };
 
 export function DividendPositionsView({ data, actions }: ViewProps) {
+  const router = useRouter();
   const [tab, setTab] = useState<'current' | 'dividend' | 'history'>('dividend');
   const [expanded, setExpanded] = useState<string | null>(null);
   const [selectedMonth, setSelectedMonth] = useState(currentMonthKey);
@@ -44,8 +46,10 @@ export function DividendPositionsView({ data, actions }: ViewProps) {
       </header>
       <div className="tce-segmented">{(['current', 'dividend', 'history'] as const).map(item => <button key={item} className={tab === item ? 'active' : ''} onClick={() => setTab(item)}>{item[0].toUpperCase() + item.slice(1)}</button>)}</div>
       {tab === 'current' && <div className="tce-list-stack">{data.positions.length ? data.positions.map((row, index) => <article className="tce-dividend-card" key={row.id ?? row.symbol ?? index}>
-        <div className="flex items-center gap-2"><strong>{String(row.symbol ?? '—')}</strong><span className="tce-muted">Current position</span></div>
-        <div className="tce-pool-grid mt-2"><div><span>Entry</span><b>{formatNumber(row.positionPrice ?? row.position_price ?? row.avgBuyCost ?? row.avg_cost)}</b></div><div><span>Now</span><b>{formatNumber(row.marketPrice ?? row.market_price ?? row.currentPrice ?? row.current_price)}</b></div><div><span>P&L</span><b>{formatNumber(row.pnl ?? row.unrealizedPnl ?? row.unrealized_pnl)}</b></div></div>
+        <button type="button" className="w-full text-left" onClick={() => row.symbol && router.push(`/position/${encodeURIComponent(String(row.symbol))}`)}>
+          <div className="flex items-center gap-2"><strong>{String(row.symbol ?? '—')}</strong><span className="tce-muted">Current position</span></div>
+          <div className="tce-pool-grid mt-2"><div><span>Entry</span><b>{formatNumber(row.positionPrice ?? row.position_price ?? row.avgBuyCost ?? row.avg_cost)}</b></div><div><span>Now</span><b>{formatNumber(row.marketPrice ?? row.market_price ?? row.currentPrice ?? row.current_price)}</b></div><div><span>P&L</span><b>{formatNumber(row.pnl ?? row.unrealizedPnl ?? row.unrealized_pnl)}</b></div></div>
+        </button>
         <button className="tce-secondary-action mt-3" onClick={() => actions.openPositionSell(row)}>SELL</button>
       </article>) : <EmptyState text="No current positions" />}</div>}
       {tab === 'dividend' && <div className="tce-list-stack tce-dividend-month-groups">
@@ -60,7 +64,7 @@ export function DividendPositionsView({ data, actions }: ViewProps) {
             const price = marketPrice ?? event?.currentPrice ?? event?.price ?? pool?.currentPrice ?? pool?.current_price;
             const key = `${group.monthKey}:${item.symbol}`;
             return <article className="tce-dividend-card" key={key}>
-              <button type="button" className="w-full text-left" onClick={() => setExpanded(expanded === key ? null : key)} aria-expanded={expanded === key}>
+              <button type="button" className="w-full text-left" onClick={() => router.push(`/position/${encodeURIComponent(item.symbol)}`)} aria-label={`Open ${item.symbol} position`}>
                 <div className="flex items-center gap-2"><strong>{item.symbol}</strong>{event && <span className="tce-muted">{formatDate(event.exDividendTimestamp ?? event.exDividendDate ?? event.exDate)}</span>}<span className="ml-auto">{expanded === key ? '−' : '+'}</span></div>
                 <div className="tce-pool-grid mt-2"><div><span>Dividend</span><b>{Number(event?.dividendValue ?? 0) ? `${money(Number(event?.dividendValue))} ₫` : '—'}</b></div><div><span>Current Price</span><b>{formatNumber(price)}</b></div><div><span>Yield</span><b>{formatPercent(event?.dividendYieldPct)}</b></div><div><span>1Y Low</span><b>{formatNumber(event?.oneYearLow)}</b></div><div><span>1Y High</span><b>{formatNumber(event?.oneYearHigh)}</b></div><div><span>1Y Range</span><b>{formatRange(event?.oneYearLow, event?.oneYearHigh)}</b></div></div>
               </button>
