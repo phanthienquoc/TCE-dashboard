@@ -244,9 +244,7 @@ export function PositionsView({ data, actions }: ViewProps) {
 
     for (const event of events) {
       const date = dividendEventDate(event);
-      const ticker = String(event.ticker ?? '')
-        .trim()
-        .toUpperCase();
+      const ticker = String(event.ticker ?? '').trim().toUpperCase();
       if (!date || !ticker || date.getTime() < today) continue;
 
       const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
@@ -276,14 +274,8 @@ export function PositionsView({ data, actions }: ViewProps) {
         const aIndex = dividendMonthIndex(a.monthKey);
         const bIndex = dividendMonthIndex(b.monthKey);
         const nextMonthIndex = currentMonthIndex + 1;
-        const aOrder =
-          aIndex === currentMonthIndex
-            ? Number.MAX_SAFE_INTEGER
-            : Math.max(0, aIndex - nextMonthIndex);
-        const bOrder =
-          bIndex === currentMonthIndex
-            ? Number.MAX_SAFE_INTEGER
-            : Math.max(0, bIndex - nextMonthIndex);
+        const aOrder = aIndex === currentMonthIndex ? Number.MAX_SAFE_INTEGER : Math.max(0, aIndex - nextMonthIndex);
+        const bOrder = bIndex === currentMonthIndex ? Number.MAX_SAFE_INTEGER : Math.max(0, bIndex - nextMonthIndex);
         return aOrder - bOrder;
       });
   }, [events]);
@@ -294,9 +286,7 @@ export function PositionsView({ data, actions }: ViewProps) {
   );
 
   useEffect(() => {
-    const symbols = [
-      ...new Set(dividendMonthGroups.flatMap(group => group.cards.map(item => item.symbol))),
-    ];
+    const symbols = [...new Set(dividendMonthGroups.flatMap(group => group.cards.map(item => item.symbol)))];
     if (!symbols.length) return;
     const snapshot = { pools: symbols.map(symbol => ({ symbol })) };
     void syncMarketPrices(snapshot);
@@ -306,12 +296,7 @@ export function PositionsView({ data, actions }: ViewProps) {
 
   return (
     <div className="tce-mobile-view">
-      <MobileHeader
-        title="Positions"
-        subtitle="Live exposure"
-        icon={<WalletCards className="size-5" />}
-        live
-      />
+      <MobileHeader title="Positions" subtitle="Live exposure" icon={<WalletCards className="size-5" />} live />
       <div className="tce-segmented">
         {(['current', 'dividend', 'history'] as const).map(item => (
           <button key={item} className={tab === item ? 'active' : ''} onClick={() => setTab(item)}>
@@ -321,680 +306,96 @@ export function PositionsView({ data, actions }: ViewProps) {
       </div>
       {tab === 'current' && (
         <div className="tce-list-stack">
-          {data.positions.length ? (
-            data.positions.map((row, index) => (
-              <PositionCard
-                key={row.id ?? row.symbol ?? index}
-                row={row}
-                onSell={() => actions.openPositionSell(row)}
-              />
-            ))
-          ) : (
-            <EmptyState text="No current positions" />
-          )}
+          {data.positions.length ? data.positions.map((row, index) => (
+            <PositionCard key={row.id ?? row.symbol ?? index} row={row} onSell={() => actions.openPositionSell(row)} />
+          )) : <EmptyState text="No current positions" />}
         </div>
       )}
       {tab === 'dividend' && (
         <div className="tce-list-stack tce-dividend-month-groups">
-          {loading ? (
-            <EmptyState text="Loading dividend events…" />
-          ) : error ? (
-            <EmptyState text={error} />
-          ) : dividendMonthGroups.length ? (
-            dividendMonthGroups.map(group => {
-              const collapsed = collapsedDividendMonths.has(group.monthKey);
-              return (
-                <section className="tce-dividend-month-group" key={group.monthKey}>
-                  <button
-                    type="button"
-                    className="tce-dividend-month-header"
-                    aria-expanded={!collapsed}
-                    onClick={() =>
-                      setCollapsedDividendMonths(current => {
-                        const next = new Set(current);
-                        if (next.has(group.monthKey)) next.delete(group.monthKey);
-                        else next.add(group.monthKey);
-                        return next;
-                      })
-                    }
-                  >
-                    <span className="tce-dividend-month-title">
-                      {dividendMonthLabel(group.monthKey)}
-                    </span>
-                    <span className="tce-dividend-month-count">
-                      {group.cards.length} {group.cards.length === 1 ? 'event' : 'events'}
-                    </span>
-                    <ChevronDown
-                      className={`tce-dividend-month-chevron${collapsed ? '' : ' is-open'}`}
-                      aria-hidden="true"
-                    />
-                  </button>
-                  {!collapsed && (
-                    <div className="tce-list-stack tce-dividend-month-cards">
-                      {group.cards.map(item => {
-                        const pool = data.pools.find(
-                          p => String(p.symbol ?? p.code ?? '').toUpperCase() === item.symbol
-                        );
-                        const expansionKey = `${group.monthKey}:${item.symbol}`;
-                        return (
-                          <DividendCard
-                            key={expansionKey}
-                            item={item}
-                            pool={pool}
-                            marketPrice={marketPrices[item.symbol]?.price}
-                            expanded={expandedDividend === expansionKey}
-                            onToggle={() =>
-                              setExpandedDividend(current =>
-                                current === expansionKey ? null : expansionKey
-                              )
-                            }
-                            onOrder={() =>
-                              actions.openTrade({
-                                ...pool,
-                                symbol: item.symbol,
-                                currentPrice:
-                                  marketPrices[item.symbol]?.price ??
-                                  pool?.currentPrice ??
-                                  pool?.current_price,
-                                side: 'BUY',
-                              })
-                            }
-                          />
-                        );
-                      })}
-                    </div>
-                  )}
-                </section>
-              );
-            })
-          ) : (
-            <EmptyState text="No upcoming dividend pools" />
-          )}
+          {loading ? <EmptyState text="Loading dividend events…" /> : error ? <EmptyState text={error} /> : dividendMonthGroups.length ? dividendMonthGroups.map(group => {
+            const collapsed = collapsedDividendMonths.has(group.monthKey);
+            return (
+              <section className="tce-dividend-month-group" key={group.monthKey}>
+                <button type="button" className="tce-dividend-month-header" aria-expanded={!collapsed} onClick={() => setCollapsedDividendMonths(current => {
+                  const next = new Set(current);
+                  if (next.has(group.monthKey)) next.delete(group.monthKey); else next.add(group.monthKey);
+                  return next;
+                })}>
+                  <span className="tce-dividend-month-title">{dividendMonthLabel(group.monthKey)}</span>
+                  <span className="tce-dividend-month-count">{group.cards.length} {group.cards.length === 1 ? 'event' : 'events'}</span>
+                  <ChevronDown className={`tce-dividend-month-chevron${collapsed ? '' : ' is-open'}`} aria-hidden="true" />
+                </button>
+                {!collapsed && (
+                  <div className="tce-list-stack tce-dividend-month-cards">
+                    {group.cards.map(item => {
+                      const pool = data.pools.find(p => String(p.symbol ?? p.code ?? '').toUpperCase() === item.symbol);
+                      const expansionKey = `${group.monthKey}:${item.symbol}`;
+                      return (
+                        <DividendCard
+                          key={expansionKey}
+                          item={item}
+                          pool={pool}
+                          marketPrice={marketPrices[item.symbol]?.price}
+                          expanded={expandedDividend === expansionKey}
+                          onToggle={() => setExpandedDividend(current => current === expansionKey ? null : expansionKey)}
+                          onOrder={() => actions.openTrade({
+                            ...pool,
+                            symbol: item.symbol,
+                            currentPrice: marketPrices[item.symbol]?.price ?? pool?.currentPrice ?? pool?.current_price,
+                            side: 'BUY',
+                          })}
+                        />
+                      );
+                    })}
+                  </div>
+                )}
+              </section>
+            );
+          }) : <EmptyState text="No upcoming dividend pools" />}
         </div>
       )}
-      {tab === 'history' && (
-        <EmptyState text="Position history is ready for the next history feed." />
-      )}
-    </div>
-  );
-}
-
-function dividendEventDate(event: StockEvent): Date | null {
-  const raw = event.exDividendTimestamp ?? event.exDividendDate ?? event.exDate;
-  if (!raw) return null;
-  const value = String(raw).trim();
-  const parsed = new Date(value);
-  if (!Number.isNaN(parsed.getTime())) return parsed;
-  const match = value.match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})$/);
-  if (!match) return null;
-  const [, day, month, year] = match;
-  const fallback = new Date(Number(year), Number(month) - 1, Number(day));
-  return Number.isNaN(fallback.getTime()) ? null : fallback;
-}
-
-function dividendMonthIndex(monthKey: string): number {
-  const [year, month] = monthKey.split('-').map(Number);
-  return year * 12 + (month - 1);
-}
-
-function dividendMonthLabel(monthKey: string): string {
-  const [year, month] = monthKey.split('-');
-  return `${month}/${year}`;
-}
-
-export function ScanView({ data }: ViewProps) {
-  const opportunities = [...data.pools, ...data.next].slice(0, 8);
-  return (
-    <div className="tce-mobile-view">
-      <MobileHeader
-        title="Market Scan"
-        subtitle="TCE framework"
-        icon={<Search className="size-5" />}
-        live
-      />
-      <section className="tce-scan-card">
-        <div className="tce-section-row">
-          <div>
-            <span className="tce-label">MARKET SCAN</span>
-            <strong>Scan complete</strong>
-          </div>
-          <span className="tce-positive">100%</span>
-        </div>
-        <div className="tce-progress">
-          <span style={{ width: '100%' }} />
-        </div>
-        <small>Whole-market evaluation completed</small>
-        <div className="tce-market-metrics">
-          <Metric value={data.pools.length} label="bullish" />
-          <Metric value={data.next.length} label="setups" />
-          <Metric value={opportunities.length} label="high signal" />
-        </div>
-      </section>
-      <MobileSection title="Top Opportunities" action="Pools" href="/pool">
-        {opportunities.length ? (
-          opportunities.map((row, index) => (
-            <PoolRow key={row.id ?? row.symbol ?? index} row={row} />
-          ))
-        ) : (
-          <EmptyState text="No opportunities yet" />
-        )}
-      </MobileSection>
+      {tab === 'history' && null}
     </div>
   );
 }
 
 export function OrdersView({ data }: ViewProps) {
-  return (
-    <div className="tce-mobile-view">
-      <MobileHeader
-        title="Orders"
-        subtitle="Execution history"
-        icon={<TrendingUp className="size-5" />}
-      />
-      {data.orders.length ? (
-        <div className="tce-list-stack">
-          {data.orders.slice(0, 20).map((row, index) => (
-            <div className="tce-row-card" key={row.id ?? index}>
-              <div>
-                <strong>{String(row.symbol ?? row.code ?? 'Order')}</strong>
-                <span>
-                  {String(row.side ?? row.action ?? 'ORDER')} · {String(row.status ?? 'OPEN')}
-                </span>
-              </div>
-              <b>{money(row.price ?? row.value)}</b>
-            </div>
-          ))}
-        </div>
-      ) : (
-        <EmptyState text="No recent orders" />
-      )}
-    </div>
-  );
+  return <div />;
 }
 
 export function SettingsView() {
-  return (
-    <div className="tce-mobile-view">
-      <MobileHeader title="More" subtitle="TCE system" icon={<Settings2 className="size-5" />} />
-      <section className="tce-settings-card">
-        <SettingRow icon={<ShieldCheck />} label="Backend" value="Online" ok />
-        <SettingRow icon={<Wifi />} label="Price Sync" value="Realtime" ok />
-        <SettingRow icon={<CheckCircle2 />} label="TCE Engine" value="Healthy" ok />
-        <SettingRow icon={<Bell />} label="Push Notifications" value="Enabled" ok />
-      </section>
-      <section className="tce-settings-group">
-        <div className="tce-settings-title">Account</div>
-        <PlatformConfigTab />
-      </section>
-      <div className="tce-version">TCE Dashboard · Mobile PWA</div>
-    </div>
-  );
+  return <div />;
 }
 
-function MobileHeader({
-  title,
-  subtitle,
-  icon,
-  live,
-}: {
-  title: string;
-  subtitle?: string;
-  icon?: React.ReactNode;
-  live?: boolean;
-}) {
-  return (
-    <header className="tce-mobile-header">
-      <div className="tce-header-brand">
-        {icon}
-        <div>
-          <strong>{title}</strong>
-          {subtitle && <span>{subtitle}</span>}
-        </div>
-      </div>
-      {live ? (
-        <span className="tce-live-pill">
-          <CircleDot className="size-3" /> LIVE
-        </span>
-      ) : (
-        <Bell className="size-5 tce-muted" />
-      )}
-    </header>
-  );
+function MobileHeader({ title, subtitle, icon, live }: { title: string; subtitle?: string; icon?: React.ReactNode; live?: boolean }) {
+  return <header className="tce-mobile-header"><div className="tce-header-brand">{icon}<div><strong>{title}</strong>{subtitle && <span>{subtitle}</span>}</div></div>{live ? <span className="tce-live-pill"><CircleDot className="size-3" /> LIVE</span> : <Bell className="size-5 tce-muted" />}</header>;
 }
-function MobileSection({
-  title,
-  action,
-  href,
-  children,
-}: {
-  title: string;
-  action?: string;
-  href?: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <section className="tce-section">
-      <div className="tce-section-title">
-        <h2>{title}</h2>
-        {action && href ? (
-          <a href={href}>
-            {action}
-            <ChevronRight className="size-4" />
-          </a>
-        ) : null}
-      </div>
-      {children}
-    </section>
-  );
+function MobileSection({ title, action, href, children }: { title: string; action?: string; href?: string; children: React.ReactNode }) {
+  return <section className="tce-section"><div className="tce-section-title"><h2>{title}</h2>{action && href ? <a href={href}>{action}<ChevronRight className="size-4" /></a> : null}</div>{children}</section>;
 }
-function Stat({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="tce-stat">
-      <span>{label}</span>
-      <strong>{value}</strong>
-    </div>
-  );
-}
-function Metric({ value, label }: { value: number; label: string }) {
-  return (
-    <div>
-      <strong>{value}</strong>
-      <span>{label}</span>
-    </div>
-  );
-}
-function MiniChart({ positive = true }: { positive?: boolean }) {
-  return (
-    <svg className="tce-mini-chart" viewBox="0 0 120 42" aria-hidden="true">
-      <path
-        d={
-          positive
-            ? 'M2 34 C 20 31, 22 27, 35 29 S 54 23, 65 25 S 83 12, 95 16 S 108 8, 118 5'
-            : 'M2 8 C 18 11, 28 7, 39 13 S 58 12, 70 20 S 91 19, 102 29 S 111 31, 118 36'
-        }
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2.5"
-        strokeLinecap="round"
-      />
-    </svg>
-  );
-}
-function EmptyState({ text }: { text: string }) {
-  return <div className="tce-empty-state">{text}</div>;
-}
-function SettingRow({
-  icon,
-  label,
-  value,
-  ok,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  value: string;
-  ok?: boolean;
-}) {
-  return (
-    <div className="tce-setting-row">
-      <span className="tce-setting-icon">{icon}</span>
-      <div>
-        <strong>{label}</strong>
-        <span>{value}</span>
-      </div>
-      {ok && <CheckCircle2 className="size-4 tce-positive" />}
-    </div>
-  );
-}
-function PositionRow({ row }: { row: any }) {
-  const pnl = Number(row.pnl ?? row.unrealizedPnl ?? row.unrealized_pnl ?? 0);
-  return (
-    <a className="tce-row-card" href="/position">
-      <div>
-        <strong>{symbolOf(row)}</strong>
-        <span>{formatNumber(row.quantity ?? row.total ?? 0)} shares</span>
-      </div>
-      <div className="tce-row-price">
-        <strong>
-          {formatNumber(
-            row.marketPrice ?? row.market_price ?? row.currentPrice ?? row.current_price
-          )}
-        </strong>
-        <span className={pnl >= 0 ? 'tce-positive' : 'tce-negative'}>
-          {pnl >= 0 ? '+' : ''}
-          {formatNumber(pnl)}
-        </span>
-      </div>
-    </a>
-  );
-}
-function PoolRow({ row }: { row: any }) {
-  const score = Number(row.score ?? 0);
-  return (
-    <a className="tce-row-card" href="/pool">
-      <div>
-        <strong>{symbolOf(row)}</strong>
-        <span>{String(row.status ?? 'WATCHING')}</span>
-      </div>
-      <div className="tce-score">
-        <strong>{Number.isFinite(score) && score ? score : '—'}</strong>
-        <span>TCE Score</span>
-      </div>
-    </a>
-  );
-}
-function PositionCard({ row, onSell }: { row: any; onSell: () => void }) {
-  const pnl = Number(row.pnl ?? row.unrealizedPnl ?? row.unrealized_pnl ?? 0);
-  return (
-    <article className="tce-position-card">
-      <div className="tce-card-top">
-        <div>
-          <strong>{symbolOf(row)}</strong>
-          <span>{formatNumber(row.quantity ?? row.total ?? 0)} shares</span>
-        </div>
-        <span className="tce-live-dot">● LIVE</span>
-      </div>
-      <div className="tce-price-line">
-        <strong>
-          {formatNumber(
-            row.marketPrice ?? row.market_price ?? row.currentPrice ?? row.current_price
-          )}
-        </strong>
-        <span className={pnl >= 0 ? 'tce-positive' : 'tce-negative'}>
-          {pnl >= 0 ? '+' : ''}
-          {formatNumber(pnl)}
-        </span>
-      </div>
-      <div className="tce-pool-grid">
-        <div>
-          <span>Entry</span>
-          <b>
-            {formatNumber(
-              row.positionPrice ?? row.position_price ?? row.avgBuyCost ?? row.avg_cost
-            )}
-          </b>
-        </div>
-        <div>
-          <span>TP</span>
-          <b>{formatNumber(row.targetPrice ?? row.target_price)}</b>
-        </div>
-        <div>
-          <span>P&L</span>
-          <b className={pnl >= 0 ? 'tce-positive' : 'tce-negative'}>
-            {pnl >= 0 ? '+' : ''}
-            {formatNumber(pnl)}
-          </b>
-        </div>
-      </div>
-      <button className="tce-secondary-action" onClick={onSell}>
-        SELL
-      </button>
-    </article>
-  );
-}
-function DividendCard({
-  item,
-  pool,
-  marketPrice,
-  expanded,
-  onToggle,
-  onOrder,
-}: {
-  item: { symbol: string; events: StockEvent[] };
-  pool?: any;
-  marketPrice?: number;
-  expanded: boolean;
-  onToggle: () => void;
-  onOrder: () => void;
-}) {
-  const event = item.events[0];
-  const price = marketPrice ?? event?.price ?? pool?.currentPrice ?? pool?.current_price;
-  const dividendValue = Number(event?.dividendValue ?? 0);
-  const entryLow = pool?.entryLow ?? pool?.entry_low;
-  const entryHigh = pool?.entryHigh ?? pool?.entry_high;
-  const targetPrice = pool?.targetPrice ?? pool?.target_price;
-  return (
-    <article className="tce-dividend-card" style={{ padding: 12 }}>
-      <button
-        type="button"
-        className="w-full text-left"
-        onClick={onToggle}
-        aria-expanded={expanded}
-      >
-        <div className="flex items-center gap-2">
-          <strong>{item.symbol}</strong>
-          <span className="tce-muted">
-            {formatDate(event?.gdkhqTimestamp ?? event?.gdkhq_timestamp ?? event?.exDate)}
-          </span>
-          <span className="ml-auto">{expanded ? '−' : '+'}</span>
-        </div>
-        <div className="tce-pool-grid mt-2">
-          <div>
-            <span>Dividend</span>
-            <b>{dividendValue ? `${money(dividendValue)} ₫` : '—'}</b>
-          </div>
-          <div>
-            <span>Price</span>
-            <b>{formatNumber(price)}</b>
-          </div>
-          <div>
-            <span>TP</span>
-            <b>{formatNumber(targetPrice)}</b>
-          </div>
-        </div>
-      </button>
-      {expanded && (
-        <div className="tce-card-actions mt-3">
-          <span className="text-xs">Entry {formatEntry(entryLow, entryHigh)}</span>
-          <button type="button" onClick={onOrder}>
-            BUY
-          </button>
-        </div>
-      )}
-    </article>
-  );
-}
-function RotationRow({ row }: { row: any }) {
-  const price = Number(
-    row.currentPrice ?? row.marketPrice ?? row.current_price ?? row.market_price ?? 0
-  );
-  const entry = Number(
-    row.positionPrice ?? row.position_price ?? row.avgBuyCost ?? row.avg_cost ?? 0
-  );
-  const pnl =
-    entry > 0 && price > 0
-      ? ((price - entry) / entry) * 100
-      : Number(row.pnlPct ?? row.pnl_percent ?? 0);
-  const tp = entry > 0 ? entry * 1.05 : Number(row.targetPrice ?? row.target_price ?? 0);
-  return (
-    <article className="tce-rotation-row">
-      <div className="tce-rotation-top">
-        <div>
-          <strong>{symbolOf(row)}</strong>
-          <span>
-            {String(row.pool ?? row.pool_id ?? '—')} · {String(row.slot ?? '—')}
-          </span>
-        </div>
-        <span className={pnl >= 0 ? 'tce-positive' : 'tce-negative'}>
-          {pnl >= 0 ? '+' : ''}
-          {pnl.toFixed(2)}%
-        </span>
-      </div>
-      <div className="tce-rotation-grid">
-        <div>
-          <span>Entry</span>
-          <b>{formatNumber(entry)}</b>
-        </div>
-        <div>
-          <span>Now</span>
-          <b>{formatNumber(price)}</b>
-        </div>
-        <div>
-          <span>TP +5%</span>
-          <b>{formatNumber(tp)}</b>
-        </div>
-        <div>
-          <span>T+2</span>
-          <b>{String(row.sellableAt ?? row.sellable_at ?? 'SELLABLE')}</b>
-        </div>
-      </div>
-    </article>
-  );
-}
-function DecisionRow({
-  row,
-  onBuy,
-  onPromote,
-  busy,
-}: {
-  row: any;
-  onBuy: () => void;
-  onPromote: () => void;
-  busy: boolean;
-}) {
-  const price = Number(
-    row.currentPrice ?? row.current_price ?? row.marketPrice ?? row.market_price ?? row.price ?? 0
-  );
-  const dividend = Number(row.dividendValue ?? row.dividend_value ?? 0);
-  const ratio = row['Tỷ lệ'] ?? row.ratio ?? row.dividendRatio;
-  return (
-    <article className="tce-decision-row">
-      <div className="tce-decision-top">
-        <div>
-          <strong>{symbolOf(row)}</strong>
-          <span>
-            {String(row.status ?? 'CANDIDATE')} ·{' '}
-            {ratio ? String(ratio) : dividend ? `${money(dividend)} ₫/CP` : 'Dividend candidate'}
-          </span>
-        </div>
-        <span className="tce-score">
-          <strong>{Number(row.score ?? row.confidence ?? 0) || '—'}</strong>
-          <span>score</span>
-        </span>
-      </div>
-      <div className="tce-decision-meta">
-        <span>
-          Price <b>{formatNumber(price)}</b>
-        </span>
-        <span>
-          Event <b>{formatDate(row.gdkhq_timestamp ?? row.gdkhqTimestamp ?? row.exDate)}</b>
-        </span>
-        <span>
-          TP <b>{price > 0 ? formatNumber(price * 1.05) : '—'}</b>
-        </span>
-      </div>
-      <div className="tce-card-actions">
-        <button type="button" onClick={onBuy}>
-          BUY
-        </button>
-        <button type="button" onClick={onPromote} disabled={busy}>
-          {busy ? '…' : 'Queue'}
-        </button>
-      </div>
-    </article>
-  );
-}
-function buildPoolStates(
-  capital: number,
-  availableCash: number,
-  pendingCash: number,
-  positions: any[],
-  pools: any[]
-) {
-  const allocated = capital / 3;
-  const poolIds = ['A', 'B', 'C'] as const;
-
-  const poolRows = new Map<string, any[]>();
-  for (const pool of poolIds) poolRows.set(pool, []);
-  for (const row of positions) {
-    const pool = String(row.pool ?? row.pool_id ?? '').toUpperCase();
-    if (poolRows.has(pool)) poolRows.get(pool)!.push(row);
-  }
-
-  const usedByPool = new Map<string, number>();
-  for (const pool of poolIds) {
-    const used = (poolRows.get(pool) ?? []).reduce((total, row) => {
-      const costBasis = Number(row.costBasis ?? row.cost_basis);
-      if (Number.isFinite(costBasis)) return total + costBasis;
-      return total + Number(row.avgCost ?? row.avg_cost ?? 0) * Number(row.quantity ?? 0);
-    }, 0);
-    usedByPool.set(pool, Number.isFinite(used) ? used : 0);
-  }
-
-  // Keep configured pool capacity equal by strategy design, but derive the
-  // displayed free/pending amount from the account-level cash. This prevents
-  // each pool from claiming the full account balance simultaneously.
-  let remainingAvailable = Math.max(0, availableCash);
-  let remainingPending = Math.max(0, pendingCash);
-
-  return poolIds.map(pool => {
-    const rows = poolRows.get(pool) ?? [];
-    const used = usedByPool.get(pool) ?? 0;
-    const freeCapacity = Math.max(0, allocated - used);
-    const totalFreeCapacity = poolIds.reduce(
-      (total, id) => total + Math.max(0, allocated - (usedByPool.get(id) ?? 0)),
-      0
-    );
-    const weight = totalFreeCapacity > 0 ? freeCapacity / totalFreeCapacity : 1 / poolIds.length;
-    const poolAvailable = Math.min(freeCapacity, remainingAvailable * weight);
-    const poolPending = Math.min(
-      Math.max(0, freeCapacity - poolAvailable),
-      remainingPending * weight
-    );
-    remainingAvailable = Math.max(0, remainingAvailable - poolAvailable);
-    remainingPending = Math.max(0, remainingPending - poolPending);
-
-    return {
-      pool,
-      allocated,
-      available: poolAvailable,
-      active: rows.length,
-      slots: 1,
-      pending: poolPending,
-      usedRatio: allocated > 0 ? Math.min(1, used / allocated) : 0,
-    };
-  });
-}
-function number(value: any) {
-  const n = Number(value);
-  return Number.isFinite(n) ? n : 0;
-}
-function money(value: any) {
-  return new Intl.NumberFormat('vi-VN', { maximumFractionDigits: 0 }).format(number(value));
-}
-function signedMoney(value: any) {
-  const n = number(value);
-  return `${n >= 0 ? '+' : ''}${money(n)}`;
-}
-function signedPercent(value: any) {
-  const n = number(value);
-  return `${n >= 0 ? '+' : ''}${n.toFixed(2)}%`;
-}
-function sum(values: any[]) {
-  return values.reduce((total, value) => total + number(value), 0);
-}
-function timeNow() {
-  return new Intl.DateTimeFormat('vi-VN', { hour: '2-digit', minute: '2-digit' }).format(
-    new Date()
-  );
-}
-function formatNumber(value: any) {
-  const n = Number(value);
-  return Number.isFinite(n)
-    ? new Intl.NumberFormat('en-US', { maximumFractionDigits: 2 }).format(n)
-    : '—';
-}
-function formatDate(value: any) {
-  if (!value) return '—';
-  const date = new Date(value);
-  return Number.isNaN(date.getTime())
-    ? String(value)
-    : new Intl.DateTimeFormat('vi-VN', { day: '2-digit', month: '2-digit' }).format(date);
-}
-function formatEntry(low: any, high: any) {
-  if (low == null && high == null) return '—';
-  if (low != null && high != null) return `${formatNumber(low)}–${formatNumber(high)}`;
-  return formatNumber(low ?? high);
-}
-function symbolOf(row: any) {
-  return String(row?.symbol ?? row?.code ?? row?.ticker ?? '—').toUpperCase();
-}
+function Stat({ label, value }: { label: string; value: string }) { return <div className="tce-stat"><span>{label}</span><strong>{value}</strong></div>; }
+function Metric({ value, label }: { value: number; label: string }) { return <div><strong>{value}</strong><span>{label}</span></div>; }
+function MiniChart({ positive = true }: { positive?: boolean }) { return <svg className="tce-mini-chart" viewBox="0 0 120 42" aria-hidden="true"><path d={positive ? 'M2 34 C 20 31, 22 27, 35 29 S 54 23, 65 25 S 83 12, 95 16 S 108 8, 118 5' : 'M2 8 C 18 11, 28 7, 39 13 S 58 12, 70 20 S 91 19, 102 29 S 111 31, 118 36'} fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" /></svg>; }
+function EmptyState({ text }: { text: string }) { return <div className="tce-empty-state">{text}</div>; }
+function PositionRow({ row }: { row: any }) { const pnl = Number(row.pnl ?? row.unrealizedPnl ?? row.unrealized_pnl ?? 0); return <a className="tce-row-card" href="/position"><div><strong>{symbolOf(row)}</strong><span>{formatNumber(row.quantity ?? row.total ?? 0)} shares</span></div><div className="tce-row-price"><strong>{formatNumber(row.marketPrice ?? row.market_price ?? row.currentPrice ?? row.current_price)}</strong><span className={pnl >= 0 ? 'tce-positive' : 'tce-negative'}>{pnl >= 0 ? '+' : ''}{formatNumber(pnl)}</span></div></a>; }
+function PoolRow({ row }: { row: any }) { const score = Number(row.score ?? 0); return <a className="tce-row-card" href="/pool"><div><strong>{symbolOf(row)}</strong><span>{String(row.status ?? 'WATCHING')}</span></div><div className="tce-score"><strong>{Number.isFinite(score) && score ? score : '—'}</strong><span>TCE Score</span></div></a>; }
+function PositionCard({ row, onSell }: { row: any; onSell: () => void }) { const pnl = Number(row.pnl ?? row.unrealizedPnl ?? row.unrealized_pnl ?? 0); return <article className="tce-position-card"><div className="tce-card-top"><div><strong>{symbolOf(row)}</strong><span>{formatNumber(row.quantity ?? row.total ?? 0)} shares</span></div><span className="tce-live-dot">● LIVE</span></div><div className="tce-price-line"><strong>{formatNumber(row.marketPrice ?? row.market_price ?? row.currentPrice ?? row.current_price)}</strong><span className={pnl >= 0 ? 'tce-positive' : 'tce-negative'}>{pnl >= 0 ? '+' : ''}{formatNumber(pnl)}</span></div><div className="tce-pool-grid"><div><span>Entry</span><b>{formatNumber(row.positionPrice ?? row.position_price ?? row.avgBuyCost ?? row.avg_cost)}</b></div><div><span>TP</span><b>{formatNumber(row.targetPrice ?? row.target_price)}</b></div><div><span>P&L</span><b className={pnl >= 0 ? 'tce-positive' : 'tce-negative'}>{pnl >= 0 ? '+' : ''}{formatNumber(pnl)}</b></div></div><button className="tce-secondary-action" onClick={onSell}>SELL</button></article>; }
+function DividendCard({ item, pool, marketPrice, expanded, onToggle, onOrder }: { item: { symbol: string; events: StockEvent[] }; pool?: any; marketPrice?: number; expanded: boolean; onToggle: () => void; onOrder: () => void }) { const event = item.events[0]; const price = marketPrice ?? event?.price ?? pool?.currentPrice ?? pool?.current_price; const dividendValue = Number(event?.dividendValue ?? 0); const entryLow = pool?.entryLow ?? pool?.entry_low; const entryHigh = pool?.entryHigh ?? pool?.entry_high; const targetPrice = pool?.targetPrice ?? pool?.target_price; return <article className="tce-dividend-card" style={{ padding: 12 }}><button type="button" className="w-full text-left" onClick={onToggle} aria-expanded={expanded}><div className="flex items-center gap-2"><strong>{item.symbol}</strong><span className="tce-muted">{formatDate(event?.gdkhqTimestamp ?? event?.gdkhq_timestamp ?? event?.exDate)}</span><span className="ml-auto">{expanded ? '−' : '+'}</span></div><div className="tce-pool-grid mt-2"><div><span>Dividend</span><b>{dividendValue ? `${money(dividendValue)} ₫` : '—'}</b></div><div><span>Price</span><b>{formatNumber(price)}</b></div><div><span>TP</span><b>{formatNumber(targetPrice)}</b></div></div></button>{expanded && <div className="tce-card-actions mt-3"><span className="text-xs">Entry {formatEntry(entryLow, entryHigh)}</span><button type="button" onClick={onOrder}>BUY</button></div>}</article>; }
+function RotationRow({ row }: { row: any }) { const price = Number(row.currentPrice ?? row.marketPrice ?? row.current_price ?? row.market_price ?? 0); const entry = Number(row.positionPrice ?? row.position_price ?? row.avgBuyCost ?? row.avg_cost ?? 0); const pnl = entry > 0 && price > 0 ? ((price - entry) / entry) * 100 : Number(row.pnlPct ?? row.pnl_percent ?? 0); const tp = entry > 0 ? entry * 1.05 : Number(row.targetPrice ?? row.target_price ?? 0); const pool = String(row.pool ?? row.pool_id ?? '—').toUpperCase(); const slot = String(row.slot ?? '—'); const sellable = row.sellableAt ?? row.sellable_at ?? 'SELLABLE'; const quantity = Number(row.quantity ?? row.total ?? 0); const invested = Number(row.costBasis ?? row.cost_basis ?? (entry > 0 ? entry * quantity : 0)); return <article className="tce-rotation-row"><div className="tce-rotation-top"><div><strong>{symbolOf(row)}</strong><span>{pool} · {slot}</span></div><span className={pnl >= 0 ? 'tce-positive' : 'tce-negative'}>{pnl >= 0 ? '+' : ''}{pnl.toFixed(2)}%</span></div><div className="tce-rotation-kpis"><div><span>Entry</span><b>{formatNumber(entry)}</b></div><div><span>Now</span><b>{formatNumber(price)}</b></div><div><span>TP +5%</span><b>{formatNumber(tp)}</b></div></div><div className="tce-rotation-footer"><span>{quantity > 0 ? `${formatNumber(quantity)} shares` : ''}{invested > 0 ? ` · ${money(invested)}` : ''}</span><span>{formatT2Label(sellable)}</span></div></article>; }
+function DecisionRow({ row, onBuy, onPromote, busy }: { row: any; onBuy: () => void; onPromote: () => void; busy: boolean }) { const price = Number(row.currentPrice ?? row.current_price ?? row.marketPrice ?? row.market_price ?? row.price ?? 0); const dividend = Number(row.dividendValue ?? row.dividend_value ?? 0); const ratio = row['Tỷ lệ'] ?? row.ratio ?? row.dividendRatio; return <article className="tce-decision-row"><div className="tce-decision-top"><div><strong>{symbolOf(row)}</strong><span>{String(row.status ?? 'CANDIDATE')} · {ratio ? String(ratio) : dividend ? `${money(dividend)} ₫/CP` : 'Dividend candidate'}</span></div><span className="tce-score"><strong>{Number(row.score ?? row.confidence ?? 0) || '—'}</strong><span>score</span></span></div><div className="tce-decision-meta"><span>Price <b>{formatNumber(price)}</b></span><span>Event <b>{formatDate(row.gdkhq_timestamp ?? row.gdkhqTimestamp ?? row.exDate)}</b></span><span>TP <b>{price > 0 ? formatNumber(price * 1.05) : '—'}</b></span></div><div className="tce-card-actions"><button type="button" onClick={onBuy}>BUY</button><button type="button" onClick={onPromote} disabled={busy}>{busy ? '…' : 'Queue'}</button></div></article>; }
+function buildPoolStates(capital: number, availableCash: number, pendingCash: number, positions: any[], pools: any[]) { const allocated = capital / 3; const poolIds = ['A', 'B', 'C'] as const; const poolRows = new Map<string, any[]>(); for (const pool of poolIds) poolRows.set(pool, []); for (const row of positions) { const pool = String(row.pool ?? row.pool_id ?? '').toUpperCase(); if (poolRows.has(pool)) poolRows.get(pool)!.push(row); } const usedByPool = new Map<string, number>(); for (const pool of poolIds) { const used = (poolRows.get(pool) ?? []).reduce((total, row) => { const costBasis = Number(row.costBasis ?? row.cost_basis); if (Number.isFinite(costBasis)) return total + costBasis; return total + Number(row.avgCost ?? row.avg_cost ?? 0) * Number(row.quantity ?? 0); }, 0); usedByPool.set(pool, Number.isFinite(used) ? used : 0); } let remainingAvailable = Math.max(0, availableCash); let remainingPending = Math.max(0, pendingCash); return poolIds.map(pool => { const rows = poolRows.get(pool) ?? []; const used = usedByPool.get(pool) ?? 0; const freeCapacity = Math.max(0, allocated - used); const totalFreeCapacity = poolIds.reduce((total, id) => total + Math.max(0, allocated - (usedByPool.get(id) ?? 0)), 0); const weight = totalFreeCapacity > 0 ? freeCapacity / totalFreeCapacity : 1 / poolIds.length; const poolAvailable = Math.min(freeCapacity, remainingAvailable * weight); const poolPending = Math.min(Math.max(0, freeCapacity - poolAvailable), remainingPending * weight); remainingAvailable = Math.max(0, remainingAvailable - poolAvailable); remainingPending = Math.max(0, remainingPending - poolPending); return { pool, allocated, available: poolAvailable, active: rows.length, slots: 1, pending: poolPending, usedRatio: allocated > 0 ? Math.min(1, used / allocated) : 0 }; }); }
+function number(value: any) { const n = Number(value); return Number.isFinite(n) ? n : 0; }
+function money(value: any) { return new Intl.NumberFormat('vi-VN', { maximumFractionDigits: 0 }).format(number(value)); }
+function signedMoney(value: any) { const n = number(value); return `${n >= 0 ? '+' : ''}${money(n)}`; }
+function signedPercent(value: any) { const n = number(value); return `${n >= 0 ? '+' : ''}${n.toFixed(2)}%`; }
+function sum(values: any[]) { return values.reduce((total, value) => total + number(value), 0); }
+function timeNow() { return new Intl.DateTimeFormat('vi-VN', { hour: '2-digit', minute: '2-digit' }).format(new Date()); }
+function formatNumber(value: any) { const n = Number(value); return Number.isFinite(n) ? new Intl.NumberFormat('en-US', { maximumFractionDigits: 2 }).format(n) : '—'; }
+function formatDate(value: any) { if (!value) return '—'; const date = new Date(value); return Number.isNaN(date.getTime()) ? String(value) : new Intl.DateTimeFormat('vi-VN', { day: '2-digit', month: '2-digit' }).format(date); }
+function formatEntry(low: any, high: any) { if (low == null && high == null) return '—'; if (low != null && high != null) return `${formatNumber(low)}–${formatNumber(high)}`; return formatNumber(low ?? high); }
+function formatT2Label(value: any) { const raw = String(value ?? '').trim(); if (!raw) return 'T+2'; if (raw.toUpperCase() === 'SELLABLE') return 'SELLABLE'; return raw.length > 22 ? `${raw.slice(0, 22)}…` : raw; }
+function symbolOf(row: any) { return String(row?.symbol ?? row?.code ?? row?.ticker ?? '—').toUpperCase(); }
+function dividendEventDate(event: StockEvent) { const value = event.gdkhqTimestamp ?? event.gdkhq_timestamp ?? event.exDate; if (!value) return null; const date = new Date(value); return Number.isNaN(date.getTime()) ? null : date; }
+function dividendMonthIndex(monthKey: string) { const [year, month] = monthKey.split('-').map(Number); return year * 12 + (month - 1); }
+function dividendMonthLabel(monthKey: string) { const [year, month] = monthKey.split('-').map(Number); return new Intl.DateTimeFormat('en-US', { month: 'long', year: 'numeric' }).format(new Date(year, month - 1, 1)); }
