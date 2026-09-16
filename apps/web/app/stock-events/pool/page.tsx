@@ -78,17 +78,19 @@ export default function StockDividendPoolPage() {
       render: r => {
         const expanded = expandedTicker === r.ticker;
         return (
-          <button
-            type="button"
-            className="w-full text-left"
-            onClick={() => setExpandedTicker(expanded ? null : r.ticker)}
-            aria-expanded={expanded}
-            aria-label={`${expanded ? 'Collapse' : 'Expand'} ${r.ticker}`}
-          >
-            <div className="font-semibold text-foreground">{r.ticker}</div>
-            <Caption>{r.dividendYieldPct.toFixed(2)}% yield</Caption>
+          <div className="w-full">
+            <button
+              type="button"
+              className="w-full text-left"
+              onClick={() => setExpandedTicker(expanded ? null : r.ticker)}
+              aria-expanded={expanded}
+              aria-label={`${expanded ? 'Collapse' : 'Expand'} ${r.ticker}`}
+            >
+              <div className="font-semibold text-foreground">{r.ticker}</div>
+              <Caption>{r.dividendYieldPct.toFixed(2)}% yield</Caption>
+            </button>
             {expanded ? <DividendOneYearCandleChart symbol={r.ticker} /> : null}
-          </button>
+          </div>
         );
       },
     },
