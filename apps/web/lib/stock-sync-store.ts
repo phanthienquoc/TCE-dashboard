@@ -74,7 +74,7 @@ type StockSyncState = {
 
 const defaultConfig: StockSyncConfig = {
   enabled: false,
-  schedule: '*/15 * * * *',
+  schedule: '0 */4 * * *',
   timezone: 'Asia/Ho_Chi_Minh',
   syncStartDate: null,
   syncEndDate: null,
