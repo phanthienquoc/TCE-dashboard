@@ -17,12 +17,17 @@ export type CrawledStockEvent = {
   crawledAt: string;
 };
 
+type CrawlPageMeta = {
+  rowsOnPage: number;
+  hasMore: boolean;
+};
+
 type CrawlOptions = {
   startDate?: string | null;
   endDate?: string | null;
   maxPages?: number;
   batchSize?: number;
-  onBatch?: (events: CrawledStockEvent[], pageNumber: number, estimatedTotal: number | null) => Promise<void>;
+  onBatch?: (events: CrawledStockEvent[], pageNumber: number, estimatedTotal: number | null, meta: CrawlPageMeta) => Promise<void>;
 };
 
 type VietstockPage = { rows: unknown[]; hasMore: boolean; total: number | null };
@@ -36,6 +41,8 @@ const PAGE_SIZE = 30;
 const DEFAULT_FROM_DATE = '2015-01-11';
 const DEFAULT_BATCH_SIZE = 200;
 const USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/126 Safari/537.36';
+const RENDER_TIMEOUT_MS = 45_000;
+const STABLE_SAMPLE_DELAY_MS = 350;
 
 @Injectable()
 export class VietstockEventsCrawler {
@@ -50,26 +57,46 @@ export class VietstockEventsCrawler {
     const session = await this.createBrowserSession(startDate, endDate);
     let batch: CrawledStockEvent[] = [];
     let estimatedTotal: number | null = null;
+    let lastPageProcessed = 0;
+    let lastPageMeta: CrawlPageMeta = { rowsOnPage: 0, hasMore: false };
 
     try {
-      for (let page = 1; page <= maxPages; page += 1) {
-        const result = await this.fetchPage(page, session);
+      for (let pageNumber = 1; pageNumber <= maxPages; pageNumber += 1) {
+        // Strictly sequential page pipeline:
+        // goto(page N) -> wait table render -> wait rows stable -> read rows
+        // -> read hasMore -> process rows -> hasMore ? page N+1 : DONE.
+        const result = await this.fetchPage(pageNumber, session);
         const rows = this.parseRows(result.rows);
+        const meta: CrawlPageMeta = {
+          rowsOnPage: result.rows.length,
+          hasMore: result.hasMore,
+        };
         estimatedTotal = result.total ?? estimatedTotal;
-        this.logger.log(`Vietstock events page=${page}: raw=${result.rows.length}, parsed=${rows.length}, total=${result.total ?? 'unknown'}`);
-        if (!rows.length) break;
+        lastPageProcessed = pageNumber;
+        lastPageMeta = meta;
+
+        this.logger.log(
+          `Vietstock events page=${pageNumber}: raw=${result.rows.length}, parsed=${rows.length}, hasMore=${result.hasMore}, total=${result.total ?? 'unknown'}`,
+        );
+
+        // Process only after the page has rendered, stabilized, and hasMore
+        // has been read. Do not use row count as an early pagination break.
         if (options.onBatch) {
           batch.push(...rows);
           while (batch.length >= batchSize) {
             const nextBatch = batch.splice(0, batchSize);
-            await options.onBatch(nextBatch, page, estimatedTotal);
+            await options.onBatch(nextBatch, pageNumber, estimatedTotal, meta);
           }
         } else {
           all.push(...rows);
         }
-        if (!result.hasMore || result.rows.length < PAGE_SIZE) break;
+
+        if (!result.hasMore) break;
       }
-      if (options.onBatch && batch.length) await options.onBatch(batch, maxPages, estimatedTotal);
+
+      if (options.onBatch && batch.length) {
+        await options.onBatch(batch, lastPageProcessed || 1, estimatedTotal, lastPageMeta);
+      }
     } finally {
       await session.browser.close();
     }
@@ -109,16 +136,16 @@ export class VietstockEventsCrawler {
   private async fetchPage(pageNumber: number, session: BrowserSession): Promise<VietstockPage> {
     await this.gotoEventsPage(session.page, session.fromDate, session.toDate, pageNumber);
 
-    // Vietstock is an SPA: the initial document is only the application shell.
-    // Read the final table produced by the SPA after its own background request
-    // completes instead of calling the internal endpoint ourselves.
+    // Vietstock is an SPA. A DOMContentLoaded/table-row signal is not enough:
+    // rows can appear while the SPA is still replacing/filling the table.
+    // Wait until the rendered table has data (or an explicit empty state), then
+    // require two consecutive identical table snapshots before reading it.
     const tableHtml = await this.readRenderedTable(session.page);
     const rows = this.parseHtmlRows(tableHtml);
-    return {
-      rows,
-      hasMore: rows.length >= PAGE_SIZE,
-      total: this.parseRenderedTotal(tableHtml),
-    };
+    const total = this.parseRenderedTotal(tableHtml);
+    const hasMore = this.resolveHasMore(session.page, rows.length, total, pageNumber);
+
+    return { rows, hasMore, total };
   }
 
   private async gotoEventsPage(page: Page, fromDate: string, toDate: string, pageNumber: number): Promise<void> {
@@ -130,29 +157,48 @@ export class VietstockEventsCrawler {
     url.searchParams.set('page', String(pageNumber));
     url.searchParams.set('tab', '1');
 
-    await page.goto(url.toString(), { waitUntil: 'domcontentloaded', timeout: 45_000 });
-    await page.waitForSelector('#event-content', { timeout: 45_000 });
+    await page.goto(url.toString(), { waitUntil: 'domcontentloaded', timeout: RENDER_TIMEOUT_MS });
+    await page.waitForSelector('#event-content', { timeout: RENDER_TIMEOUT_MS });
   }
 
   private async readRenderedTable(page: Page): Promise<string> {
-    // Rows are rendered asynchronously by the SPA. Prefer waiting for rows,
-    // but allow an empty-result page to proceed after the table itself exists.
-    try {
-      await page.waitForSelector('#event-content tbody tr', { timeout: 20_000 });
-    } catch {
-      await new Promise(resolve => setTimeout(resolve, 750));
+    await page.waitForFunction(
+      () => {
+        const root = document.querySelector('#event-content');
+        if (!root) return false;
+        const rows = root.querySelectorAll('tbody tr');
+        if (rows.length > 0) return true;
+        const text = (root.textContent || '').toLowerCase();
+        return /không có|no data|no records|không tìm thấy/.test(text);
+      },
+      { timeout: RENDER_TIMEOUT_MS },
+    );
+
+    let previous = '';
+    let stableSamples = 0;
+    const deadline = Date.now() + RENDER_TIMEOUT_MS;
+
+    while (Date.now() < deadline) {
+      const snapshot = await page.$eval('#event-content', element => {
+        const root = element as HTMLElement;
+        const rows = [...root.querySelectorAll('tbody tr')].map(row => (row.textContent || '').replace(/\s+/g, ' ').trim());
+        return JSON.stringify({ rows, text: root.textContent?.replace(/\s+/g, ' ').trim().slice(-500) || '' });
+      });
+
+      if (snapshot === previous) stableSamples += 1;
+      else stableSamples = 0;
+      previous = snapshot;
+
+      if (stableSamples >= 2) return await page.$eval('#event-content', element => element.outerHTML);
+      await new Promise(resolve => setTimeout(resolve, STABLE_SAMPLE_DELAY_MS));
     }
 
-    for (let attempt = 1; attempt <= 3; attempt += 1) {
-      try {
-        return await page.$eval('#event-content', element => element.outerHTML);
-      } catch (error) {
-        const message = String(error);
-        if (!message.toLowerCase().includes('detached') || attempt === 3) throw error;
-        await new Promise(resolve => setTimeout(resolve, 500));
-      }
-    }
-    throw new Error('Unable to read rendered Vietstock events table');
+    throw new Error(`Vietstock events page did not stabilize within ${RENDER_TIMEOUT_MS}ms`);
+  }
+
+  private resolveHasMore(_page: Page, rowCount: number, total: number | null, pageNumber: number) {
+    if (total != null) return pageNumber * PAGE_SIZE < total;
+    return rowCount >= PAGE_SIZE;
   }
 
   private parseHtmlRows(html: string): Record<string, string>[] {

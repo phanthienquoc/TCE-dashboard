@@ -29,6 +29,8 @@ export type StockSyncProgress = {
   processedEvents: number;
   estimatedTotalEvents: number | null;
   currentPage: number;
+  rowsOnPage: number;
+  hasMore: boolean;
   inserted: number;
   updated: number;
   skipped: number;
@@ -74,7 +76,7 @@ type StockSyncState = {
 
 const defaultConfig: StockSyncConfig = {
   enabled: false,
-  schedule: '*/15 * * * *',
+  schedule: '0 */4 * * *',
   timezone: 'Asia/Ho_Chi_Minh',
   syncStartDate: null,
   syncEndDate: null,
@@ -147,6 +149,8 @@ export const useStockSyncStore = create<StockSyncState>((set, get) => ({
         saving: false,
         message: 'Saved',
       }));
+      await get().refresh();
+      set({ message: 'Saved' });
     } catch (error) {
       set({
         saving: false,
@@ -164,7 +168,7 @@ export const useStockSyncStore = create<StockSyncState>((set, get) => ({
         triggering: false,
         message:
           response.data.status === 'RUNNING'
-            ? 'Sync started'
+            ? null
             : `Sync ${response.data.status.toLowerCase()}`,
         tab: 'runs',
       });

@@ -24,6 +24,7 @@ import {
   SsiConnectionPort,
   SsiConnectionTest,
   SsiCurrentInfo,
+  SsiPortfolioSnapshot,
 } from '@tce/contracts';
 
 export type SsiTokenSnapshot = {
@@ -59,6 +60,36 @@ export type SsiOrderStatusEvent = {
   inputTime?: string;
   modifyTime?: string;
   message?: string;
+};
+
+type SsiStreamMessage = {
+  type?: unknown;
+  accountNo?: unknown;
+  clientRequestId?: unknown;
+  orderId?: unknown;
+  symbol?: unknown;
+  side?: unknown;
+  orderType?: unknown;
+  price?: unknown;
+  quantity?: unknown;
+  osQuantity?: unknown;
+  cancelQuantity?: unknown;
+  filledQuantity?: unknown;
+  status?: unknown;
+  inputTime?: unknown;
+  modifyTime?: unknown;
+  message?: unknown;
+  data?: unknown;
+};
+
+export type SsiDailyOhlcv = {
+  symbol: string;
+  tradingDate: string;
+  open: number | null;
+  high: number | null;
+  low: number | null;
+  close: number | null;
+  volume: number | null;
 };
 
 export class SsiBrokerAdapter implements BrokerPort, SsiConnectionPort {
@@ -306,7 +337,6 @@ export class SsiBrokerAdapter implements BrokerPort, SsiConnectionPort {
         authentication: 'ok',
         marketData: 'ok',
         securities: securities.length,
-        accounts,
         tokenExpiresAt: token?.expiresAt,
       };
     });
@@ -336,6 +366,86 @@ export class SsiBrokerAdapter implements BrokerPort, SsiConnectionPort {
         fetchedAt: new Date().toISOString(),
       };
     });
+  }
+
+  async accountSnapshots(input: SsiAuthInput = {}): Promise<ContractResult<SsiPortfolioSnapshot>> {
+    return this.result(async () => {
+      const accountNo = String(this.config.accountNo ?? '').trim();
+      if (!accountNo) throw new Error('SSI account number is required for portfolio sync');
+      await this.authenticate(input);
+      const [balance, positions, orders] = await Promise.all([
+        this.balance(accountNo),
+        this.positions(accountNo),
+        this.orders(accountNo),
+      ]);
+      if (!balance.ok) throw new Error(balance.error.message);
+      if (!positions.ok) throw new Error(positions.error.message);
+      if (!orders.ok) throw new Error(orders.error.message);
+      return { balance: balance.data, positions: positions.data, orders: orders.data };
+    });
+  }
+
+  async syncPortfolio(
+    accountNo: string,
+    input: SsiAuthInput = {},
+  ): Promise<ContractResult<SsiPortfolioSnapshot>> {
+    const normalizedAccountNo = accountNo.trim();
+    if (!normalizedAccountNo) throw new Error('SSI account number is required for portfolio sync');
+    this.config.accountNo = normalizedAccountNo;
+    return this.accountSnapshots(input);
+  }
+
+  async startOrderStatusStream(
+    accountNo: string,
+    onEvent: (event: SsiOrderStatusEvent) => void | Promise<void>,
+  ) {
+    const normalizedAccountNo = accountNo.trim();
+    if (!normalizedAccountNo) throw new Error('SSI account number is required for order stream');
+    await this.authenticate();
+    if (!this.auth) throw new Error('SSI is not connected');
+    this.streamClient ??= new Stream(this.auth);
+    const stream = this.streamClient as Stream & {
+      onTrading?: (callback: (message: unknown) => void) => unknown;
+      connect?: () => Promise<unknown>;
+    };
+    if (!stream.onTrading) throw new Error('SSI SDK does not expose the trading stream API');
+    stream.onTrading(message => {
+      const event = this.normalizeOrderStatusEvent(message, normalizedAccountNo);
+      if (event) void onEvent(event);
+    });
+    if (!stream.connect) throw new Error('SSI SDK does not expose stream connect()');
+    await stream.connect();
+  }
+
+  private normalizeOrderStatusEvent(message: unknown, accountNo: string): SsiOrderStatusEvent | undefined {
+    const value = message && typeof message === 'object' ? (message as SsiStreamMessage) : undefined;
+    if (!value) return undefined;
+    const payload = value.data && typeof value.data === 'object'
+      ? (value.data as SsiStreamMessage)
+      : value;
+    const messageAccountNo = payload.accountNo ? String(payload.accountNo) : accountNo;
+    if (messageAccountNo !== accountNo) return undefined;
+    const orderId = payload.orderId ? String(payload.orderId) : undefined;
+    const symbol = payload.symbol ? String(payload.symbol).toUpperCase() : undefined;
+    if (!orderId || !symbol) return undefined;
+    return {
+      type: payload.type ? String(payload.type) : undefined,
+      accountNo: messageAccountNo,
+      clientRequestId: payload.clientRequestId ? String(payload.clientRequestId) : undefined,
+      orderId,
+      symbol,
+      side: payload.side ? String(payload.side) : undefined,
+      orderType: payload.orderType ? String(payload.orderType) : undefined,
+      price: payload.price == null ? undefined : Number(payload.price),
+      quantity: payload.quantity == null ? undefined : Number(payload.quantity),
+      osQuantity: payload.osQuantity == null ? undefined : Number(payload.osQuantity),
+      cancelQuantity: payload.cancelQuantity == null ? undefined : Number(payload.cancelQuantity),
+      filledQuantity: payload.filledQuantity == null ? undefined : Number(payload.filledQuantity),
+      status: payload.status ? String(payload.status) : undefined,
+      inputTime: payload.inputTime ? String(payload.inputTime) : undefined,
+      modifyTime: payload.modifyTime ? String(payload.modifyTime) : undefined,
+      message: payload.message ? String(payload.message) : undefined,
+    };
   }
 
   private trading() {
@@ -490,7 +600,6 @@ export class SsiBrokerAdapter implements BrokerPort, SsiConnectionPort {
         throw new Error('Take-profit quantity must be a positive integer');
       if (!Number.isFinite(request.price) || request.price <= 0)
         throw new Error('Take-profit price must be positive');
-
       await this.authenticate();
       const trading = this.trading().trading;
       const from = `${this.latestDate().replaceAll('-', '/')} 00:00:00`;
@@ -567,19 +676,45 @@ export class SsiBrokerAdapter implements BrokerPort, SsiConnectionPort {
     symbols: string[],
     tradingDate: string
   ): Promise<ContractResult<Array<{ symbol: string; closePrice: number }>>> {
+    const result = await this.dailyOhlcv(symbols, tradingDate, tradingDate);
+    if (!result.ok) return result;
+    return {
+      ok: true,
+      data: result.data
+        .filter(candle => Number(candle.close ?? 0) > 0)
+        .map(candle => ({ symbol: candle.symbol, closePrice: Number(candle.close) })),
+    };
+  }
+
+  async dailyOhlcv(
+    symbols: string[],
+    fromDate: string,
+    toDate: string,
+  ): Promise<ContractResult<SsiDailyOhlcv[]>> {
     return this.result(async () => {
       const auth = await this.authenticateMarketData();
       const data = this.marketData(auth);
-      const results: Array<{ symbol: string; closePrice: number }> = [];
+      const results: SsiDailyOhlcv[] = [];
       for (const rawSymbol of symbols) {
         const symbol = String(rawSymbol).trim().toUpperCase();
         if (!symbol) continue;
-        const from = `${tradingDate.replaceAll('-', '/')} 00:00:00`;
-        const to = `${tradingDate.replaceAll('-', '/')} 23:59:59`;
-        const candles = await data.marketData.getOhlc1DayHistorical(symbol, from, to, 1, 10);
-        const candle = candles?.at(-1);
-        if (!candle || Number(candle.closePrice ?? 0) <= 0) continue;
-        results.push({ symbol, closePrice: Number(candle.closePrice) });
+        const from = `${fromDate.replaceAll('-', '/')} 00:00:00`;
+        const to = `${toDate.replaceAll('-', '/')} 23:59:59`;
+        const candles = await data.marketData.getOhlc1DayHistorical(symbol, from, to, 1, 1000);
+        for (const item of candles ?? []) {
+          const tradingDate = this.normalizeTradingDate(item?.tradingDate);
+          if (!tradingDate) continue;
+          const raw = item as unknown as Record<string, unknown>;
+          results.push({
+            symbol,
+            tradingDate,
+            open: toNumberOrNull(raw.openPrice),
+            high: toNumberOrNull(raw.highPrice),
+            low: toNumberOrNull(raw.lowPrice),
+            close: toNumberOrNull(raw.closePrice),
+            volume: toNumberOrNull(raw.totalVolume),
+          });
+        }
       }
       return results;
     });
@@ -618,108 +753,13 @@ export class SsiBrokerAdapter implements BrokerPort, SsiConnectionPort {
         termDeposit: 0,
         source: 'ssi' as const,
         raw: ppmmr,
-      } as AccountBalance;
+      };
     });
   }
+}
 
-  async accountSnapshots(
-    input: SsiAuthInput
-  ): Promise<
-    ContractResult<
-      Array<{ account: SsiAccount; balance: AccountBalance; positions: AccountPosition[] }>
-    >
-  > {
-    return this.result(async () => {
-      await this.authenticate(input);
-      const accounts = await this.accountInfo();
-      const equityAccounts = accounts.filter(account => {
-        const type = String(account.accountType ?? '')
-          .trim()
-          .toUpperCase();
-        return (
-          type === 'EQUITY' || type === 'EQUITY_MARGIN' || type === 'CASH' || type === 'MARGIN'
-        );
-      });
-      if (!equityAccounts.length)
-        throw new Error(
-          `SSI_EQUITY_ACCOUNTS_NOT_FOUND: ${accounts.map(account => `${account.accountNo}:${account.accountType}`).join(', ') || 'no accounts returned'}`
-        );
-      const snapshots: Array<{
-        account: SsiAccount;
-        balance: AccountBalance;
-        positions: AccountPosition[];
-      }> = [];
-      const failures: string[] = [];
-      for (const account of equityAccounts) {
-        const type = String(account.accountType ?? '')
-          .trim()
-          .toUpperCase();
-        const positions = await this.positions(account.accountNo);
-        if (!positions.ok) {
-          failures.push(
-            `${account.accountNo} (${account.accountType}) positions: ${positions.error.message}`
-          );
-          continue;
-        }
-        let balance = await this.balance(account.accountNo);
-        if (!balance.ok && (type === 'MARGIN' || type === 'EQUITY_MARGIN')) {
-          console.warn('[SSI_MARGIN_BALANCE_FALLBACK]', {
-            accountNo: account.accountNo,
-            accountType: account.accountType,
-            error: balance.error.message,
-          });
-          balance = await this.marginBalance(account.accountNo);
-        }
-        if (!balance.ok) {
-          failures.push(
-            `${account.accountNo} (${account.accountType}) balance: ${balance.error.message}`
-          );
-          continue;
-        }
-        snapshots.push({ account, balance: balance.data, positions: positions.data });
-      }
-      if (!snapshots.length) throw new Error(`SSI_EQUITY_SNAPSHOTS_FAILED: ${failures.join('; ')}`);
-      if (failures.length) console.warn('[SSI_PARTIAL_PORTFOLIO_SYNC]', { failures });
-      return snapshots;
-    });
-  }
-
-  async syncPortfolio(accountNo: string, input: SsiAuthInput) {
-    const authResult = await this.result(() => this.authenticate(input).then(() => undefined));
-    if (!authResult.ok) return authResult;
-    let balance = await this.balance(accountNo);
-    if (!balance.ok) {
-      const fallback = await this.marginBalance(accountNo);
-      if (fallback.ok) balance = fallback;
-    }
-    const [positions, orders] = await Promise.all([
-      this.positions(accountNo),
-      this.orders(accountNo),
-    ]);
-    if (!balance.ok) return { ok: false, error: balance.error } as const;
-    if (!positions.ok) return { ok: false, error: positions.error } as const;
-    if (!orders.ok) return { ok: false, error: orders.error } as const;
-    return {
-      ok: true as const,
-      data: {
-        positions: positions.data.filter(position => position.quantity > 0),
-        orders: orders.data.filter(order => order.quantity > 0),
-        balance: balance.data,
-      },
-    } as const;
-  }
-
-  async startOrderStatusStream(accountNo: string, onEvent: (event: SsiOrderStatusEvent) => void) {
-    await this.authenticate();
-    this.streamClient ??= new Stream(this.auth!);
-    this.streamClient.streaming.onTrading = message => {
-      const event = message as SsiOrderStatusEvent;
-      if (!event || event.type !== 'orderEvent') return;
-      if (event.accountNo && String(event.accountNo) !== String(accountNo)) return;
-      onEvent(event);
-    };
-    await this.streamClient.streaming.connect();
-    this.streamClient.streaming.subscribeOrderStatus();
-    this.streamClient.streaming.ping(undefined, 30000);
-  }
+function toNumberOrNull(value: unknown): number | null {
+  if (value === null || value === undefined || value === '') return null;
+  const number = Number(value);
+  return Number.isFinite(number) ? number : null;
 }

@@ -34,9 +34,29 @@ export class SsiAssetSyncService {
     const syncedAt = new Date().toISOString();
     const aggregate = new Map<string, { quantity: number; costValue: number }>();
 
-    for (const snapshot of snapshots.data) {
-      const accountType = String(snapshot.account.accountType ?? '');
+    const snapshot = snapshots.data;
+    const positionsByAccount = new Map<string, AccountPosition[]>();
+
+    for (const position of snapshot.positions ?? []) {
+      const accountNo = String(position.accountNo ?? '').trim();
+      if (!accountNo) continue;
+      const list = positionsByAccount.get(accountNo) ?? [];
+      list.push(position);
+      positionsByAccount.set(accountNo, list);
+    }
+
+    // SsiPortfolioSnapshot is a consolidated snapshot and intentionally does
+    // not expose an `accounts` collection. The authenticated account number is
+    // carried by the provider positions; use it as the broker-account key.
+    const selectedAccountNo = String(snapshot.positions?.[0]?.accountNo ?? '').trim();
+    const accounts = selectedAccountNo
+      ? [{ accountNo: selectedAccountNo, accountType: '' }]
+      : [{ accountNo: '', accountType: '' }];
+
+    for (const snapshotAccount of accounts) {
+      const accountType = String(snapshotAccount.accountType ?? '');
       const accountTypeUpper = accountType.trim().toUpperCase();
+      const accountNo = String(snapshotAccount.accountNo ?? '').trim();
       const { data: brokerAccount, error: brokerError } = await this.db.db
         .from('tce_broker_accounts')
         .upsert(
@@ -44,9 +64,9 @@ export class SsiAssetSyncService {
             account_id: account.id,
             provider: 'ssi',
             environment,
-            external_account_no: snapshot.account.accountNo,
+            external_account_no: accountNo || null,
             account_type: accountType,
-            account_name: snapshot.account.accountNo,
+            account_name: accountNo || null,
             account_status: 'ACTIVE',
             account_currency: 'VND',
             account_sub_type: accountType,
@@ -54,8 +74,8 @@ export class SsiAssetSyncService {
             is_margin_enabled:
               accountTypeUpper === 'MARGIN' || accountTypeUpper === 'EQUITY_MARGIN',
             source_version: SSI_SOURCE_VERSION,
-            raw_account: snapshot.account,
-            raw_account_v2: snapshot.account.raw ?? snapshot.account,
+            raw_account: snapshotAccount,
+            raw_account_v2: snapshotAccount,
             last_synced_at: syncedAt,
             updated_at: syncedAt,
           },
@@ -65,10 +85,12 @@ export class SsiAssetSyncService {
         .single();
       if (brokerError) throw brokerError;
       accountsSynced += 1;
-      cashSynced += Number(snapshot.balance.cash ?? 0);
+
+      const cash = Number(snapshot.balance?.cash ?? 0);
+      cashSynced += cash;
 
       const positions = new Map<string, AccountPosition>();
-      for (const position of snapshot.positions) {
+      for (const position of (positionsByAccount.get(accountNo) ?? snapshot.positions ?? [])) {
         const symbol = String(position.symbol ?? '')
           .trim()
           .toUpperCase();

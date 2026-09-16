@@ -5,6 +5,7 @@ import { RefreshCw } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { Button } from '../ui/button';
 import DashboardLayout from './DashboardLayout';
+import TechLoading from '../navigation/TechLoading';
 import { useAuthStore, useDashboardStore } from '../../lib/store';
 import { dashboardApi, platformApi } from '../../lib/api';
 import { useToast } from '../ui/toast';
@@ -70,12 +71,11 @@ export default function DashboardShell({
     if (user) void load();
   }, [user, load]);
 
-  if (authLoading || !initialized || !user)
-    return (
-      <main className="app-shell">
-        <div className="loading-state">Loading dashboard…</div>
-      </main>
-    );
+  if (!initialized || authLoading) {
+    return <TechLoading label="Initializing TCE runtime" />;
+  }
+
+  if (!user) return null;
 
   const account = data?.account ?? {};
   const positions = data?.positions ?? data?.currentPositions ?? [];

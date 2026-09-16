@@ -1,7 +1,7 @@
 'use client';
 
 import type { LucideIcon } from 'lucide-react';
-import { ArrowLeftRight, BarChart3, Bell, Cpu, Home, Settings } from 'lucide-react';
+import { ArrowLeftRight, BarChart3, Bell, Home, Settings } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
@@ -23,7 +23,6 @@ const fallbackItems: BottomTabItem[] = [
   { id: 'overview', label: 'Overview', icon: Home, href: '/overview' },
   { id: 'positions', label: 'Positions', icon: BarChart3, href: '/position' },
   { id: 'orders', label: 'Orders', icon: ArrowLeftRight, href: '/order' },
-  { id: 'engine', label: 'Engine', icon: Cpu, href: '/engine' },
   { id: 'notifications', label: 'Alerts', icon: Bell, href: '/notifications' },
   { id: 'settings', label: 'Settings', icon: Settings, href: '/settings' },
 ];
@@ -40,11 +39,14 @@ export function normalizeBottomTabHref(href?: string) {
         positions: '/position',
         orders: '/order',
         settings: '/settings',
+        engine: '/settings/engines',
       };
       return tab && paths[tab] ? paths[tab] : '/overview';
     }
 
-    if (target.pathname === '/engines') return '/engine';
+    if (target.pathname === '/engine' || target.pathname === '/engines') {
+      return '/settings/engines';
+    }
   } catch {}
 
   return href;
@@ -60,7 +62,11 @@ export function BottomTabs({ items, onSelect }: BottomTabsProps) {
         {navigationItems.map(item => {
           const href = normalizeBottomTabHref(item.href);
           const active =
-            item.active || (!!href && (pathname === href || pathname.startsWith(`${href}/`)));
+            item.active ||
+            (!!href &&
+              (pathname === href ||
+                (href === '/settings/engines' && pathname.startsWith('/settings/engines/')) ||
+                (href !== '/settings/engines' && pathname.startsWith(`${href}/`))));
           const Icon = item.icon;
           const className = cn('tce-bottom-tab', active && 'tce-bottom-tab-active');
           const content = (
