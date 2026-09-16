@@ -199,7 +199,7 @@ export class StockEventsSyncService {
             if (!priceResult.ok) failed += priceResult.errors.length || Math.max(symbolsRequested - symbolsSynced, 0);
           } catch (error) {
             failed += Math.max(symbolsRequested - symbolsSynced, 1);
-            eventError = error instanceof Error ? error.message : String(error);
+            eventError = error instanceof Error ? error.message : typeof error === 'string' ? error : JSON.stringify(error);
             this.logger.error(`SSI price sync failed: ${eventError}`);
           }
         }
@@ -228,7 +228,7 @@ export class StockEventsSyncService {
       await this.notify(options, result);
       return result;
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
+      const message = error instanceof Error ? error.message : typeof error === 'string' ? error : JSON.stringify(error);
       await this.finishRun(String(run.id), { status: 'FAILED', inserted: 0, updated: 0, skipped: 0, failed: 1, symbolsRequested: 0, symbolsSynced: 0, errorMessage: message });
       await this.updateProgress(String(run.id), { ...this.initialProgress(pageSize), phase: 'FAILED', progressPct: 0, failed: 1, updatedAt: new Date().toISOString() });
       const result = { runId: String(run.id), status: 'FAILED' as const, inserted: 0, updated: 0, skipped: 0, failed: 1, symbolsRequested: 0, symbolsSynced: 0 } satisfies StockEventsSyncResult;
