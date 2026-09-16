@@ -29,7 +29,7 @@
     overflow-x: clip;
     overflow-y: auto;
     padding-top: calc(60px + env(safe-area-inset-top)) !important;
-    padding-bottom: calc(12px + env(safe-area-inset-bottom)) !important;
+    padding-bottom: calc(96px + env(safe-area-inset-bottom)) !important;
     -webkit-overflow-scrolling: touch;
     overscroll-behavior-y: contain;
   }
