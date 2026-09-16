@@ -147,6 +147,8 @@ export const useStockSyncStore = create<StockSyncState>((set, get) => ({
         saving: false,
         message: 'Saved',
       }));
+      await get().refresh();
+      set({ message: 'Saved' });
     } catch (error) {
       set({
         saving: false,
