@@ -69,6 +69,8 @@ export const dashboardApi = {
   positions: () => api.get('/dashboard/positions'),
   marketPrices: (symbols: string[]) =>
     api.get('/dashboard/market-prices', { params: { symbols: symbols.join(',') } }),
+  priceHistory: (symbol: string, days = 365) =>
+    api.get('/dashboard/price-history', { params: { symbol, days } }),
   orders: () => api.get('/dashboard/orders'),
   pools: (status?: string) =>
     api.get('/dashboard/pools', { params: status ? { status } : undefined }),

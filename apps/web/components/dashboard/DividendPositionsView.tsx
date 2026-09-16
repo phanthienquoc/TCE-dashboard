@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useStockEventStore, type StockEvent } from '../../lib/stock-event-store';
 import { useDashboardStore } from '../../lib/store';
 import type { DashboardActions, DashboardData } from './DashboardShell';
+import { OneYearPriceChart } from './OneYearPriceChart';
 
 type ViewProps = { data: DashboardData; actions: DashboardActions };
 type MonthGroup = { monthKey: string; cards: Array<{ symbol: string; events: StockEvent[] }> };
@@ -102,7 +103,10 @@ export function DividendPositionsView({ data, actions }: ViewProps) {
                       <div><span>1Y Range</span><b>{formatRange(event?.oneYearLow, event?.oneYearHigh)}</b></div>
                     </div>
                   </button>
-                  {expanded === key && <div className="tce-card-actions mt-3"><span className="text-xs">Entry {formatEntry(pool?.entryLow ?? pool?.entry_low, pool?.entryHigh ?? pool?.entry_high)}</span><span className="text-xs">TP {formatNumber(pool?.targetPrice ?? pool?.target_price)}</span><button type="button" onClick={() => actions.openTrade({ ...pool, symbol: item.symbol, currentPrice: price, side: 'BUY' })}>BUY</button></div>}
+                  {expanded === key && <>
+                    <OneYearPriceChart symbol={item.symbol} />
+                    <div className="tce-card-actions mt-3"><span className="text-xs">Entry {formatEntry(pool?.entryLow ?? pool?.entry_low, pool?.entryHigh ?? pool?.entry_high)}</span><span className="text-xs">TP {formatNumber(pool?.targetPrice ?? pool?.target_price)}</span><button type="button" onClick={() => actions.openTrade({ ...pool, symbol: item.symbol, currentPrice: price, side: 'BUY' })}>BUY</button></div>
+                  </>}
                 </article>;
               })}
             </div>
