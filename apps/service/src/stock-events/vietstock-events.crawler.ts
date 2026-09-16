@@ -27,17 +27,18 @@ type CrawlOptions = {
   endDate?: string | null;
   maxPages?: number;
   batchSize?: number;
+  pageSize?: number;
   onBatch?: (events: CrawledStockEvent[], pageNumber: number, estimatedTotal: number | null, meta: CrawlPageMeta) => Promise<void>;
 };
 
 type VietstockPage = { rows: unknown[]; hasMore: boolean; total: number | null };
-type BrowserSession = { browser: Browser; page: Page; fromDate: string; toDate: string };
+type BrowserSession = { browser: Browser; page: Page; fromDate: string; toDate: string; pageSize: number };
 
 const BASE_URL = 'https://finance.vietstock.vn';
 const EVENTS_PAGE = '/lich-su-kien.htm';
 const GROUP = 13;
 const EXCHANGE = -1;
-const PAGE_SIZE = 30;
+const DEFAULT_PAGE_SIZE = 10;
 const DEFAULT_FROM_DATE = '2015-01-11';
 const DEFAULT_BATCH_SIZE = 200;
 const USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/126 Safari/537.36';
@@ -53,8 +54,9 @@ export class VietstockEventsCrawler {
     const endDate = options.endDate || this.today();
     const maxPages = Math.min(Math.max(Number(options.maxPages ?? 200) || 200, 1), 500);
     const batchSize = Math.min(Math.max(Math.trunc(options.batchSize ?? DEFAULT_BATCH_SIZE), 30), 500);
+    const pageSize = Math.min(Math.max(Math.trunc(options.pageSize ?? DEFAULT_PAGE_SIZE), 1), 100);
     const all: CrawledStockEvent[] = [];
-    const session = await this.createBrowserSession(startDate, endDate);
+    const session = await this.createBrowserSession(startDate, endDate, pageSize);
     let batch: CrawledStockEvent[] = [];
     let estimatedTotal: number | null = null;
     let lastPageProcessed = 0;
@@ -62,9 +64,6 @@ export class VietstockEventsCrawler {
 
     try {
       for (let pageNumber = 1; pageNumber <= maxPages; pageNumber += 1) {
-        // Strictly sequential page pipeline:
-        // goto(page N) -> wait table render -> wait rows stable -> read rows
-        // -> read hasMore -> process rows -> hasMore ? page N+1 : DONE.
         const result = await this.fetchPage(pageNumber, session);
         const rows = this.parseRows(result.rows);
         const meta: CrawlPageMeta = {
@@ -79,8 +78,6 @@ export class VietstockEventsCrawler {
           `Vietstock events page=${pageNumber}: raw=${result.rows.length}, parsed=${rows.length}, hasMore=${result.hasMore}, total=${result.total ?? 'unknown'}`,
         );
 
-        // Process only after the page has rendered, stabilized, and hasMore
-        // has been read. Do not use row count as an early pagination break.
         if (options.onBatch) {
           batch.push(...rows);
           while (batch.length >= batchSize) {
@@ -111,7 +108,7 @@ export class VietstockEventsCrawler {
     return [...unique.values()];
   }
 
-  private async createBrowserSession(fromDate: string, toDate: string): Promise<BrowserSession> {
+  private async createBrowserSession(fromDate: string, toDate: string, pageSize: number): Promise<BrowserSession> {
     const executablePath = process.env.PUPPETEER_EXECUTABLE_PATH;
     if (!executablePath) throw new Error('PUPPETEER_EXECUTABLE_PATH is not configured');
 
@@ -125,8 +122,8 @@ export class VietstockEventsCrawler {
     await page.setExtraHTTPHeaders({ 'Accept-Language': 'vi-VN,vi;q=0.9,en;q=0.7' });
 
     try {
-      await this.gotoEventsPage(page, fromDate, toDate, 1);
-      return { browser, page, fromDate, toDate };
+      await this.gotoEventsPage(page, fromDate, toDate, 1, pageSize);
+      return { browser, page, fromDate, toDate, pageSize };
     } catch (error) {
       await browser.close().catch(() => undefined);
       throw error;
@@ -134,27 +131,24 @@ export class VietstockEventsCrawler {
   }
 
   private async fetchPage(pageNumber: number, session: BrowserSession): Promise<VietstockPage> {
-    await this.gotoEventsPage(session.page, session.fromDate, session.toDate, pageNumber);
+    await this.gotoEventsPage(session.page, session.fromDate, session.toDate, pageNumber, session.pageSize);
 
-    // Vietstock is an SPA. A DOMContentLoaded/table-row signal is not enough:
-    // rows can appear while the SPA is still replacing/filling the table.
-    // Wait until the rendered table has data (or an explicit empty state), then
-    // require two consecutive identical table snapshots before reading it.
     const tableHtml = await this.readRenderedTable(session.page);
     const rows = this.parseHtmlRows(tableHtml);
     const total = this.parseRenderedTotal(tableHtml);
-    const hasMore = this.resolveHasMore(session.page, rows.length, total, pageNumber);
+    const hasMore = this.resolveHasMore(session.page, rows.length, total, pageNumber, session.pageSize);
 
     return { rows, hasMore, total };
   }
 
-  private async gotoEventsPage(page: Page, fromDate: string, toDate: string, pageNumber: number): Promise<void> {
+  private async gotoEventsPage(page: Page, fromDate: string, toDate: string, pageNumber: number, pageSize: number): Promise<void> {
     const url = new URL(EVENTS_PAGE, BASE_URL);
     url.searchParams.set('group', String(GROUP));
     url.searchParams.set('exchange', String(EXCHANGE));
     url.searchParams.set('fromDate', this.toVietstockDate(fromDate));
     url.searchParams.set('toDate', this.toVietstockDate(toDate));
     url.searchParams.set('page', String(pageNumber));
+    url.searchParams.set('pageSize', String(pageSize));
     url.searchParams.set('tab', '1');
 
     await page.goto(url.toString(), { waitUntil: 'domcontentloaded', timeout: RENDER_TIMEOUT_MS });
@@ -196,9 +190,9 @@ export class VietstockEventsCrawler {
     throw new Error(`Vietstock events page did not stabilize within ${RENDER_TIMEOUT_MS}ms`);
   }
 
-  private resolveHasMore(_page: Page, rowCount: number, total: number | null, pageNumber: number) {
-    if (total != null) return pageNumber * PAGE_SIZE < total;
-    return rowCount >= PAGE_SIZE;
+  private resolveHasMore(_page: Page, rowCount: number, total: number | null, pageNumber: number, pageSize: number) {
+    if (total != null) return pageNumber * pageSize < total;
+    return rowCount >= pageSize;
   }
 
   private parseHtmlRows(html: string): Record<string, string>[] {

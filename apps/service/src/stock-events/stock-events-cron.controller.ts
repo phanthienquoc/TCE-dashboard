@@ -32,6 +32,7 @@ export class StockEventsCronController {
       syncStartDate: body?.syncStartDate as string | null | undefined,
       syncEndDate: body?.syncEndDate as string | null | undefined,
       batchSize: body?.batchSize as number | undefined,
+      pageSize: body?.pageSize as number | undefined,
       priceSyncEnabled: body?.priceSyncEnabled as boolean | undefined,
       telegramCredentialId: body?.telegramCredentialId as string | null | undefined,
     });
