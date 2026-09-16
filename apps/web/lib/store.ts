@@ -3,6 +3,7 @@ import { create } from 'zustand';
 import { authApi, setAccessToken, dashboardApi } from './api';
 import { useTCEDataStore } from './tce-data-store';
 import { useStockEventStore } from './stock-event-store';
+import { startAppDataWorker } from './app-data-worker';
 
 type User = { id: string; email: string; role: string; mfaEnabled: boolean };
 type AuthState = {
@@ -21,6 +22,7 @@ type AuthState = {
 const prefetchAfterAuth = () => {
   void useTCEDataStore.getState().prefetch();
   void useStockEventStore.getState().load();
+  void startAppDataWorker();
 };
 
 export const useAuthStore = create<AuthState>((set, get) => ({
