@@ -9,7 +9,7 @@ import { DividendOneYearCandleChart } from './DividendOneYearCandleChart';
 type ViewProps = { data: DashboardData; actions: DashboardActions };
 type MonthGroup = { monthKey: string; cards: Array<{ symbol: string; events: StockEvent[] }> };
 const PRICE_OPTIONS = Array.from({ length: 9 }, (_, i) => (i + 1) * 10_000);
-const DEFAULT_PRICE_FILTER = 50_000;
+const DEFAULT_PRICE_FILTER = 30_000;
 
 export function DividendPositionsView({ data, actions }: ViewProps) {
   const [tab, setTab] = useState<'current' | 'dividend' | 'history'>('dividend');
@@ -22,15 +22,38 @@ export function DividendPositionsView({ data, actions }: ViewProps) {
   const load = useStockEventStore(s => s.load);
   const marketPrices = useDashboardStore(s => s.marketPrices);
   const syncMarketPrices = useDashboardStore(s => s.syncMarketPrices);
-  useEffect(() => { void load(500, true, null); }, [load]);
-  const monthGroups = useMemo(() => buildFutureMonthGroups(events, priceFilter, marketPrices).filter(g => g.monthKey === selectedMonth), [events, selectedMonth, priceFilter, marketPrices]);
-  const monthOptions = useMemo(() => futureMonthKeys(), []);
-  const symbolsKey = useMemo(() => monthGroups.flatMap(g => g.cards.map(c => c.symbol)).join(','), [monthGroups]);
+
   useEffect(() => {
-    const symbols = [...new Set(monthGroups.flatMap(g => g.cards.map(c => c.symbol)))]; if (!symbols.length) return;
-    const snapshot = { pools: symbols.map(symbol => ({ symbol })) }; void syncMarketPrices(snapshot);
-    const timer = window.setInterval(() => void syncMarketPrices(snapshot), 15 * 60 * 1000); return () => window.clearInterval(timer);
+    void load(2000, true, null);
+  }, [load]);
+
+  const monthGroups = useMemo(
+    () =>
+      buildFutureMonthGroups(events, priceFilter, marketPrices).filter(
+        g => g.monthKey === selectedMonth
+      ),
+    [events, selectedMonth, priceFilter, marketPrices]
+  );
+  const monthOptions = useMemo(() => futureMonthKeys(), []);
+  const symbolsKey = useMemo(
+    () => monthGroups.flatMap(g => g.cards.map(c => c.symbol)).join(','),
+    [monthGroups]
+  );
+
+  useEffect(() => {
+    const symbols = [
+      ...new Set(monthGroups.flatMap(g => g.cards.map(c => c.symbol))),
+    ];
+    if (!symbols.length) return;
+    const snapshot = { pools: symbols.map(symbol => ({ symbol })) };
+    void syncMarketPrices(snapshot);
+    const timer = window.setInterval(
+      () => void syncMarketPrices(snapshot),
+      15 * 60 * 1000
+    );
+    return () => window.clearInterval(timer);
   }, [symbolsKey, syncMarketPrices]);
+
   return <div className="tce-mobile-view">
     <header className="tce-mobile-header"><div className="tce-header-brand"><WalletCards className="size-5" /><div><strong>Positions</strong><span>Live exposure</span></div></div><span className="tce-live-pill"><CircleDot className="size-3" /> LIVE</span></header>
     <div className="tce-segmented">{(['current', 'dividend', 'history'] as const).map(item => <button key={item} className={tab === item ? 'active' : ''} onClick={() => setTab(item)}>{item[0].toUpperCase() + item.slice(1)}</button>)}</div>
@@ -42,8 +65,11 @@ export function DividendPositionsView({ data, actions }: ViewProps) {
         <label className="tce-dividend-filter-field" htmlFor="positions-current-price"><Tag className="size-4" aria-hidden="true" /><span><small>Current price (VND)</small><select id="positions-current-price" value={priceFilter} onChange={e => { setPriceFilter(Number(e.target.value)); setExpanded(null); }} aria-label="Current price filter">{PRICE_OPTIONS.map(v => <option key={v} value={v}>≤ {v.toLocaleString('vi-VN')}</option>)}</select></span></label>
       </div>
       {loading ? <EmptyState text="Loading dividend events…" /> : error ? <EmptyState text={error} /> : monthGroups.length ? monthGroups.map(group => <section className="tce-dividend-month-group" key={group.monthKey}><div className="tce-list-stack tce-dividend-month-cards">{group.cards.map(item => {
-        const pool = data.pools.find(p => String(p.symbol ?? p.code ?? '').toUpperCase() === item.symbol); const event = item.events[0]; const livePrice = marketPrices[item.symbol]?.price;
-        const price = Number(livePrice) > 0 ? livePrice : event?.currentPrice ?? event?.price ?? pool?.currentPrice ?? pool?.current_price; const key = `${group.monthKey}:${item.symbol}`;
+        const pool = data.pools.find(p => String(p.symbol ?? p.code ?? '').toUpperCase() === item.symbol);
+        const event = item.events[0];
+        const livePrice = marketPrices[item.symbol]?.price;
+        const price = Number(livePrice) > 0 ? livePrice : event?.currentPrice ?? event?.price ?? pool?.currentPrice ?? pool?.current_price;
+        const key = `${group.monthKey}:${item.symbol}`;
         return <article className="tce-dividend-card" key={key}><button type="button" className="w-full text-left" onClick={() => setExpanded(expanded === key ? null : key)} aria-expanded={expanded === key}><div className="flex items-center gap-2"><strong>{item.symbol}</strong>{event && <span className="tce-muted">{formatDate(event.exDividendTimestamp ?? event.exDividendDate ?? event.exDate)}</span>}<span className="ml-auto">{expanded === key ? '−' : '+'}</span></div><div className="tce-pool-grid mt-2"><div><span>Dividend</span><b>{Number(event?.dividendValue ?? 0) ? `${money(Number(event?.dividendValue))} ₫` : '—'}</b></div><div><span>Current Price</span><b>{formatNumber(price)}</b></div><div><span>Yield</span><b>{formatPercent(event?.dividendYieldPct)}</b></div><div><span>1Y Low</span><b>{formatNumber(event?.oneYearLow)}</b></div><div><span>1Y High</span><b>{formatNumber(event?.oneYearHigh)}</b></div><div><span>1Y Range</span><b>{formatRange(event?.oneYearLow, event?.oneYearHigh)}</b></div></div></button>{expanded === key && <><DividendOneYearCandleChart symbol={item.symbol} /><div className="tce-card-actions mt-3"><span className="text-xs">Entry {formatEntry(pool?.entryLow ?? pool?.entry_low, pool?.entryHigh ?? pool?.entry_high)}</span><span className="text-xs">TP {formatNumber(pool?.targetPrice ?? pool?.target_price)}</span><button type="button" onClick={() => actions.openTrade({ ...pool, symbol: item.symbol, currentPrice: price, side: 'BUY' })}>BUY</button></div></>}</article>;
       })}</div></section>) : <EmptyState text={`No dividend events scheduled for ${dividendMonthLabel(selectedMonth)} under ${priceFilter.toLocaleString('vi-VN')} VND`} />}
     </div>}
