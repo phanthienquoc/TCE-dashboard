@@ -27,7 +27,7 @@ jobs:
       - name: Send deployment started message
         run: |
           set -euo pipefail
-          MESSAGE="🚀 TCE — production deploy started\n\n📦 ${{ github.event.head_commit.message || github.workflow }}\n🌿 ${{ github.ref_name }}"
+          MESSAGE="🚀 TCE — production deploy started\n🌿 ${{ github.ref_name }}\n#642"
 
           curl --fail-with-body -sS -X POST \
             "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
