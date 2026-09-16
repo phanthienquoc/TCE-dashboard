@@ -123,13 +123,7 @@ export class DividendOhlcvService {
             });
 
             const result = await withTimeout(
-              this.ssi.dailyOhlcv(
-                userId,
-                environment,
-                [symbol],
-                batch.from,
-                batch.to,
-              ),
+              this.ssi.dailyOhlcv(userId, environment, [symbol], batch.from, batch.to),
               OHLCV_BATCH_TIMEOUT_MS,
               `${symbol} ${batch.from} -> ${batch.to}`,
             );
@@ -257,14 +251,18 @@ export class DividendOhlcvService {
   }
 
   async dividendSymbols() {
+    const today = todayVietnam();
     const { data, error } = await this.db.db
       .from('stock_events')
-      .select('symbol')
-      .not('symbol', 'is', null);
+      .select('symbol,ex_right_date')
+      .not('symbol', 'is', null)
+      .gte('ex_right_date', today)
+      .order('ex_right_date', { ascending: true })
+      .order('symbol', { ascending: true });
     if (error) throw error;
     return [...new Set((data ?? [])
       .map(row => String(row.symbol ?? '').trim().toUpperCase())
-      .filter(Boolean))].sort();
+      .filter(Boolean))];
   }
 
   private async createSyncRun(userId: string, symbols: string[]) {
