@@ -137,7 +137,6 @@ textarea {
     flex-direction: column;
   }
 
-  /* Keep the page chrome first, then put the Run now row at the top of the run content. */
   .tce-mobile-view.space-y-5:has(button[aria-label='Run now']) > header {
     order: 1;
   }
@@ -150,14 +149,14 @@ textarea {
     order: 3;
   }
 
-  /* The first section contains both sync page and OHLCV item progress. */
+  /* The first section contains the page sync and OHLCV status cards. */
   .tce-mobile-view.space-y-5:has(button[aria-label='Run now']) > section:first-of-type {
     display: flex;
     flex-direction: column;
+    gap: 0.75rem;
     order: 4;
   }
 
-  /* Page-level sync card before stock-level OHLCV sync. */
   .tce-mobile-view.space-y-5:has(button[aria-label='Run now']) > section:first-of-type > article:nth-child(1) {
     order: 2;
   }
@@ -166,12 +165,10 @@ textarea {
     order: 1;
   }
 
-  /* History stays after the active sync content. */
   .tce-mobile-view.space-y-5:has(button[aria-label='Run now']) > section:last-of-type {
     order: 5;
   }
 
-  /* Once OHLCV finishes, keep only its summary; completed stock rows are collapsed. */
   .tce-mobile-view.space-y-5:has(button[aria-label='Run now']) > section:first-of-type > article:first-child:not(:has(.animate-pulse)) > div:last-child {
     display: none;
   }
