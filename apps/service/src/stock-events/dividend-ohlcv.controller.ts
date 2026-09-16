@@ -19,6 +19,11 @@ export class DividendOhlcvController {
     return { ok: true, data: await this.service.getHistory(symbol ?? '', Number(days ?? 365)), userId };
   }
 
+  @Get('dividend-ohlcv-sync-progress')
+  async syncProgress(@Headers('authorization') authorization: string | undefined) {
+    return { ok: true, data: await this.service.latestSyncProgress(this.userId(authorization)) };
+  }
+
   private userId(authorization?: string) {
     if (!authorization?.startsWith('Bearer ')) throw new UnauthorizedException('Bearer token required');
     return String(this.jwt.verify(authorization.slice(7)).sub);
