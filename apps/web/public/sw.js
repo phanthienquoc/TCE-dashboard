@@ -1,75 +1,12 @@
-const SW_VERSION = '2026-09-15-pwa-cache-v2';
-
-self.addEventListener('install', event => {
-  self.skipWaiting();
-});
-
-self.addEventListener('activate', event => {
-  event.waitUntil(self.clients.claim());
-});
-
-self.addEventListener('fetch', event => {
-  const request = event.request;
-  if (request.method !== 'GET') return;
-
-  const url = new URL(request.url);
-  const isApiRequest = url.pathname === '/api' || url.pathname.startsWith('/api/');
-
-  if (isApiRequest) {
-    event.respondWith(fetch(request, { cache: 'no-store' }));
-  }
-});
-
-self.addEventListener('push', event => {
-  let data = {};
-  try {
-    data = event.data ? event.data.json() : {};
-  } catch {
-    data = { body: event.data ? event.data.text() : '' };
-  }
-
-  const title = data.title || 'TCE Dashboard updated';
-  const body = data.body || 'A new TCE Dashboard version is available.';
-  const url = data.url || '/dashboard';
-  const version = data.version || SW_VERSION;
-
-  event.waitUntil(
-    Promise.all([
-      self.registration.showNotification(title, {
-        body,
-        icon: '/icons/icon-192.png',
-        badge: '/icons/icon-192.png',
-        data: { url, version, type: data.type || 'SYSTEM_UPDATE' },
-      }),
-      self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(clients => {
-        clients.forEach(client =>
-          client.postMessage({
-            type: data.type || 'SYSTEM_UPDATE',
-            title,
-            body,
-            version,
-            url,
-          })
-        );
-      }),
-    ])
-  );
-});
-
-self.addEventListener('notificationclick', event => {
-  event.notification.close();
-  const url = event.notification.data?.url || '/dashboard';
-
-  event.waitUntil(
-    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(clients => {
-      for (const client of clients) {
-        if ('focus' in client) {
-          if ('navigate' in client && new URL(client.url).origin === self.location.origin)
-            client.navigate(url);
-          return client.focus();
-        }
-      }
-      return self.clients.openWindow(url);
-    })
-  );
-});
+const SW_VERSION = '2026-09-16-pwa-static-v1';
+const STATIC_CACHE = `tce-static-${SW_VERSION}`;
+const APP_SHELL = ['/manifest.webmanifest', '/icons/icon-192.png', '/icons/icon-512.png'];
+const isSameOrigin = url => url.origin === self.location.origin;
+const isApiRequest = pathname => pathname === '/api' || pathname.startsWith('/api/');
+const isAuthRequest = pathname => pathname.startsWith('/login') || pathname.startsWith('/api/auth');
+const isStaticAsset = request => { const url = new URL(request.url); return isSameOrigin(url) && (url.pathname.startsWith('/_next/static/') || url.pathname.startsWith('/_next/image') || /\.(?:css|js|mjs|png|jpg|jpeg|webp|svg|ico|woff2?|ttf)$/i.test(url.pathname)); };
+self.addEventListener('install', event => { event.waitUntil(caches.open(STATIC_CACHE).then(cache => cache.addAll(APP_SHELL)).catch(() => undefined).finally(() => self.skipWaiting())); });
+self.addEventListener('activate', event => { event.waitUntil(caches.keys().then(keys => Promise.all(keys.filter(key => key.startsWith('tce-static-') && key !== STATIC_CACHE).map(key => caches.delete(key)))).then(() => self.clients.claim())); });
+self.addEventListener('fetch', event => { const request = event.request; if (request.method !== 'GET') return; const url = new URL(request.url); if (!isSameOrigin(url)) return; if (isApiRequest(url.pathname) || isAuthRequest(url.pathname)) { event.respondWith(fetch(request, { cache: 'no-store' })); return; } if (isStaticAsset(request)) { event.respondWith(caches.match(request).then(cached => { const network = fetch(request).then(response => { if (response.ok) { const copy = response.clone(); void caches.open(STATIC_CACHE).then(cache => cache.put(request, copy)); } return response; }).catch(() => cached); return cached || network; })); return; } if (request.mode === 'navigate') event.respondWith(fetch(request, { cache: 'no-store' }).catch(() => new Response('', { status: 503 }))); });
+self.addEventListener('push', event => { let data = {}; try { data = event.data ? event.data.json() : {}; } catch { data = { body: event.data ? event.data.text() : '' }; } const title = data.title || 'TCE Dashboard updated'; const body = data.body || 'A new TCE Dashboard version is available.'; const url = data.url || '/dashboard'; const version = data.version || SW_VERSION; event.waitUntil(Promise.all([self.registration.showNotification(title, { body, icon: '/icons/icon-192.png', badge: '/icons/icon-192.png', data: { url, version, type: data.type || 'SYSTEM_UPDATE' } }), self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(clients => clients.forEach(client => client.postMessage({ type: data.type || 'SYSTEM_UPDATE', title, body, version, url })))])); });
+self.addEventListener('notificationclick', event => { event.notification.close(); const url = event.notification.data?.url || '/dashboard'; event.waitUntil(self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(clients => { for (const client of clients) { if ('focus' in client) { if ('navigate' in client && new URL(client.url).origin === self.location.origin) client.navigate(url); return client.focus(); } } return self.clients.openWindow(url); })); });
