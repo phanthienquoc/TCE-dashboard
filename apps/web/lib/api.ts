@@ -57,6 +57,12 @@ export const authApi = {
   passkeyLoginOptions: () => api.post('/auth/passkey/login/options'),
   passkeyLoginVerify: (response: unknown) => api.post('/auth/passkey/login/verify', response),
 };
+export const passkeyApi = {
+  list: () => api.get('/auth/passkeys'),
+  rename: (id: string, friendlyName: string) =>
+    api.patch(`/auth/passkeys/${encodeURIComponent(id)}`, { friendlyName }),
+  remove: (id: string) => api.delete(`/auth/passkeys/${encodeURIComponent(id)}`),
+};
 export const dashboardApi = {
   all: (status?: string) => api.get('/dashboard', { params: status ? { status } : undefined }),
   account: () => api.get('/dashboard/account'),
