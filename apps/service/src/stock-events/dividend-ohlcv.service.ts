@@ -38,32 +38,44 @@ export class DividendOhlcvService {
     for (const symbol of symbols) {
       const range = await this.resolveRange(symbol, fallbackStart, endDate);
       if (!range) continue;
-      const result = await this.ssi.dailyOhlcv(userId, environment, [symbol], range.from, endDate);
-      if (!result.ok) throw new Error(result.error.message);
 
-      const now = new Date().toISOString();
-      const rows = result.data
-        .filter(item => item.tradingDate >= range.from && item.tradingDate <= endDate)
-        .map(item => ({
-          symbol: item.symbol,
-          trading_date: item.tradingDate,
-          open: item.open,
-          high: item.high,
-          low: item.low,
-          close: item.close,
-          volume: item.volume == null ? null : Math.trunc(item.volume),
-          source: 'ssi',
-          observed_at: now,
-          updated_at: now,
-        }));
+      let symbolRows = 0;
+      for (const batch of monthBatches(range.from, endDate)) {
+        const result = await this.ssi.dailyOhlcv(
+          userId,
+          environment,
+          [symbol],
+          batch.from,
+          batch.to,
+        );
+        if (!result.ok) throw new Error(result.error.message);
 
-      if (!rows.length) continue;
-      const { error } = await this.db.db
-        .from('tce_market_ohlcv_daily')
-        .upsert(rows, { onConflict: 'symbol,trading_date' });
-      if (error) throw error;
-      syncedSymbols += 1;
-      syncedRows += rows.length;
+        const now = new Date().toISOString();
+        const rows = result.data
+          .filter(item => item.tradingDate >= batch.from && item.tradingDate <= batch.to)
+          .map(item => ({
+            symbol: item.symbol,
+            trading_date: item.tradingDate,
+            open: item.open,
+            high: item.high,
+            low: item.low,
+            close: item.close,
+            volume: item.volume == null ? null : Math.trunc(item.volume),
+            source: 'ssi',
+            observed_at: now,
+            updated_at: now,
+          }));
+
+        if (!rows.length) continue;
+        const { error } = await this.db.db
+          .from('tce_market_ohlcv_daily')
+          .upsert(rows, { onConflict: 'symbol,trading_date' });
+        if (error) throw error;
+        symbolRows += rows.length;
+        syncedRows += rows.length;
+      }
+
+      if (symbolRows > 0) syncedSymbols += 1;
     }
 
     return { requested: symbols.length, syncedSymbols, syncedRows };
@@ -131,4 +143,26 @@ function addDays(value: string, days: number) {
   const date = new Date(`${value}T00:00:00Z`);
   date.setUTCDate(date.getUTCDate() + days);
   return date.toISOString().slice(0, 10);
+}
+
+function addMonths(value: string, months: number) {
+  const date = new Date(`${value}T00:00:00Z`);
+  date.setUTCMonth(date.getUTCMonth() + months, 1);
+  return date.toISOString().slice(0, 10);
+}
+
+function monthBatches(from: string, to: string) {
+  const batches: Array<{ from: string; to: string }> = [];
+  let batchFrom = from;
+
+  while (batchFrom <= to) {
+    const nextMonth = addMonths(batchFrom, 1);
+    const monthEnd = addDays(nextMonth, -1);
+    const batchTo = monthEnd < to ? monthEnd : to;
+    batches.push({ from: batchFrom, to: batchTo });
+    if (batchTo === to) break;
+    batchFrom = addDays(batchTo, 1);
+  }
+
+  return batches;
 }
