@@ -29,6 +29,8 @@ export type StockSyncProgress = {
   processedEvents: number;
   estimatedTotalEvents: number | null;
   currentPage: number;
+  rowsOnPage: number;
+  hasMore: boolean;
   inserted: number;
   updated: number;
   skipped: number;

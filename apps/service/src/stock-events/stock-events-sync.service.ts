@@ -32,6 +32,8 @@ type SyncProgress = {
   processedEvents: number;
   estimatedTotalEvents: number | null;
   currentPage: number;
+  rowsOnPage: number;
+  hasMore: boolean;
   inserted: number;
   updated: number;
   skipped: number;
@@ -71,6 +73,8 @@ export class StockEventsSyncService {
       let processedEvents = 0;
       let estimatedTotalEvents: number | null = null;
       let currentPage = 0;
+      let rowsOnPage = 0;
+      let hasMore = true;
       const symbols = new Set<string>();
 
       const processBatch = async (batch: CrawledStockEvent[]) => {
@@ -124,8 +128,10 @@ export class StockEventsSyncService {
         startDate: options.syncStartDate,
         endDate: options.syncEndDate,
         batchSize,
-        onBatch: async (batch, pageNumber, total) => {
+        onBatch: async (batch, pageNumber, total, meta) => {
           currentPage = pageNumber;
+          rowsOnPage = meta.rowsOnPage;
+          hasMore = meta.hasMore;
           estimatedTotalEvents = total ?? estimatedTotalEvents;
           await processBatch(batch);
           processedEvents += batch.length;
@@ -135,6 +141,8 @@ export class StockEventsSyncService {
             processedEvents,
             estimatedTotalEvents,
             currentPage,
+            rowsOnPage,
+            hasMore,
             inserted,
             updated,
             skipped,
@@ -157,6 +165,8 @@ export class StockEventsSyncService {
           processedEvents,
           estimatedTotalEvents,
           currentPage,
+          rowsOnPage,
+          hasMore,
           inserted,
           updated,
           skipped,
@@ -186,6 +196,8 @@ export class StockEventsSyncService {
         processedEvents,
         estimatedTotalEvents,
         currentPage,
+        rowsOnPage,
+        hasMore,
         inserted,
         updated,
         skipped,
@@ -209,7 +221,7 @@ export class StockEventsSyncService {
   }
 
   private initialProgress(): SyncProgress {
-    return { phase: 'EVENTS', progressPct: 0, processedEvents: 0, estimatedTotalEvents: null, currentPage: 0, inserted: 0, updated: 0, skipped: 0, failed: 0, symbolsRequested: 0, symbolsSynced: 0, updatedAt: new Date().toISOString() };
+    return { phase: 'EVENTS', progressPct: 0, processedEvents: 0, estimatedTotalEvents: null, currentPage: 0, rowsOnPage: 0, hasMore: true, inserted: 0, updated: 0, skipped: 0, failed: 0, symbolsRequested: 0, symbolsSynced: 0, updatedAt: new Date().toISOString() };
   }
 
   private eventProgress(processed: number, total: number | null) {
