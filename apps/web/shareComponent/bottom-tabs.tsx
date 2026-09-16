@@ -1,7 +1,7 @@
 'use client';
 
 import type { LucideIcon } from 'lucide-react';
-import { ArrowLeftRight, BarChart3, Bell, Cpu, Home, Settings } from 'lucide-react';
+import { ArrowLeftRight, BarChart3, Bell, Home, Settings } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
@@ -23,7 +23,6 @@ const fallbackItems: BottomTabItem[] = [
   { id: 'overview', label: 'Overview', icon: Home, href: '/overview' },
   { id: 'positions', label: 'Positions', icon: BarChart3, href: '/position' },
   { id: 'orders', label: 'Orders', icon: ArrowLeftRight, href: '/order' },
-  { id: 'engine', label: 'Engine', icon: Cpu, href: '/settings/engines' },
   { id: 'notifications', label: 'Alerts', icon: Bell, href: '/notifications' },
   { id: 'settings', label: 'Settings', icon: Settings, href: '/settings' },
 ];
