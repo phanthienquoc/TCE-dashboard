@@ -28,6 +28,7 @@ type CrawlOptions = {
   maxPages?: number;
   batchSize?: number;
   pageSize?: number;
+  onPage?: (pageNumber: number, rowsOnPage: number, total: number | null, hasMore: boolean) => Promise<void>;
   onBatch?: (events: CrawledStockEvent[], pageNumber: number, estimatedTotal: number | null, meta: CrawlPageMeta) => Promise<void>;
 };
 
@@ -77,6 +78,8 @@ export class VietstockEventsCrawler {
         this.logger.log(
           `Vietstock events page=${pageNumber}: raw=${result.rows.length}, parsed=${rows.length}, hasMore=${result.hasMore}, total=${result.total ?? 'unknown'}`,
         );
+
+        await options.onPage?.(pageNumber, result.rows.length, estimatedTotal, result.hasMore);
 
         if (options.onBatch) {
           batch.push(...rows);
@@ -151,8 +154,16 @@ export class VietstockEventsCrawler {
     url.searchParams.set('pageSize', String(pageSize));
     url.searchParams.set('tab', '1');
 
-    await page.goto(url.toString(), { waitUntil: 'domcontentloaded', timeout: RENDER_TIMEOUT_MS });
-    await page.waitForSelector('#event-content', { timeout: RENDER_TIMEOUT_MS });
+    const response = await page.goto(url.toString(), { waitUntil: 'domcontentloaded', timeout: RENDER_TIMEOUT_MS });
+    const status = response?.status();
+    try {
+      await page.waitForSelector('#event-content', { timeout: RENDER_TIMEOUT_MS });
+    } catch (error) {
+      const title = await page.title().catch(() => '');
+      const currentUrl = page.url();
+      const reason = error instanceof Error ? error.message : JSON.stringify(error);
+      throw new Error(`Vietstock page load failed (HTTP ${status ?? 'unknown'}, title="${title}", url=${currentUrl}): ${reason}`);
+    }
   }
 
   private async readRenderedTable(page: Page): Promise<string> {
@@ -198,13 +209,10 @@ export class VietstockEventsCrawler {
   private parseHtmlRows(html: string): Record<string, string>[] {
     const table = html.match(/<table\b[^>]*>([\s\S]*?)<\/table>/i)?.[0];
     if (!table) return [];
-
     const rows = [...table.matchAll(/<tr\b[^>]*>([\s\S]*?)<\/tr>/gi)].map(match => match[1]);
     if (!rows.length) return [];
-
     const headerIndex = rows.findIndex(row => /<t[hd]\b/i.test(row));
     if (headerIndex < 0) return [];
-
     const headers = this.cells(rows[headerIndex]).map(cell => this.clean(this.stripTags(cell).replace(/[▼▲]/g, '')));
     return rows.slice(headerIndex + 1).flatMap(row => {
       const cells = this.cells(row);
@@ -249,9 +257,7 @@ export class VietstockEventsCrawler {
   }
 
   private normalizeRow(row: unknown): Record<string, string> {
-    if (row && typeof row === 'object' && !Array.isArray(row)) {
-      return Object.fromEntries(Object.entries(row as Record<string, unknown>).map(([key, value]) => [key, this.clean(String(value ?? ''))]));
-    }
+    if (row && typeof row === 'object' && !Array.isArray(row)) return Object.fromEntries(Object.entries(row as Record<string, unknown>).map(([key, value]) => [key, this.clean(String(value ?? ''))]));
     if (typeof row === 'string') return this.parseHtmlRow(row);
     return {};
   }
