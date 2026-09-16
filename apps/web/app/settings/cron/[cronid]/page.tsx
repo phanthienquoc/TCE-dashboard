@@ -1,61 +1,16 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { AlertCircle, CheckCircle2, ChevronLeft, ExternalLink, Loader2, Play } from 'lucide-react';
+import { ChevronLeft, ExternalLink, Loader2, Play } from 'lucide-react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import DashboardShell from '../../../../components/dashboard/DashboardShell';
 import { api } from '../../../../lib/api';
-
-type StockCronConfig = {
-  enabled: boolean;
-  schedule: string;
-  timezone: string;
-  syncStartDate: string | null;
-  syncEndDate: string | null;
-  batchSize: number;
-  priceSyncEnabled: boolean;
-  telegramCredentialId: string | null;
-  lastRunAt: string | null;
-};
-
-type TelegramBot = {
-  id: string;
-  environment: string;
-  name: string;
-  isActive: boolean;
-  isPaused: boolean;
-};
-
-type SyncProgress = {
-  phase: 'EVENTS' | 'SSI_PRICE' | 'COMPLETED' | 'FAILED';
-  progressPct: number;
-  processedEvents: number;
-  estimatedTotalEvents: number | null;
-  currentPage: number;
-  inserted: number;
-  updated: number;
-  skipped: number;
-  failed: number;
-  symbolsRequested: number;
-  symbolsSynced: number;
-  updatedAt: string;
-};
-
-type StockRun = {
-  id: string;
-  status: 'RUNNING' | 'SUCCEEDED' | 'PARTIAL' | 'FAILED';
-  started_at: string;
-  finished_at: string | null;
-  inserted_count: number;
-  updated_count: number;
-  skipped_count: number;
-  failed_count: number;
-  symbols_requested: number;
-  symbols_synced: number;
-  error_message: string | null;
-  metadata?: { progress?: SyncProgress } | null;
-};
+import {
+  useStockSyncStore,
+  type StockSyncProgress,
+  type StockSyncRun,
+} from '../../../../lib/stock-sync-store';
 
 type ProfitConfig = {
   enabled: boolean;
@@ -72,15 +27,6 @@ type TriggerResult = {
   held: number;
   submitted: number;
   messages?: string[];
-  candidates?: Array<{
-    symbol: string;
-    currentPrice: number;
-    buyPrice: number;
-    targetPrice: number;
-    currentProfitPct: number;
-    action: string;
-    reason?: string;
-  }>;
 };
 
 export default function CronManagementPage() {
@@ -181,82 +127,43 @@ function ProfitExitCronPage() {
 }
 
 function StockEventsCronPage() {
-  const [config, setConfig] = useState<StockCronConfig>({
-    enabled: false,
-    schedule: '*/15 * * * *',
-    timezone: 'Asia/Ho_Chi_Minh',
-    syncStartDate: null,
-    syncEndDate: null,
-    batchSize: 200,
-    priceSyncEnabled: true,
-    telegramCredentialId: null,
-    lastRunAt: null,
-  });
-  const [bots, setBots] = useState<TelegramBot[]>([]);
-  const [runs, setRuns] = useState<StockRun[]>([]);
-  const [saving, setSaving] = useState(false);
-  const [triggering, setTriggering] = useState(false);
-  const [message, setMessage] = useState<string | null>(null);
-  const [tab, setTab] = useState<'runs' | 'config'>('runs');
-
-  async function refreshRuns() {
-    const history = await api.get<StockRun[]>('/stock-events-cron/runs?limit=20');
-    setRuns(history.data ?? []);
-  }
+  const config = useStockSyncStore(state => state.config);
+  const bots = useStockSyncStore(state => state.bots);
+  const runs = useStockSyncStore(state => state.runs);
+  const loading = useStockSyncStore(state => state.loading);
+  const saving = useStockSyncStore(state => state.saving);
+  const triggering = useStockSyncStore(state => state.triggering);
+  const message = useStockSyncStore(state => state.message);
+  const tab = useStockSyncStore(state => state.tab);
+  const initialized = useStockSyncStore(state => state.initialized);
+  const refresh = useStockSyncStore(state => state.refresh);
+  const refreshRuns = useStockSyncStore(state => state.refreshRuns);
+  const save = useStockSyncStore(state => state.save);
+  const trigger = useStockSyncStore(state => state.trigger);
+  const setConfig = useStockSyncStore(state => state.setConfig);
+  const setTab = useStockSyncStore(state => state.setTab);
 
   useEffect(() => {
-    void Promise.all([
-      api.get<StockCronConfig>('/stock-events-cron/settings'),
-      api.get<TelegramBot[]>('/platform/telegram/bots'),
-      api.get<StockRun[]>('/stock-events-cron/runs?limit=20'),
-    ])
-      .then(([settings, telegram, history]) => {
-        setConfig(c => ({ ...c, ...settings.data }));
-        setBots(telegram.data ?? []);
-        setRuns(history.data ?? []);
-      })
-      .catch(() => setMessage('Unable to load stock events cron data'));
-  }, []);
+    void refresh();
+  }, [refresh]);
 
   const runningRuns = runs.filter(run => run.status === 'RUNNING');
   const hasRunning = runningRuns.length > 0;
 
   useEffect(() => {
-    if (!hasRunning) return;
-    const timer = window.setInterval(() => {
+    const poll = () => {
+      if (document.visibilityState === 'hidden') return;
       void refreshRuns().catch(() => undefined);
-    }, 1500);
-    return () => window.clearInterval(timer);
-  }, [hasRunning]);
-
-  async function save() {
-    setSaving(true);
-    setMessage(null);
-    try {
-      const response = await api.post<StockCronConfig>('/stock-events-cron/settings', config);
-      setConfig(c => ({ ...c, ...response.data }));
-      setMessage('Saved');
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : 'Unable to save');
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  async function trigger() {
-    setTriggering(true);
-    setMessage(null);
-    try {
-      const response = await api.post<StockRun>('/stock-events-cron/trigger', {});
-      await refreshRuns().catch(() => undefined);
-      setMessage(response.data.status === 'RUNNING' ? 'Sync started' : `Sync ${response.data.status.toLowerCase()}`);
-      setTab('runs');
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : 'Unable to trigger sync');
-    } finally {
-      setTriggering(false);
-    }
-  }
+    };
+    const timer = window.setInterval(poll, hasRunning ? 1500 : 10000);
+    window.addEventListener('focus', poll);
+    document.addEventListener('visibilitychange', poll);
+    return () => {
+      window.clearInterval(timer);
+      window.removeEventListener('focus', poll);
+      document.removeEventListener('visibilitychange', poll);
+    };
+  }, [hasRunning, refreshRuns]);
 
   const sortedRuns = [...runs].sort((a, b) => {
     if (a.status === 'RUNNING' && b.status !== 'RUNNING') return -1;
@@ -280,10 +187,10 @@ function StockEventsCronPage() {
           </header>
 
           <div className="grid grid-cols-2 rounded-2xl border border-white/10 bg-white/[0.035] p-1">
-            <button type="button" onClick={() => setTab('runs')} className={`min-h-11 rounded-xl px-3 text-sm font-semibold transition ${tab === 'runs' ? 'bg-white text-slate-950 shadow-sm' : 'text-slate-400'}`}>
-              Jobs {runs.length ? <span className="ml-1 text-xs opacity-60">{runs.length}</span> : null}
+            <button type="button" onClick={() => setTab('runs')} className={`min-h-11 rounded-xl border transition ${tab === 'runs' ? 'border-sky-400/30 bg-sky-400/10 text-sky-200 shadow-sm' : 'border-transparent bg-transparent text-slate-400 hover:text-slate-200'}`}>
+              Jobs {runs.length ? <span className="ml-1 text-xs text-sky-300/80">{runs.length}</span> : null}
             </button>
-            <button type="button" onClick={() => setTab('config')} className={`min-h-11 rounded-xl px-3 text-sm font-semibold transition ${tab === 'config' ? 'bg-white text-slate-950 shadow-sm' : 'text-slate-400'}`}>
+            <button type="button" onClick={() => setTab('config')} className={`min-h-11 rounded-xl border transition ${tab === 'config' ? 'border-sky-400/30 bg-sky-400/10 text-sky-200 shadow-sm' : 'border-transparent bg-transparent text-slate-400 hover:text-slate-200'}`}>
               Config
             </button>
           </div>
@@ -299,51 +206,15 @@ function StockEventsCronPage() {
               </section>
 
               <section className="space-y-3">
-                {sortedRuns.length ? sortedRuns.map(run => {
-                  const progress = run.metadata?.progress;
-                  const progressPct = Math.min(Math.max(Math.round(progress?.progressPct ?? (run.status === 'SUCCEEDED' ? 100 : 0)), 0), 100);
-                  const phaseLabel = progress?.phase === 'SSI_PRICE' ? 'Enriching prices from SSI' : progress?.phase === 'COMPLETED' ? 'Sync completed' : progress?.phase === 'FAILED' ? 'Sync failed' : 'Fetching events from Vietstock';
-                  return (
-                    <article key={run.id} className={`overflow-hidden rounded-3xl border bg-white/[0.035] ${run.status === 'RUNNING' ? 'border-emerald-400/25 shadow-[0_0_30px_rgba(16,185,129,0.06)]' : 'border-white/10'}`}>
-                      <div className="px-4 py-3.5">
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="flex items-center gap-2">
-                            <span className={`size-2.5 rounded-full ${run.status === 'RUNNING' ? 'animate-pulse bg-emerald-400' : run.status === 'FAILED' ? 'bg-red-400' : run.status === 'PARTIAL' ? 'bg-amber-400' : 'bg-sky-400'}`} />
-                            <strong className="text-sm text-white">{run.status}</strong>
-                            {run.status === 'RUNNING' ? <span className="text-xs font-medium text-emerald-300">LIVE</span> : null}
-                          </div>
-                          <span className="text-right text-xs text-slate-500">{new Date(run.started_at).toLocaleString('vi-VN')}</span>
-                        </div>
-                        <div className="mt-2 text-xs text-slate-400">+{run.inserted_count} new · {run.updated_count} updated · {run.skipped_count} skipped · {run.failed_count} failed · SSI {run.symbols_synced}/{run.symbols_requested}</div>
-
-                        {run.status === 'RUNNING' ? (
-                          <div className="mt-4 border-t border-white/10 pt-3">
-                            <div className="flex items-end justify-between gap-3">
-                              <div><p className="text-xs text-slate-500">Current phase</p><p className="mt-0.5 text-sm font-semibold text-white">{phaseLabel}</p></div>
-                              <strong className="text-2xl font-semibold text-white">{progressPct}%</strong>
-                            </div>
-                            <div className="mt-2 h-2 overflow-hidden rounded-full bg-white/10"><div className="h-full rounded-full bg-emerald-400 transition-all duration-700" style={{ width: `${progressPct}%` }} /></div>
-                            <div className="mt-2 flex justify-between text-xs text-slate-400"><span>{progress?.processedEvents ?? 0} / {progress?.estimatedTotalEvents ?? '—'} events</span><span>Page {progress?.currentPage ?? '—'}</span></div>
-                            <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
-                              <Metric label="Inserted" value={progress?.inserted ?? run.inserted_count} />
-                              <Metric label="Updated" value={progress?.updated ?? run.updated_count} />
-                              <Metric label="Skipped" value={progress?.skipped ?? run.skipped_count} />
-                              <Metric label="Failed" value={progress?.failed ?? run.failed_count} />
-                            </div>
-                          </div>
-                        ) : null}
-
-                        {run.error_message ? <p className="mt-2 text-xs text-red-300">{run.error_message}</p> : null}
-                        {run.finished_at ? <p className="mt-2 text-xs text-slate-500">Finished {new Date(run.finished_at).toLocaleString('vi-VN')}</p> : null}
-                      </div>
-                    </article>
-                  );
-                }) : <div className="rounded-3xl border border-white/10 bg-white/[0.035] px-4 py-10 text-center text-sm text-slate-500">No jobs have run yet.</div>}
+                {loading && !initialized ? <div className="rounded-3xl border border-white/10 bg-white/[0.035] px-4 py-10 text-center text-sm text-slate-500">Loading sync history…</div> : null}
+                {!loading && !sortedRuns.length ? <div className="rounded-3xl border border-white/10 bg-white/[0.035] px-4 py-10 text-center text-sm text-slate-500">No jobs have run yet.</div> : null}
+                {sortedRuns.map(run => <StockRunCard key={run.id} run={run} />)}
               </section>
 
-              <button type="button" disabled={triggering || hasRunning} onClick={() => void trigger()} className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-semibold text-white disabled:opacity-50">
+              <button type="button" disabled={triggering || hasRunning} onClick={() => void trigger()} className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl border border-sky-400/20 bg-sky-400/10 px-4 py-3 text-sm font-semibold text-sky-100 transition hover:bg-sky-400/15 disabled:opacity-50">
                 <Play className="size-4" />{hasRunning ? 'A job is already running' : triggering ? 'Starting…' : 'Run now'}
               </button>
+              {message ? <p className="text-center text-sm text-slate-400">{message}</p> : null}
             </>
           ) : (
             <>
@@ -352,12 +223,54 @@ function StockEventsCronPage() {
               <section><p className="mb-2 px-1 text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Sync Window</p><div className="grid gap-3 rounded-3xl border border-white/10 bg-white/[0.035] p-4 sm:grid-cols-2"><label className="block"><span className="mb-1 block text-sm text-white">Start date</span><input type="date" className="w-full rounded-xl border border-white/10 bg-black/20 px-3 py-2 text-white" value={config.syncStartDate ?? ''} onChange={e => setConfig(c => ({ ...c, syncStartDate: e.target.value || null }))} /></label><label className="block"><span className="mb-1 block text-sm text-white">End date</span><input type="date" className="w-full rounded-xl border border-white/10 bg-black/20 px-3 py-2 text-white" value={config.syncEndDate ?? ''} onChange={e => setConfig(c => ({ ...c, syncEndDate: e.target.value || null }))} /></label></div><p className="mt-2 px-1 text-xs text-slate-500">SYNCED + unchanged hash ⇒ skip. Changed event ⇒ resync.</p></section>
               <section><p className="mb-2 px-1 text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Batch + Price</p><div className="rounded-3xl border border-white/10 bg-white/[0.035]"><label className="flex min-h-[72px] items-center gap-4 border-b border-white/10 px-4"><span className="flex-1"><strong className="block text-[16px] text-white">Batch size</strong><span className="text-sm text-slate-400">50–500 events per upsert</span></span><input type="number" min="50" max="500" step="50" className="w-24 rounded-xl border border-white/10 bg-black/20 px-3 py-2 text-right text-white" value={config.batchSize} onChange={e => setConfig(c => ({ ...c, batchSize: Number(e.target.value) }))} /></label><label className="flex min-h-[72px] items-center gap-4 px-4"><span className="flex-1"><strong className="block text-[16px] text-white">SSI price enrichment</strong><span className="text-sm text-slate-400">Use existing SSI service in batches</span></span><input type="checkbox" className="size-5 accent-emerald-400" checked={config.priceSyncEnabled} onChange={e => setConfig(c => ({ ...c, priceSyncEnabled: e.target.checked }))} /></label></div></section>
               <section><div className="mb-2 flex items-center justify-between px-1"><p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Telegram</p><Link href="/notifications/new" className="inline-flex items-center gap-1 text-xs font-medium text-sky-300">Add bot <ExternalLink className="size-3" /></Link></div><div className="rounded-3xl border border-white/10 bg-white/[0.035] p-4"><select className="w-full rounded-xl border border-white/10 bg-black/20 px-3 py-2 text-white" value={config.telegramCredentialId ?? ''} onChange={e => setConfig(c => ({ ...c, telegramCredentialId: e.target.value || null }))}><option value="">No Telegram notification</option>{bots.filter(bot => bot.isActive && !bot.isPaused).map(bot => <option key={bot.id} value={bot.id}>{bot.name} · {bot.environment}</option>)}</select><p className="mt-2 text-xs text-slate-500">Send sync summary after each run.</p></div></section>
-              <section><div className="flex gap-3"><button type="button" disabled={saving} onClick={() => void save()} className="min-h-11 flex-1 rounded-2xl bg-white px-4 py-3 text-sm font-semibold text-slate-950">{saving ? 'Saving…' : 'Save cron'}</button><button type="button" onClick={() => setTab('runs')} className="min-h-11 flex-1 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-semibold text-white">View jobs</button></div>{message ? <p className="mt-3 text-sm text-slate-300">{message}</p> : null}</section>
+              <section><div className="flex gap-3"><button type="button" disabled={saving} onClick={() => void save()} className="min-h-11 flex-1 rounded-2xl bg-sky-500 px-4 py-3 text-sm font-semibold text-white">{saving ? 'Saving…' : 'Save cron'}</button><button type="button" onClick={() => setTab('runs')} className="min-h-11 flex-1 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-semibold text-white">View jobs</button></div>{message ? <p className="mt-3 text-sm text-slate-300">{message}</p> : null}</section>
             </>
           )}
         </div>
       )}
     </DashboardShell>
+  );
+}
+
+function StockRunCard({ run }: { run: StockSyncRun }) {
+  const progress = run.metadata?.progress;
+  const progressPct = Math.min(Math.max(Math.round(progress?.progressPct ?? (run.status === 'SUCCEEDED' ? 100 : 0)), 0), 100);
+  const phaseLabel = progress?.phase === 'SSI_PRICE' ? 'Enriching prices from SSI' : progress?.phase === 'COMPLETED' ? 'Sync completed' : progress?.phase === 'FAILED' ? 'Sync failed' : 'Fetching events from Vietstock';
+
+  return (
+    <article className={`overflow-hidden rounded-3xl border bg-white/[0.035] ${run.status === 'RUNNING' ? 'border-emerald-400/25 shadow-[0_0_30px_rgba(16,185,129,0.06)]' : 'border-white/10'}`}>
+      <div className="px-4 py-3.5">
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <span className={`size-2.5 rounded-full ${run.status === 'RUNNING' ? 'animate-pulse bg-emerald-400' : run.status === 'FAILED' ? 'bg-red-400' : run.status === 'PARTIAL' ? 'bg-amber-400' : 'bg-sky-400'}`} />
+            <strong className="text-sm text-white">{run.status}</strong>
+            {run.status === 'RUNNING' ? <span className="text-xs font-medium text-emerald-300">LIVE</span> : null}
+          </div>
+          <span className="text-right text-xs text-slate-500">{new Date(run.started_at).toLocaleString('vi-VN')}</span>
+        </div>
+        <div className="mt-2 text-xs text-slate-400">+{run.inserted_count} new · {run.updated_count} updated · {run.skipped_count} skipped · {run.failed_count} failed · SSI {run.symbols_synced}/{run.symbols_requested}</div>
+
+        {run.status === 'RUNNING' ? (
+          <div className="mt-4 border-t border-white/10 pt-3">
+            <div className="flex items-end justify-between gap-3">
+              <div><p className="text-xs text-slate-500">Current phase</p><p className="mt-0.5 text-sm font-semibold text-white">{phaseLabel}</p></div>
+              <strong className="text-2xl font-semibold text-white">{progressPct}%</strong>
+            </div>
+            <div className="mt-2 h-2 overflow-hidden rounded-full bg-white/10"><div className="h-full rounded-full bg-emerald-400 transition-all duration-700" style={{ width: `${progressPct}%` }} /></div>
+            <div className="mt-2 flex justify-between text-xs text-slate-400"><span>{progress?.processedEvents ?? 0} / {progress?.estimatedTotalEvents ?? '—'} events</span><span>Page {progress?.currentPage ?? '—'}</span></div>
+            <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
+              <Metric label="Inserted" value={progress?.inserted ?? run.inserted_count} />
+              <Metric label="Updated" value={progress?.updated ?? run.updated_count} />
+              <Metric label="Skipped" value={progress?.skipped ?? run.skipped_count} />
+              <Metric label="Failed" value={progress?.failed ?? run.failed_count} />
+            </div>
+          </div>
+        ) : null}
+
+        {run.error_message ? <p className="mt-2 text-xs text-red-300">{run.error_message}</p> : null}
+        {run.finished_at ? <p className="mt-2 text-xs text-slate-500">Finished {new Date(run.finished_at).toLocaleString('vi-VN')}</p> : null}
+      </div>
+    </article>
   );
 }
 
