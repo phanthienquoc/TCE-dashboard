@@ -3,6 +3,7 @@
 import { RefreshCw } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import DashboardLayout from '../../../components/dashboard/DashboardLayout';
+import { DividendOneYearCandleChart } from '../../../components/dashboard/DividendOneYearCandleChart';
 import {
   useStockDividendPoolStore,
   type StockDividendPoolItem,
@@ -48,6 +49,7 @@ export default function StockDividendPoolPage() {
   const load = useStockDividendPoolStore(s => s.load);
   const [month, setMonth] = useState(currentMonth);
   const [sort, setSort] = useState<'score' | 'yield' | 'exDate'>('score');
+  const [expandedTicker, setExpandedTicker] = useState<string | null>(null);
 
   useEffect(() => void load(month), [load, month]);
 
@@ -73,12 +75,22 @@ export default function StockDividendPoolPage() {
     {
       key: 'ticker',
       label: 'Stock',
-      render: r => (
-        <div>
-          <div className="font-semibold text-foreground">{r.ticker}</div>
-          <Caption>{r.dividendYieldPct.toFixed(2)}% yield</Caption>
-        </div>
-      ),
+      render: r => {
+        const expanded = expandedTicker === r.ticker;
+        return (
+          <button
+            type="button"
+            className="w-full text-left"
+            onClick={() => setExpandedTicker(expanded ? null : r.ticker)}
+            aria-expanded={expanded}
+            aria-label={`${expanded ? 'Collapse' : 'Expand'} ${r.ticker}`}
+          >
+            <div className="font-semibold text-foreground">{r.ticker}</div>
+            <Caption>{r.dividendYieldPct.toFixed(2)}% yield</Caption>
+            {expanded ? <DividendOneYearCandleChart symbol={r.ticker} /> : null}
+          </button>
+        );
+      },
     },
     {
       key: 'dividendValue',
@@ -135,7 +147,10 @@ export default function StockDividendPoolPage() {
           <select
             id="dividend-month"
             value={month}
-            onChange={event => setMonth(event.target.value)}
+            onChange={event => {
+              setMonth(event.target.value);
+              setExpandedTicker(null);
+            }}
             className="min-w-36 rounded-lg border border-border bg-surface px-3 py-2 text-sm font-medium text-foreground outline-none focus:ring-2 focus:ring-primary/40"
           >
             {months.map(value => (

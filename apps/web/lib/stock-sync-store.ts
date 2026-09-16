@@ -74,7 +74,7 @@ type StockSyncState = {
 
 const defaultConfig: StockSyncConfig = {
   enabled: false,
-  schedule: '*/15 * * * *',
+  schedule: '0 */4 * * *',
   timezone: 'Asia/Ho_Chi_Minh',
   syncStartDate: null,
   syncEndDate: null,
@@ -147,6 +147,8 @@ export const useStockSyncStore = create<StockSyncState>((set, get) => ({
         saving: false,
         message: 'Saved',
       }));
+      await get().refresh();
+      set({ message: 'Saved' });
     } catch (error) {
       set({
         saving: false,
