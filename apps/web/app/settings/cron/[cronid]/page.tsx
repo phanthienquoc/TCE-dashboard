@@ -8,7 +8,6 @@ import DashboardShell from '../../../../components/dashboard/DashboardShell';
 import { api } from '../../../../lib/api';
 import {
   useStockSyncStore,
-  type StockSyncProgress,
   type StockSyncRun,
 } from '../../../../lib/stock-sync-store';
 
@@ -171,6 +170,9 @@ function StockEventsCronPage() {
     return new Date(b.started_at).getTime() - new Date(a.started_at).getTime();
   });
 
+  const syncRun = runningRuns[0] ?? sortedRuns[0] ?? null;
+  const historyRuns = syncRun ? sortedRuns.filter(run => run.id !== syncRun.id) : sortedRuns;
+
   return (
     <DashboardShell view="settings">
       {() => (
@@ -197,23 +199,37 @@ function StockEventsCronPage() {
 
           {tab === 'runs' ? (
             <>
+              <section className="space-y-3">
+                {loading && !initialized ? <div className="rounded-3xl border border-white/10 bg-white/[0.035] px-4 py-10 text-center text-sm text-slate-500">Loading sync status…</div> : null}
+                {!loading && !syncRun ? <div className="rounded-3xl border border-white/10 bg-white/[0.035] px-4 py-8 text-center text-sm text-slate-500">No sync has run yet.</div> : null}
+                {syncRun ? <StockRunCard run={syncRun} /> : null}
+              </section>
+
               <section className="flex items-center justify-between gap-3 px-1">
                 <div>
                   <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Job history</p>
-                  <p className="mt-1 text-sm text-slate-400">Running jobs are always pinned to the top.</p>
+                  <p className="mt-1 text-sm text-slate-400">Running jobs are always pinned to the sync status above.</p>
                 </div>
-                {hasRunning ? <span className="text-xs font-medium text-emerald-300">Live · auto refresh</span> : null}
+                <div className="flex shrink-0 items-center gap-2">
+                  {hasRunning ? <span className="text-xs font-medium text-emerald-300">Live · auto refresh</span> : null}
+                  <button
+                    type="button"
+                    aria-label="Run now"
+                    title="Run now"
+                    disabled={triggering || hasRunning}
+                    onClick={() => void trigger()}
+                    className="inline-flex size-8 items-center justify-center rounded-xl border border-sky-400/25 bg-sky-400/10 text-sky-200 transition hover:bg-sky-400/15 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {triggering || hasRunning ? <Loader2 className="size-3.5 animate-spin" /> : <Play className="size-3.5" />}
+                  </button>
+                </div>
               </section>
 
               <section className="space-y-3">
-                {loading && !initialized ? <div className="rounded-3xl border border-white/10 bg-white/[0.035] px-4 py-10 text-center text-sm text-slate-500">Loading sync history…</div> : null}
-                {!loading && !sortedRuns.length ? <div className="rounded-3xl border border-white/10 bg-white/[0.035] px-4 py-10 text-center text-sm text-slate-500">No jobs have run yet.</div> : null}
-                {sortedRuns.map(run => <StockRunCard key={run.id} run={run} />)}
+                {loading && !initialized ? null : null}
+                {!loading && !historyRuns.length ? <div className="rounded-3xl border border-white/10 bg-white/[0.035] px-4 py-8 text-center text-sm text-slate-500">No previous jobs.</div> : null}
+                {historyRuns.map(run => <StockRunCard key={run.id} run={run} />)}
               </section>
-
-              <button type="button" disabled={triggering || hasRunning} onClick={() => void trigger()} className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl border border-sky-400/20 bg-sky-400/10 px-4 py-3 text-sm font-semibold text-sky-100 transition hover:bg-sky-400/15 disabled:opacity-50">
-                <Play className="size-4" />{hasRunning ? 'A job is already running' : triggering ? 'Starting…' : 'Run now'}
-              </button>
               {message ? <p className="text-center text-sm text-slate-400">{message}</p> : null}
             </>
           ) : (
