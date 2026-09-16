@@ -129,3 +129,50 @@ select,
 textarea {
   -webkit-tap-highlight-color: transparent;
 }
+
+/* Stock Events Sync mobile flow: action row first, page sync second, stock items last. */
+@media (max-width: 767px) {
+  .tce-mobile-view.space-y-5:has(button[aria-label='Run now']) {
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* Keep the page chrome first, then put the Run now row at the top of the run content. */
+  .tce-mobile-view.space-y-5:has(button[aria-label='Run now']) > header {
+    order: 1;
+  }
+
+  .tce-mobile-view.space-y-5:has(button[aria-label='Run now']) > div.grid.grid-cols-2 {
+    order: 2;
+  }
+
+  .tce-mobile-view.space-y-5:has(button[aria-label='Run now']) > section:has(button[aria-label='Run now']) {
+    order: 3;
+  }
+
+  /* The first section contains both sync page and OHLCV item progress. */
+  .tce-mobile-view.space-y-5:has(button[aria-label='Run now']) > section:first-of-type {
+    display: flex;
+    flex-direction: column;
+    order: 4;
+  }
+
+  /* Page-level sync card before stock-level OHLCV sync. */
+  .tce-mobile-view.space-y-5:has(button[aria-label='Run now']) > section:first-of-type > article:nth-child(1) {
+    order: 2;
+  }
+
+  .tce-mobile-view.space-y-5:has(button[aria-label='Run now']) > section:first-of-type > article:nth-child(2) {
+    order: 1;
+  }
+
+  /* History stays after the active sync content. */
+  .tce-mobile-view.space-y-5:has(button[aria-label='Run now']) > section:last-of-type {
+    order: 5;
+  }
+
+  /* Once OHLCV finishes, keep only its summary; completed stock rows are collapsed. */
+  .tce-mobile-view.space-y-5:has(button[aria-label='Run now']) > section:first-of-type > article:first-child:not(:has(.animate-pulse)) > div:last-child {
+    display: none;
+  }
+}
