@@ -129,3 +129,49 @@ select,
 textarea {
   -webkit-tap-highlight-color: transparent;
 }
+
+/* Stock Events Sync mobile flow: actions first, sync run second, OHLCV stock progress last. */
+@media (max-width: 767px) {
+  .tce-mobile-view.space-y-5:has(button[aria-label='Run now']) {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .tce-mobile-view.space-y-5:has(button[aria-label='Run now']) > section:first-of-type {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .tce-mobile-view.space-y-5:has(button[aria-label='Run now']) > section:first-of-type > article {
+    order: 2;
+  }
+
+  .tce-mobile-view.space-y-5:has(button[aria-label='Run now']) > section:first-of-type > article:last-child {
+    order: 1;
+  }
+
+  .tce-mobile-view.space-y-5:has(button[aria-label='Run now']) > section:nth-of-type(2) {
+    order: 3;
+  }
+
+  .tce-mobile-view.space-y-5:has(button[aria-label='Run now']) > section:first-of-type {
+    order: 4;
+  }
+
+  .tce-mobile-view.space-y-5:has(button[aria-label='Run now']) > section:nth-of-type(3) {
+    order: 5;
+  }
+
+  .tce-mobile-view.space-y-5:has(button[aria-label='Run now']) > header {
+    order: 1;
+  }
+
+  .tce-mobile-view.space-y-5:has(button[aria-label='Run now']) > div.grid.grid-cols-2 {
+    order: 2;
+  }
+
+  /* Once OHLCV finishes, keep only its summary. The stock-by-stock list is useful while running only. */
+  .tce-mobile-view.space-y-5:has(button[aria-label='Run now']) > section:first-of-type > article:first-child:not(:has(.animate-pulse)) > div:last-child {
+    display: none;
+  }
+}
