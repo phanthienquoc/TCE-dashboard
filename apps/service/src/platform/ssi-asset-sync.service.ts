@@ -35,8 +35,6 @@ export class SsiAssetSyncService {
     const aggregate = new Map<string, { quantity: number; costValue: number }>();
 
     const snapshot = snapshots.data;
-    const accountSnapshots = snapshot.accounts ?? [];
-    const balanceByAccount = new Map<string, typeof snapshot.balance>();
     const positionsByAccount = new Map<string, AccountPosition[]>();
 
     for (const position of snapshot.positions ?? []) {
@@ -47,19 +45,13 @@ export class SsiAssetSyncService {
       positionsByAccount.set(accountNo, list);
     }
 
-    for (const snapshotAccount of accountSnapshots) {
-      const accountNo = String(snapshotAccount.accountNo ?? '').trim();
-      if (accountNo) balanceByAccount.set(accountNo, snapshot.balance);
-    }
-
-    // Current SSI portfolio contract is a consolidated snapshot, so reuse the
-    // selected account number when provider positions do not carry one.
+    // SsiPortfolioSnapshot is a consolidated snapshot and intentionally does
+    // not expose an `accounts` collection. The authenticated account number is
+    // carried by the provider positions; use it as the broker-account key.
     const selectedAccountNo = String(snapshot.positions?.[0]?.accountNo ?? '').trim();
-    const accounts = accountSnapshots.length
-      ? accountSnapshots
-      : selectedAccountNo
-        ? [{ accountNo: selectedAccountNo, accountType: '' }]
-        : [{ accountNo: '', accountType: '' }];
+    const accounts = selectedAccountNo
+      ? [{ accountNo: selectedAccountNo, accountType: '' }]
+      : [{ accountNo: '', accountType: '' }];
 
     for (const snapshotAccount of accounts) {
       const accountType = String(snapshotAccount.accountType ?? '');
@@ -82,8 +74,8 @@ export class SsiAssetSyncService {
             is_margin_enabled:
               accountTypeUpper === 'MARGIN' || accountTypeUpper === 'EQUITY_MARGIN',
             source_version: SSI_SOURCE_VERSION,
-            raw_account: snapshotAccount.raw ?? snapshotAccount,
-            raw_account_v2: snapshotAccount.raw ?? snapshotAccount,
+            raw_account: snapshotAccount,
+            raw_account_v2: snapshotAccount,
             last_synced_at: syncedAt,
             updated_at: syncedAt,
           },
@@ -94,7 +86,7 @@ export class SsiAssetSyncService {
       if (brokerError) throw brokerError;
       accountsSynced += 1;
 
-      const cash = Number(balanceByAccount.get(accountNo)?.cash ?? snapshot.balance?.cash ?? 0);
+      const cash = Number(snapshot.balance?.cash ?? 0);
       cashSynced += cash;
 
       const positions = new Map<string, AccountPosition>();
