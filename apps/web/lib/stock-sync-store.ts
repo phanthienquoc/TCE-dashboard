@@ -166,7 +166,7 @@ export const useStockSyncStore = create<StockSyncState>((set, get) => ({
         triggering: false,
         message:
           response.data.status === 'RUNNING'
-            ? 'Sync started'
+            ? null
             : `Sync ${response.data.status.toLowerCase()}`,
         tab: 'runs',
       });
