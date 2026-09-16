@@ -4,6 +4,7 @@ import { SsiApplicationService } from '../platform/ssi.application.service';
 
 const DEFAULT_DAYS = 365;
 const TIMEZONE = 'Asia/Ho_Chi_Minh';
+const OHLCV_BATCH_TIMEOUT_MS = 75_000;
 
 export type DividendOhlcvSyncItem = {
   symbol: string;
@@ -108,12 +109,16 @@ export class DividendOhlcvService {
               current_rows_synced: symbolRows,
             });
 
-            const result = await this.ssi.dailyOhlcv(
-              userId,
-              environment,
-              [symbol],
-              batch.from,
-              batch.to,
+            const result = await withTimeout(
+              this.ssi.dailyOhlcv(
+                userId,
+                environment,
+                [symbol],
+                batch.from,
+                batch.to,
+              ),
+              OHLCV_BATCH_TIMEOUT_MS,
+              `${symbol} ${batch.from} -> ${batch.to}`,
             );
             if (!result.ok) throw new Error(result.error.message);
 
@@ -378,4 +383,17 @@ function monthBatches(from: string, to: string) {
   }
 
   return batches;
+}
+
+function withTimeout<T>(promise: Promise<T>, timeoutMs: number, label: string): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => {
+      reject(new Error(`SSI OHLCV batch timeout after ${timeoutMs}ms: ${label}`));
+    }, timeoutMs);
+  });
+
+  return Promise.race([promise, timeout]).finally(() => {
+    if (timer) clearTimeout(timer);
+  });
 }
