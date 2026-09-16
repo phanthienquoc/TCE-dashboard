@@ -27,7 +27,6 @@ create policy "authenticated can read dividend market ohlcv"
   for select
   to authenticated
   using (exists (
-    select 1
-    from public.stock_events se
+    select 1 from public.stock_events se
     where upper(se.symbol) = upper(tce_market_ohlcv_daily.symbol)
   ));
