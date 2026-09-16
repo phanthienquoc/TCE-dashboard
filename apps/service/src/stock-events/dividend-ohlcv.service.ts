@@ -5,6 +5,7 @@ import { SsiApplicationService } from '../platform/ssi.application.service';
 const DEFAULT_DAYS = 365;
 const TIMEZONE = 'Asia/Ho_Chi_Minh';
 const OHLCV_BATCH_TIMEOUT_MS = 75_000;
+const OHLCV_SYMBOL_CONCURRENCY = 5;
 
 export type DividendOhlcvSyncItem = {
   symbol: string;
@@ -54,7 +55,7 @@ export class DividendOhlcvService {
     let failedSymbols = 0;
 
     try {
-      for (const symbol of symbols) {
+      await runWithConcurrency(symbols, OHLCV_SYMBOL_CONCURRENCY, async symbol => {
         const itemId = await this.createSyncItem(runId, symbol);
         const startedAt = new Date().toISOString();
         await this.updateSyncItem(itemId, {
@@ -83,7 +84,7 @@ export class DividendOhlcvService {
               finished_at: finishedAt,
               updated_at: finishedAt,
             });
-            continue;
+            return;
           }
 
           const batches = monthBatches(range.from, endDate);
@@ -202,7 +203,7 @@ export class DividendOhlcvService {
             rows_synced: syncedRows,
           });
         }
-      }
+      });
 
       await this.finishSyncRun(runId, {
         status: failedSymbols > 0 ? (syncedSymbols > 0 ? 'PARTIAL' : 'FAILED') : 'SUCCEEDED',
@@ -334,6 +335,22 @@ export class DividendOhlcvService {
     if (error) throw error;
     if (!data?.symbol) throw new Error('Dividend stock symbol not found');
   }
+}
+
+async function runWithConcurrency<T>(items: T[], concurrency: number, worker: (item: T) => Promise<void>) {
+  const workerCount = Math.max(1, Math.min(concurrency, items.length));
+  let nextIndex = 0;
+
+  const runWorker = async () => {
+    while (true) {
+      const index = nextIndex;
+      nextIndex += 1;
+      if (index >= items.length) return;
+      await worker(items[index]);
+    }
+  };
+
+  await Promise.all(Array.from({ length: workerCount }, () => runWorker()));
 }
 
 function normalizeSymbol(value: string) {
