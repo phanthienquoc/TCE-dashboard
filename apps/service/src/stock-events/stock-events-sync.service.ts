@@ -41,6 +41,7 @@ type SyncProgress = {
   failed: number;
   symbolsRequested: number;
   symbolsSynced: number;
+  pageSize: number;
   updatedAt: string;
 };
 
@@ -57,10 +58,11 @@ export class StockEventsSyncService {
 
   async run(options: StockEventsSyncOptions): Promise<StockEventsSyncResult> {
     const batchSize = Math.min(Math.max(Math.trunc(options.batchSize ?? 200), 50), 500);
+    const pageSize = Math.min(Math.max(Math.trunc(options.pageSize ?? 10), 1), 100);
     const startedAt = new Date().toISOString();
     const { data: run, error: runError } = await this.db.db
       .from('tce_cron_runs')
-      .insert({ job_id: options.jobId, status: 'RUNNING', started_at: startedAt, metadata: { sync: 'vietstock-events', priceSource: 'ssi', progress: this.initialProgress() } })
+      .insert({ job_id: options.jobId, status: 'RUNNING', started_at: startedAt, metadata: { sync: 'vietstock-events', priceSource: 'ssi', progress: this.initialProgress(pageSize) } })
       .select('id')
       .single();
     if (runError) throw runError;
@@ -77,6 +79,26 @@ export class StockEventsSyncService {
       let rowsOnPage = 0;
       let hasMore = true;
       const symbols = new Set<string>();
+
+      const publishProgress = async () => {
+        await this.updateProgress(String(run.id), {
+          phase: 'EVENTS',
+          progressPct: this.eventProgress(processedEvents, estimatedTotalEvents),
+          processedEvents,
+          estimatedTotalEvents,
+          currentPage,
+          rowsOnPage,
+          hasMore,
+          inserted,
+          updated,
+          skipped,
+          failed,
+          symbolsRequested: symbols.size,
+          symbolsSynced: 0,
+          pageSize,
+          updatedAt: new Date().toISOString(),
+        });
+      };
 
       const processBatch = async (batch: CrawledStockEvent[]) => {
         const existing = await this.loadExisting(batch.map(event => event.mongoId));
@@ -129,7 +151,14 @@ export class StockEventsSyncService {
         startDate: options.syncStartDate,
         endDate: options.syncEndDate,
         batchSize,
-        pageSize: options.pageSize,
+        pageSize,
+        onPage: async (pageNumber, rowsOnCurrentPage, total, more) => {
+          currentPage = pageNumber;
+          rowsOnPage = rowsOnCurrentPage;
+          hasMore = more;
+          estimatedTotalEvents = total ?? estimatedTotalEvents;
+          await publishProgress();
+        },
         onBatch: async (batch, pageNumber, total, meta) => {
           currentPage = pageNumber;
           rowsOnPage = meta.rowsOnPage;
@@ -137,22 +166,7 @@ export class StockEventsSyncService {
           estimatedTotalEvents = total ?? estimatedTotalEvents;
           await processBatch(batch);
           processedEvents += batch.length;
-          await this.updateProgress(String(run.id), {
-            phase: 'EVENTS',
-            progressPct: this.eventProgress(processedEvents, estimatedTotalEvents),
-            processedEvents,
-            estimatedTotalEvents,
-            currentPage,
-            rowsOnPage,
-            hasMore,
-            inserted,
-            updated,
-            skipped,
-            failed,
-            symbolsRequested: symbols.size,
-            symbolsSynced: 0,
-            updatedAt: new Date().toISOString(),
-          });
+          await publishProgress();
         },
       });
 
@@ -175,6 +189,7 @@ export class StockEventsSyncService {
           failed,
           symbolsRequested,
           symbolsSynced: 0,
+          pageSize,
           updatedAt: new Date().toISOString(),
         });
         if (requestedSymbols.length) {
@@ -206,6 +221,7 @@ export class StockEventsSyncService {
         failed,
         symbolsRequested,
         symbolsSynced,
+        pageSize,
         updatedAt: new Date().toISOString(),
       });
       const result = { runId: String(run.id), status, inserted, updated, skipped, failed, symbolsRequested, symbolsSynced } satisfies StockEventsSyncResult;
@@ -214,7 +230,7 @@ export class StockEventsSyncService {
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       await this.finishRun(String(run.id), { status: 'FAILED', inserted: 0, updated: 0, skipped: 0, failed: 1, symbolsRequested: 0, symbolsSynced: 0, errorMessage: message });
-      await this.updateProgress(String(run.id), { ...this.initialProgress(), phase: 'FAILED', progressPct: 0, failed: 1, updatedAt: new Date().toISOString() });
+      await this.updateProgress(String(run.id), { ...this.initialProgress(pageSize), phase: 'FAILED', progressPct: 0, failed: 1, updatedAt: new Date().toISOString() });
       const result = { runId: String(run.id), status: 'FAILED' as const, inserted: 0, updated: 0, skipped: 0, failed: 1, symbolsRequested: 0, symbolsSynced: 0 } satisfies StockEventsSyncResult;
       await this.notify(options, result);
       this.logger.error(`Stock event sync failed: ${message}`);
@@ -222,8 +238,8 @@ export class StockEventsSyncService {
     }
   }
 
-  private initialProgress(): SyncProgress {
-    return { phase: 'EVENTS', progressPct: 0, processedEvents: 0, estimatedTotalEvents: null, currentPage: 0, rowsOnPage: 0, hasMore: true, inserted: 0, updated: 0, skipped: 0, failed: 0, symbolsRequested: 0, symbolsSynced: 0, updatedAt: new Date().toISOString() };
+  private initialProgress(pageSize: number): SyncProgress {
+    return { phase: 'EVENTS', progressPct: 0, processedEvents: 0, estimatedTotalEvents: null, currentPage: 0, rowsOnPage: 0, hasMore: true, inserted: 0, updated: 0, skipped: 0, failed: 0, symbolsRequested: 0, symbolsSynced: 0, pageSize, updatedAt: new Date().toISOString() };
   }
 
   private eventProgress(processed: number, total: number | null) {

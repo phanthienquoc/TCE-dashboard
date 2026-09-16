@@ -28,6 +28,7 @@ type CrawlOptions = {
   maxPages?: number;
   batchSize?: number;
   pageSize?: number;
+  onPage?: (pageNumber: number, rowsOnPage: number, total: number | null, hasMore: boolean) => Promise<void>;
   onBatch?: (events: CrawledStockEvent[], pageNumber: number, estimatedTotal: number | null, meta: CrawlPageMeta) => Promise<void>;
 };
 
@@ -77,6 +78,8 @@ export class VietstockEventsCrawler {
         this.logger.log(
           `Vietstock events page=${pageNumber}: raw=${result.rows.length}, parsed=${rows.length}, hasMore=${result.hasMore}, total=${result.total ?? 'unknown'}`,
         );
+
+        await options.onPage?.(pageNumber, result.rows.length, estimatedTotal, result.hasMore);
 
         if (options.onBatch) {
           batch.push(...rows);
