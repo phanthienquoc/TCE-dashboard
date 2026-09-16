@@ -79,10 +79,22 @@ export class DividendOhlcvService {
           if (!range) {
             const finishedAt = new Date().toISOString();
             await this.updateSyncItem(itemId, {
-              status: 'SKIPPED',
-              phase: 'SKIPPED',
+              status: 'SUCCEEDED',
+              phase: 'COMPLETED',
               finished_at: finishedAt,
               updated_at: finishedAt,
+            });
+            syncedSymbols += 1;
+            await this.updateSyncRun(runId, {
+              symbols_synced: syncedSymbols,
+              rows_synced: syncedRows,
+              current_symbol: null,
+              current_phase: null,
+              current_batch_index: null,
+              current_batch_total: null,
+              current_batch_from: null,
+              current_batch_to: null,
+              current_rows_synced: 0,
             });
             return;
           }
