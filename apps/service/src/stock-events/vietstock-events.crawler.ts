@@ -58,24 +58,34 @@ export class VietstockEventsCrawler {
     let batch: CrawledStockEvent[] = [];
     let estimatedTotal: number | null = null;
     let lastPageProcessed = 0;
+    let lastPageMeta: CrawlPageMeta = { rowsOnPage: 0, hasMore: false };
 
     try {
-      for (let page = 1; page <= maxPages; page += 1) {
-        const result = await this.fetchPage(page, session);
+      for (let pageNumber = 1; pageNumber <= maxPages; pageNumber += 1) {
+        // Strictly sequential page pipeline:
+        // goto(page N) -> wait table render -> wait rows stable -> read rows
+        // -> read hasMore -> process rows -> hasMore ? page N+1 : DONE.
+        const result = await this.fetchPage(pageNumber, session);
         const rows = this.parseRows(result.rows);
+        const meta: CrawlPageMeta = {
+          rowsOnPage: result.rows.length,
+          hasMore: result.hasMore,
+        };
         estimatedTotal = result.total ?? estimatedTotal;
-        lastPageProcessed = page;
-        this.logger.log(`Vietstock events page=${page}: raw=${result.rows.length}, parsed=${rows.length}, hasMore=${result.hasMore}, total=${result.total ?? 'unknown'}`);
+        lastPageProcessed = pageNumber;
+        lastPageMeta = meta;
 
-        if (!rows.length) break;
+        this.logger.log(
+          `Vietstock events page=${pageNumber}: raw=${result.rows.length}, parsed=${rows.length}, hasMore=${result.hasMore}, total=${result.total ?? 'unknown'}`,
+        );
+
+        // Process only after the page has rendered, stabilized, and hasMore
+        // has been read. Do not use row count as an early pagination break.
         if (options.onBatch) {
           batch.push(...rows);
           while (batch.length >= batchSize) {
             const nextBatch = batch.splice(0, batchSize);
-            await options.onBatch(nextBatch, page, estimatedTotal, {
-              rowsOnPage: result.rows.length,
-              hasMore: result.hasMore,
-            });
+            await options.onBatch(nextBatch, pageNumber, estimatedTotal, meta);
           }
         } else {
           all.push(...rows);
@@ -85,11 +95,7 @@ export class VietstockEventsCrawler {
       }
 
       if (options.onBatch && batch.length) {
-        const finalPage = lastPageProcessed || 1;
-        await options.onBatch(batch, finalPage, estimatedTotal, {
-          rowsOnPage: batch.length,
-          hasMore: false,
-        });
+        await options.onBatch(batch, lastPageProcessed || 1, estimatedTotal, lastPageMeta);
       }
     } finally {
       await session.browser.close();
@@ -190,7 +196,7 @@ export class VietstockEventsCrawler {
     throw new Error(`Vietstock events page did not stabilize within ${RENDER_TIMEOUT_MS}ms`);
   }
 
-  private resolveHasMore(page: Page, rowCount: number, total: number | null, pageNumber: number) {
+  private resolveHasMore(_page: Page, rowCount: number, total: number | null, pageNumber: number) {
     if (total != null) return pageNumber * PAGE_SIZE < total;
     return rowCount >= PAGE_SIZE;
   }
