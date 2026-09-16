@@ -38,6 +38,7 @@ export type StockSyncProgress = {
   failed: number;
   symbolsRequested: number;
   symbolsSynced: number;
+  pageSize: number;
   updatedAt: string;
 };
 
