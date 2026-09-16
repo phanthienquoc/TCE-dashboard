@@ -125,7 +125,7 @@ export class SsiApplicationService {
     session: { adapter: SsiBrokerAdapter; accountNo: string },
   ) {
     try {
-      await session.adapter.startOrderStatusStream(session.accountNo, event => {
+      await session.adapter.startOrderStatusStream(session.accountNo, (event: SsiOrderStatusEvent) => {
         void this.handleOrderEvent(accountId, session, event).catch(error =>
           console.error('[SSI_ORDER_EVENT]', error),
         );
@@ -262,7 +262,9 @@ export class SsiApplicationService {
   async accountSnapshots(userId: string, environment: string, input: SsiAuthInput) {
     const key = `${userId}:ssi:${environment}`;
     const existing = this.sessions.get(key);
-    return existing ? existing.adapter.accountSnapshots(input) : (await this.adapter(userId, environment, false)).adapter.accountSnapshots(input);
+    return existing
+      ? existing.adapter.accountSnapshots(input)
+      : (await this.adapter(userId, environment, false)).adapter.accountSnapshots(input);
   }
 
   async syncWithReauth(userId: string, environment: string, input: SsiAuthInput = {}) {
@@ -339,34 +341,11 @@ export class SsiApplicationService {
       }
       if (attempt < 3) await new Promise(resolve => setTimeout(resolve, 250));
     }
-    return {
-      ok: true as const,
-      data: {
-        ...result.data,
-        confirmed,
-        providerStatus,
-        confirmedOrderId,
-        message: confirmed ? 'SSI accepted the order and it is visible in today orders.' : 'SSI accepted the order request, but it is not visible in today orders yet. Check SSI order status shortly.',
-      },
-    } as ContractResult<BrokerOrderResult>;
+    return { ok: true as const, data: { ...result.data, confirmed, confirmedOrderId, providerStatus } };
   }
 
-  async placeTakeProfit(
-    userId: string,
-    environment: string,
-    request: Omit<BrokerOrderRequest, 'accountNo' | 'orderType'> & { accountNo?: string },
-  ) {
-    const key = `${userId}:ssi:${environment}`;
-    const existing = this.sessions.get(key);
-    const session = existing ?? (await this.adapter(userId, environment));
-    const accountNo = request.accountNo ?? session.accountNo;
-    if (!accountNo) throw new NotFoundException(`SSI account is not selected for environment: ${environment}`);
-    if (request.side !== 'SELL') throw new NotFoundException('SSI take-profit FCO fallback only supports SELL');
-    if (!Number.isFinite(request.price) || Number(request.price) <= 0) throw new NotFoundException('SSI take-profit price must be positive');
-    const result = await session.adapter.placeTakeProfit({ accountNo, symbol: request.symbol, quantity: request.quantity, price: Number(request.price) });
-    if (!result.ok) return result as ContractResult<BrokerOrderResult>;
-    const accountId = await this.tceAccountId(userId);
-    void this.startOrderStream(accountId, { ...session, accountNo });
-    return result;
+  async syncPortfolio(userId: string, environment: string, input: SsiAuthInput = {}) {
+    const { adapter, accountNo } = await this.adapter(userId, environment);
+    return adapter.syncPortfolio(accountNo, input);
   }
 }

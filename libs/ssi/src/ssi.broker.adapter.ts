@@ -24,6 +24,7 @@ import {
   SsiConnectionPort,
   SsiConnectionTest,
   SsiCurrentInfo,
+  SsiPortfolioSnapshot,
 } from '@tce/contracts';
 
 export type SsiTokenSnapshot = {
@@ -59,6 +60,26 @@ export type SsiOrderStatusEvent = {
   inputTime?: string;
   modifyTime?: string;
   message?: string;
+};
+
+type SsiStreamMessage = {
+  type?: unknown;
+  accountNo?: unknown;
+  clientRequestId?: unknown;
+  orderId?: unknown;
+  symbol?: unknown;
+  side?: unknown;
+  orderType?: unknown;
+  price?: unknown;
+  quantity?: unknown;
+  osQuantity?: unknown;
+  cancelQuantity?: unknown;
+  filledQuantity?: unknown;
+  status?: unknown;
+  inputTime?: unknown;
+  modifyTime?: unknown;
+  message?: unknown;
+  data?: unknown;
 };
 
 export type SsiDailyOhlcv = {
@@ -316,7 +337,6 @@ export class SsiBrokerAdapter implements BrokerPort, SsiConnectionPort {
         authentication: 'ok',
         marketData: 'ok',
         securities: securities.length,
-        accounts,
         tokenExpiresAt: token?.expiresAt,
       };
     });
@@ -346,6 +366,86 @@ export class SsiBrokerAdapter implements BrokerPort, SsiConnectionPort {
         fetchedAt: new Date().toISOString(),
       };
     });
+  }
+
+  async accountSnapshots(input: SsiAuthInput = {}): Promise<ContractResult<SsiPortfolioSnapshot>> {
+    return this.result(async () => {
+      const accountNo = String(this.config.accountNo ?? '').trim();
+      if (!accountNo) throw new Error('SSI account number is required for portfolio sync');
+      await this.authenticate(input);
+      const [balance, positions, orders] = await Promise.all([
+        this.balance(accountNo),
+        this.positions(accountNo),
+        this.orders(accountNo),
+      ]);
+      if (!balance.ok) throw new Error(balance.error.message);
+      if (!positions.ok) throw new Error(positions.error.message);
+      if (!orders.ok) throw new Error(orders.error.message);
+      return { balance: balance.data, positions: positions.data, orders: orders.data };
+    });
+  }
+
+  async syncPortfolio(
+    accountNo: string,
+    input: SsiAuthInput = {},
+  ): Promise<ContractResult<SsiPortfolioSnapshot>> {
+    const normalizedAccountNo = accountNo.trim();
+    if (!normalizedAccountNo) throw new Error('SSI account number is required for portfolio sync');
+    this.config.accountNo = normalizedAccountNo;
+    return this.accountSnapshots(input);
+  }
+
+  async startOrderStatusStream(
+    accountNo: string,
+    onEvent: (event: SsiOrderStatusEvent) => void | Promise<void>,
+  ) {
+    const normalizedAccountNo = accountNo.trim();
+    if (!normalizedAccountNo) throw new Error('SSI account number is required for order stream');
+    await this.authenticate();
+    if (!this.auth) throw new Error('SSI is not connected');
+    this.streamClient ??= new Stream(this.auth);
+    const stream = this.streamClient as Stream & {
+      onTrading?: (callback: (message: unknown) => void) => unknown;
+      connect?: () => Promise<unknown>;
+    };
+    if (!stream.onTrading) throw new Error('SSI SDK does not expose the trading stream API');
+    stream.onTrading(message => {
+      const event = this.normalizeOrderStatusEvent(message, normalizedAccountNo);
+      if (event) void onEvent(event);
+    });
+    if (!stream.connect) throw new Error('SSI SDK does not expose stream connect()');
+    await stream.connect();
+  }
+
+  private normalizeOrderStatusEvent(message: unknown, accountNo: string): SsiOrderStatusEvent | undefined {
+    const value = message && typeof message === 'object' ? (message as SsiStreamMessage) : undefined;
+    if (!value) return undefined;
+    const payload = value.data && typeof value.data === 'object'
+      ? (value.data as SsiStreamMessage)
+      : value;
+    const messageAccountNo = payload.accountNo ? String(payload.accountNo) : accountNo;
+    if (messageAccountNo !== accountNo) return undefined;
+    const orderId = payload.orderId ? String(payload.orderId) : undefined;
+    const symbol = payload.symbol ? String(payload.symbol).toUpperCase() : undefined;
+    if (!orderId || !symbol) return undefined;
+    return {
+      type: payload.type ? String(payload.type) : undefined,
+      accountNo: messageAccountNo,
+      clientRequestId: payload.clientRequestId ? String(payload.clientRequestId) : undefined,
+      orderId,
+      symbol,
+      side: payload.side ? String(payload.side) : undefined,
+      orderType: payload.orderType ? String(payload.orderType) : undefined,
+      price: payload.price == null ? undefined : Number(payload.price),
+      quantity: payload.quantity == null ? undefined : Number(payload.quantity),
+      osQuantity: payload.osQuantity == null ? undefined : Number(payload.osQuantity),
+      cancelQuantity: payload.cancelQuantity == null ? undefined : Number(payload.cancelQuantity),
+      filledQuantity: payload.filledQuantity == null ? undefined : Number(payload.filledQuantity),
+      status: payload.status ? String(payload.status) : undefined,
+      inputTime: payload.inputTime ? String(payload.inputTime) : undefined,
+      modifyTime: payload.modifyTime ? String(payload.modifyTime) : undefined,
+      message: payload.message ? String(payload.message) : undefined,
+    };
   }
 
   private trading() {
@@ -500,7 +600,6 @@ export class SsiBrokerAdapter implements BrokerPort, SsiConnectionPort {
         throw new Error('Take-profit quantity must be a positive integer');
       if (!Number.isFinite(request.price) || request.price <= 0)
         throw new Error('Take-profit price must be positive');
-
       await this.authenticate();
       const trading = this.trading().trading;
       const from = `${this.latestDate().replaceAll('-', '/')} 00:00:00`;
@@ -579,7 +678,12 @@ export class SsiBrokerAdapter implements BrokerPort, SsiConnectionPort {
   ): Promise<ContractResult<Array<{ symbol: string; closePrice: number }>>> {
     const result = await this.dailyOhlcv(symbols, tradingDate, tradingDate);
     if (!result.ok) return result;
-    return { ok: true, data: result.data.filter(candle => Number(candle.close ?? 0) > 0).map(candle => ({ symbol: candle.symbol, closePrice: Number(candle.close) })) };
+    return {
+      ok: true,
+      data: result.data
+        .filter(candle => Number(candle.close ?? 0) > 0)
+        .map(candle => ({ symbol: candle.symbol, closePrice: Number(candle.close) })),
+    };
   }
 
   async dailyOhlcv(
@@ -600,14 +704,15 @@ export class SsiBrokerAdapter implements BrokerPort, SsiConnectionPort {
         for (const item of candles ?? []) {
           const tradingDate = this.normalizeTradingDate(item?.tradingDate);
           if (!tradingDate) continue;
+          const raw = item as unknown as Record<string, unknown>;
           results.push({
             symbol,
             tradingDate,
-            open: toNumberOrNull(item?.openPrice),
-            high: toNumberOrNull(item?.highPrice),
-            low: toNumberOrNull(item?.lowPrice),
-            close: toNumberOrNull(item?.closePrice),
-            volume: toNumberOrNull(item?.totalVolume),
+            open: toNumberOrNull(raw.openPrice),
+            high: toNumberOrNull(raw.highPrice),
+            low: toNumberOrNull(raw.lowPrice),
+            close: toNumberOrNull(raw.closePrice),
+            volume: toNumberOrNull(raw.totalVolume),
           });
         }
       }
