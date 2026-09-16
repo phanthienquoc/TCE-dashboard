@@ -47,7 +47,7 @@ export class StockEventsCronService implements OnModuleInit, OnModuleDestroy {
 
   async saveConfig(userId: string, input: Partial<StockEventsCronConfig>) {
     const existing = await this.ensureConfig(userId);
-    const schedule = String(input.schedule ?? existing.schedule ?? '*/15 * * * *').trim();
+    const schedule = String(input.schedule ?? existing.schedule ?? '0 */4 * * *').trim();
     const timezone = String(input.timezone ?? existing.timezone ?? 'Asia/Ho_Chi_Minh').trim();
     const start = normalizeDate(input.syncStartDate ?? existing.sync_start_date);
     const end = normalizeDate(input.syncEndDate ?? existing.sync_end_date);
@@ -148,7 +148,7 @@ export class StockEventsCronService implements OnModuleInit, OnModuleDestroy {
         job_key: JOB_KEY,
         name: 'Stock Events Sync',
         enabled: false,
-        schedule: '*/15 * * * *',
+        schedule: '0 */4 * * *',
         timezone: 'Asia/Ho_Chi_Minh',
         sync_start_date: null,
         sync_end_date: null,
