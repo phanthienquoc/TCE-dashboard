@@ -1,6 +1,6 @@
 'use client';
 
-import { ChevronDown, WalletCards, CircleDot } from 'lucide-react';
+import { ChevronDown, WalletCards, CircleDot, Tag, CalendarDays } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { useStockEventStore, type StockEvent } from '../../lib/stock-event-store';
 import { useDashboardStore } from '../../lib/store';
@@ -10,10 +10,14 @@ import { DividendOneYearCandleChart } from './DividendOneYearCandleChart';
 type ViewProps = { data: DashboardData; actions: DashboardActions };
 type MonthGroup = { monthKey: string; cards: Array<{ symbol: string; events: StockEvent[] }> };
 
+const PRICE_OPTIONS = Array.from({ length: 9 }, (_, index) => (index + 1) * 10_000);
+const DEFAULT_PRICE_FILTER = 50_000;
+
 export function DividendPositionsView({ data, actions }: ViewProps) {
   const [tab, setTab] = useState<'current' | 'dividend' | 'history'>('dividend');
   const [expanded, setExpanded] = useState<string | null>(null);
   const [selectedMonth, setSelectedMonth] = useState(currentMonthKey);
+  const [priceFilter, setPriceFilter] = useState(DEFAULT_PRICE_FILTER);
   const events = useStockEventStore(s => s.events);
   const loading = useStockEventStore(s => s.loading);
   const error = useStockEventStore(s => s.error);
@@ -49,7 +53,17 @@ export function DividendPositionsView({ data, actions }: ViewProps) {
         <button className="tce-secondary-action mt-3" onClick={() => actions.openPositionSell(row)}>SELL</button>
       </article>) : <EmptyState text="No current positions" />}</div>}
       {tab === 'dividend' && <div className="tce-list-stack tce-dividend-month-groups">
-        <label className="tce-dividend-month-header" htmlFor="positions-dividend-month"><span className="tce-dividend-month-title">Ex-date month</span><select id="positions-dividend-month" value={selectedMonth} onChange={event => { setSelectedMonth(event.target.value); setExpanded(null); }}>{monthOptions.map(month => <option key={month} value={month}>{dividendMonthLabel(month)}</option>)}</select></label>
+        <div className="tce-dividend-filter-bar">
+          <label className="tce-dividend-filter-field" htmlFor="positions-dividend-month">
+            <CalendarDays className="size-4" aria-hidden="true" />
+            <span><small>Ex-date month</small><select id="positions-dividend-month" value={selectedMonth} onChange={event => { setSelectedMonth(event.target.value); setExpanded(null); }} aria-label="Ex-date month">{monthOptions.map(month => <option key={month} value={month}>{dividendMonthLabel(month)}</option>)}</select></span>
+          </label>
+          <div className="tce-dividend-filter-divider" aria-hidden="true" />
+          <label className="tce-dividend-filter-field" htmlFor="positions-current-price">
+            <Tag className="size-4" aria-hidden="true" />
+            <span><small>Current price (VND)</small><select id="positions-current-price" value={priceFilter} onChange={event => setPriceFilter(Number(event.target.value))} aria-label="Current price filter">{PRICE_OPTIONS.map(value => <option key={value} value={value}>{value.toLocaleString('vi-VN')}</option>)}</select></span>
+          </label>
+        </div>
         {loading ? <EmptyState text="Loading dividend events…" /> : error ? <EmptyState text={error} /> : monthGroups.length ? monthGroups.map(group => <section className="tce-dividend-month-group" key={group.monthKey}>
           <div className="tce-dividend-month-header" aria-label={`${dividendMonthLabel(group.monthKey)} events`}><span className="tce-dividend-month-title">{dividendMonthLabel(group.monthKey)}</span><span className="tce-dividend-month-count">{group.cards.length} {group.cards.length === 1 ? 'event' : 'events'}</span><ChevronDown className="tce-dividend-month-chevron is-open" aria-hidden="true" /></div>
           <div className="tce-list-stack tce-dividend-month-cards">{group.cards.map(item => {

@@ -19,7 +19,6 @@ export type StockEvent = {
   oneYearLow: number | null;
   oneYearHigh: number | null;
   crawledAt?: string | null;
-  // Compatibility aliases consumed by legacy dashboard views.
   gdkhqTimestamp?: string | null;
   gdkhq_timestamp?: string | null;
   exDate?: string | null;
@@ -43,11 +42,8 @@ export const useStockEventStore = create<StockEventState>((set, get) => ({
   initialized: false,
   error: null,
 
-  // Default to the current calendar month using the event's ex-date (GDKHQ).
-  // Pass null explicitly when a caller needs the complete upcoming event feed.
   load: async (limit = 200, force = false, month = currentMonthKey()) => {
     const requestKey = `${limit}:${month ?? '*'}`;
-
     if (get().initialized && !force) return;
     if (inFlight) {
       if (inFlightKey === requestKey) return inFlight;
@@ -68,18 +64,10 @@ export const useStockEventStore = create<StockEventState>((set, get) => ({
             gdkhq_timestamp: event.exDividendTimestamp,
             exDate: event.exDividendDate,
           }))
-          .filter(event => {
-            if (!month) return true;
-            return eventMonthKey(event) === month;
-          })
+          .filter(event => !month || eventMonthKey(event) === month)
           .sort((a, b) => eventTimestamp(a) - eventTimestamp(b));
 
-        set({
-          events,
-          initialized: true,
-          loading: false,
-          error: null,
-        });
+        set({ events, initialized: true, loading: false, error: null });
       })
       .catch(error => {
         set({
@@ -117,14 +105,11 @@ function eventTimestamp(event: StockEvent): number {
 function parseEventDate(event: StockEvent): Date | null {
   const raw = event.exDividendTimestamp ?? event.exDividendDate ?? event.exDate;
   if (!raw) return null;
-
   const value = String(raw).trim();
   const parsed = new Date(value);
   if (!Number.isNaN(parsed.getTime())) return parsed;
-
   const match = value.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$/);
   if (!match) return null;
-
   const [, day, month, year] = match;
   const fallback = new Date(Number(year), Number(month) - 1, Number(day));
   return Number.isNaN(fallback.getTime()) ? null : fallback;
