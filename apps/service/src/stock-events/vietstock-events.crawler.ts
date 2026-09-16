@@ -154,8 +154,16 @@ export class VietstockEventsCrawler {
     url.searchParams.set('pageSize', String(pageSize));
     url.searchParams.set('tab', '1');
 
-    await page.goto(url.toString(), { waitUntil: 'domcontentloaded', timeout: RENDER_TIMEOUT_MS });
-    await page.waitForSelector('#event-content', { timeout: RENDER_TIMEOUT_MS });
+    const response = await page.goto(url.toString(), { waitUntil: 'domcontentloaded', timeout: RENDER_TIMEOUT_MS });
+    const status = response?.status();
+    try {
+      await page.waitForSelector('#event-content', { timeout: RENDER_TIMEOUT_MS });
+    } catch (error) {
+      const title = await page.title().catch(() => '');
+      const url = page.url();
+      const reason = error instanceof Error ? error.message : JSON.stringify(error);
+      throw new Error(`Vietstock page load failed (HTTP ${status ?? 'unknown'}, title="${title}", url=${url}): ${reason}`);
+    }
   }
 
   private async readRenderedTable(page: Page): Promise<string> {
