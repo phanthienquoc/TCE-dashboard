@@ -5,6 +5,21 @@ import { SsiApplicationService } from '../platform/ssi.application.service';
 const DEFAULT_DAYS = 365;
 const TIMEZONE = 'Asia/Ho_Chi_Minh';
 
+export type DividendOhlcvSyncItem = {
+  symbol: string;
+  status: 'QUEUED' | 'RUNNING' | 'SUCCEEDED' | 'FAILED' | 'SKIPPED';
+  phase: 'QUEUED' | 'RESOLVING_RANGE' | 'FETCHING' | 'UPSERTING' | 'COMPLETED' | 'FAILED' | 'SKIPPED';
+  batchIndex: number | null;
+  batchTotal: number | null;
+  batchFrom: string | null;
+  batchTo: string | null;
+  rowsSynced: number;
+  errorMessage: string | null;
+  startedAt: string | null;
+  finishedAt: string | null;
+  updatedAt: string;
+};
+
 @Injectable()
 export class DividendOhlcvService {
   constructor(
@@ -32,53 +47,195 @@ export class DividendOhlcvService {
     const symbols = await this.dividendSymbols();
     const endDate = toDate ?? todayVietnam();
     const fallbackStart = fromDate ?? addDays(endDate, -(DEFAULT_DAYS - 1));
+    const runId = await this.createSyncRun(userId, symbols);
     let syncedSymbols = 0;
     let syncedRows = 0;
+    let failedSymbols = 0;
 
-    for (const symbol of symbols) {
-      const range = await this.resolveRange(symbol, fallbackStart, endDate);
-      if (!range) continue;
+    try {
+      for (const symbol of symbols) {
+        const itemId = await this.createSyncItem(runId, symbol);
+        const startedAt = new Date().toISOString();
+        await this.updateSyncItem(itemId, {
+          status: 'RUNNING',
+          phase: 'RESOLVING_RANGE',
+          started_at: startedAt,
+          updated_at: startedAt,
+        });
+        await this.updateSyncRun(runId, {
+          current_symbol: symbol,
+          current_phase: 'RESOLVING_RANGE',
+          current_batch_index: null,
+          current_batch_total: null,
+          current_batch_from: null,
+          current_batch_to: null,
+          current_rows_synced: 0,
+        });
 
-      let symbolRows = 0;
-      for (const batch of monthBatches(range.from, endDate)) {
-        const result = await this.ssi.dailyOhlcv(
-          userId,
-          environment,
-          [symbol],
-          batch.from,
-          batch.to,
-        );
-        if (!result.ok) throw new Error(result.error.message);
+        try {
+          const range = await this.resolveRange(symbol, fallbackStart, endDate);
+          if (!range) {
+            const finishedAt = new Date().toISOString();
+            await this.updateSyncItem(itemId, {
+              status: 'SKIPPED',
+              phase: 'SKIPPED',
+              finished_at: finishedAt,
+              updated_at: finishedAt,
+            });
+            continue;
+          }
 
-        const now = new Date().toISOString();
-        const rows = result.data
-          .filter(item => item.tradingDate >= batch.from && item.tradingDate <= batch.to)
-          .map(item => ({
-            symbol: item.symbol,
-            trading_date: item.tradingDate,
-            open: item.open,
-            high: item.high,
-            low: item.low,
-            close: item.close,
-            volume: item.volume == null ? null : Math.trunc(item.volume),
-            source: 'ssi',
-            observed_at: now,
-            updated_at: now,
-          }));
+          const batches = monthBatches(range.from, endDate);
+          let symbolRows = 0;
+          for (let index = 0; index < batches.length; index += 1) {
+            const batch = batches[index];
+            const batchIndex = index + 1;
+            await this.updateSyncItem(itemId, {
+              phase: 'FETCHING',
+              batch_index: batchIndex,
+              batch_total: batches.length,
+              batch_from: batch.from,
+              batch_to: batch.to,
+              rows_synced: symbolRows,
+            });
+            await this.updateSyncRun(runId, {
+              current_symbol: symbol,
+              current_phase: 'FETCHING',
+              current_batch_index: batchIndex,
+              current_batch_total: batches.length,
+              current_batch_from: batch.from,
+              current_batch_to: batch.to,
+              current_rows_synced: symbolRows,
+            });
 
-        if (!rows.length) continue;
-        const { error } = await this.db.db
-          .from('tce_market_ohlcv_daily')
-          .upsert(rows, { onConflict: 'symbol,trading_date' });
-        if (error) throw error;
-        symbolRows += rows.length;
-        syncedRows += rows.length;
+            const result = await this.ssi.dailyOhlcv(
+              userId,
+              environment,
+              [symbol],
+              batch.from,
+              batch.to,
+            );
+            if (!result.ok) throw new Error(result.error.message);
+
+            const now = new Date().toISOString();
+            const rows = result.data
+              .filter(item => item.tradingDate >= batch.from && item.tradingDate <= batch.to)
+              .map(item => ({
+                symbol: item.symbol,
+                trading_date: item.tradingDate,
+                open: item.open,
+                high: item.high,
+                low: item.low,
+                close: item.close,
+                volume: item.volume == null ? null : Math.trunc(item.volume),
+                source: 'ssi',
+                observed_at: now,
+                updated_at: now,
+              }));
+
+            if (!rows.length) continue;
+            await this.updateSyncItem(itemId, { phase: 'UPSERTING', rows_synced: symbolRows });
+            await this.updateSyncRun(runId, {
+              current_symbol: symbol,
+              current_phase: 'UPSERTING',
+              current_batch_index: batchIndex,
+              current_batch_total: batches.length,
+              current_batch_from: batch.from,
+              current_batch_to: batch.to,
+              current_rows_synced: symbolRows,
+            });
+
+            const { error } = await this.db.db
+              .from('tce_market_ohlcv_daily')
+              .upsert(rows, { onConflict: 'symbol,trading_date' });
+            if (error) throw error;
+            symbolRows += rows.length;
+            syncedRows += rows.length;
+            await this.updateSyncItem(itemId, { phase: 'FETCHING', rows_synced: symbolRows });
+            await this.updateSyncRun(runId, { current_rows_synced: symbolRows });
+          }
+
+          const finishedAt = new Date().toISOString();
+          await this.updateSyncItem(itemId, {
+            status: 'SUCCEEDED',
+            phase: 'COMPLETED',
+            rows_synced: symbolRows,
+            finished_at: finishedAt,
+            updated_at: finishedAt,
+          });
+          syncedSymbols += 1;
+          await this.updateSyncRun(runId, {
+            symbols_synced: syncedSymbols,
+            rows_synced: syncedRows,
+            current_symbol: null,
+            current_phase: null,
+            current_batch_index: null,
+            current_batch_total: null,
+            current_batch_from: null,
+            current_batch_to: null,
+            current_rows_synced: 0,
+          });
+        } catch (error) {
+          failedSymbols += 1;
+          const message = error instanceof Error ? error.message : String(error);
+          const finishedAt = new Date().toISOString();
+          await this.updateSyncItem(itemId, {
+            status: 'FAILED',
+            phase: 'FAILED',
+            error_message: message,
+            finished_at: finishedAt,
+            updated_at: finishedAt,
+          });
+          await this.updateSyncRun(runId, {
+            current_symbol: null,
+            current_phase: null,
+            current_batch_index: null,
+            current_batch_total: null,
+            current_batch_from: null,
+            current_batch_to: null,
+            current_rows_synced: 0,
+            rows_synced: syncedRows,
+          });
+        }
       }
 
-      if (symbolRows > 0) syncedSymbols += 1;
+      await this.finishSyncRun(runId, {
+        status: failedSymbols > 0 ? (syncedSymbols > 0 ? 'PARTIAL' : 'FAILED') : 'SUCCEEDED',
+        symbols_synced: syncedSymbols,
+        rows_synced: syncedRows,
+        error_message: failedSymbols > 0 ? `${failedSymbols} stock sync item(s) failed` : null,
+      });
+      return { runId, requested: symbols.length, syncedSymbols, syncedRows, failedSymbols };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      await this.finishSyncRun(runId, {
+        status: 'FAILED',
+        symbols_synced: syncedSymbols,
+        rows_synced: syncedRows,
+        error_message: message,
+      });
+      throw error;
     }
+  }
 
-    return { requested: symbols.length, syncedSymbols, syncedRows };
+  async latestSyncProgress(userId: string) {
+    const { data: run, error: runError } = await this.db.db
+      .from('tce_dividend_ohlcv_sync_runs')
+      .select('id,status,started_at,finished_at,symbols_requested,symbols_synced,rows_synced,error_message,current_symbol,current_phase,current_batch_index,current_batch_total,current_batch_from,current_batch_to,current_rows_synced,updated_at')
+      .eq('user_id', userId)
+      .order('started_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (runError) throw runError;
+    if (!run) return null;
+
+    const { data: items, error: itemError } = await this.db.db
+      .from('tce_dividend_ohlcv_sync_items')
+      .select('id,symbol,status,phase,batch_index,batch_total,batch_from,batch_to,rows_synced,error_message,started_at,finished_at,updated_at')
+      .eq('run_id', run.id)
+      .order('symbol', { ascending: true });
+    if (itemError) throw itemError;
+    return { ...run, items: items ?? [] };
   }
 
   async dividendSymbols() {
@@ -90,6 +247,62 @@ export class DividendOhlcvService {
     return [...new Set((data ?? [])
       .map(row => String(row.symbol ?? '').trim().toUpperCase())
       .filter(Boolean))].sort();
+  }
+
+  private async createSyncRun(userId: string, symbols: string[]) {
+    const { data, error } = await this.db.db
+      .from('tce_dividend_ohlcv_sync_runs')
+      .insert({
+        user_id: userId,
+        symbols_requested: symbols.length,
+        status: 'RUNNING',
+        current_symbol: symbols[0] ?? null,
+        current_phase: symbols.length ? 'QUEUED' : null,
+      })
+      .select('id')
+      .single();
+    if (error) throw error;
+    return String(data.id);
+  }
+
+  private async createSyncItem(runId: string, symbol: string) {
+    const { data, error } = await this.db.db
+      .from('tce_dividend_ohlcv_sync_items')
+      .insert({ run_id: runId, symbol })
+      .select('id')
+      .single();
+    if (error) throw error;
+    return String(data.id);
+  }
+
+  private async updateSyncItem(id: string, patch: Record<string, unknown>) {
+    const { error } = await this.db.db
+      .from('tce_dividend_ohlcv_sync_items')
+      .update({ ...patch, updated_at: new Date().toISOString() })
+      .eq('id', id);
+    if (error) throw error;
+  }
+
+  private async updateSyncRun(id: string, patch: Record<string, unknown>) {
+    const { error } = await this.db.db
+      .from('tce_dividend_ohlcv_sync_runs')
+      .update({ ...patch, updated_at: new Date().toISOString() })
+      .eq('id', id);
+    if (error) throw error;
+  }
+
+  private async finishSyncRun(id: string, patch: Record<string, unknown>) {
+    await this.updateSyncRun(id, {
+      ...patch,
+      finished_at: new Date().toISOString(),
+      current_symbol: null,
+      current_phase: null,
+      current_batch_index: null,
+      current_batch_total: null,
+      current_batch_from: null,
+      current_batch_to: null,
+      current_rows_synced: 0,
+    });
   }
 
   private async resolveRange(symbol: string, fallbackStart: string, endDate: string) {
