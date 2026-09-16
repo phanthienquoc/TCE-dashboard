@@ -12,8 +12,31 @@ env:
   TARGET_PLATFORM: linux/arm64
 
 jobs:
+  notify-telegram-start:
+    name: Notify Telegram — deploy started
+    runs-on: ubuntu-latest
+    env:
+      TELEGRAM_BOT_TOKEN: ${{ vars.TELEGRAM_BOT_TOKEN }}
+      TELEGRAM_CHAT_ID: ${{ vars.TELEGRAM_CHAT_ID }}
+    steps:
+      - name: Validate Telegram configuration
+        run: |
+          set -euo pipefail
+          test -n "$TELEGRAM_BOT_TOKEN" || { echo "Missing GitHub variable: TELEGRAM_BOT_TOKEN"; exit 1; }
+          test -n "$TELEGRAM_CHAT_ID" || { echo "Missing GitHub variable: TELEGRAM_CHAT_ID"; exit 1; }
+      - name: Send deployment started message
+        run: |
+          set -euo pipefail
+          MESSAGE="🚀 TCE — production deploy started\n\n📦 ${{ github.event.head_commit.message || github.workflow }}\n🌿 ${{ github.ref_name }}"
+
+          curl --fail-with-body -sS -X POST \
+            "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
+            -d "chat_id=${TELEGRAM_CHAT_ID}" \
+            --data-urlencode "text=${MESSAGE}"
+
   detect:
     name: Resolve production image tag
+    needs: notify-telegram-start
     runs-on: ubuntu-latest
     outputs:
       image_tag: ${{ steps.version.outputs.image_tag }}
@@ -322,16 +345,7 @@ jobs:
       - name: Send deployment success message
         run: |
           set -euo pipefail
-          MESSAGE="🚀 *TCE — WF-03 DEPLOY SUCCESS*
-
-          📦 Environment: production
-          🌿 Branch: ${{ github.ref_name }}
-          🔖 Commit: ${{ github.sha }}
-          👤 Actor: ${{ github.actor }}
-          🕐 Time: $(TZ=Asia/Ho_Chi_Minh date '+%Y-%m-%d %H:%M:%S ICT')
-
-          ✅ Production deployment completed successfully
-          🔗 Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          MESSAGE="🚀 *TCE — WF-03 DEPLOY SUCCESS*\n\n          📦 Environment: production\n          🌿 Branch: ${{ github.ref_name }}\n          🔖 Commit: ${{ github.sha }}\n          👤 Actor: ${{ github.actor }}\n          🕐 Time: $(TZ=Asia/Ho_Chi_Minh date '+%Y-%m-%d %H:%M:%S ICT')\n\n          ✅ Production deployment completed successfully\n          🔗 Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
 
           curl --fail-with-body -sS -X POST \
             "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
