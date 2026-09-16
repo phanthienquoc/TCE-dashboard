@@ -38,9 +38,9 @@ export default function DashboardLayout({
 
   return (
     <main className="app-shell">
+      <Breadcrumbs />
       <div className="dashboard-layout">
         <div className="app-container app-content">
-          <Breadcrumbs />
           {children}
         </div>
         <NavigationDock items={items} />
