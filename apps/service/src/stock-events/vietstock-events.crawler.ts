@@ -17,10 +17,7 @@ export type CrawledStockEvent = {
   crawledAt: string;
 };
 
-type CrawlPageMeta = {
-  rowsOnPage: number;
-  hasMore: boolean;
-};
+type CrawlPageMeta = { rowsOnPage: number; hasMore: boolean };
 
 type CrawlOptions = {
   startDate?: string | null;
@@ -37,7 +34,7 @@ const BASE_URL = 'https://finance.vietstock.vn';
 const EVENTS_PAGE = '/lich-su-kien.htm';
 const GROUP = 13;
 const EXCHANGE = -1;
-const PAGE_SIZE = 30;
+const PAGE_SIZE = 20;
 const DEFAULT_FROM_DATE = '2015-01-11';
 const DEFAULT_BATCH_SIZE = 200;
 const USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/126 Safari/537.36';
@@ -62,25 +59,14 @@ export class VietstockEventsCrawler {
 
     try {
       for (let pageNumber = 1; pageNumber <= maxPages; pageNumber += 1) {
-        // Strictly sequential page pipeline:
-        // goto(page N) -> wait table render -> wait rows stable -> read rows
-        // -> read hasMore -> process rows -> hasMore ? page N+1 : DONE.
         const result = await this.fetchPage(pageNumber, session);
         const rows = this.parseRows(result.rows);
-        const meta: CrawlPageMeta = {
-          rowsOnPage: result.rows.length,
-          hasMore: result.hasMore,
-        };
+        const meta: CrawlPageMeta = { rowsOnPage: result.rows.length, hasMore: result.hasMore };
         estimatedTotal = result.total ?? estimatedTotal;
         lastPageProcessed = pageNumber;
         lastPageMeta = meta;
+        this.logger.log(`Vietstock events page=${pageNumber}: raw=${result.rows.length}, parsed=${rows.length}, hasMore=${result.hasMore}, total=${result.total ?? 'unknown'}`);
 
-        this.logger.log(
-          `Vietstock events page=${pageNumber}: raw=${result.rows.length}, parsed=${rows.length}, hasMore=${result.hasMore}, total=${result.total ?? 'unknown'}`,
-        );
-
-        // Process only after the page has rendered, stabilized, and hasMore
-        // has been read. Do not use row count as an early pagination break.
         if (options.onBatch) {
           batch.push(...rows);
           while (batch.length >= batchSize) {
@@ -114,16 +100,10 @@ export class VietstockEventsCrawler {
   private async createBrowserSession(fromDate: string, toDate: string): Promise<BrowserSession> {
     const executablePath = process.env.PUPPETEER_EXECUTABLE_PATH;
     if (!executablePath) throw new Error('PUPPETEER_EXECUTABLE_PATH is not configured');
-
-    const browser = await puppeteer.launch({
-      executablePath,
-      headless: 'shell',
-      args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
-    });
+    const browser = await puppeteer.launch({ executablePath, headless: 'shell', args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'] });
     const page = await browser.newPage();
     await page.setUserAgent(USER_AGENT);
     await page.setExtraHTTPHeaders({ 'Accept-Language': 'vi-VN,vi;q=0.9,en;q=0.7' });
-
     try {
       await this.gotoEventsPage(page, fromDate, toDate, 1);
       return { browser, page, fromDate, toDate };
@@ -135,16 +115,10 @@ export class VietstockEventsCrawler {
 
   private async fetchPage(pageNumber: number, session: BrowserSession): Promise<VietstockPage> {
     await this.gotoEventsPage(session.page, session.fromDate, session.toDate, pageNumber);
-
-    // Vietstock is an SPA. A DOMContentLoaded/table-row signal is not enough:
-    // rows can appear while the SPA is still replacing/filling the table.
-    // Wait until the rendered table has data (or an explicit empty state), then
-    // require two consecutive identical table snapshots before reading it.
     const tableHtml = await this.readRenderedTable(session.page);
     const rows = this.parseHtmlRows(tableHtml);
     const total = this.parseRenderedTotal(tableHtml);
     const hasMore = this.resolveHasMore(session.page, rows.length, total, pageNumber);
-
     return { rows, hasMore, total };
   }
 
@@ -155,44 +129,37 @@ export class VietstockEventsCrawler {
     url.searchParams.set('fromDate', this.toVietstockDate(fromDate));
     url.searchParams.set('toDate', this.toVietstockDate(toDate));
     url.searchParams.set('page', String(pageNumber));
+    url.searchParams.set('pageSize', String(PAGE_SIZE));
     url.searchParams.set('tab', '1');
-
     await page.goto(url.toString(), { waitUntil: 'domcontentloaded', timeout: RENDER_TIMEOUT_MS });
     await page.waitForSelector('#event-content', { timeout: RENDER_TIMEOUT_MS });
   }
 
   private async readRenderedTable(page: Page): Promise<string> {
-    await page.waitForFunction(
-      () => {
-        const root = document.querySelector('#event-content');
-        if (!root) return false;
-        const rows = root.querySelectorAll('tbody tr');
-        if (rows.length > 0) return true;
-        const text = (root.textContent || '').toLowerCase();
-        return /không có|no data|no records|không tìm thấy/.test(text);
-      },
-      { timeout: RENDER_TIMEOUT_MS },
-    );
+    await page.waitForFunction(() => {
+      const root = document.querySelector('#event-content');
+      if (!root) return false;
+      const rows = root.querySelectorAll('tbody tr');
+      if (rows.length > 0) return true;
+      const text = (root.textContent || '').toLowerCase();
+      return /không có|no data|no records|không tìm thấy/.test(text);
+    }, { timeout: RENDER_TIMEOUT_MS });
 
     let previous = '';
     let stableSamples = 0;
     const deadline = Date.now() + RENDER_TIMEOUT_MS;
-
     while (Date.now() < deadline) {
       const snapshot = await page.$eval('#event-content', element => {
         const root = element as HTMLElement;
         const rows = [...root.querySelectorAll('tbody tr')].map(row => (row.textContent || '').replace(/\s+/g, ' ').trim());
         return JSON.stringify({ rows, text: root.textContent?.replace(/\s+/g, ' ').trim().slice(-500) || '' });
       });
-
       if (snapshot === previous) stableSamples += 1;
       else stableSamples = 0;
       previous = snapshot;
-
       if (stableSamples >= 2) return await page.$eval('#event-content', element => element.outerHTML);
       await new Promise(resolve => setTimeout(resolve, STABLE_SAMPLE_DELAY_MS));
     }
-
     throw new Error(`Vietstock events page did not stabilize within ${RENDER_TIMEOUT_MS}ms`);
   }
 
@@ -204,13 +171,10 @@ export class VietstockEventsCrawler {
   private parseHtmlRows(html: string): Record<string, string>[] {
     const table = html.match(/<table\b[^>]*>([\s\S]*?)<\/table>/i)?.[0];
     if (!table) return [];
-
     const rows = [...table.matchAll(/<tr\b[^>]*>([\s\S]*?)<\/tr>/gi)].map(match => match[1]);
     if (!rows.length) return [];
-
     const headerIndex = rows.findIndex(row => /<t[hd]\b/i.test(row));
     if (headerIndex < 0) return [];
-
     const headers = this.cells(rows[headerIndex]).map(cell => this.clean(this.stripTags(cell).replace(/[▼▲]/g, '')));
     return rows.slice(headerIndex + 1).flatMap(row => {
       const cells = this.cells(row);
@@ -255,9 +219,7 @@ export class VietstockEventsCrawler {
   }
 
   private normalizeRow(row: unknown): Record<string, string> {
-    if (row && typeof row === 'object' && !Array.isArray(row)) {
-      return Object.fromEntries(Object.entries(row as Record<string, unknown>).map(([key, value]) => [key, this.clean(String(value ?? ''))]));
-    }
+    if (row && typeof row === 'object' && !Array.isArray(row)) return Object.fromEntries(Object.entries(row as Record<string, unknown>).map(([key, value]) => [key, this.clean(String(value ?? ''))]));
     if (typeof row === 'string') return this.parseHtmlRow(row);
     return {};
   }
