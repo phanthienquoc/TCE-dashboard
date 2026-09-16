@@ -5,6 +5,8 @@ import { SsiMarketPriceService } from '../platform/ssi-market-price.service';
 import { TelegramBotService } from '../telegram/telegram-bot.service';
 import { CrawledStockEvent, VietstockEventsCrawler } from './vietstock-events.crawler';
 
+const SSI_SYMBOL_BATCH_SIZE = 20;
+
 export type StockEventsSyncOptions = {
   userId: string;
   jobId: string;
@@ -193,14 +195,38 @@ export class StockEventsSyncService {
           updatedAt: new Date().toISOString(),
         });
         if (requestedSymbols.length) {
-          try {
-            const priceResult = await this.ssiPrices.syncSymbolsNow(options.userId, requestedSymbols, batchSize);
-            symbolsSynced = priceResult.data.symbolsSynced;
-            if (!priceResult.ok) failed += priceResult.errors.length || Math.max(symbolsRequested - symbolsSynced, 0);
-          } catch (error) {
-            failed += Math.max(symbolsRequested - symbolsSynced, 1);
-            eventError = error instanceof Error ? error.message : typeof error === 'string' ? error : JSON.stringify(error);
-            this.logger.error(`SSI price sync failed: ${eventError}`);
+          for (const symbolBatch of chunk(requestedSymbols, SSI_SYMBOL_BATCH_SIZE)) {
+            try {
+              const priceResult = await this.ssiPrices.syncSymbolsNow(options.userId, symbolBatch, batchSize);
+              symbolsSynced += priceResult.data.symbolsSynced;
+              if (!priceResult.ok) {
+                failed += priceResult.errors.length || Math.max(symbolBatch.length - priceResult.data.symbolsSynced, 1);
+                eventError = eventError ?? priceResult.errors[0]?.message ?? `SSI price sync failed for ${symbolBatch.length} symbols`;
+                this.logger.error(`SSI price sync failed for ${symbolBatch.length} symbols: ${priceResult.errors.map(error => error.message).join('; ') || 'unknown error'}`);
+              }
+            } catch (error) {
+              failed += symbolBatch.length;
+              eventError = eventError ?? (error instanceof Error ? error.message : typeof error === 'string' ? error : JSON.stringify(error));
+              this.logger.error(`SSI price sync batch failed (${symbolBatch.length} symbols): ${eventError}`);
+            }
+
+            await this.updateProgress(String(run.id), {
+              phase: 'SSI_PRICE',
+              progressPct: Math.min(Math.round(80 + (symbolsSynced / symbolsRequested) * 20), 99),
+              processedEvents,
+              estimatedTotalEvents,
+              currentPage,
+              rowsOnPage,
+              hasMore,
+              inserted,
+              updated,
+              skipped,
+              failed,
+              symbolsRequested,
+              symbolsSynced,
+              pageSize,
+              updatedAt: new Date().toISOString(),
+            });
           }
         }
       }
@@ -260,19 +286,28 @@ export class StockEventsSyncService {
 
   private async loadExisting(mongoIds: string[]) {
     const map = new Map<string, { sync_status: string; sync_hash: string | null; sync_attempts: number }>();
-    for (let offset = 0; offset < mongoIds.length; offset += 200) {
-      const ids = mongoIds.slice(offset, offset + 200);
-      if (!ids.length) continue;
-      const { data, error } = await this.db.db.from('stock_events').select('mongo_id,sync_status,sync_hash,sync_attempts').in('mongo_id', ids);
-      if (error) throw error;
-      for (const row of data ?? []) map.set(String(row.mongo_id), { sync_status: String(row.sync_status ?? 'PENDING'), sync_hash: row.sync_hash == null ? null : String(row.sync_hash), sync_attempts: Number(row.sync_attempts ?? 0) });
+    if (!mongoIds.length) return map;
+    const { data, error } = await this.db.db.rpc('stock_events_load_existing', { p_mongo_ids: mongoIds });
+    if (error) throw error;
+    for (const row of data ?? []) {
+      map.set(String(row.mongo_id), {
+        sync_status: String(row.sync_status ?? 'PENDING'),
+        sync_hash: row.sync_hash == null ? null : String(row.sync_hash),
+        sync_attempts: Number(row.sync_attempts ?? 0),
+      });
     }
     return map;
   }
 
   private async markBatchFailed(rows: Record<string, unknown>[], message: string) {
     const ids = rows.map(row => String(row.mongo_id));
-    await this.db.db.from('stock_events').update({ sync_status: 'FAILED', sync_error: message, updated_at: new Date().toISOString() }).in('mongo_id', ids);
+    if (!ids.length) return;
+    const { error } = await this.db.db.rpc('stock_events_mark_failed', {
+      p_mongo_ids: ids,
+      p_error_message: message,
+      p_updated_at: new Date().toISOString(),
+    });
+    if (error) throw error;
   }
 
   private async finishRun(runId: string, result: Partial<StockEventsSyncResult> & { errorMessage?: string | null }) {
@@ -284,6 +319,12 @@ export class StockEventsSyncService {
     const message = ['TCE Stock Events Sync', `Status: ${result.status}`, `Inserted: ${result.inserted}`, `Updated: ${result.updated}`, `Skipped: ${result.skipped}`, `Failed: ${result.failed}`, `SSI prices: ${result.symbolsSynced}/${result.symbolsRequested}`].join('\n');
     try { await this.telegram.sendToCredential(options.userId, options.telegramCredentialId, message); } catch (error) { this.logger.warn(`Telegram sync notification failed: ${error instanceof Error ? error.message : String(error)}`); }
   }
+}
+
+function chunk<T>(items: T[], size: number) {
+  const result: T[][] = [];
+  for (let index = 0; index < items.length; index += size) result.push(items.slice(index, index + size));
+  return result;
 }
 
 function eventHash(event: CrawledStockEvent) {
