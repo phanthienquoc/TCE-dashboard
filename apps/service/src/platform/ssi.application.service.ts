@@ -10,22 +10,19 @@ import {
   SsiAuthInput,
 } from '@tce/contracts';
 import { Inject } from '@nestjs/common';
-import { SsiBrokerAdapter, SsiOrderStatusEvent, SsiTokenSnapshot } from '@tce/ssi';
+import { SsiBrokerAdapter, SsiDailyOhlcv, SsiOrderStatusEvent, SsiTokenSnapshot } from '@tce/ssi';
 import { SupabaseClientService } from '../db/supabase.client';
 
 @Injectable()
 export class SsiApplicationService {
   private readonly sessions = new Map<string, { adapter: SsiBrokerAdapter; accountNo: string }>();
-  private readonly reauthTransactions = new Map<
-    string,
-    { transactionId: string; createdAt: number }
-  >();
+  private readonly reauthTransactions = new Map<string, { transactionId: string; createdAt: number }>();
 
   constructor(
     @Inject(CONTRACT_TOKENS.credentials) private readonly credentials: PlatformCredentialPort,
     @Inject(CONTRACT_TOKENS.positionRepository) private readonly positions: PositionRepository,
     @Inject(CONTRACT_TOKENS.orderRepository) private readonly orders: OrderRepository,
-    private readonly supabase: SupabaseClientService
+    private readonly supabase: SupabaseClientService,
   ) {}
 
   private fromRaw(
@@ -33,7 +30,7 @@ export class SsiApplicationService {
     userId: string,
     environment: string,
     accountNoOverride?: string,
-    persistToken = false
+    persistToken = false,
   ) {
     const apiKey = String(raw.apiKey ?? ''),
       apiSecret = String(raw.apiSecret ?? ''),
@@ -76,9 +73,7 @@ export class SsiApplicationService {
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       if (message === 'Platform credentials not configured')
-        throw new NotFoundException(
-          `SSI credentials are not configured for environment: ${environment}`
-        );
+        throw new NotFoundException(`SSI credentials are not configured for environment: ${environment}`);
       console.error('[SSI_CREDENTIALS_LOAD]', { userId, environment, message });
       throw new ServiceUnavailableException('Unable to load SSI credentials');
     }
@@ -103,7 +98,7 @@ export class SsiApplicationService {
   private async handleOrderEvent(
     accountId: string,
     session: { adapter: SsiBrokerAdapter; accountNo: string },
-    event: SsiOrderStatusEvent
+    event: SsiOrderStatusEvent,
   ) {
     if (!event.orderId || !event.symbol) return;
     await this.orders.upsert({
@@ -127,12 +122,12 @@ export class SsiApplicationService {
 
   private async startOrderStream(
     accountId: string,
-    session: { adapter: SsiBrokerAdapter; accountNo: string }
+    session: { adapter: SsiBrokerAdapter; accountNo: string },
   ) {
     try {
       await session.adapter.startOrderStatusStream(session.accountNo, event => {
         void this.handleOrderEvent(accountId, session, event).catch(error =>
-          console.error('[SSI_ORDER_EVENT]', error)
+          console.error('[SSI_ORDER_EVENT]', error),
         );
       });
     } catch (error) {
@@ -143,7 +138,7 @@ export class SsiApplicationService {
   private storeSession(
     userId: string,
     environment: string,
-    session: { adapter: SsiBrokerAdapter; accountNo: string }
+    session: { adapter: SsiBrokerAdapter; accountNo: string },
   ) {
     this.sessions.set(`${userId}:ssi:${environment}`, session);
   }
@@ -168,15 +163,11 @@ export class SsiApplicationService {
     userId: string,
     environment: string,
     input: SsiAuthInput,
-    transactionId?: string
+    transactionId?: string,
   ) {
     const credentials = await this.credentials.get(userId, 'ssi', environment);
     const session = this.fromRaw(credentials, userId, environment, undefined, true);
-    const result = await session.adapter.connect({
-      userId,
-      environment,
-      ...(transactionId ? { transactionId } : input),
-    });
+    const result = await session.adapter.connect({ userId, environment, ...(transactionId ? { transactionId } : input) });
     if (!result.ok) return result;
     const token = session.adapter.getTokenSnapshot();
     const finalSession = token
@@ -184,19 +175,14 @@ export class SsiApplicationService {
       : session;
     this.storeSession(userId, environment, finalSession);
     this.reauthTransactions.delete(this.reauthKey(userId, environment));
-    if (finalSession.accountNo)
-      void this.startOrderStream(await this.tceAccountId(userId), finalSession);
-    return {
-      ok: true as const,
-      data: { authentication: 'ok' as const, provider: 'ssi' as const },
-    };
+    if (finalSession.accountNo) void this.startOrderStream(await this.tceAccountId(userId), finalSession);
+    return { ok: true as const, data: { authentication: 'ok' as const, provider: 'ssi' as const } };
   }
 
   async approve(userId: string, environment: string, input: SsiAuthInput) {
     const pending = this.reauthTransactions.get(this.reauthKey(userId, environment));
     const transactionId = input.transactionId ?? pending?.transactionId;
-    if (!transactionId && !input.otp)
-      throw new NotFoundException('SSI approval transaction is not available');
+    if (!transactionId && !input.otp) throw new NotFoundException('SSI approval transaction is not available');
     return this.authenticateReauth(userId, environment, input, transactionId);
   }
 
@@ -204,16 +190,15 @@ export class SsiApplicationService {
     userId: string,
     environment: string,
     input: SsiAuthInput,
-    credentials?: Record<string, unknown>
+    credentials?: Record<string, unknown>,
   ) {
     const key = `${userId}:ssi:${environment}`;
     const existing = this.sessions.get(key);
-    const session =
-      credentials && !input.otp?.trim() && !input.transactionId?.trim() && existing
-        ? existing
-        : credentials
-          ? this.fromRaw(credentials, userId, environment)
-          : await this.adapter(userId, environment);
+    const session = credentials && !input.otp?.trim() && !input.transactionId?.trim() && existing
+      ? existing
+      : credentials
+        ? this.fromRaw(credentials, userId, environment)
+        : await this.adapter(userId, environment);
     if (!input.otp?.trim() && !input.transactionId?.trim() && !existing) {
       const challenge = await session.adapter.requestOtp();
       if (!challenge.ok) return challenge;
@@ -224,11 +209,7 @@ export class SsiApplicationService {
           message: 'SSI_AUTH_REQUIRED' as const,
           retryable: false,
           provider: 'ssi',
-          details: {
-            transactionId: challenge.data.transactionId,
-            message: challenge.data.message,
-            action: 'APPROVE_OR_ENTER_OTP',
-          },
+          details: { transactionId: challenge.data.transactionId, message: challenge.data.message, action: 'APPROVE_OR_ENTER_OTP' },
         },
       };
     }
@@ -236,13 +217,9 @@ export class SsiApplicationService {
     if (!result.ok) return result;
     const token = session.adapter.getTokenSnapshot();
     const testedCredentials = token ? { ...credentials, ...token } : credentials;
-    const finalSession =
-      credentials && !existing
-        ? this.fromRaw(testedCredentials!, userId, environment, undefined, true)
-        : session;
+    const finalSession = credentials && !existing ? this.fromRaw(testedCredentials!, userId, environment, undefined, true) : session;
     this.storeSession(userId, environment, finalSession);
-    if (finalSession.accountNo)
-      void this.startOrderStream(await this.tceAccountId(userId), finalSession);
+    if (finalSession.accountNo) void this.startOrderStream(await this.tceAccountId(userId), finalSession);
     return result;
   }
 
@@ -251,7 +228,7 @@ export class SsiApplicationService {
     environment: string,
     credentials: Record<string, unknown>,
     input: SsiAuthInput,
-    accountNo: string
+    accountNo: string,
   ) {
     if (!accountNo) throw new NotFoundException('SSI account number is required');
     const key = `${userId}:ssi:${environment}`;
@@ -285,34 +262,24 @@ export class SsiApplicationService {
   async accountSnapshots(userId: string, environment: string, input: SsiAuthInput) {
     const key = `${userId}:ssi:${environment}`;
     const existing = this.sessions.get(key);
-    return existing
-      ? existing.adapter.accountSnapshots(input)
-      : (await this.adapter(userId, environment, false)).adapter.accountSnapshots(input);
+    return existing ? existing.adapter.accountSnapshots(input) : (await this.adapter(userId, environment, false)).adapter.accountSnapshots(input);
   }
 
   async syncWithReauth(userId: string, environment: string, input: SsiAuthInput = {}) {
     const snapshots = await this.accountSnapshots(userId, environment, input);
     if (snapshots.ok) return snapshots;
-
     const message = String(snapshots.error?.message ?? '');
     if (!message.startsWith('SSI_REAUTH_REQUIRED')) return snapshots;
-
     const challenge = await this.requestOtp(userId, environment);
     if (!challenge.ok) return challenge;
-
     return {
       ok: false as const,
       error: {
         code: 'SSI_AUTH_REQUIRED' as const,
-        message:
-          'Open the SSI app and approve the sign-in request. Use OTP only if SSI asks for it.',
+        message: 'Open the SSI app and approve the sign-in request. Use OTP only if SSI asks for it.',
         retryable: true,
         provider: 'ssi' as const,
-        details: {
-          transactionId: challenge.data.transactionId,
-          action: 'APPROVE_OR_ENTER_OTP',
-          message: challenge.data.message,
-        },
+        details: { transactionId: challenge.data.transactionId, action: 'APPROVE_OR_ENTER_OTP', message: challenge.data.message },
       },
     };
   }
@@ -327,70 +294,51 @@ export class SsiApplicationService {
     return adapter.dailyCloses(symbols, tradingDate);
   }
 
+  async dailyOhlcv(userId: string, environment: string, symbols: string[], fromDate: string, toDate: string): Promise<ContractResult<SsiDailyOhlcv[]>> {
+    const { adapter } = await this.adapter(userId, environment, false);
+    return adapter.dailyOhlcv(symbols, fromDate, toDate);
+  }
+
   async placeOrder(
     userId: string,
     environment: string,
-    request: Omit<BrokerOrderRequest, 'accountNo'> & { accountNo?: string }
+    request: Omit<BrokerOrderRequest, 'accountNo'> & { accountNo?: string },
   ) {
     const key = `${userId}:ssi:${environment}`;
     const existing = this.sessions.get(key);
     const session = existing ?? (await this.adapter(userId, environment));
     const accountNo = request.accountNo ?? session.accountNo;
-    if (!accountNo)
-      throw new NotFoundException(`SSI account is not selected for environment: ${environment}`);
-
+    if (!accountNo) throw new NotFoundException(`SSI account is not selected for environment: ${environment}`);
     const requestedClientRequestId = request.clientRequestId;
     const result = await session.adapter.placeOrder({ ...request, accountNo });
     if (!result.ok) return result as ContractResult<BrokerOrderResult>;
-
     const accountId = await this.tceAccountId(userId);
     void this.startOrderStream(accountId, { ...session, accountNo });
-
     let confirmed = false;
     let confirmedOrderId = result.data.orderId;
     let providerStatus = result.data.status;
-
     for (let attempt = 0; attempt < 4; attempt += 1) {
       const orders = await session.adapter.orders(accountNo);
       if (orders.ok) {
-        const match = orders.data.find(
-          order =>
-            (result.data.orderId && order.externalId === result.data.orderId) ||
-            (requestedClientRequestId && order.clientRequestId === requestedClientRequestId) ||
-            (result.data.clientRequestId && order.clientRequestId === result.data.clientRequestId)
-        );
+        const match = orders.data.find(order =>
+          (result.data.orderId && order.externalId === result.data.orderId) ||
+          (requestedClientRequestId && order.clientRequestId === requestedClientRequestId) ||
+          (result.data.clientRequestId && order.clientRequestId === result.data.clientRequestId));
         if (match) {
           confirmed = true;
           confirmedOrderId = match.externalId;
           providerStatus = match.status;
-          await this.handleOrderEvent(
-            accountId,
-            { ...session, accountNo },
-            {
-              type: 'orderEvent',
-              accountNo,
-              clientRequestId: match.clientRequestId,
-              orderId: match.externalId,
-              symbol: match.symbol,
-              side: match.side === 'SELL' ? 'S' : 'B',
-              orderType: match.orderType,
-              price: match.price,
-              quantity: match.quantity,
-              osQuantity: match.osQuantity,
-              cancelQuantity: match.cancelQuantity,
-              filledQuantity: match.filledQuantity,
-              status: match.status,
-              inputTime: match.createdAt,
-              modifyTime: match.modifyTime,
-              message: match.message,
-            }
-          );
+          await this.handleOrderEvent(accountId, { ...session, accountNo }, {
+            type: 'orderEvent', accountNo, clientRequestId: match.clientRequestId, orderId: match.externalId,
+            symbol: match.symbol, side: match.side === 'SELL' ? 'S' : 'B', orderType: match.orderType,
+            price: match.price, quantity: match.quantity, osQuantity: match.osQuantity, cancelQuantity: match.cancelQuantity,
+            filledQuantity: match.filledQuantity, status: match.status, inputTime: match.createdAt, modifyTime: match.modifyTime, message: match.message,
+          });
           break;
         }
       }
       if (attempt < 3) await new Promise(resolve => setTimeout(resolve, 250));
     }
-
     return {
       ok: true as const,
       data: {
@@ -398,9 +346,7 @@ export class SsiApplicationService {
         confirmed,
         providerStatus,
         confirmedOrderId,
-        message: confirmed
-          ? 'SSI accepted the order and it is visible in today orders.'
-          : 'SSI accepted the order request, but it is not visible in today orders yet. Check SSI order status shortly.',
+        message: confirmed ? 'SSI accepted the order and it is visible in today orders.' : 'SSI accepted the order request, but it is not visible in today orders yet. Check SSI order status shortly.',
       },
     } as ContractResult<BrokerOrderResult>;
   }
@@ -408,27 +354,17 @@ export class SsiApplicationService {
   async placeTakeProfit(
     userId: string,
     environment: string,
-    request: Omit<BrokerOrderRequest, 'accountNo' | 'orderType'> & { accountNo?: string }
+    request: Omit<BrokerOrderRequest, 'accountNo' | 'orderType'> & { accountNo?: string },
   ) {
     const key = `${userId}:ssi:${environment}`;
     const existing = this.sessions.get(key);
     const session = existing ?? (await this.adapter(userId, environment));
     const accountNo = request.accountNo ?? session.accountNo;
-    if (!accountNo)
-      throw new NotFoundException(`SSI account is not selected for environment: ${environment}`);
-    if (request.side !== 'SELL')
-      throw new NotFoundException('SSI take-profit FCO fallback only supports SELL');
-    if (!Number.isFinite(request.price) || Number(request.price) <= 0)
-      throw new NotFoundException('SSI take-profit price must be positive');
-
-    const result = await session.adapter.placeTakeProfit({
-      accountNo,
-      symbol: request.symbol,
-      quantity: request.quantity,
-      price: Number(request.price),
-    });
+    if (!accountNo) throw new NotFoundException(`SSI account is not selected for environment: ${environment}`);
+    if (request.side !== 'SELL') throw new NotFoundException('SSI take-profit FCO fallback only supports SELL');
+    if (!Number.isFinite(request.price) || Number(request.price) <= 0) throw new NotFoundException('SSI take-profit price must be positive');
+    const result = await session.adapter.placeTakeProfit({ accountNo, symbol: request.symbol, quantity: request.quantity, price: Number(request.price) });
     if (!result.ok) return result as ContractResult<BrokerOrderResult>;
-
     const accountId = await this.tceAccountId(userId);
     void this.startOrderStream(accountId, { ...session, accountNo });
     return result;
