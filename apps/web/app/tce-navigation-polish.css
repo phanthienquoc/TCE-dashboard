@@ -209,13 +209,16 @@
 @media (max-width: 767px) {
   .tce-breadcrumbs {
     position: fixed;
-    z-index: 65;
+    z-index: 110;
     top: env(safe-area-inset-top);
     inset-inline: 0;
     width: 100%;
     height: 44px;
     margin: 0;
     padding: 8px max(16px, env(safe-area-inset-left)) 8px max(16px, env(safe-area-inset-right));
+    display: flex;
+    visibility: visible;
+    opacity: 1;
     border-bottom: 1px solid color-mix(in srgb, var(--border) 92%, transparent);
     background: color-mix(in srgb, var(--background) 88%, transparent);
     backdrop-filter: blur(18px) saturate(125%);
@@ -226,21 +229,44 @@
     padding-top: calc(56px + env(safe-area-inset-top)) !important;
   }
 
-  /* Page-local title bars are redundant once the shared breadcrumb is fixed. */
   .tce-mobile-view > .tce-mobile-header,
   .app-content > .page-heading,
   .app-content .page-heading {
     display: none !important;
   }
 
-  /* Legacy standalone pages used a small back/title row above their content. */
   .app-content > .mb-3.flex.items-center.gap-2 {
     display: none !important;
   }
 
-  /* Stock-event/settings screens still use semantic headers; hide only the top page header. */
   .app-content > div > header:first-child,
   .app-content > .tce-mobile-view > header:first-child {
     display: none !important;
+  }
+
+  /* Safari browser: use the small viewport so the dock stays above browser chrome. */
+  @supports (height: 100svh) {
+    .app-shell:has(.tce-bottom-tabs),
+    .app-shell:has(.mobile-bottom-nav) {
+      height: 100svh;
+      min-height: 100svh;
+    }
+  }
+
+  /* Standalone PWA: keep the breadcrumb and notch chrome crisp. */
+  @media (display-mode: standalone) {
+    .app-shell::before {
+      background: var(--background);
+      backdrop-filter: none;
+      -webkit-backdrop-filter: none;
+    }
+
+    .tce-breadcrumbs {
+      background: var(--background);
+      backdrop-filter: none;
+      -webkit-backdrop-filter: none;
+      transform: translateZ(0);
+      -webkit-transform: translateZ(0);
+    }
   }
 }
