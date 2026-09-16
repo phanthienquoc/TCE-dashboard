@@ -19,7 +19,7 @@ export type SsiConnectionTest = {
   authentication: 'ok';
   marketData: 'ok';
   securities: number;
-  accounts: SsiAccount[];
+  accounts?: SsiAccount[];
   tokenExpiresAt?: number;
 };
 export type SsiCurrentInfo = {
