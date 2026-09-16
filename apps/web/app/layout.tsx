@@ -20,6 +20,7 @@ import './mobile-command-center.css';
 import './tce-mobile-dark-theme.css';
 import './more-dark-theme-fix.css';
 import './mobile-command-center-fix.css';
+import './tce-navigation-polish.css';
 import './login/tce-login-premium.css';
 import { AppProviders } from './providers';
 
