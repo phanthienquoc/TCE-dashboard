@@ -6,11 +6,12 @@ import { StockEventsSupabaseRepository } from './stock-events.supabase.repositor
 import { StockDividendPoolController } from './stock-dividend-pool.controller';
 import { StockDividendPoolService } from './stock-dividend-pool.service';
 import { HuntingDividendScannerService } from './hunting-dividend-scanner.service';
+import { DividendOhlcvService } from './dividend-ohlcv.service';
 
 @Module({
   imports: [AuthModule],
   controllers: [StockEventsController, StockDividendPoolController],
-  providers: [StockEventsService, StockEventsSupabaseRepository, StockDividendPoolService, HuntingDividendScannerService],
-  exports: [StockEventsService, StockDividendPoolService, HuntingDividendScannerService],
+  providers: [StockEventsService, StockEventsSupabaseRepository, StockDividendPoolService, HuntingDividendScannerService, DividendOhlcvService],
+  exports: [StockEventsService, StockDividendPoolService, HuntingDividendScannerService, DividendOhlcvService],
 })
 export class StockEventsModule {}
