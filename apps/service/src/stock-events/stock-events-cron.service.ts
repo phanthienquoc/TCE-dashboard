@@ -11,6 +11,7 @@ export type StockEventsCronConfig = {
   syncStartDate: string | null;
   syncEndDate: string | null;
   batchSize: number;
+  pageSize: number;
   priceSyncEnabled: boolean;
   telegramCredentialId: string | null;
   lastRunAt: string | null;
@@ -19,6 +20,7 @@ export type StockEventsCronConfig = {
 const JOB_KEY = 'stock-events-sync';
 const STALE_RUN_MINUTES = 30;
 const DEFAULT_FUTURE_SYNC_DAYS = 365;
+const DEFAULT_PAGE_SIZE = 10;
 type TriggerResponse = { status: 'RUNNING'; alreadyRunning: boolean };
 
 @Injectable()
@@ -54,6 +56,7 @@ export class StockEventsCronService implements OnModuleInit, OnModuleDestroy {
     if (start && end && start > end) throw new Error('Sync start date must be before or equal to end date');
     validateCronExpression(schedule, timezone);
     const batchSize = Math.min(Math.max(Math.trunc(Number(input.batchSize ?? existing.batch_size ?? 200)), 50), 500);
+    const pageSize = Math.min(Math.max(Math.trunc(Number(input.pageSize ?? existing.page_size ?? DEFAULT_PAGE_SIZE)), 1), 100);
     const payload = {
       enabled: input.enabled === undefined ? Boolean(existing.enabled) : input.enabled === true,
       schedule,
@@ -61,6 +64,7 @@ export class StockEventsCronService implements OnModuleInit, OnModuleDestroy {
       sync_start_date: start,
       sync_end_date: end,
       batch_size: batchSize,
+      page_size: pageSize,
       price_sync_enabled: input.priceSyncEnabled === undefined ? Boolean(existing.price_sync_enabled) : input.priceSyncEnabled !== false,
       telegram_credential_id: input.telegramCredentialId === undefined ? existing.telegram_credential_id ?? null : input.telegramCredentialId || null,
       updated_at: new Date().toISOString(),
@@ -153,6 +157,7 @@ export class StockEventsCronService implements OnModuleInit, OnModuleDestroy {
         sync_start_date: null,
         sync_end_date: null,
         batch_size: 200,
+        page_size: DEFAULT_PAGE_SIZE,
         price_sync_enabled: true,
       })
       .select('*')
@@ -198,6 +203,7 @@ export class StockEventsCronService implements OnModuleInit, OnModuleDestroy {
         syncStartDate: startDate,
         syncEndDate: endDate,
         batchSize: Number(job.batch_size ?? 200),
+        pageSize: Number(job.page_size ?? DEFAULT_PAGE_SIZE),
         priceSyncEnabled: Boolean(job.price_sync_enabled),
         telegramCredentialId: job.telegram_credential_id,
       });
@@ -235,6 +241,7 @@ export class StockEventsCronService implements OnModuleInit, OnModuleDestroy {
       syncStartDate: job.sync_start_date ?? null,
       syncEndDate: job.sync_end_date ?? null,
       batchSize: Number(job.batch_size ?? 200),
+      pageSize: Number(job.page_size ?? DEFAULT_PAGE_SIZE),
       priceSyncEnabled: Boolean(job.price_sync_enabled),
       telegramCredentialId: job.telegram_credential_id ?? null,
       lastRunAt: job.last_run_at ?? null,

@@ -11,6 +11,7 @@ export type StockEventsSyncOptions = {
   syncStartDate?: string | null;
   syncEndDate?: string | null;
   batchSize?: number;
+  pageSize?: number;
   priceSyncEnabled?: boolean;
   telegramCredentialId?: string | null;
 };
@@ -128,6 +129,7 @@ export class StockEventsSyncService {
         startDate: options.syncStartDate,
         endDate: options.syncEndDate,
         batchSize,
+        pageSize: options.pageSize,
         onBatch: async (batch, pageNumber, total, meta) => {
           currentPage = pageNumber;
           rowsOnPage = meta.rowsOnPage;

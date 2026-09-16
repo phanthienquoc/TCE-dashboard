@@ -10,6 +10,7 @@ export type StockSyncConfig = {
   syncStartDate: string | null;
   syncEndDate: string | null;
   batchSize: number;
+  pageSize: number;
   priceSyncEnabled: boolean;
   telegramCredentialId: string | null;
   lastRunAt: string | null;
@@ -81,6 +82,7 @@ const defaultConfig: StockSyncConfig = {
   syncStartDate: null,
   syncEndDate: null,
   batchSize: 200,
+  pageSize: 10,
   priceSyncEnabled: true,
   telegramCredentialId: null,
   lastRunAt: null,
