@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { dashboardApi } from '../../../lib/api';
+import { EngineRuntimeSkeleton } from '../../../components/ui/page-skeleton';
 import { ENGINE_REGISTRY, getEngine, type EngineId } from '../../engines/engine-registry';
 import { EngineWorkflow, type WorkflowEngine } from '../../engines/EngineWorkflow';
 
@@ -24,5 +25,5 @@ export default function EngineWorkflowScreen() {
   async function toggle(id: string) { const current = runtime.find(engine => engine.id === id); if (!current || updating) return; if (!current.enabled && current.dependencies.some(dependencyId => runtime.find(engine => engine.id === dependencyId)?.status !== 'ACTIVE')) return; setUpdating(id); try { await dashboardApi.setEngineStatus(id, current.enabled ? 'INACTIVE' : 'ACTIVE'); await load(); } finally { setUpdating(null); } }
   useEffect(() => { void load(); }, []);
   const runningText = useMemo(() => loading ? 'Đang tải runtime…' : `${runtime.filter(item => item.status === 'ACTIVE').length}/${runtime.length} engine đang hoạt động`, [loading, runtime]);
-  return <div className="tce-mobile-view space-y-4 pb-8"><header className="px-1 pt-2"><p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Engine Runtime</p><div className="mt-1 flex items-end justify-between gap-3"><div><h1 className="text-2xl font-semibold text-white">TCE Workflow</h1><p className="mt-1 text-sm text-slate-400">{runningText}</p></div><Link href="/settings/engines" className="text-xs font-medium text-sky-300">Danh sách</Link></div></header>{loading && !runtime.length ? <div className="rounded-3xl border border-white/10 bg-white/[0.035] p-6 text-center text-sm text-slate-400">Loading engine runtime…</div> : <EngineWorkflow engines={runtime} />}{updating ? <p className="px-1 text-xs text-slate-500">Đang cập nhật {getEngine(updating as EngineId)?.name ?? updating}…</p> : null}</div>;
+  return <div className="tce-mobile-view space-y-4 pb-8"><header className="px-1 pt-2"><p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Engine Runtime</p><div className="mt-1 flex items-end justify-between gap-3"><div><h1 className="text-2xl font-semibold text-white">TCE Workflow</h1><p className="mt-1 text-sm text-slate-400">{runningText}</p></div><Link href="/settings/engines" className="text-xs font-medium text-sky-300">Danh sách</Link></div></header>{loading && !runtime.length ? <EngineRuntimeSkeleton /> : <EngineWorkflow engines={runtime} />}{updating ? <p className="px-1 text-xs text-slate-500">Đang cập nhật {getEngine(updating as EngineId)?.name ?? updating}…</p> : null}</div>;
 }
