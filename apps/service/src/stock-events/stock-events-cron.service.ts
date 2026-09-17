@@ -3,6 +3,7 @@ import { SchedulerRegistry } from '@nestjs/schedule';
 import { CronJob } from 'cron';
 import { SupabaseClientService } from '../db/supabase.client';
 import { StockEventsSyncResult, StockEventsSyncService } from './stock-events-sync.service';
+import { DividendOhlcvService } from './dividend-ohlcv.service';
 
 export type StockEventsCronConfig = {
   enabled: boolean;
@@ -32,6 +33,7 @@ export class StockEventsCronService implements OnModuleInit, OnModuleDestroy {
     private readonly db: SupabaseClientService,
     private readonly scheduler: SchedulerRegistry,
     private readonly sync: StockEventsSyncService,
+    private readonly dividendOhlcv: DividendOhlcvService,
   ) {}
 
   async onModuleInit() { await this.reload(); }
@@ -207,6 +209,27 @@ export class StockEventsCronService implements OnModuleInit, OnModuleDestroy {
         priceSyncEnabled: Boolean(job.price_sync_enabled),
         telegramCredentialId: job.telegram_credential_id,
       });
+
+      // Strict pipeline: Vietstock page crawl/upsert must finish before
+      // selecting dividend symbols and fetching their daily OHLCV/K-line data.
+      // This prevents the K-line phase from racing the stock-event page sync.
+      try {
+        const klineResult = await this.dividendOhlcv.syncDividendSymbols(
+          String(job.user_id),
+          'production',
+          startDate,
+          endDate,
+        );
+        this.logger.log(
+          `Dividend K-line sync completed after Vietstock sync: run=${klineResult.runId}, requested=${klineResult.requested}, synced=${klineResult.syncedSymbols}, failed=${klineResult.failedSymbols}`,
+        );
+      } catch (error) {
+        this.logger.error(
+          `Dividend K-line sync failed after Vietstock sync: ${error instanceof Error ? error.stack : String(error)}`,
+        );
+        throw error;
+      }
+
       await this.db.db
         .from('tce_cron_jobs')
         .update({ last_run_at: new Date().toISOString(), updated_at: new Date().toISOString() })

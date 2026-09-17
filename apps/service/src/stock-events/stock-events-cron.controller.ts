@@ -1,13 +1,11 @@
 import { Body, Controller, Get, Headers, Post, Query, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '../auth/jwt.service';
-import { DividendOhlcvService } from './dividend-ohlcv.service';
 import { StockEventsCronService } from './stock-events-cron.service';
 
 @Controller('stock-events-cron')
 export class StockEventsCronController {
   constructor(
     private readonly cron: StockEventsCronService,
-    private readonly dividendOhlcv: DividendOhlcvService,
     private readonly jwt: JwtService,
   ) {}
 
@@ -41,9 +39,10 @@ export class StockEventsCronController {
   @Post('trigger')
   async trigger(@Headers('authorization') auth?: string) {
     const userId = this.userId(auth);
-    const stockSync = await this.cron.trigger(userId);
-    void this.dividendOhlcv.syncDividendSymbols(userId).catch(() => undefined);
-    return stockSync;
+    // The cron service owns the complete pipeline:
+    // Vietstock page fetch/upsert -> dividend symbol resolution -> K-line sync.
+    // Do not start the K-line job independently here.
+    return this.cron.trigger(userId);
   }
 
   @Get('runs')
