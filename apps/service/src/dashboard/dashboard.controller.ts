@@ -80,11 +80,11 @@ export class DashboardController {
   @Get('engines') getEngines(@Headers('authorization') auth?: string) {
     return this.dashboard.getEngines(this.userId(auth));
   }
-  @Get('engine-runtime') getEngineRuntime(@Headers('authorization') auth?: string) {
-    return this.runtime.getRuntime(this.dashboardAccountId(this.userId(auth)));
+  @Get('engine-runtime') async getEngineRuntime(@Headers('authorization') auth?: string) {
+    return this.runtime.getRuntime(await this.dashboardAccountId(this.userId(auth)));
   }
-  @Get('engine-runtime/start-plan') getEngineStartPlan(@Headers('authorization') auth?: string) {
-    return this.runtime.getStartPlan(this.dashboardAccountId(this.userId(auth)));
+  @Get('engine-runtime/start-plan') async getEngineStartPlan(@Headers('authorization') auth?: string) {
+    return this.runtime.getStartPlan(await this.dashboardAccountId(this.userId(auth)));
   }
   @Patch('engines/:engineId/status') setEngineStatus(
     @Headers('authorization') auth?: string,
