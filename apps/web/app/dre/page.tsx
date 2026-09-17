@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import DashboardShell from '../../components/dashboard/DashboardShell';
 import { Card } from '../../components/ui/card';
+import { CampaignSkeleton } from '../../components/ui/page-skeleton';
 import { dashboardApi } from '../../lib/api';
 
 type Position = {
@@ -61,7 +62,7 @@ function DreDashboard() {
         <Metric label="Ready NEXT" value={rows.filter(r => r.next?.state === 'NEXT').length} />
       </div>
       {loading ? (
-        <Card className="p-6 text-sm">Loading DRE state…</Card>
+        <CampaignSkeleton />
       ) : rows.length === 0 ? (
         <Card className="p-6 text-sm text-muted-foreground">No dividend rolling campaigns.</Card>
       ) : (
