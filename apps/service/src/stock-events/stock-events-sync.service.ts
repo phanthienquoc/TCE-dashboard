@@ -80,12 +80,13 @@ export class StockEventsSyncService {
       let currentPage = 0;
       let rowsOnPage = 0;
       let hasMore = true;
-      const symbols = new Set<string>();
+      let symbolsRequested = 0;
+      let symbolsSynced = 0;
 
-      const publishProgress = async () => {
+      const publishProgress = async (phase: SyncProgress['phase'] = 'EVENTS', progressPct?: number) => {
         await this.updateProgress(String(run.id), {
-          phase: 'EVENTS',
-          progressPct: this.eventProgress(processedEvents, estimatedTotalEvents),
+          phase,
+          progressPct: progressPct ?? this.eventProgress(processedEvents, estimatedTotalEvents),
           processedEvents,
           estimatedTotalEvents,
           currentPage,
@@ -95,18 +96,20 @@ export class StockEventsSyncService {
           updated,
           skipped,
           failed,
-          symbolsRequested: symbols.size,
-          symbolsSynced: 0,
+          symbolsRequested,
+          symbolsSynced,
           pageSize,
           updatedAt: new Date().toISOString(),
         });
       };
 
-      const processBatch = async (batch: CrawledStockEvent[]) => {
+      const processBatch = async (batch: CrawledStockEvent[]): Promise<string[]> => {
         const existing = await this.loadExisting(batch.map(event => event.mongoId));
         const upserts: Record<string, unknown>[] = [];
+        const batchSymbols = new Set<string>();
+
         for (const event of batch) {
-          symbols.add(event.symbol);
+          batchSymbols.add(event.symbol);
           const hash = eventHash(event);
           const current = existing.get(event.mongoId);
           if (current?.sync_status === 'SYNCED' && current.sync_hash === hash) {
@@ -137,7 +140,9 @@ export class StockEventsSyncService {
           if (current) updated += 1;
           else inserted += 1;
         }
-        if (!upserts.length) return;
+
+        if (!upserts.length) return [...batchSymbols].sort();
+
         const { error } = await this.db.db.from('stock_events').upsert(upserts, { onConflict: 'mongo_id' });
         if (error) {
           failed += upserts.length;
@@ -146,6 +151,30 @@ export class StockEventsSyncService {
           await this.markBatchFailed(upserts, error.message);
           inserted -= upserts.filter(row => !existing.has(String(row.mongo_id))).length;
           updated -= upserts.filter(row => existing.has(String(row.mongo_id))).length;
+        }
+
+        return [...batchSymbols].sort();
+      };
+
+      const syncSymbolsSequentially = async (requestedSymbols: string[]) => {
+        if (options.priceSyncEnabled === false || !requestedSymbols.length) return;
+        for (const symbolBatch of chunk(requestedSymbols, SSI_SYMBOL_BATCH_SIZE)) {
+          symbolsRequested += symbolBatch.length;
+          await publishProgress('SSI_PRICE');
+          try {
+            const priceResult = await this.ssiPrices.syncSymbolsNow(options.userId, symbolBatch, batchSize);
+            symbolsSynced += priceResult.data.symbolsSynced;
+            if (!priceResult.ok) {
+              failed += priceResult.errors.length || Math.max(symbolBatch.length - priceResult.data.symbolsSynced, 1);
+              eventError = eventError ?? priceResult.errors[0]?.message ?? `SSI price sync failed for ${symbolBatch.length} symbols`;
+              this.logger.error(`SSI price sync failed for ${symbolBatch.length} symbols: ${priceResult.errors.map(error => error.message).join('; ') || 'unknown error'}`);
+            }
+          } catch (error) {
+            failed += symbolBatch.length;
+            eventError = eventError ?? (error instanceof Error ? error.message : typeof error === 'string' ? error : JSON.stringify(error));
+            this.logger.error(`SSI price sync batch failed (${symbolBatch.length} symbols): ${eventError}`);
+          }
+          await publishProgress('SSI_PRICE');
         }
       };
 
@@ -159,77 +188,20 @@ export class StockEventsSyncService {
           rowsOnPage = rowsOnCurrentPage;
           hasMore = more;
           estimatedTotalEvents = total ?? estimatedTotalEvents;
-          await publishProgress();
+          await publishProgress('EVENTS');
         },
         onBatch: async (batch, pageNumber, total, meta) => {
           currentPage = pageNumber;
           rowsOnPage = meta.rowsOnPage;
           hasMore = meta.hasMore;
           estimatedTotalEvents = total ?? estimatedTotalEvents;
-          await processBatch(batch);
+
+          const pageSymbols = await processBatch(batch);
           processedEvents += batch.length;
-          await publishProgress();
+          await publishProgress('EVENTS');
+          await syncSymbolsSequentially(pageSymbols);
         },
       });
-
-      let symbolsRequested = 0;
-      let symbolsSynced = 0;
-      if (options.priceSyncEnabled !== false) {
-        const requestedSymbols = [...symbols].sort();
-        symbolsRequested = requestedSymbols.length;
-        await this.updateProgress(String(run.id), {
-          phase: 'SSI_PRICE',
-          progressPct: 80,
-          processedEvents,
-          estimatedTotalEvents,
-          currentPage,
-          rowsOnPage,
-          hasMore,
-          inserted,
-          updated,
-          skipped,
-          failed,
-          symbolsRequested,
-          symbolsSynced: 0,
-          pageSize,
-          updatedAt: new Date().toISOString(),
-        });
-        if (requestedSymbols.length) {
-          for (const symbolBatch of chunk(requestedSymbols, SSI_SYMBOL_BATCH_SIZE)) {
-            try {
-              const priceResult = await this.ssiPrices.syncSymbolsNow(options.userId, symbolBatch, batchSize);
-              symbolsSynced += priceResult.data.symbolsSynced;
-              if (!priceResult.ok) {
-                failed += priceResult.errors.length || Math.max(symbolBatch.length - priceResult.data.symbolsSynced, 1);
-                eventError = eventError ?? priceResult.errors[0]?.message ?? `SSI price sync failed for ${symbolBatch.length} symbols`;
-                this.logger.error(`SSI price sync failed for ${symbolBatch.length} symbols: ${priceResult.errors.map(error => error.message).join('; ') || 'unknown error'}`);
-              }
-            } catch (error) {
-              failed += symbolBatch.length;
-              eventError = eventError ?? (error instanceof Error ? error.message : typeof error === 'string' ? error : JSON.stringify(error));
-              this.logger.error(`SSI price sync batch failed (${symbolBatch.length} symbols): ${eventError}`);
-            }
-
-            await this.updateProgress(String(run.id), {
-              phase: 'SSI_PRICE',
-              progressPct: Math.min(Math.round(80 + (symbolsSynced / symbolsRequested) * 20), 99),
-              processedEvents,
-              estimatedTotalEvents,
-              currentPage,
-              rowsOnPage,
-              hasMore,
-              inserted,
-              updated,
-              skipped,
-              failed,
-              symbolsRequested,
-              symbolsSynced,
-              pageSize,
-              updatedAt: new Date().toISOString(),
-            });
-          }
-        }
-      }
 
       const status = failed > 0 ? (inserted + updated + skipped > 0 ? 'PARTIAL' : 'FAILED') : 'SUCCEEDED';
       await this.finishRun(String(run.id), { status, inserted, updated, skipped, failed, symbolsRequested, symbolsSynced, errorMessage: eventError });
