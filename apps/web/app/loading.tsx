@@ -1,5 +1,5 @@
-import TechLoading from '../components/navigation/TechLoading';
+import { PageSkeleton } from '../components/ui/page-skeleton';
 
 export default function Loading() {
-  return <TechLoading />;
+  return <PageSkeleton />;
 }
