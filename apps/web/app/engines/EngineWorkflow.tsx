@@ -2,7 +2,7 @@
 
 import '@xyflow/react/dist/style.css';
 
-import { useCallback, useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 import {
   Background,
   Controls,
@@ -105,9 +105,12 @@ export function EngineWorkflow({ engines }: { engines: WorkflowEngine[] }) {
 
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
 
-  const handleNodesChange = useCallback((changes: Parameters<typeof onNodesChange>[0]) => {
-    onNodesChange(changes);
-  }, [onNodesChange]);
+  useEffect(() => {
+    setNodes(current => initialNodes.map(next => {
+      const previous = current.find(node => node.id === next.id);
+      return { ...next, position: previous?.position ?? next.position };
+    }));
+  }, [initialNodes, setNodes]);
 
   const edges = useMemo<Edge[]>(() => engines.flatMap(engine => engine.dependencies.map(dependency => {
     const dependencyEngine = engines.find(item => item.id === dependency);
@@ -132,7 +135,7 @@ export function EngineWorkflow({ engines }: { engines: WorkflowEngine[] }) {
         <div className="rounded-2xl border border-rose-400/20 bg-rose-400/[0.06] p-3"><p className="text-xl font-semibold text-rose-300">{errorCount}</p><p className="text-[11px] text-slate-400">Error</p></div>
       </div>
       <div className="h-[680px] overflow-hidden rounded-3xl border border-white/10 bg-[#07111b]">
-        <ReactFlow nodes={nodes} edges={edges} onNodesChange={handleNodesChange} nodeTypes={nodeTypes} fitView fitViewOptions={{ padding: 0.18 }} panOnDrag zoomOnPinch minZoom={0.35} maxZoom={1.4} nodesConnectable={false} nodesDraggable elementsSelectable={false} proOptions={{ hideAttribution: true }}>
+        <ReactFlow nodes={nodes} edges={edges} onNodesChange={onNodesChange} nodeTypes={nodeTypes} fitView fitViewOptions={{ padding: 0.18 }} panOnDrag zoomOnPinch minZoom={0.35} maxZoom={1.4} nodesConnectable={false} nodesDraggable elementsSelectable={false} proOptions={{ hideAttribution: true }}>
           <Background gap={20} size={1} color="rgba(148,163,184,0.10)" />
           <MiniMap pannable zoomable className="!bg-slate-950/80" />
           <Controls showInteractive={false} />
