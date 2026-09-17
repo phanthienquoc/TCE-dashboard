@@ -56,7 +56,7 @@ export default function SettingsHome() {
             subtitle="Scheduled TCE automations"
           />
           <Row
-            href="/settings/engines"
+            href="/settings/engine"
             icon={<Cpu className="size-5" />}
             title="Engines"
             subtitle="Decision, execution & market engines"

@@ -39,13 +39,13 @@ export function normalizeBottomTabHref(href?: string) {
         positions: '/position',
         orders: '/order',
         settings: '/settings',
-        engine: '/settings/engines',
+        engine: '/settings/engine',
       };
       return tab && paths[tab] ? paths[tab] : '/overview';
     }
 
     if (target.pathname === '/engine' || target.pathname === '/engines') {
-      return '/settings/engines';
+      return '/settings/engine';
     }
   } catch {}
 
@@ -65,8 +65,8 @@ export function BottomTabs({ items, onSelect }: BottomTabsProps) {
             item.active ||
             (!!href &&
               (pathname === href ||
-                (href === '/settings/engines' && pathname.startsWith('/settings/engines/')) ||
-                (href !== '/settings/engines' && pathname.startsWith(`${href}/`))));
+                (href === '/settings/engine' && pathname.startsWith('/settings/engine/')) ||
+                (href !== '/settings/engine' && pathname.startsWith(`${href}/`))));
           const Icon = item.icon;
           const className = cn('tce-bottom-tab', active && 'tce-bottom-tab-active');
           const content = (
