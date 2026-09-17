@@ -5,13 +5,14 @@ import {
   Headers,
   Param,
   Patch,
+  Post,
   Query,
   UnauthorizedException,
 } from '@nestjs/common';
 import { JwtService } from '../auth/jwt.service';
 import { SsiApplicationService } from '../platform/ssi.application.service';
 import { DashboardService } from './dashboard.service';
-import { EngineRuntimeService } from './engine-runtime.service';
+import { EngineRuntimeService, type EngineStepStatus } from './engine-runtime.service';
 
 @Controller('dashboard')
 export class DashboardController {
@@ -25,81 +26,37 @@ export class DashboardController {
     if (!auth?.startsWith('Bearer ')) throw new UnauthorizedException('Bearer token required');
     return this.jwt.verify(auth.slice(7)).sub;
   }
-  @Get() get(@Headers('authorization') auth?: string, @Query('status') status?: string) {
-    return this.dashboard.get(this.userId(auth), status);
-  }
-  @Get('account') getAccount(@Headers('authorization') auth?: string) {
-    return this.dashboard.getAccount(this.userId(auth));
-  }
-  @Get('positions') getPositions(@Headers('authorization') auth?: string) {
-    return this.dashboard.getPositions(this.userId(auth));
-  }
-  @Get('market-prices') async getMarketPrices(
-    @Headers('authorization') auth: string | undefined,
-    @Query('symbols') symbols?: string
-  ) {
-    const requestedSymbols = [
-      ...new Set(
-        String(symbols ?? '')
-          .split(',')
-          .map(symbol => symbol.trim().toUpperCase())
-          .filter(Boolean)
-      ),
-    ];
-    if (!requestedSymbols.length)
-      throw new UnauthorizedException('At least one stock symbol is required');
+  @Get() get(@Headers('authorization') auth?: string, @Query('status') status?: string) { return this.dashboard.get(this.userId(auth), status); }
+  @Get('account') getAccount(@Headers('authorization') auth?: string) { return this.dashboard.getAccount(this.userId(auth)); }
+  @Get('positions') getPositions(@Headers('authorization') auth?: string) { return this.dashboard.getPositions(this.userId(auth)); }
+  @Get('market-prices') async getMarketPrices(@Headers('authorization') auth: string | undefined, @Query('symbols') symbols?: string) {
+    const requestedSymbols = [...new Set(String(symbols ?? '').split(',').map(symbol => symbol.trim().toUpperCase()).filter(Boolean))];
+    if (!requestedSymbols.length) throw new UnauthorizedException('At least one stock symbol is required');
     const result = await this.ssi.marketPrices(this.userId(auth), 'production', requestedSymbols);
     if (!result.ok) return result;
-    return {
-      ok: true as const,
-      data: result.data.map(quote => ({
-        symbol: quote.symbol.toUpperCase(),
-        price: quote.price,
-        tradingDate: quote.tradingDate,
-      })),
-    };
+    return { ok: true as const, data: result.data.map(quote => ({ symbol: quote.symbol.toUpperCase(), price: quote.price, tradingDate: quote.tradingDate })) };
   }
-  @Get('strategy') getStrategy(@Headers('authorization') auth?: string) {
-    return this.dashboard.getStrategy(this.userId(auth));
-  }
-  @Get('pools') getPools(
-    @Headers('authorization') auth?: string,
-    @Query('status') status?: string
+  @Get('strategy') getStrategy(@Headers('authorization') auth?: string) { return this.dashboard.getStrategy(this.userId(auth)); }
+  @Get('pools') getPools(@Headers('authorization') auth?: string, @Query('status') status?: string) { return this.dashboard.getPoolsForUser(this.userId(auth), status); }
+  @Get('next-positions') getNextPositions(@Headers('authorization') auth?: string) { return this.dashboard.getNextPositionsForUser(this.userId(auth)); }
+  @Get('orders') getOrders(@Headers('authorization') auth?: string) { return this.dashboard.getOrdersForUser(this.userId(auth)); }
+  @Get('sources') getSources(@Headers('authorization') auth?: string) { return this.dashboard.getSources(this.userId(auth)); }
+  @Get('engines') getEngines(@Headers('authorization') auth?: string) { return this.dashboard.getEngines(this.userId(auth)); }
+  @Get('engine-runtime') async getEngineRuntime(@Headers('authorization') auth?: string) { return this.runtime.getRuntime(await this.dashboard.resolveAccountIdForRuntime(this.userId(auth))); }
+  @Get('engine-runtime/start-plan') async getEngineStartPlan(@Headers('authorization') auth?: string) { return this.runtime.getStartPlan(await this.dashboard.resolveAccountIdForRuntime(this.userId(auth))); }
+  @Get('engine-runtime/execution/latest') async getLatestEngineExecution(@Headers('authorization') auth?: string) { return this.runtime.getLatestExecution(await this.dashboard.resolveAccountIdForRuntime(this.userId(auth))); }
+  @Get('engine-runtime/execution/:runId') async getEngineExecution(@Headers('authorization') auth?: string, @Param('runId') runId?: string) { return this.runtime.getExecution(await this.dashboard.resolveAccountIdForRuntime(this.userId(auth)), runId ?? ''); }
+  @Post('engine-runtime/execution') async createEngineExecution(@Headers('authorization') auth?: string, @Body() body?: { workflowId?: string }) { return this.runtime.createExecution(await this.dashboard.resolveAccountIdForRuntime(this.userId(auth)), body?.workflowId ?? 'tce-default'); }
+  @Patch('engine-runtime/execution/:runId/steps/:engineId') async updateEngineExecutionStep(
+    @Headers('authorization') auth: string | undefined,
+    @Param('runId') runId: string,
+    @Param('engineId') engineId: string,
+    @Body() body: { status?: EngineStepStatus; errorMessage?: string | null }
   ) {
-    return this.dashboard.getPoolsForUser(this.userId(auth), status);
+    if (!body?.status) throw new UnauthorizedException('Step status is required');
+    return this.runtime.updateExecutionStep(await this.dashboard.resolveAccountIdForRuntime(this.userId(auth)), runId, engineId, body.status, body.errorMessage);
   }
-  @Get('next-positions') getNextPositions(@Headers('authorization') auth?: string) {
-    return this.dashboard.getNextPositionsForUser(this.userId(auth));
-  }
-  @Get('orders') getOrders(@Headers('authorization') auth?: string) {
-    return this.dashboard.getOrdersForUser(this.userId(auth));
-  }
-  @Get('sources') getSources(@Headers('authorization') auth?: string) {
-    return this.dashboard.getSources(this.userId(auth));
-  }
-  @Get('engines') getEngines(@Headers('authorization') auth?: string) {
-    return this.dashboard.getEngines(this.userId(auth));
-  }
-  @Get('engine-runtime') async getEngineRuntime(@Headers('authorization') auth?: string) {
-    return this.runtime.getRuntime(await this.dashboard.resolveAccountIdForRuntime(this.userId(auth)));
-  }
-  @Get('engine-runtime/start-plan') async getEngineStartPlan(@Headers('authorization') auth?: string) {
-    return this.runtime.getStartPlan(await this.dashboard.resolveAccountIdForRuntime(this.userId(auth)));
-  }
-  @Patch('engines/:engineId/status') setEngineStatus(
-    @Headers('authorization') auth?: string,
-    @Param('engineId') engineId?: string,
-    @Body() body?: { status?: string }
-  ) {
-    return this.dashboard.setEngineStatus(this.userId(auth), engineId ?? '', body?.status ?? '');
-  }
-  @Get('engine-config') getEngineConfig(@Headers('authorization') auth?: string) {
-    return this.dashboard.getEngineConfig(this.userId(auth));
-  }
-  @Patch('engine-config') setEngineConfig(
-    @Headers('authorization') auth?: string,
-    @Body() body?: { config?: Record<string, unknown> }
-  ) {
-    return this.dashboard.setEngineConfig(this.userId(auth), body?.config ?? {});
-  }
+  @Patch('engines/:engineId/status') setEngineStatus(@Headers('authorization') auth?: string, @Param('engineId') engineId?: string, @Body() body?: { status?: string }) { return this.dashboard.setEngineStatus(this.userId(auth), engineId ?? '', body?.status ?? ''); }
+  @Get('engine-config') getEngineConfig(@Headers('authorization') auth?: string) { return this.dashboard.getEngineConfig(this.userId(auth)); }
+  @Patch('engine-config') setEngineConfig(@Headers('authorization') auth?: string, @Body() body?: { config?: Record<string, unknown> }) { return this.dashboard.setEngineConfig(this.userId(auth), body?.config ?? {}); }
 }
