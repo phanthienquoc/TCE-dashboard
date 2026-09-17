@@ -33,6 +33,7 @@ export const dashboardApi = {
   promotePool: (poolEntryId: string, body?: { entry?: number; quantity?: number }) => api.post(`/dashboard/pools/${encodeURIComponent(poolEntryId)}/promote`, body ?? {}),
   returnNextPositionToPool: (candidateId: string) => api.post(`/dashboard/next-positions/${encodeURIComponent(candidateId)}/return-to-pool`),
   strategy: () => api.get('/dashboard/strategy'), sources: () => api.get('/dashboard/sources'), engines: () => api.get('/dashboard/engines'),
+  engineRuntime: () => api.get('/dashboard/engine-runtime'),
   setEngineStatus: (engineId: string, status: 'ACTIVE' | 'INACTIVE') => api.patch(`/dashboard/engines/${engineId}/status`, { status }),
   engineConfig: () => api.get('/dashboard/engine-config'), setEngineConfig: (config: Record<string, unknown>) => api.patch('/dashboard/engine-config', { config }),
 };
