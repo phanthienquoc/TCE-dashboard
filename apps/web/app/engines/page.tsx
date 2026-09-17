@@ -1,5 +1,3 @@
-import { redirect } from 'next/navigation';
+import EnginesPage from '../settings/engines/page';
 
-export default function EnginesPage() {
-  redirect('/settings/engine');
-}
+export default EnginesPage;
