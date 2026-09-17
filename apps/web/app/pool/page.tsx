@@ -1,12 +1,12 @@
 'use client';
 
 import DashboardShell from '../../components/dashboard/DashboardShell';
-import { PoolsView } from '../../components/dashboard/DashboardViews';
+import PoolEngineView from '../../components/dashboard/PoolEngineView';
 
 export default function PoolPage() {
   return (
     <DashboardShell view="pools">
-      {(data, actions) => <PoolsView data={data} actions={actions} />}
+      {(data, actions) => <PoolEngineView data={data} actions={actions} />}
     </DashboardShell>
   );
 }
