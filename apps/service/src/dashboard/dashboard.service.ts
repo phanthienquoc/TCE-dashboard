@@ -1,11 +1,17 @@
-import { Injectable, NotFoundException, ServiceUnavailableException } from '@nestjs/common';
+import { ConflictException, Injectable, NotFoundException, ServiceUnavailableException } from '@nestjs/common';
 import type { DashboardSnapshot, DashboardSourceResult } from '@tce/dashboard-data';
 import { SupabaseClientService } from '../db/supabase.client';
 import { DashboardSourcesService } from './dashboard-sources.service';
 import { DashboardCapitalPoolEngine } from './capital-pool.engine';
 
-const ENGINE_IDS = ['tce-decision', 'ssi-execution', 'binance-market'] as const;
+const ENGINE_IDS = ['tce-decision', 'ssi-execution', 'binance-market', 'binance-xau'] as const;
 type EngineId = (typeof ENGINE_IDS)[number];
+const ENGINE_DEPENDENCIES: Record<string, string[]> = {
+  'tce-decision': [],
+  'ssi-execution': ['tce-decision'],
+  'binance-market': [],
+  'binance-xau': ['binance-market'],
+};
 const DEFAULT_ENGINE_CONFIG = { enabled: false, profitTargetPct: 10, maxTotalAssets: 5, maxAssetAllocationPct: 40, buyQuantityStep: 100, buyFromRemainingBudget: true };
 
 @Injectable()
@@ -63,14 +69,46 @@ export class DashboardService {
     const { data, error } = await this.supabase.db.from('tce_engine_states').select('engine_id,status,updated_at').eq('account_id', account.id);
     if (error) throw this.dbError('getEngines', error);
     const states = new Map((data ?? []).map((row: any) => [row.engine_id, row]));
-    return ENGINE_IDS.map(engineId => { const state = states.get(engineId); return { engineId, status: state?.status ?? 'ACTIVE', updatedAt: state?.updated_at ?? null }; });
+    return ENGINE_IDS.map(engineId => { const state = states.get(engineId); return { engineId, status: state?.status ?? 'INACTIVE', updatedAt: state?.updated_at ?? null }; });
   }
   async setEngineStatus(userId: string, engineId: string, status: string) {
-    const account = await this.resolveAccount(userId); const normalizedId = String(engineId).trim().toLowerCase(); const normalizedStatus = String(status).trim().toUpperCase();
+    const account = await this.resolveAccount(userId);
+    const normalizedId = String(engineId).trim().toLowerCase();
+    const normalizedStatus = String(status).trim().toUpperCase();
     if (!ENGINE_IDS.includes(normalizedId as EngineId)) throw new NotFoundException(`Unknown engine: ${engineId}`);
     if (!['ACTIVE', 'INACTIVE'].includes(normalizedStatus)) throw new Error('Engine status must be ACTIVE or INACTIVE');
-    const { data, error } = await this.supabase.db.from('tce_engine_states').upsert({ account_id: account.id, engine_id: normalizedId, status: normalizedStatus, updated_at: new Date().toISOString() }, { onConflict: 'account_id,engine_id' }).select('engine_id,status,updated_at').single();
-    if (error) throw this.dbError('setEngineStatus', error); return { engineId: data.engine_id, status: data.status, updatedAt: data.updated_at };
+
+    if (normalizedStatus === 'ACTIVE') {
+      const dependencies = ENGINE_DEPENDENCIES[normalizedId] ?? [];
+      if (dependencies.length) {
+        const { data: configs, error: configError } = await this.supabase.db
+          .from('tce_engine_configs')
+          .select('engine_id,enabled')
+          .eq('account_id', account.id)
+          .in('engine_id', dependencies);
+        if (configError) throw this.dbError('setEngineStatus.dependencies.config', configError);
+        const enabledIds = new Set((configs ?? []).filter((row: any) => row.enabled).map((row: any) => String(row.engine_id)));
+        const blockedBy = dependencies.filter(dependency => !enabledIds.has(dependency));
+        if (blockedBy.length) throw new ConflictException(`Engine dependency is disabled: ${blockedBy.join(', ')}`);
+      }
+    }
+
+    const now = new Date().toISOString();
+    const [{ data: config, error: configError }, { data: state, error: stateError }] = await Promise.all([
+      this.supabase.db
+        .from('tce_engine_configs')
+        .upsert({ account_id: account.id, engine_id: normalizedId, enabled: normalizedStatus === 'ACTIVE', updated_at: now }, { onConflict: 'account_id,engine_id' })
+        .select('engine_id,enabled,updated_at')
+        .single(),
+      this.supabase.db
+        .from('tce_engine_states')
+        .upsert({ account_id: account.id, engine_id: normalizedId, status: normalizedStatus, updated_at: now }, { onConflict: 'account_id,engine_id' })
+        .select('engine_id,status,updated_at')
+        .single(),
+    ]);
+    if (configError) throw this.dbError('setEngineStatus.config', configError);
+    if (stateError) throw this.dbError('setEngineStatus.state', stateError);
+    return { engineId: config.engine_id, enabled: Boolean(config.enabled), status: state.status, updatedAt: state.updated_at };
   }
   async getEngineConfig(userId: string) {
     const account = await this.resolveAccount(userId); const { data, error } = await this.supabase.db.from('tce_strategy_config').select('engine_enabled,profit_target_pct,max_positions,max_asset_allocation_pct,buy_quantity_step,buy_from_remaining_budget,updated_at').eq('account_id', account.id).maybeSingle();
