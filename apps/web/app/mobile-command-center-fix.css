@@ -17,46 +17,48 @@
   .tce-engine-meta { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
   .tce-engine-meta span { display: inline-flex; align-items: center; min-height: 24px; padding: 4px 8px; border-radius: 999px; border: 1px solid var(--tce-border); background: rgba(255,255,255,.025); color: var(--tce-muted); font-size: 9px; line-height: 1; }
   .tce-pool-balance-grid { display: grid; grid-template-columns: 1fr; gap: 8px; }
-  .tce-pool-balance { min-width: 0; padding: 13px; border: 1px solid var(--tce-border); border-radius: 14px; background: rgba(11,23,30,.88); }
-  .tce-pool-balance.is-ready { border-color: rgba(49,233,129,.13); }
-  .tce-pool-balance.is-active { border-color: rgba(85,191,255,.16); }
+  .tce-pool-balance { min-width: 0; padding: 12px; border: 1px solid var(--tce-border); border-radius: 13px; background: rgba(11,23,30,.88); }
   .tce-pool-balance-top, .tce-pool-balance-meta { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
   .tce-pool-balance-top strong:first-child { color: var(--tce-text); font-size: 13px; }
   .tce-pool-balance-top span { color: var(--tce-muted); font-size: 9px; white-space: nowrap; }
-  .tce-pool-balance-amount { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin-top: 9px; }
-  .tce-pool-balance > .tce-pool-balance-amount strong { color: var(--tce-text); font-size: 19px; letter-spacing: -.03em; line-height: 1.1; }
-  .tce-pool-balance-state { color: var(--tce-green); font-size: 9px; font-weight: 800; text-transform: uppercase; }
-  .tce-pool-progress { height: 5px; margin-top: 10px; overflow: hidden; border-radius: 999px; background: rgba(255,255,255,.06); }
+  .tce-pool-balance > strong { display: block; margin-top: 8px; color: var(--tce-text); font-size: 19px; letter-spacing: -.03em; line-height: 1.1; }
+  .tce-pool-progress { height: 5px; margin-top: 9px; overflow: hidden; border-radius: 999px; background: rgba(255,255,255,.06); }
   .tce-pool-progress span { display: block; height: 100%; border-radius: inherit; background: var(--tce-green); }
-  .tce-pool-balance-meta { margin-top: 9px; }
+  .tce-pool-balance-meta { margin-top: 8px; }
   .tce-pool-balance-meta span { min-width: 0; color: var(--tce-muted); font-size: 9px; }
   .tce-pool-balance-meta span:last-child { text-align: right; color: var(--tce-green); }
-
-  .tce-rotation-row, .tce-decision-row { width: 100%; min-width: 0; padding: 14px; border: 1px solid var(--tce-border); border-radius: 15px; background: linear-gradient(145deg, rgba(15,32,41,.98), rgba(8,20,27,.98)); color: var(--tce-text); overflow: hidden; }
+  .tce-rotation-row, .tce-decision-row { width: 100%; min-width: 0; padding: 13px; border: 1px solid var(--tce-border); border-radius: 14px; background: rgba(11,23,30,.88); color: var(--tce-text); overflow: hidden; }
   .tce-rotation-top, .tce-decision-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; min-width: 0; }
   .tce-rotation-top > div:first-child, .tce-decision-top > div:first-child { min-width: 0; }
-  .tce-rotation-row strong, .tce-decision-row strong { display: block; color: var(--tce-text); font-size: 17px; line-height: 1.15; letter-spacing: -.025em; }
+  .tce-rotation-row strong, .tce-decision-row strong { display: block; color: var(--tce-text); font-size: 16px; line-height: 1.15; letter-spacing: -.025em; }
   .tce-rotation-row span, .tce-decision-row span { display: block; margin-top: 4px; color: var(--tce-muted); font-size: 9px; line-height: 1.3; }
-  .tce-rotation-kpis { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 7px; margin-top: 12px; }
-  .tce-rotation-kpis > div { min-width: 0; padding: 9px 9px 10px; border: 1px solid rgba(255,255,255,.055); border-radius: 11px; background: rgba(255,255,255,.025); }
-  .tce-rotation-kpis > div:nth-child(2) { background: rgba(85,191,255,.035); border-color: rgba(85,191,255,.08); }
-  .tce-rotation-kpis > div:nth-child(3) { background: rgba(49,233,129,.045); border-color: rgba(49,233,129,.09); }
-  .tce-rotation-kpis span { margin: 0; color: var(--tce-muted); font-size: 8px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; }
-  .tce-rotation-kpis b { display: block; margin-top: 5px; overflow: hidden; color: var(--tce-text); font-size: 13px; line-height: 1.1; text-overflow: ellipsis; white-space: nowrap; }
-  .tce-rotation-kpis > div:nth-child(3) b { color: var(--tce-green); }
-  .tce-rotation-footer { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 11px; padding-top: 10px; border-top: 1px solid rgba(255,255,255,.055); }
-  .tce-rotation-footer span { min-width: 0; margin: 0; font-size: 9px; }
-  .tce-rotation-footer span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .tce-rotation-footer span:last-child { flex: 0 0 auto; padding: 5px 8px; border-radius: 999px; background: rgba(49,233,129,.07); color: var(--tce-green); font-weight: 800; }
-
+  .tce-rotation-row b, .tce-decision-row b { color: var(--tce-text); font-size: 11px; }
   .tce-flow-card { display: flex; flex-direction: column; gap: 7px; padding: 12px; border: 1px solid var(--tce-border); border-radius: 14px; background: rgba(11,23,30,.72); }
 
-  .tce-dividend-filter-bar { display: grid; grid-template-columns: minmax(0,1fr) 1px minmax(0,1fr); align-items: stretch; gap: 0; padding: 10px 12px; border: 1px solid rgba(85,191,255,.12); border-radius: 14px; background: linear-gradient(145deg, rgba(15,32,41,.98), rgba(8,20,27,.98)); }
-  .tce-dividend-filter-field { display: flex; align-items: center; gap: 9px; min-width: 0; padding: 2px 8px; }
+  .tce-dividend-filter-bar {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 1px minmax(0, 1fr);
+    align-items: stretch;
+    gap: 0;
+    padding: 10px 12px;
+    border: 1px solid rgba(85,191,255,.12);
+    border-radius: 14px;
+    background: linear-gradient(145deg, rgba(15,32,41,.98), rgba(8,20,27,.98));
+  }
+  .tce-dividend-filter-field {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    min-width: 0;
+    padding: 2px 8px;
+  }
   .tce-dividend-filter-field svg { flex: 0 0 auto; color: var(--tce-muted); }
   .tce-dividend-filter-field > span { display: flex; flex-direction: column; min-width: 0; }
   .tce-dividend-filter-field small { color: var(--tce-muted); font-size: 8px; font-weight: 650; letter-spacing: .02em; text-transform: uppercase; line-height: 1.2; }
-  .tce-dividend-filter-field select { width: 100%; min-width: 0; margin-top: 3px; border: 0; outline: 0; appearance: auto; background: transparent; color: var(--tce-text); font-size: 14px; font-weight: 700; line-height: 1.2; }
+  .tce-dividend-filter-field select {
+    width: 100%; min-width: 0; margin-top: 3px; border: 0; outline: 0; appearance: auto;
+    background: transparent; color: var(--tce-text); font-size: 14px; font-weight: 700; line-height: 1.2;
+  }
   .tce-dividend-filter-field select option { background: #0b171e; color: var(--tce-text); }
   .tce-dividend-filter-divider { width: 1px; margin: 4px 0; background: var(--tce-border); }
 

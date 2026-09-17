@@ -87,6 +87,7 @@ export class DashboardService {
     const { data, error } = await this.supabase.db.from('tce_engine_configs').upsert({ account_id: account.id, engine_id: engineId, enabled, config: nextConfig, updated_at: new Date().toISOString() }, { onConflict: 'account_id,engine_id' }).select('engine_id,enabled,config,updated_at').single();
     if (error) throw this.dbError('setEngineConfig', error); return { engineId: data.engine_id, enabled: Boolean(data.enabled), config: data.config ?? {}, updatedAt: data.updated_at };
   }
+  async resolveAccountIdForRuntime(userId: string) { const account = await this.resolveAccount(userId); return account.id; }
   async get(userId: string, poolStatus?: string): Promise<DashboardSnapshot> {
     const account = await this.resolveAccount(userId);
     const [positions, pools, nextPositions, orders, sources] = await Promise.all([this.getPositions(userId), this.getPools(account.id, userId, poolStatus), this.getNextPositionsForUser(userId), this.getOrdersForUser(userId), this.getSources(userId)]);

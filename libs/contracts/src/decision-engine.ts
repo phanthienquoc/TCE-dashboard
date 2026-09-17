@@ -1,14 +1,26 @@
-export type DecisionAction = 'BUY' | 'SELL' | 'WAIT' | 'SKIP';
+export type DecisionAction = 'BUY' | 'SELL' | 'HOLD' | 'WAIT' | 'SKIP';
 export type CapitalPoolId = 'A' | 'B' | 'C';
+
+export type DividendEntitlementStatus =
+  | 'UNKNOWN'
+  | 'NOT_ELIGIBLE'
+  | 'AT_RISK'
+  | 'PROTECTED'
+  | 'CONFIRMED';
 
 export type DecisionStockCandidate = {
   symbol: string;
   price: number;
   dividendValue?: number;
+  dividendNet?: number;
   dividendRatio?: string | number;
   gdkhqTimestamp?: string;
+  exRightDate?: string;
+  recordDate?: string;
+  paymentDate?: string;
   exchange?: string;
   realPnl?: number;
+  realPnlNet?: number;
   [key: string]: unknown;
 };
 
@@ -37,6 +49,12 @@ export type DecisionPositionState = {
   entryPrice?: number;
   currentPrice?: number;
   targetPrice?: number;
+  dividendGross?: number;
+  dividendNet?: number;
+  exRightDate?: string;
+  recordDate?: string;
+  paymentDate?: string;
+  entitlementStatus?: DividendEntitlementStatus;
   sellableAt?: string;
   status?: string;
 };
@@ -64,6 +82,9 @@ export type TradeDecision = {
   tpPercent?: number;
   maxHoldDays?: number;
   confidence?: number;
+  profitNet?: number;
+  dividendNet?: number;
+  entitlementStatus?: DividendEntitlementStatus;
   candidateId?: string;
   decisionWindowKey?: string;
   decisionId?: string;
