@@ -18,7 +18,7 @@
     "build:web": "next build apps/web",
     "build:nx:web": "nx build web",
     "build:service": "nx build service",
-    "serve:web": "nx serve web",
+    "serve:web": "next serve web",
     "serve:service": "nx serve service",
     "start:web": "next start apps/web -p 80",
     "analyze:web": "ANALYZE=true next build apps/web"
@@ -35,7 +35,7 @@
     "@ssi.developer/ssi-sdk": "3.2.1",
     "@supabase/supabase-js": "^2.105.0",
     "@types/node": "^24.3.0",
-    "@xyflow/react": "^12.8.2",
+    "@xyflow/react": "^12.11.6",
     "axios": "^1.11.0",
     "binance": "^3.6.1",
     "class-transformer": "^0.5.1",
