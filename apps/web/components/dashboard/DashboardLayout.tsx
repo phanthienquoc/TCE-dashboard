@@ -1,7 +1,7 @@
 'use client';
 
 import type { ReactNode } from 'react';
-import { ArrowLeftRight, Home, Layers3, Settings, UserCircle } from 'lucide-react';
+import { ArrowLeftRight, Home, Layers3, Settings, UserCircle, Cpu } from 'lucide-react';
 import { NavigationDock } from '../navigation/NavigationDock';
 import Breadcrumbs from '../navigation/Breadcrumbs';
 
@@ -20,6 +20,7 @@ export const dashboardNavigation = [
   { id: 'overview' as const, label: 'Home', icon: Home, href: '/overview' },
   { id: 'pools' as const, label: 'Pools', icon: Layers3, href: '/pools' },
   { id: 'positions' as const, label: 'Positions', icon: ArrowLeftRight, href: '/position' },
+  { id: 'engine' as const, label: 'Engines', icon: Cpu, href: '/engines' },
   { id: 'settings' as const, label: 'Settings', icon: Settings, href: '/settings' },
   { id: 'profile' as const, label: 'Profile', icon: UserCircle, href: '/profile' },
 ];
