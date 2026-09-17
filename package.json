@@ -18,7 +18,7 @@
     "build:web": "next build apps/web",
     "build:nx:web": "nx build web",
     "build:service": "nx build service",
-    "serve:web": "next serve web",
+    "serve:web": "nx serve web",
     "serve:service": "nx serve service",
     "start:web": "next start apps/web -p 80",
     "analyze:web": "ANALYZE=true next build apps/web"
@@ -60,7 +60,7 @@
     "@tailwindcss/postcss": "^4.1.0",
     "@types/react": "^19.1.10",
     "@types/react-dom": "^19.1.7",
-    "@types/web-push": "^3.6.4",
+    "@types/web-push": "3.6.4",
     "eslint": "^10.9.1",
     "eslint-config-prettier": "^10.1.8",
     "globals": "^17.11.1",
