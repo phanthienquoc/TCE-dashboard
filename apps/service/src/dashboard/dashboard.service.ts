@@ -4,7 +4,7 @@ import { SupabaseClientService } from '../db/supabase.client';
 import { DashboardSourcesService } from './dashboard-sources.service';
 import { DashboardCapitalPoolEngine } from './capital-pool.engine';
 
-const ENGINE_IDS = ['tce-decision', 'ssi-execution', 'binance-market'] as const;
+const ENGINE_IDS = ['tce-decision', 'ssi-execution', 'binance-market', 'binance-xau'] as const;
 type EngineId = (typeof ENGINE_IDS)[number];
 const DEFAULT_ENGINE_CONFIG = { enabled: false, profitTargetPct: 10, maxTotalAssets: 5, maxAssetAllocationPct: 40, buyQuantityStep: 100, buyFromRemainingBudget: true };
 
@@ -59,7 +59,7 @@ export class DashboardService {
     const { data, error } = await this.supabase.db.from('tce_engine_states').select('engine_id,status,updated_at').eq('account_id', account.id);
     if (error) throw this.dbError('getEngines', error);
     const states = new Map((data ?? []).map((row: any) => [row.engine_id, row]));
-    return ENGINE_IDS.map(engineId => { const state = states.get(engineId); return { engineId, status: state?.status ?? 'ACTIVE', updatedAt: state?.updated_at ?? null }; });
+    return ENGINE_IDS.map(engineId => { const state = states.get(engineId); return { engineId, status: state?.status ?? 'INACTIVE', updatedAt: state?.updated_at ?? null }; });
   }
   async setEngineStatus(userId: string, engineId: string, status: string) {
     const account = await this.resolveAccount(userId); const normalizedId = String(engineId).trim().toLowerCase(); const normalizedStatus = String(status).trim().toUpperCase();
@@ -69,19 +69,25 @@ export class DashboardService {
     if (error) throw this.dbError('setEngineStatus', error); return { engineId: data.engine_id, status: data.status, updatedAt: data.updated_at };
   }
   async getEngineConfig(userId: string) {
-    const account = await this.resolveAccount(userId); const { data, error } = await this.supabase.db.from('tce_strategy_config').select('engine_enabled,profit_target_pct,max_positions,max_asset_allocation_pct,buy_quantity_step,buy_from_remaining_budget,updated_at').eq('account_id', account.id).maybeSingle();
+    const account = await this.resolveAccount(userId);
+    const { data, error } = await this.supabase.db.from('tce_engine_configs').select('engine_id,enabled,config,updated_at').eq('account_id', account.id).order('engine_id');
     if (error) throw this.dbError('getEngineConfig', error);
-    return { ...DEFAULT_ENGINE_CONFIG, ...(data ? { enabled: Boolean(data.engine_enabled), profitTargetPct: Number(data.profit_target_pct ?? DEFAULT_ENGINE_CONFIG.profitTargetPct), maxTotalAssets: Number(data.max_positions ?? DEFAULT_ENGINE_CONFIG.maxTotalAssets), maxAssetAllocationPct: Number(data.max_asset_allocation_pct ?? DEFAULT_ENGINE_CONFIG.maxAssetAllocationPct), buyQuantityStep: Number(data.buy_quantity_step ?? DEFAULT_ENGINE_CONFIG.buyQuantityStep), buyFromRemainingBudget: data.buy_from_remaining_budget !== false, updatedAt: data.updated_at ?? null } : {}) };
+    return (data ?? []).map(row => ({ engineId: row.engine_id, enabled: Boolean(row.enabled), config: row.config ?? {}, updatedAt: row.updated_at ?? null }));
   }
   async setEngineConfig(userId: string, config: Record<string, unknown>) {
-    const account = await this.resolveAccount(userId); const payload = { account_id: account.id, engine_enabled: config.enabled == null ? DEFAULT_ENGINE_CONFIG.enabled : Boolean(config.enabled), profit_target_pct: this.numberOr(config.profitTargetPct, DEFAULT_ENGINE_CONFIG.profitTargetPct), max_positions: Math.max(1, Math.trunc(this.numberOr(config.maxTotalAssets, DEFAULT_ENGINE_CONFIG.maxTotalAssets))), max_asset_allocation_pct: this.numberOr(config.maxAssetAllocationPct, DEFAULT_ENGINE_CONFIG.maxAssetAllocationPct), buy_quantity_step: Math.max(1, Math.trunc(this.numberOr(config.buyQuantityStep, DEFAULT_ENGINE_CONFIG.buyQuantityStep))), buy_from_remaining_budget: config.buyFromRemainingBudget !== false, updated_at: new Date().toISOString() };
-    const { data, error } = await this.supabase.db.from('tce_strategy_config').upsert(payload, { onConflict: 'account_id' }).select('engine_enabled,profit_target_pct,max_positions,max_asset_allocation_pct,buy_quantity_step,buy_from_remaining_budget,updated_at').single();
-    if (error) throw this.dbError('setEngineConfig', error); return { enabled: Boolean(data.engine_enabled), profitTargetPct: Number(data.profit_target_pct), maxTotalAssets: Number(data.max_positions), maxAssetAllocationPct: Number(data.max_asset_allocation_pct), buyQuantityStep: Number(data.buy_quantity_step), buyFromRemainingBudget: data.buy_from_remaining_budget !== false, updatedAt: data.updated_at };
-  }
-  async resolveAccountIdForRuntime(userId: string) {
     const account = await this.resolveAccount(userId);
-    return account.id;
+    const engineId = String(config.engineId ?? 'tce-decision').trim().toLowerCase();
+    if (!ENGINE_IDS.includes(engineId as EngineId)) throw new NotFoundException(`Unknown engine: ${engineId}`);
+    const enabled = config.enabled == null ? false : Boolean(config.enabled);
+    const existing = await this.supabase.db.from('tce_engine_configs').select('config').eq('account_id', account.id).eq('engine_id', engineId).maybeSingle();
+    if (existing.error) throw this.dbError('setEngineConfig.read', existing.error);
+    const nextConfig = { ...(existing.data?.config ?? {}), ...config };
+    delete (nextConfig as Record<string, unknown>).engineId;
+    delete (nextConfig as Record<string, unknown>).enabled;
+    const { data, error } = await this.supabase.db.from('tce_engine_configs').upsert({ account_id: account.id, engine_id: engineId, enabled, config: nextConfig, updated_at: new Date().toISOString() }, { onConflict: 'account_id,engine_id' }).select('engine_id,enabled,config,updated_at').single();
+    if (error) throw this.dbError('setEngineConfig', error); return { engineId: data.engine_id, enabled: Boolean(data.enabled), config: data.config ?? {}, updatedAt: data.updated_at };
   }
+  async resolveAccountIdForRuntime(userId: string) { const account = await this.resolveAccount(userId); return account.id; }
   async get(userId: string, poolStatus?: string): Promise<DashboardSnapshot> {
     const account = await this.resolveAccount(userId);
     const [positions, pools, nextPositions, orders, sources] = await Promise.all([this.getPositions(userId), this.getPools(account.id, userId, poolStatus), this.getNextPositionsForUser(userId), this.getOrdersForUser(userId), this.getSources(userId)]);
@@ -106,5 +112,4 @@ export class DashboardService {
     return rows.map(row => ({ ...row, currentPrice: marketPriceBySymbol.get(String(row.symbol).toUpperCase()) ?? null }));
   }
   private dbError(operation: string, error: any) { console.error(`[TCE_DASHBOARD_DB] ${operation}`, { code: error?.code, message: error?.message, details: error?.details, hint: error?.hint }); return new ServiceUnavailableException(`Dashboard database error (${operation})`); }
-  private numberOr(value: unknown, fallback: number) { const n = Number(value); return Number.isFinite(n) ? n : fallback; }
 }
