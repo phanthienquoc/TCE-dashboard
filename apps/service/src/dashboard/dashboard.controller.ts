@@ -11,13 +11,15 @@ import {
 import { JwtService } from '../auth/jwt.service';
 import { SsiApplicationService } from '../platform/ssi.application.service';
 import { DashboardService } from './dashboard.service';
+import { EngineRuntimeService } from './engine-runtime.service';
 
 @Controller('dashboard')
 export class DashboardController {
   constructor(
     private readonly dashboard: DashboardService,
     private readonly ssi: SsiApplicationService,
-    private readonly jwt: JwtService
+    private readonly jwt: JwtService,
+    private readonly runtime: EngineRuntimeService
   ) {}
   private userId(auth?: string) {
     if (!auth?.startsWith('Bearer ')) throw new UnauthorizedException('Bearer token required');
@@ -78,6 +80,12 @@ export class DashboardController {
   @Get('engines') getEngines(@Headers('authorization') auth?: string) {
     return this.dashboard.getEngines(this.userId(auth));
   }
+  @Get('engine-runtime') getEngineRuntime(@Headers('authorization') auth?: string) {
+    return this.runtime.getRuntime(this.dashboardAccountId(this.userId(auth)));
+  }
+  @Get('engine-runtime/start-plan') getEngineStartPlan(@Headers('authorization') auth?: string) {
+    return this.runtime.getStartPlan(this.dashboardAccountId(this.userId(auth)));
+  }
   @Patch('engines/:engineId/status') setEngineStatus(
     @Headers('authorization') auth?: string,
     @Param('engineId') engineId?: string,
@@ -93,5 +101,9 @@ export class DashboardController {
     @Body() body?: { config?: Record<string, unknown> }
   ) {
     return this.dashboard.setEngineConfig(this.userId(auth), body?.config ?? {});
+  }
+
+  private dashboardAccountId(userId: string) {
+    return this.dashboard.resolveAccountIdForRuntime(userId);
   }
 }
