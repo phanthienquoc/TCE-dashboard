@@ -3,11 +3,11 @@
 import dynamic from 'next/dynamic';
 import { useEffect } from 'react';
 import DashboardLayout from '../../components/dashboard/DashboardLayout';
-import TechLoading from '../../components/navigation/TechLoading';
+import { XauPanelSkeleton, DetailSkeleton } from '../../components/ui/page-skeleton';
 import { useAuthStore } from '../../lib/store';
 
 const BinanceXauTradingPanel = dynamic(() => import('../engines/BinanceXauTradingPanel'), {
-  loading: () => <TechLoading label="Loading XAU execution" />,
+  loading: () => <XauPanelSkeleton />,
 });
 
 export default function XauPage() {
@@ -20,9 +20,10 @@ export default function XauPage() {
     void init();
   }, [init]);
 
-  if (authLoading || !initialized || !user) {
-    return <TechLoading label="Initializing TCE runtime" />;
+  if (authLoading || !initialized) {
+    return <DetailSkeleton />;
   }
+  if (!user) return null;
 
   return (
     <DashboardLayout activeId="engine">
