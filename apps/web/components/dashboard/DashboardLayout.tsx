@@ -1,7 +1,7 @@
 'use client';
 
 import type { ReactNode } from 'react';
-import { ArrowLeftRight, Home, Layers3, Settings, UserCircle, Cpu } from 'lucide-react';
+import { ArrowLeftRight, Cpu, Home, Layers3, Settings, UserCircle } from 'lucide-react';
 import { NavigationDock } from '../navigation/NavigationDock';
 import Breadcrumbs from '../navigation/Breadcrumbs';
 
