@@ -55,6 +55,7 @@ export default function EngineWorkflowScreen() {
           dependencies: row?.dependencies ?? DEPENDENCIES[definition.id] ?? [],
           configSummary: definition.platform,
           href: definition.id === 'binance-xau' ? '/xau' : `/settings/engine/${definition.id}`,
+          onToggle: toggle,
         } satisfies WorkflowEngine;
       });
       setRuntime(mapped);
@@ -62,10 +63,6 @@ export default function EngineWorkflowScreen() {
       setLoading(false);
     }
   }
-
-  useEffect(() => {
-    void load();
-  }, []);
 
   async function toggle(id: string) {
     const current = runtime.find(engine => engine.id === id);
@@ -86,6 +83,10 @@ export default function EngineWorkflowScreen() {
       setUpdating(null);
     }
   }
+
+  useEffect(() => {
+    void load();
+  }, []);
 
   const runningText = useMemo(() => {
     const active = runtime.filter(item => item.status === 'ACTIVE').length;
@@ -109,7 +110,7 @@ export default function EngineWorkflowScreen() {
       {loading && !runtime.length ? (
         <div className="rounded-3xl border border-white/10 bg-white/[0.035] p-6 text-center text-sm text-slate-400">Loading engine runtime…</div>
       ) : (
-        <EngineWorkflow engines={runtime.map(engine => ({ ...engine, onToggle: undefined })) as WorkflowEngine[]} />
+        <EngineWorkflow engines={runtime} />
       )}
 
       {updating ? <p className="px-1 text-xs text-slate-500">Đang cập nhật {getEngine(updating as EngineId)?.name ?? updating}…</p> : null}
