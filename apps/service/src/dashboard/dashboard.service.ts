@@ -16,6 +16,10 @@ export class DashboardService {
     const account = await this.resolveAccount(userId);
     return { userId, accountId: account.id, name: account.name, initial_capital: Number(account.initial_capital ?? 0), capital_deployed: Number(account.capital_deployed ?? 0), capital_available: Number(account.capital_available ?? 0), cashout_target: Number(account.cashout_target ?? 0), cashout_realized: Number(account.cashout_realized ?? 0), recovery_remaining: Number(account.recovery_remaining ?? 0), current_cycle: Number(account.current_cycle ?? 1), status: account.status, max_positions: 0, pool_size: 5 };
   }
+  async resolveAccountIdForRuntime(userId: string) {
+    const account = await this.resolveAccount(userId);
+    return account.id;
+  }
   async getPositions(userId: string) {
     const account = await this.resolveAccount(userId);
     const { data, error } = await this.supabase.db.from('tce_positions').select('id,account_id,symbol,quantity,avg_cost,cost_basis,market_price,market_value,unrealized_pnl,status,cycle_no').eq('account_id', account.id).neq('status', 'CLOSED').order('symbol');
