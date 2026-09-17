@@ -2,7 +2,7 @@
 
 import '@xyflow/react/dist/style.css';
 
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import {
   Background,
   Controls,
@@ -29,11 +29,10 @@ export type WorkflowEngine = {
   dependencies: string[];
   configSummary?: string;
   href?: string;
+  onToggle: (id: string) => void;
 };
 
-type EngineNodeData = WorkflowEngine & { onToggle: (id: string) => void };
-
-type EngineNodeProps = NodeProps<Node<EngineNodeData, 'engine'>>;
+type EngineNodeProps = NodeProps<Node<WorkflowEngine, 'engine'>>;
 
 function EngineNode({ data }: EngineNodeProps) {
   const statusClass =
@@ -62,7 +61,12 @@ function EngineNode({ data }: EngineNodeProps) {
         >
           <Power className="size-4" />
         </button>
-        <div className="min-w-0 flex-1">
+        <Link
+          href={data.href ?? '#'}
+          onClick={event => event.stopPropagation()}
+          className="min-w-0 flex-1"
+          aria-label={`Open ${data.name}`}
+        >
           <div className="flex items-center gap-2">
             <span
               className={`size-2 rounded-full ${
@@ -76,24 +80,24 @@ function EngineNode({ data }: EngineNodeProps) {
             <p className="truncate text-[13px] font-semibold text-white">{data.shortName}</p>
           </div>
           <p className="mt-1 text-[11px] text-slate-400">{data.category}</p>
-        </div>
-        {data.href ? (
-          <Link
-            href={data.href}
-            onClick={event => event.stopPropagation()}
-            className="text-slate-400 hover:text-white"
-            aria-label={`Open ${data.name}`}
-          >
-            <Settings2 className="size-4" />
-          </Link>
-        ) : null}
+        </Link>
+        <Link
+          href={data.href ?? '#'}
+          onClick={event => event.stopPropagation()}
+          className="text-slate-400 hover:text-white"
+          aria-label={`Configure ${data.name}`}
+        >
+          <Settings2 className="size-4" />
+        </Link>
       </div>
       <p className="mt-2 line-clamp-2 text-[11px] leading-4 text-slate-400">{data.description}</p>
       <div className="mt-3 flex items-center justify-between border-t border-white/10 pt-2 text-[10px]">
         <span className={data.status === 'ACTIVE' ? 'text-emerald-300' : data.status === 'ERROR' ? 'text-rose-300' : 'text-slate-400'}>
           {data.status}
         </span>
-        <span className="text-slate-500">{data.dependencies.length ? `→ ${data.dependencies.join(', ')}` : 'No dependency'}</span>
+        <span className="text-slate-500">
+          {data.dependencies.length ? `Depends on ${data.dependencies.join(', ')}` : 'No dependency'}
+        </span>
       </div>
       <Handle type="source" position={Position.Bottom} className="!size-2 !border-0 !bg-slate-500" />
     </div>
@@ -103,57 +107,44 @@ function EngineNode({ data }: EngineNodeProps) {
 const nodeTypes = { engine: EngineNode };
 
 export function EngineWorkflow({ engines }: { engines: WorkflowEngine[] }) {
-  const [localEngines, setLocalEngines] = useState(engines);
-
-  const toggle = (id: string) => {
-    setLocalEngines(current =>
-      current.map(engine =>
-        engine.id === id
-          ? {
-              ...engine,
-              enabled: !engine.enabled,
-              status: !engine.enabled ? 'ACTIVE' : 'PAUSED',
-            }
-          : engine,
-      ),
-    );
-  };
-
-  const nodes = useMemo<Node<EngineNodeData, 'engine'>[]>(() => {
+  const nodes = useMemo<Node<WorkflowEngine, 'engine'>[]>(() => {
     const layout: Record<string, { x: number; y: number }> = {
-      'tce-decision': { x: 20, y: 220 },
-      'ssi-execution': { x: 20, y: 500 },
-      'binance-market': { x: 290, y: 500 },
-      'binance-xau': { x: 290, y: 780 },
+      'tce-decision': { x: 70, y: 120 },
+      'ssi-execution': { x: 70, y: 430 },
+      'binance-market': { x: 350, y: 430 },
+      'binance-xau': { x: 350, y: 740 },
     };
 
-    return localEngines.map(engine => ({
+    return engines.map(engine => ({
       id: engine.id,
       type: 'engine',
-      position: layout[engine.id] ?? { x: 20, y: 80 + localEngines.indexOf(engine) * 280 },
-      data: { ...engine, onToggle: toggle },
+      position: layout[engine.id] ?? { x: 70, y: 120 + engines.indexOf(engine) * 310 },
+      data: engine,
       draggable: false,
     }));
-  }, [localEngines]);
+  }, [engines]);
 
   const edges = useMemo<Edge[]>(() => {
-    return localEngines.flatMap(engine =>
+    return engines.flatMap(engine =>
       engine.dependencies.map(dependency => {
-        const dependencyEngine = localEngines.find(item => item.id === dependency);
+        const dependencyEngine = engines.find(item => item.id === dependency);
         const active = dependencyEngine?.status === 'ACTIVE' && engine.status === 'ACTIVE';
         return {
           id: `${dependency}-${engine.id}`,
           source: dependency,
           target: engine.id,
           animated: active,
-          style: { stroke: active ? 'rgb(52 211 153 / 0.8)' : 'rgb(100 116 139 / 0.45)', strokeWidth: active ? 2 : 1 },
+          style: {
+            stroke: active ? 'rgb(52 211 153 / 0.9)' : 'rgb(100 116 139 / 0.45)',
+            strokeWidth: active ? 2.4 : 1,
+          },
         };
       }),
     );
-  }, [localEngines]);
+  }, [engines]);
 
-  const activeCount = localEngines.filter(engine => engine.status === 'ACTIVE').length;
-  const errorCount = localEngines.filter(engine => engine.status === 'ERROR').length;
+  const activeCount = engines.filter(engine => engine.status === 'ACTIVE').length;
+  const errorCount = engines.filter(engine => engine.status === 'ERROR').length;
 
   return (
     <section className="space-y-3">
@@ -163,7 +154,7 @@ export function EngineWorkflow({ engines }: { engines: WorkflowEngine[] }) {
           <p className="text-[11px] text-slate-400">Active</p>
         </div>
         <div className="rounded-2xl border border-white/10 bg-white/[0.035] p-3">
-          <p className="text-xl font-semibold text-white">{localEngines.length - activeCount - errorCount}</p>
+          <p className="text-xl font-semibold text-white">{engines.length - activeCount - errorCount}</p>
           <p className="text-[11px] text-slate-400">Paused</p>
         </div>
         <div className="rounded-2xl border border-rose-400/20 bg-rose-400/[0.06] p-3">
@@ -185,7 +176,7 @@ export function EngineWorkflow({ engines }: { engines: WorkflowEngine[] }) {
           maxZoom={1.4}
           nodesConnectable={false}
           nodesDraggable={false}
-          elementsSelectable
+          elementsSelectable={false}
           proOptions={{ hideAttribution: true }}
         >
           <Background gap={20} size={1} color="rgba(148,163,184,0.10)" />
