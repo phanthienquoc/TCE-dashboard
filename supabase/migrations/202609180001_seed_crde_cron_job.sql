@@ -27,3 +27,7 @@ where not exists (
 
 comment on table public.tce_cron_jobs is
   'Runtime scheduler configuration. CRDE job is seeded disabled until demo readiness gate is passed.';
+
+
+create index if not exists idx_tce_cron_jobs_account_job on public.tce_cron_jobs(account_id, job_key);
+create index if not exists idx_tce_cron_runs_job_started on public.tce_cron_runs(job_id, started_at desc);
