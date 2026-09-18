@@ -69,7 +69,7 @@ const BUILD_STEPS: BuildStep[] = [
     description: 'Reconcile filled positions through ex-date, T+2, dividend confirmation and capital release.',
     status: 'done',
     deliverables: ['Position lifecycle', 'Entitlement confirmation', 'Cashflow evidence', 'Exit readiness'],
-    verification: 'PR #752 squash-merged; lifecycle replay + T+2/dividend evidence tests verified',
+    verification: 'Rebuilt baseline and lifecycle evidence verified in unified CRDE branch',
   },
   {
     id: 'cron',
