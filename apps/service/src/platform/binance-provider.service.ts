@@ -1,6 +1,6 @@
 import { Inject, Injectable, ServiceUnavailableException, UnauthorizedException } from '@nestjs/common';
 import { CONTRACT_TOKENS, PlatformCredentialPort } from '@tce/contracts';
-import { BinanceFuturesExecutionAdapter, BinanceFuturesStateAdapter, BinanceFuturesUserDataStream } from '@tce/binance';
+import { BinanceFuturesExecutionAdapter, BinanceFuturesStateAdapter, BinanceFuturesUserDataStream, BinanceMarketAdapter } from '@tce/binance';
 type BinanceEnvironment = 'production' | 'testnet';
 type Credentials = { apiKey: string; apiSecret: string };
 
@@ -25,6 +25,10 @@ export class BinanceProviderService {
         message: `Binance ${selected} credentials are missing.`,
       });
     return { environment: selected, credentials: { apiKey, apiSecret } };
+  }
+
+  async market() {
+    return new BinanceMarketAdapter();
   }
 
   async execution(userId: string, environment = 'production') {
