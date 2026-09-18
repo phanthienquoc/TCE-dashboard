@@ -12,6 +12,7 @@ export type CapitalRotationDecisionOptions = {
   takeProfitPercent?: number;
   maxHoldDays?: number;
   minConfidence?: number;
+  invalidationPercent?: number;
   slotsPerPool?: number;
   strategyVersion?: string;
 };
@@ -19,6 +20,7 @@ export type CapitalRotationDecisionOptions = {
 const DEFAULTS = {
   lookbackDays: 30,
   takeProfitPercent: 5,
+  invalidationPercent: 5,
   maxHoldDays: 30,
   minConfidence: 0.5,
   slotsPerPool: 1,
@@ -128,6 +130,7 @@ function resolveConfig(
   return {
     lookbackDays: positive(source.lookbackDays, DEFAULTS.lookbackDays),
     takeProfitPercent: positive(source.takeProfitPercent ?? source.tpPercent, DEFAULTS.takeProfitPercent),
+    invalidationPercent: positive(source.invalidationPercent, DEFAULTS.invalidationPercent),
     maxHoldDays: positive(source.maxHoldDays, DEFAULTS.maxHoldDays),
     minConfidence: bounded(source.minConfidence, 0, 1, DEFAULTS.minConfidence),
     slotsPerPool: Math.max(1, Math.floor(positive(source.slotsPerPool, DEFAULTS.slotsPerPool))),
@@ -150,6 +153,7 @@ function decideExistingPositions(
         : undefined;
 
     const decisionId = `${cfg.strategyVersion}:${symbol}:POSITION:${position.slot}:${position.exRightDate ?? position.recordDate ?? 'NO_EVENT_DATE'}`;
+    const entitlement = resolveEntitlement(position, context.timestamp);
     const common = {
       engine: 'capital_rotation_decision',
       symbol,
@@ -165,25 +169,19 @@ function decideExistingPositions(
       timestamp: context.timestamp,
     };
 
-    if (target !== undefined && current !== undefined && current >= target) {
-      return {
-        ...common,
-        decision: 'SELL',
-        reasons: ['target_reached', 'capital_recycling_ready'],
-      };
+    if (entitlement === 'UNKNOWN') {
+      return { ...common, decision: 'WAIT', reasons: ['dividend_entitlement_unknown'] };
+    }
+    if (entitlement === 'AT_RISK') {
+      return { ...common, decision: 'HOLD', reasons: ['protect_dividend_entitlement'] };
     }
 
-    if (
-      entry !== undefined &&
-      current !== undefined &&
-      entry > 0 &&
-      current <= entry * 0.95
-    ) {
-      return {
-        ...common,
-        decision: 'SELL',
-        reasons: ['price_invalidation', 'capital_recycling_guard'],
-      };
+    if (target !== undefined && current !== undefined && current >= target) {
+      return { ...common, decision: 'SELL', reasons: ['target_reached', 'capital_recycling_ready'] };
+    }
+
+    if (entry !== undefined && current !== undefined && entry > 0 && current <= entry * (1 - cfg.invalidationPercent / 100)) {
+      return { ...common, decision: 'SELL', reasons: ['price_invalidation', 'capital_recycling_guard'] };
     }
 
     if (optionalNumber(position.dividendNet) !== undefined && Number.isFinite(profitNet)) {
@@ -199,8 +197,8 @@ function decideExistingPositions(
 
     return {
       ...common,
-      decision: 'HOLD',
-      reasons: ['position_within_rotation_window'],
+      decision: entitlement === 'PROTECTED' || entitlement === 'CONFIRMED' ? 'HOLD' : 'WAIT',
+      reasons: entitlement === 'PROTECTED' || entitlement === 'CONFIRMED' ? ['position_within_rotation_window'] : ['await_dividend_entitlement'],
     };
   });
 }
@@ -279,3 +277,15 @@ function deduplicate(decisions: TradeDecision[]): TradeDecision[] {
 }
 
 const DAY_MS = 86_400_000;
+
+
+function resolveEntitlement(position: DecisionEngineContext['positions'][number], timestamp: string): 'UNKNOWN' | 'AT_RISK' | 'PROTECTED' | 'CONFIRMED' {
+  if (position.entitlementStatus === 'CONFIRMED' || position.entitlementStatus === 'PROTECTED') return position.entitlementStatus;
+  if (position.entitlementStatus === 'AT_RISK') return 'AT_RISK';
+  const raw = position.exRightDate ?? position.recordDate;
+  if (!raw) return 'UNKNOWN';
+  const exDate = Date.parse(raw);
+  const now = Date.parse(timestamp);
+  if (!Number.isFinite(exDate) || !Number.isFinite(now)) return 'UNKNOWN';
+  return now < exDate ? 'AT_RISK' : 'PROTECTED';
+}
