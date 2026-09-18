@@ -1,20 +1,23 @@
 import type {
+  TceDecision,
   TceExecutionCommand,
   TceExecutionIntent,
   TceExecutionMode,
   TceRiskGateConfig,
   TceRiskGateContext,
   TceRiskGateRequest,
-  TceDecision,
   TradeDecision,
 } from '@tce/contracts';
-import { approveExecutionIntent, type TceApprovedExecutionIntent } from '../risk/guarded-execution';
 import { createExecutionIntent } from '../order/order-planner';
+import {
+  approveExecutionIntent,
+  type TceApprovedExecutionIntent,
+} from '../risk/guarded-execution';
 
 export type CapitalRotationExecutionRequest = Readonly<{
   decision: TradeDecision;
+  decisionForExecution: TceDecision;
   orderPlanId: string;
-  quantity: number;
   mode: TceExecutionMode;
   accountId: string;
   environment: string;
@@ -25,61 +28,91 @@ export type CapitalRotationExecutionRequest = Readonly<{
 }>;
 
 export type CapitalRotationExecutionPreparation =
-  | Readonly<{ ok: true; intent: TceExecutionIntent; approved: TceApprovedExecutionIntent; command: TceExecutionCommand }>
+  | Readonly<{
+      ok: true;
+      intent: TceExecutionIntent;
+      approved: TceApprovedExecutionIntent;
+      command: TceExecutionCommand;
+    }>
   | Readonly<{ ok: false; code: string; message: string }>;
 
 export function prepareCapitalRotationExecution(
   request: CapitalRotationExecutionRequest,
 ): CapitalRotationExecutionPreparation {
   if (request.decision.decision !== 'BUY' && request.decision.decision !== 'SELL') {
-    return { ok: false, code: 'DECISION_NOT_EXECUTABLE', message: 'Only BUY and SELL CRDE decisions can reach execution preparation' };
-  }
-  if (!request.decision.decisionId || !request.decision.symbol || !request.orderPlanId.trim()) {
-    return { ok: false, code: 'INVALID_EXECUTION_IDENTITY', message: 'Decision id, symbol and orderPlanId are required' };
-  }
-
-  const side = request.decision.decision;
-  const plan = {
-    id: request.orderPlanId,
-    decisionId: request.decision.decisionId,
-    symbol: request.decision.symbol,
-    side,
-    quantity: Number(request.decision.quantity ?? 0),
-    entryPrice: Number(request.decision.entry ?? 0),
-    targetPrice: Number(request.decision.target ?? 0) || undefined,
-    invalidationPrice: Number(request.decision.invalidation ?? 0) || undefined,
-    notional: Number(request.decision.notional ?? 0),
-    pool: request.decision.pool!,
-    slotId: request.decision.slot!,
-    createdAt: request.decision.timestamp,
-  };
-
-  if (
-    !Number.isInteger(plan.quantity) ||
-    plan.quantity <= 0 ||
-    !Number.isFinite(plan.entryPrice) ||
-    plan.entryPrice <= 0
-  ) {
     return {
       ok: false,
-      code: 'INVALID_ORDER_PLAN',
-      message: 'CRDE execution preparation requires a positive integer quantity and price',
+      code: 'DECISION_NOT_EXECUTABLE',
+      message: 'Only BUY and SELL CRDE decisions can reach execution preparation',
     };
   }
 
-  const intentResult = createExecutionIntent(plan, request.mode, request.decision.decisionId);
+  const decision = request.decisionForExecution;
+  if (
+    !decision.id.trim() ||
+    !decision.symbol.trim() ||
+    !request.orderPlanId.trim()
+  ) {
+    return {
+      ok: false,
+      code: 'INVALID_EXECUTION_IDENTITY',
+      message: 'Decision id, symbol and orderPlanId are required',
+    };
+  }
+  if (decision.action !== request.decision.decision) {
+    return {
+      ok: false,
+      code: 'DECISION_MISMATCH',
+      message: 'CRDE decision does not match execution decision',
+    };
+  }
+  if (!Number.isInteger(decision.confidence) && !Number.isFinite(decision.confidence)) {
+    return {
+      ok: false,
+      code: 'INVALID_CONFIDENCE',
+      message: 'Decision confidence must be finite',
+    };
+  }
+
+  const orderPlan = {
+    id: request.orderPlanId,
+    decisionId: decision.id,
+    symbol: decision.symbol,
+    side: decision.action,
+    quantity: 0,
+    entryPrice: decision.entry,
+    targetPrice: decision.target > 0 ? decision.target : undefined,
+    invalidationPrice: decision.invalidation,
+    notional: 0,
+    pool: decision.pool,
+    slotId: decision.slotId,
+    createdAt: decision.decidedAt,
+  };
+
+  if (!Number.isFinite(orderPlan.entryPrice) || orderPlan.entryPrice <= 0) {
+    return {
+      ok: false,
+      code: 'INVALID_ORDER_PLAN',
+      message: 'Decision entry must be positive',
+    };
+  }
+
+  const intentResult = createExecutionIntent(
+    orderPlan,
+    request.mode,
+    decision.id,
+  );
   if (!intentResult.ok) return intentResult;
 
-  const now = request.riskContext.now;
   const intent: TceExecutionIntent = {
     ...intentResult.intent,
     correlationId: request.decision.decisionId,
-    createdAt: now,
+    createdAt: request.riskContext.now,
   };
 
   const riskRequest: TceRiskGateRequest = {
     intent,
-    pool: request.decision.pool!,
+    pool: decision.pool,
     riskAmount: request.riskAmount,
     context: request.riskContext,
   };
@@ -87,7 +120,6 @@ export function prepareCapitalRotationExecution(
   const approval = approveExecutionIntent(riskRequest, request.riskConfig);
   if (!approval.ok) return approval;
 
-  const approvedAt = approval.approved.approvedAt;
   return {
     ok: true,
     intent,
@@ -99,7 +131,7 @@ export function prepareCapitalRotationExecution(
       mode: request.mode,
       authorization: {
         approvalId: approval.approved.approvalId,
-        approvedAt,
+        approvedAt: approval.approved.approvedAt,
         correlationId: intent.correlationId,
         idempotencyKey: intent.idempotencyKey,
       },
