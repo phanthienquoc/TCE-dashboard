@@ -37,7 +37,7 @@ export class CapitalRotationDecisionEngine implements DecisionEngine {
     const occupiedSymbols = new Set(context.positions.map(position => normalize(position.symbol)));
     const occupiedSlots = new Set(context.positions.map(position => position.slot));
 
-    const decisions = this.decideExistingPositions(context, cfg, nowMs);
+    const decisions = this.decideExistingPositions(context, cfg);
     const candidates = context.candidates
       .map((candidate, index) => ({ candidate, index, score: candidateScore(candidate) }))
       .filter(item => item.score !== null)
@@ -137,8 +137,7 @@ function resolveConfig(
 
 function decideExistingPositions(
   context: DecisionEngineContext,
-  cfg: ReturnType<typeof resolveConfig>,
-  nowMs: number
+  cfg: ReturnType<typeof resolveConfig>
 ): TradeDecision[] {
   return context.positions.map(position => {
     const symbol = normalize(position.symbol);
