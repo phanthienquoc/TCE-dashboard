@@ -19,8 +19,6 @@ import { GeminiSignalParserService } from './gemini-signal-parser.service';
     TceSignalService,
     BinanceExecutionEngine,
     BinanceDerivativesEngine,
-    BinanceExecutionEngine,
-    BinanceDerivativesEngine,
     BinanceEngineService,
     BinancePositionWatcherService,
     GeminiSignalParserService,
