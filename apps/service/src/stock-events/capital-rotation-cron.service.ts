@@ -98,18 +98,6 @@ export class CapitalRotationCronService implements OnModuleInit, OnModuleDestroy
 
     const schedule = String(job.schedule || '*/15 * * * *');
     const timezone = String(job.timezone || 'Asia/Ho_Chi_Minh');
-    CronJob.from({
-      cronTime: schedule,
-      timeZone: timezone,
-      onTick: () => {
-        void this.execute(job, false).catch(error => {
-          this.logger.error(
-            'CRDE cron failed: ' + (error instanceof Error ? error.stack : String(error))
-          );
-        });
-      },
-      start: true,
-    });
     const cron = CronJob.from({
       cronTime: schedule,
       timeZone: timezone,
