@@ -5,6 +5,9 @@ import { SsiApplicationService } from './ssi.application.service';
 import { SsiAssetSyncService } from './ssi-asset-sync.service';
 import { SsiMarketPriceService } from './ssi-market-price.service';
 import { BinanceFuturesService } from './binance-futures.service';
+import { BinanceProviderService } from './binance-provider.service';
+import { BinanceExecutionEngine } from './binance-execution.engine';
+import { BinanceDerivativesEngine } from './binance-derivatives.engine';
 import { GeminiConnectionService } from './gemini-connection.service';
 import { PlatformCredentialsController } from './platform-credentials.controller';
 import { TceSsiTradingAuthorizationAdapter } from './tce-ssi-trading-authorization.adapter';
@@ -42,6 +45,9 @@ import { SupabaseClientService } from '../db/supabase.client';
     SsiAssetSyncService,
     SsiMarketPriceService,
     BinanceFuturesService,
+    BinanceProviderService,
+    BinanceExecutionEngine,
+    BinanceDerivativesEngine,
     GeminiConnectionService,
   ],
   exports: [
@@ -54,6 +60,9 @@ import { SupabaseClientService } from '../db/supabase.client';
     SsiAssetSyncService,
     SsiMarketPriceService,
     BinanceFuturesService,
+    BinanceProviderService,
+    BinanceExecutionEngine,
+    BinanceDerivativesEngine,
     GeminiConnectionService,
   ],
 })
