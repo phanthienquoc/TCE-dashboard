@@ -12,6 +12,7 @@ import { StockEventsSyncService } from './stock-events/stock-events-sync.service
 import { VietstockEventsCrawler } from './stock-events/vietstock-events.crawler';
 import { DividendOhlcvService } from './stock-events/dividend-ohlcv.service';
 import { DividendOhlcvCronService } from './stock-events/dividend-ohlcv-cron.service';
+import { CapitalRotationCronService } from './stock-events/capital-rotation-cron.service';
 import { TelegramBotModule } from './telegram/telegram-bot.module';
 
 @Module({
@@ -28,11 +29,12 @@ import { TelegramBotModule } from './telegram/telegram-bot.module';
   controllers: [StockEventsCronController],
   providers: [
     StockEventsCronService,
+    CapitalRotationCronService,
     StockEventsSyncService,
     VietstockEventsCrawler,
     DividendOhlcvService,
     DividendOhlcvCronService,
   ],
-  exports: [StockEventsCronService, DividendOhlcvService],
+  exports: [StockEventsCronService, CapitalRotationCronService, DividendOhlcvService],
 })
 export class ScheduledTasksModule {}
