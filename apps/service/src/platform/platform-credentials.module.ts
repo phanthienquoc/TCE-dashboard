@@ -6,6 +6,7 @@ import { SsiAssetSyncService } from './ssi-asset-sync.service';
 import { SsiMarketPriceService } from './ssi-market-price.service';
 import { BinanceFuturesService } from './binance-futures.service';
 import { BinanceProviderService } from './binance-provider.service';
+import { BinanceMarketEngine } from './binance-market.engine';
 import { BinanceExecutionEngine } from './binance-execution.engine';
 import { BinanceDerivativesEngine } from './binance-derivatives.engine';
 import { GeminiConnectionService } from './gemini-connection.service';
@@ -46,6 +47,7 @@ import { SupabaseClientService } from '../db/supabase.client';
     SsiMarketPriceService,
     BinanceFuturesService,
     BinanceProviderService,
+    BinanceMarketEngine,
     BinanceExecutionEngine,
     BinanceDerivativesEngine,
     GeminiConnectionService,
@@ -61,6 +63,7 @@ import { SupabaseClientService } from '../db/supabase.client';
     SsiMarketPriceService,
     BinanceFuturesService,
     BinanceProviderService,
+    BinanceMarketEngine,
     BinanceExecutionEngine,
     BinanceDerivativesEngine,
     GeminiConnectionService,
