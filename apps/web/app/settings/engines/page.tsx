@@ -1,10 +1,13 @@
 'use client';
 
+import { useEffect } from 'react';
+
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { ChevronDown, ChevronRight, Cpu } from 'lucide-react';
 import DashboardShell from '../../../components/dashboard/DashboardShell';
 import { ENGINE_REGISTRY } from '../../engines/engine-registry';
+import { useEngineRuntimeStore } from '../../../lib/engine-runtime-store';
 import { dashboardApi } from '../../../lib/api';
 
 const LAYERS = [
@@ -69,7 +72,7 @@ export default function SettingsEnginesPage() {
             </p>
             <h1 className="mt-1 text-2xl font-semibold text-white">Engines</h1>
             <p className="mt-1 text-sm text-slate-400">
-              Engine được nhóm theo từng tầng thực thi
+              Engine được nhóm tự động theo layer từ Runtime DB
             </p>
           </header>
 
