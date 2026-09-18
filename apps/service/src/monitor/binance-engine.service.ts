@@ -1,5 +1,7 @@
 import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import { BinanceFuturesService } from '../platform/binance-futures.service';
+import { BinanceExecutionEngine } from '../platform/binance-execution.engine';
+import { BinanceDerivativesEngine } from '../platform/binance-derivatives.engine';
 import { SupabaseClientService } from '../db/supabase.client';
 
 const ACTIVE_STATUSES = ['QUEUED', 'ACCEPTED'] as const;
@@ -53,7 +55,8 @@ export class BinanceDerivativesEngine implements OnModuleInit, OnModuleDestroy {
 
   constructor(
     private readonly supabase: SupabaseClientService,
-    private readonly binance: BinanceFuturesService
+    private readonly binance: BinanceDerivativesEngine,
+    private readonly execution: BinanceExecutionEngine
   ) {}
 
   onModuleInit() {
@@ -270,7 +273,7 @@ export class BinanceDerivativesEngine implements OnModuleInit, OnModuleDestroy {
     }
     if (openOrders.some(order => !PROTECTION_TYPES.has(order.type)))
       return this.fail(signal.id, `${symbol} already has an active Binance order.`);
-    const result = await this.binance.entry(
+    const result = await this.execution.entry(
       signal.user_id,
       {
         symbol,
@@ -328,7 +331,7 @@ export class BinanceDerivativesEngine implements OnModuleInit, OnModuleDestroy {
         this.samePrice(order.stopPrice, targetSl)
     );
     if (!hasSl) {
-      const result = await this.binance.stopLoss(
+      const result = await this.execution.stopLoss(
         signal.user_id,
         {
           symbol: signal.symbol,
@@ -344,7 +347,7 @@ export class BinanceDerivativesEngine implements OnModuleInit, OnModuleDestroy {
       if (!result.ok) return this.fail(signal.id, `Unable to create SL: ${result.error.message}`);
     }
     if (!hasTp) {
-      const result = await this.binance.takeProfit(
+      const result = await this.execution.takeProfit(
         signal.user_id,
         {
           symbol: signal.symbol,
