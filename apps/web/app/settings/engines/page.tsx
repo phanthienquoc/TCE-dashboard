@@ -1,9 +1,11 @@
 'use client';
 
 import Link from 'next/link';
+import { useEffect, useState } from 'react';
 import { ChevronDown, ChevronRight, Cpu } from 'lucide-react';
 import DashboardShell from '../../../components/dashboard/DashboardShell';
 import { ENGINE_REGISTRY } from '../../engines/engine-registry';
+import { dashboardApi } from '../../../lib/api';
 
 const LAYERS = [
   {
@@ -49,6 +51,14 @@ const LAYERS = [
 ] as const;
 
 export default function SettingsEnginesPage() {
+  const [visibleIds, setVisibleIds] = useState<string[] | null>(null);
+
+  useEffect(() => {
+    void dashboardApi.engineRuntime().then(({ data }) => {
+      setVisibleIds(((data as { engines?: Array<{ engineId: string }> })?.engines ?? []).map(row => row.engineId));
+    }).catch(() => setVisibleIds([]));
+  }, []);
+
   return (
     <DashboardShell view="settings">
       {() => (
@@ -65,9 +75,9 @@ export default function SettingsEnginesPage() {
 
           <div className="space-y-3">
             {LAYERS.map((layer, index) => {
-              const engines = layer.engineIds
-                .map(id => ENGINE_REGISTRY.find(engine => engine.id === id))
-                .filter((engine): engine is (typeof ENGINE_REGISTRY)[number] => Boolean(engine));
+              const engines = ENGINE_REGISTRY.filter(
+                engine => engine.layer === layer.id && visibleIds !== null && visibleIds.includes(engine.id)
+              );
 
               return (
                 <section
