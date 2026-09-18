@@ -101,8 +101,9 @@ test('CRDE never opens a second position for an occupied symbol or slot', () => 
   );
 
   assert.equal(decisions.length, 1);
-  assert.equal(decisions[0]?.decision, 'HOLD');
+  assert.equal(decisions[0]?.decision, 'WAIT');
   assert.equal(decisions[0]?.symbol, 'DPM');
+  assert.deepEqual(decisions[0]?.reasons, ['dividend_entitlement_unknown']);
   assert.equal(decisions.some(decision => decision.decision === 'BUY'), false);
 });
 
