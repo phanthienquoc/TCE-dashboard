@@ -22,7 +22,7 @@ const BUILD_STEPS: BuildStep[] = [
     phase: '01',
     title: 'Engine contract & registry',
     description: 'Register CRDE as a first-class Decision layer engine and define provider-neutral inputs/outputs.',
-    status: 'done',
+    status: 'in-progress',
     deliverables: ['CRDE engine ID', 'Decision contract', 'Runtime registry metadata'],
     verification: 'Phase foundation fixes merged in #747; runtime/registry wiring verified'
   },
@@ -31,7 +31,7 @@ const BUILD_STEPS: BuildStep[] = [
     phase: '02',
     title: 'Market → Pool 20',
     description: 'Build the candidate pipeline around verified dividend events, liquidity, recovery potential and turnover.',
-    status: 'done',
+    status: 'in-progress',
     deliverables: ['Pool 20 scoring', 'Deduplication', 'Freshness gates', 'Capital-turnover score'],
     verification: 'PR #741 merged squash; deterministic Pool 20 scorer + gates verified'
   },
@@ -40,7 +40,7 @@ const BUILD_STEPS: BuildStep[] = [
     phase: '03',
     title: 'Capital Rotation Decision',
     description: 'Decide BUY / HOLD / SELL / ROTATE / WAIT / SKIP using expected net return per capital-day.',
-    status: 'done',
+    status: 'in-progress',
     deliverables: ['CRDE core', 'Entry gates', 'Exit gates', 'Rotation rules'],
     verification: 'PR #743 merged squash; entitlement/TP/invalidation gates verified'
   },
@@ -49,7 +49,7 @@ const BUILD_STEPS: BuildStep[] = [
     phase: '04',
     title: 'Capital & slot lifecycle',
     description: 'Connect CRDE decisions to A/B/C capital pools, slot reservation and recycling without over-allocation.',
-    status: 'done',
+    status: 'in-progress',
     deliverables: ['Allocator integration', 'Slot reservation', 'Recycle on close', 'Idempotency'],
     verification: 'PR #745 + #747 merged; realized-P&L recycling regression covered'
   },
@@ -58,7 +58,7 @@ const BUILD_STEPS: BuildStep[] = [
     phase: '05',
     title: 'SSI execution bridge',
     description: 'Turn approved decisions into guarded SSI order intents using the existing SDK adapter.',
-    status: 'done',
+    status: 'in-progress',
     deliverables: ['Order planner', 'Risk gate', 'SSI adapter', 'Order reconciliation'],
     verification: 'PR #749 squash-merged; PAPER E2E + Risk/Safety Gate boundary verified',
   },
@@ -67,7 +67,7 @@ const BUILD_STEPS: BuildStep[] = [
     phase: '06',
     title: 'T+2 & dividend lifecycle',
     description: 'Reconcile filled positions through ex-date, T+2, dividend confirmation and capital release.',
-    status: 'done',
+    status: 'in-progress',
     deliverables: ['Position lifecycle', 'Entitlement confirmation', 'Cashflow evidence', 'Exit readiness'],
     verification: 'Phase lifecycle baseline is present on the unified branch; final CI verification pending',
   },
@@ -76,7 +76,7 @@ const BUILD_STEPS: BuildStep[] = [
     phase: '07',
     title: 'Runtime cron & observability',
     description: 'Run the engine continuously during VN market hours and persist every run/decision for audit.',
-    status: 'done',
+    status: 'in-progress',
     deliverables: ['CRDE cron', 'Run lock/idempotency', 'Decision snapshots', 'Failure recovery'],
     verification: 'Phase runtime baseline is present on the unified branch; final CI verification pending',
   },
@@ -87,7 +87,7 @@ const BUILD_STEPS: BuildStep[] = [
     description: 'Validate the complete path with cash disabled first, then enable the smallest controlled demo allocation.',
     status: 'in-progress',
     deliverables: ['E2E smoke test', 'Kill switch', 'Paper → assisted checklist', 'Demo sign-off'],
-    verification: 'All gates green; no live order before approval',
+    verification: 'Full CI green + final demo evidence + Supabase fail-closed state required',
   },
 ];
 
