@@ -341,7 +341,7 @@ function candidateScore(candidate: Record<string, unknown>): number | null {
   const dividend = Number(candidate.dividendValue ?? 0);
   const pnl = Number(candidate.realPnl ?? 0);
   const ratio = Number(String(candidate.dividendRatio ?? '').replace('%', ''));
-  const dividendYield = (Number.isFinite(dividend) ? (dividend / price) * 100 : 0);
+  const dividendYield = Number.isFinite(dividend) ? (dividend / price) * 100 : 0;
 
   // Candidate scores are normalized to the 0-100 confidence scale used by
   // the Decision Engine. Dividend ratio and implied yield are both percentage
