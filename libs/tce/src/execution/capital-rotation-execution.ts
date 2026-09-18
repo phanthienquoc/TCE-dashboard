@@ -74,16 +74,25 @@ export function prepareCapitalRotationExecution(
     };
   }
 
+  const quantity = Math.floor(Math.min(request.decision.capital, request.riskContext.availableCapital) / decision.entry);
+  if (!Number.isInteger(quantity) || quantity <= 0) {
+    return {
+      ok: false,
+      code: 'INVALID_ORDER_PLAN',
+      message: 'Capital cannot purchase at least one share',
+    };
+  }
+
   const orderPlan = {
     id: request.orderPlanId,
     decisionId: decision.id,
     symbol: decision.symbol,
     side: decision.action,
-    quantity: 0,
+    quantity,
     entryPrice: decision.entry,
     targetPrice: decision.target > 0 ? decision.target : undefined,
     invalidationPrice: decision.invalidation,
-    notional: 0,
+    notional: quantity * decision.entry,
     pool: decision.pool,
     slotId: decision.slotId,
     createdAt: decision.decidedAt,
