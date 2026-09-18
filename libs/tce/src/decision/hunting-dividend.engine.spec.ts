@@ -124,7 +124,10 @@ describe('HuntingDividendDecisionEngine', () => {
   });
 
   it('allocates deterministically across free slots and pools', () => {
-    const decisions = new HuntingDividendDecisionEngine({ slotsPerPool: 1 }).decide({
+    const decisions = new HuntingDividendDecisionEngine({
+      slotsPerPool: 1,
+      minConfidence: 0.4,
+    }).decide({
       ...base,
       candidates: [
         candidate({ id: '1', symbol: 'AAA', dividendRatio: 6 }),
