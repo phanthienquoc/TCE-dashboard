@@ -77,7 +77,14 @@ export function prepareCapitalRotationExecution(
   const entryPrice = Number(decision.entry);
   const capital = Number(request.decision.capital ?? 0);
   const availableCapital = Number(request.riskContext.availableCapital);
-  if (!Number.isFinite(entryPrice) || entryPrice <= 0 || !Number.isFinite(capital) || capital <= 0 || !Number.isFinite(availableCapital) || availableCapital <= 0) {
+  if (
+    !Number.isFinite(entryPrice) ||
+    entryPrice <= 0 ||
+    !Number.isFinite(capital) ||
+    capital <= 0 ||
+    !Number.isFinite(availableCapital) ||
+    availableCapital <= 0
+  ) {
     return {
       ok: false,
       code: 'INVALID_ORDER_PLAN',
