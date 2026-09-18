@@ -121,7 +121,7 @@ export function prepareCapitalRotationExecution(
 
   const intent: TceExecutionIntent = {
     ...intentResult.intent,
-    correlationId: request.decision.decisionId,
+    correlationId: request.decision.decisionId ?? request.orderPlanId,
     createdAt: request.riskContext.now,
   };
 
