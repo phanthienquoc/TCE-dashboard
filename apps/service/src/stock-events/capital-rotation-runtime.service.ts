@@ -87,12 +87,12 @@ export class CapitalRotationRuntimeService {
       positions: positionStates,
       config: {
         strategyVersion: 'capital_rotation.v1',
-        lookbackDays: Number(strategy?.lookback_days ?? 30),
-        takeProfitPercent: Number(strategy?.take_profit_pct ?? 5),
-        invalidationPercent: Number(strategy?.invalidation_pct ?? 5),
-        maxHoldDays: Number(strategy?.max_hold_days ?? 30),
-        minConfidence: Number(strategy?.min_confidence ?? 0.5),
-        slotsPerPool: Number(strategy?.slots_per_pool ?? 1),
+        lookbackDays: 30,
+        takeProfitPercent: Number(strategy?.profit_target_pct ?? 5),
+        invalidationPercent: 5,
+        maxHoldDays: 30,
+        minConfidence: 0.5,
+        slotsPerPool: 1,
       },
     };
 
@@ -142,7 +142,7 @@ export class CapitalRotationRuntimeService {
   private async loadStrategy(accountId: string) {
     const { data, error } = await this.db.db
       .from('tce_strategy_config')
-      .select('pool_size,lookback_days,take_profit_pct,invalidation_pct,max_hold_days,min_confidence,slots_per_pool')
+      .select('pool_size,core_capital,burst_capital,max_positions,profit_target_pct,max_asset_allocation_pct,buy_quantity_step,monitor_interval_minutes')
       .eq('account_id', accountId)
       .maybeSingle();
     if (error) throw error;
