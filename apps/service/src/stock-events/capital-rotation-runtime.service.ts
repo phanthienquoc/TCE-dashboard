@@ -50,8 +50,8 @@ export class CapitalRotationRuntimeService {
 
     const positionStates = positionRows.map(position => ({
       symbol: String(position.symbol).toUpperCase(),
-      pool: position.pool === 'B' || position.pool === 'C' ? position.pool : 'A',
-      slot: typeof position.slot === 'string' && position.slot ? position.slot : `${position.pool ?? 'A'}1`,
+      pool: 'A',
+      slot: `A${Math.max(1, Number(position.cycle_no ?? 1))}`,
       quantity: Number(position.quantity ?? 0),
       entryPrice: position.avg_cost == null ? undefined : Number(position.avg_cost),
       currentPrice: position.market_price == null ? undefined : Number(position.market_price),
@@ -121,7 +121,7 @@ export class CapitalRotationRuntimeService {
   private async loadPositions(accountId: string) {
     const { data, error } = await this.db.db
       .from('tce_positions')
-      .select('id,symbol,quantity,avg_cost,cost_basis,market_price,market_value,unrealized_pnl,status,cycle_no,pool,slot')
+      .select('id,symbol,quantity,avg_cost,cost_basis,market_price,market_value,unrealized_pnl,status,cycle_no')
       .eq('account_id', accountId)
       .neq('status', 'CLOSED')
       .order('symbol');
@@ -250,10 +250,4 @@ function occupiedCapital(pool: string, positions: readonly DecisionPositionState
         sum + Number(position.currentPrice ?? position.entryPrice ?? 0) * position.quantity,
       0,
     );
-}
-
-function poolForPosition(symbol: string, poolSize?: number): DecisionPoolState['pool'] {
-  void symbol;
-  void poolSize;
-  return 'A';
 }
