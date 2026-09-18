@@ -348,7 +348,15 @@ jobs:
       - name: Send deployment success message
         run: |
           set -euo pipefail
-          MESSAGE="🚀 *TCE — WF-03 DEPLOY SUCCESS*\n\n          📦 Environment: production\n          🌿 Branch: ${{ github.ref_name }}\n          🔖 Commit: ${{ github.sha }}\n          👤 Actor: ${{ github.actor }}\n          🕐 Time: $(TZ=Asia/Ho_Chi_Minh date '+%Y-%m-%d %H:%M:%S ICT')\n\n          ✅ Production deployment completed successfully\n          🔗 Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          MESSAGE="$(printf '%s\n\n%s\n%s\n%s\n%s\n%s\n\n%s\n%s' \
+            "🚀 *TCE — WF-03 DEPLOY SUCCESS*" \
+            "📦 Environment: production" \
+            "🌿 Branch: ${{ github.ref_name }}" \
+            "🔖 Commit: ${{ github.sha }}" \
+            "👤 Actor: ${{ github.actor }}" \
+            "🕐 Time: $(TZ=Asia/Ho_Chi_Minh date '+%Y-%m-%d %H:%M:%S ICT')" \
+            "✅ Production deployment completed successfully" \
+            "🔗 Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}")"
 
           curl --fail-with-body -sS -X POST \
             "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
