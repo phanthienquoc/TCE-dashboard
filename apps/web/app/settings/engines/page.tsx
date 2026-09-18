@@ -1,18 +1,17 @@
 'use client';
 
+import { useEffect } from 'react';
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
 import { ChevronDown, ChevronRight, Cpu } from 'lucide-react';
 import DashboardShell from '../../../components/dashboard/DashboardShell';
 import { ENGINE_REGISTRY } from '../../engines/engine-registry';
-import { dashboardApi } from '../../../lib/api';
+import { useEngineRuntimeStore } from '../../../lib/engine-runtime-store';
 
 const LAYERS = [
   {
     id: 'market-data',
     label: 'Market Data',
     description: 'Thu thập và xử lý dữ liệu thị trường',
-    engineIds: ['binance-market'],
     accent: 'text-amber-300',
     badge: 'bg-amber-400/10 text-amber-300',
   },
@@ -20,7 +19,6 @@ const LAYERS = [
     id: 'decision',
     label: 'Decision',
     description: 'Phân tích · Tín hiệu · Chiến lược',
-    engineIds: ['tce-decision'],
     accent: 'text-sky-300',
     badge: 'bg-sky-400/10 text-sky-300',
   },
@@ -28,7 +26,6 @@ const LAYERS = [
     id: 'execution',
     label: 'Execution',
     description: 'Thực thi lệnh · Kết nối sàn · Quản lý vị thế',
-    engineIds: ['ssi-execution'],
     accent: 'text-emerald-300',
     badge: 'bg-emerald-400/10 text-emerald-300',
   },
@@ -36,7 +33,6 @@ const LAYERS = [
     id: 'derivatives',
     label: 'Derivatives',
     description: 'Phái sinh · Futures',
-    engineIds: ['binance-xau'],
     accent: 'text-violet-300',
     badge: 'bg-violet-400/10 text-violet-300',
   },
@@ -44,20 +40,19 @@ const LAYERS = [
     id: 'utility',
     label: 'Utility',
     description: 'Hệ thống · Giám sát · Công cụ hỗ trợ',
-    engineIds: [],
     accent: 'text-slate-300',
     badge: 'bg-white/10 text-slate-300',
   },
 ] as const;
 
 export default function SettingsEnginesPage() {
-  const [visibleIds, setVisibleIds] = useState<string[] | null>(null);
+  const { engines, refresh } = useEngineRuntimeStore();
 
   useEffect(() => {
-    void dashboardApi.engineRuntime().then(({ data }) => {
-      setVisibleIds(((data as { engines?: Array<{ engineId: string }> })?.engines ?? []).map(row => row.engineId));
-    }).catch(() => setVisibleIds([]));
-  }, []);
+    void refresh();
+  }, [refresh]);
+
+  const visibleIds = new Set(engines.map(engine => engine.engineId));
 
   return (
     <DashboardShell view="settings">
@@ -69,14 +64,14 @@ export default function SettingsEnginesPage() {
             </p>
             <h1 className="mt-1 text-2xl font-semibold text-white">Engines</h1>
             <p className="mt-1 text-sm text-slate-400">
-              Engine được nhóm theo từng tầng thực thi
+              Engine được nhóm tự động theo layer từ Runtime DB
             </p>
           </header>
 
           <div className="space-y-3">
             {LAYERS.map((layer, index) => {
               const engines = ENGINE_REGISTRY.filter(
-                engine => engine.layer === layer.id && visibleIds !== null && visibleIds.includes(engine.id)
+                engine => engine.layer === layer.id && visibleIds.has(engine.id)
               );
 
               return (
