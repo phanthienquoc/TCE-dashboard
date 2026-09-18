@@ -1,5 +1,6 @@
 import { Injectable, ServiceUnavailableException } from '@nestjs/common';
 import { SupabaseClientService } from '../db/supabase.client';
+import { CapitalRotationPoolScorer } from '@tce/tce';
 
 const DEFAULT_LIMIT = 20;
 const DEFAULT_TABLE = 'tce_stock_event_market_metrics';
@@ -18,6 +19,8 @@ type StockEventRow = {
   current_price?: number | string | null;
   current_price_date?: string | null;
   dividend_yield_pct?: number | string | null;
+  one_year_low?: number | string | null;
+  one_year_high?: number | string | null;
 };
 
 @Injectable()
@@ -42,7 +45,7 @@ export class StockDividendPoolService {
       const { data, error } = await this.supabase.db
         .from(table)
         .select(
-          'id,mongo_id,symbol,ex_right_date,gdkhq_timestamp,payment_date,event_content,ratio_text,dividend_value,reference_price,current_price,current_price_date,dividend_yield_pct'
+          'id,mongo_id,symbol,ex_right_date,gdkhq_timestamp,payment_date,event_content,ratio_text,dividend_value,reference_price,current_price,current_price_date,dividend_yield_pct,one_year_low,one_year_high'
         )
         .gte('gdkhq_timestamp', rangeStart.toISOString())
         .lt('gdkhq_timestamp', end.toISOString())
@@ -51,8 +54,8 @@ export class StockDividendPoolService {
 
       if (error) throw error;
 
-      return (data as StockEventRow[])
-        .map(row => {
+      const scorer = new CapitalRotationPoolScorer({ size: safeLimit });
+      const candidates = (data as StockEventRow[]).map(row => {
           const ticker = String(row.symbol ?? '').trim();
           const dividendValue = Number(row.dividend_value ?? 0);
           const price = Number(row.current_price ?? row.reference_price ?? 0);
@@ -66,10 +69,6 @@ export class StockDividendPoolService {
           const days = exDate
             ? Math.max(0, Math.ceil((new Date(exDate).getTime() - today.getTime()) / 86_400_000))
             : 999;
-          const dividendScore = Math.min(45, yieldPct * 4.5);
-          const valueScore = Math.min(35, dividendValue / 1000);
-          const timingScore = Math.max(0, 20 - Math.min(days, 20));
-
           return {
             id: String(row.mongo_id ?? row.id ?? ''),
             ticker,
@@ -83,11 +82,58 @@ export class StockDividendPoolService {
             currentPrice: row.current_price == null ? null : Number(row.current_price),
             currentPriceDate: row.current_price_date ?? null,
             dividendYieldPct: Number(yieldPct.toFixed(2)),
-            score: Number((dividendScore + valueScore + timingScore).toFixed(2)),
+            score: 0,
             daysToExDate: days,
+            oneYearLow: row.one_year_low == null ? null : Number(row.one_year_low),
+            oneYearHigh: row.one_year_high == null ? null : Number(row.one_year_high),
           };
         })
-        .filter(row => row.ticker && row.exDividendDate)
+        .filter(row => row.ticker && row.exDividendDate);
+
+      const ranked = scorer.rank(
+        candidates.map(row => ({
+          symbol: row.ticker,
+          price: Number(row.currentPrice ?? row.price ?? 0),
+          dividendValue: row.dividendValue,
+          dividendYieldPct: row.dividendYieldPct ?? yieldPctFrom(row.dividendValue, row.currentPrice ?? row.price),
+          exRightDate: row.exDividendDate,
+          gdkhqTimestamp: row.exDividendTimestamp ?? undefined,
+          paymentDate: row.paymentDate ?? undefined,
+          dividendType: 'CASH',
+          observedAt: row.currentPriceDate ?? row.exDividendTimestamp ?? new Date().toISOString(),
+          oneYearLow: row.oneYearLow ?? undefined,
+          oneYearHigh: row.oneYearHigh ?? undefined,
+          dividendEventId: row.id,
+        })),
+        new Date().toISOString(),
+      );
+
+      const rankedKeys = new Set(
+        ranked.map(item => `${item.symbol.toUpperCase()}:${String(item.dividendEventId ?? '')}`)
+      );
+
+      return candidates
+        .map(row => {
+          const key = `${row.ticker.toUpperCase()}:${row.id}`;
+          const item = ranked.find(
+            candidate => `${candidate.symbol.toUpperCase()}:${String(candidate.dividendEventId ?? '')}` === key
+          );
+          if (!item || !rankedKeys.has(key)) return null;
+          return {
+            ...row,
+            score: item.poolScore,
+            dividendScore: item.dividendScore,
+            liquidityScore: item.liquidityScore,
+            recoveryScore: item.recoveryScore,
+            riskScore: item.riskScore,
+            turnoverScore: item.turnoverScore,
+            catalystScore: item.catalystScore,
+            expectedReturnPct: item.expectedReturnPct,
+            expectedHoldDays: item.expectedHoldDays,
+            rationale: item.poolReason.join('|'),
+          };
+        })
+        .filter((row): row is NonNullable<typeof row> => Boolean(row))
         .sort((a, b) => b.score - a.score || a.daysToExDate - b.daysToExDate)
         .slice(0, safeLimit)
         .map((row, index) => ({ ...row, rank: index + 1 }));
@@ -97,6 +143,10 @@ export class StockDividendPoolService {
       );
     }
   }
+}
+
+function yieldPctFrom(dividendValue: number, price: number | null): number {
+  return Number.isFinite(dividendValue) && price && price > 0 ? (dividendValue / price) * 100 : 0;
 }
 
 function normalizeDate(value: string | null | undefined): string | null {
