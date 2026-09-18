@@ -2,6 +2,7 @@ import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/commo
 import { SchedulerRegistry } from '@nestjs/schedule';
 import { CronJob } from 'cron';
 import { SupabaseClientService } from '../db/supabase.client';
+import { CapitalRotationRuntimeService } from './capital-rotation-runtime.service';
 
 const JOB_KEY = 'capital-rotation-decision';
 const STALE_RUN_MINUTES = 30;
@@ -14,6 +15,7 @@ export class CapitalRotationCronService implements OnModuleInit, OnModuleDestroy
   constructor(
     private readonly db: SupabaseClientService,
     private readonly scheduler: SchedulerRegistry,
+    private readonly runtime: CapitalRotationRuntimeService,
   ) {}
 
   async onModuleInit() {
@@ -145,15 +147,11 @@ export class CapitalRotationCronService implements OnModuleInit, OnModuleDestroy
       if (runError) throw runError;
       runId = String(run.id);
 
-      // Runtime-only skeleton: orchestration is deliberately fail-closed until
-      // the full decision/allocation/execution pipeline is wired in Phase 07/08.
-      const outcome = {
-        candidates: 0,
-        decisions: 0,
-        submitted: 0,
-        skipped: 0,
-        reason: 'crde_orchestration_not_enabled',
-      };
+      const outcome = await this.runtime.evaluateAccount(
+        String(job.user_id),
+        String(job.account_id),
+        startedAt,
+      );
 
       await this.db.db
         .from('tce_cron_runs')
@@ -167,12 +165,13 @@ export class CapitalRotationCronService implements OnModuleInit, OnModuleDestroy
           metadata: {
             engine: 'capital-rotation-decision',
             outcome,
+            mode: 'PAPER',
             liveTradingEnabled: false,
           },
         })
         .eq('id', runId);
 
-      return { skipped: true, runId, ...outcome };
+      return { skipped: false, runId, ...outcome, submitted: 0 };
     } catch (error) {
       if (runId) {
         await this.db.db
