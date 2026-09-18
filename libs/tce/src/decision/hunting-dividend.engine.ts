@@ -185,6 +185,11 @@ export class HuntingDividendDecisionEngine implements DecisionEngine {
       const profitNet = calculateProfitNet(position);
       const dividendNet = calculateDividendNet(position, event);
       const common = { profitNet, dividendNet, entitlementStatus: entitlement };
+
+      // Do not exit merely because a price target was reached when the
+      // dividend comparison is unavailable or the net profit has not cleared
+      // the expected dividend. The protected entitlement is the stronger
+      // lifecycle gate for dividend rotation.
       if (profitNet !== undefined && dividendNet !== undefined && profitNet > dividendNet)
         return {
           ...basePositionDecision(
@@ -198,19 +203,7 @@ export class HuntingDividendDecisionEngine implements DecisionEngine {
           ),
           ...common,
         };
-      if (targetReached(position, cfg.tpPercent))
-        return {
-          ...basePositionDecision(
-            position,
-            'SELL',
-            decisionId,
-            cfg.strategyVersion,
-            entitlement,
-            ['dividend_entitlement_protected', 'target_reached_after_dividend_protection'],
-            context.timestamp
-          ),
-          ...common,
-        };
+
       return {
         ...basePositionDecision(
           position,
@@ -344,14 +337,21 @@ function entitlementAction(status: DividendEntitlementStatus): string {
 function candidateScore(candidate: Record<string, unknown>): number | null {
   const price = Number(candidate.price);
   if (!candidate.symbol || !Number.isFinite(price) || price <= 0) return null;
+
   const dividend = Number(candidate.dividendValue ?? 0);
   const pnl = Number(candidate.realPnl ?? 0);
   const ratio = Number(String(candidate.dividendRatio ?? '').replace('%', ''));
+  const dividendYield = (Number.isFinite(dividend) ? (dividend / price) * 100 : 0);
+
+  // Candidate scores are normalized to the 0-100 confidence scale used by
+  // the Decision Engine. Dividend ratio and implied yield are both percentage
+  // signals, while realPnl is already treated as a bounded score contribution.
   const score =
-    (Number.isFinite(ratio) ? ratio * 2 : 0) +
-    (Number.isFinite(dividend) ? (dividend / price) * 100 : 0) +
+    (Number.isFinite(ratio) ? ratio * 5 : 0) +
+    (Number.isFinite(dividendYield) ? dividendYield * 5 : 0) +
     (Number.isFinite(pnl) ? pnl : 0);
-  return Number.isFinite(score) ? score : null;
+
+  return Number.isFinite(score) ? Math.max(0, Math.min(100, score)) : null;
 }
 function normalizedConfidence(score: number): number {
   return Math.max(0, Math.min(1, score / 100));
