@@ -15,7 +15,7 @@ export class CapitalRotationCronService implements OnModuleInit, OnModuleDestroy
   constructor(
     private readonly db: SupabaseClientService,
     private readonly scheduler: SchedulerRegistry,
-    private readonly runtime: CapitalRotationRuntimeService,
+    private readonly runtime: CapitalRotationRuntimeService
   ) {}
 
   async onModuleInit() {
@@ -150,7 +150,7 @@ export class CapitalRotationCronService implements OnModuleInit, OnModuleDestroy
       const outcome = await this.runtime.evaluateAccount(
         String(job.user_id),
         String(job.account_id),
-        startedAt,
+        startedAt
       );
 
       await this.db.db

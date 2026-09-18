@@ -4,23 +4,318 @@ import { CircleDot, Layers3 } from 'lucide-react';
 import type { DashboardActions, DashboardData } from './DashboardShell';
 
 type Props = { data: DashboardData; actions: DashboardActions };
-type CapitalPool = { pool: 'A' | 'B' | 'C'; allocatedCapital: number; availableCapital: number; pendingT2Capital: number; usedCapital: number; occupiedSlots: number; totalSlots: number; usedRatio: number; state: string };
+type CapitalPool = {
+  pool: 'A' | 'B' | 'C';
+  allocatedCapital: number;
+  availableCapital: number;
+  pendingT2Capital: number;
+  usedCapital: number;
+  occupiedSlots: number;
+  totalSlots: number;
+  usedRatio: number;
+  state: string;
+};
 
 export default function PoolEngineView({ data, actions }: Props) {
   const account = data.account ?? {};
-  const capital = number(account.totalValue ?? data.portfolioValue ?? number(data.invested) + number(data.cash));
+  const capital = number(
+    account.totalValue ?? data.portfolioValue ?? number(data.invested) + number(data.cash)
+  );
   const available = number(account.capital_available ?? account.capitalAvailable ?? data.cash);
   const pending = number(account.capital_pending_t2 ?? account.pendingT2Capital ?? 0);
-  const pools = Array.isArray(account.capitalPools) ? account.capitalPools as CapitalPool[] : [];
+  const pools = Array.isArray(account.capitalPools) ? (account.capitalPools as CapitalPool[]) : [];
   const decisionRows = [...data.next, ...data.pools].slice(0, 12);
-  return <div className="tce-mobile-view"><MobileHeader title="Hunting Dividend" subtitle="Decision Engine · 30D rolling" icon={<Layers3 className="size-5" />} /><section className="tce-status-card"><div className="tce-section-row"><div><span className="tce-label">DECISION ENGINE</span><strong>Hunting Dividend</strong></div><span className="tce-live-pill"><CircleDot className="size-3" /> ACTIVE</span></div><div className="tce-engine-meta"><span>TP +5%</span><span>Lookback 30D</span><span>T+2 aware</span></div><div className="tce-market-metrics"><Metric value={data.pools.length} label="candidates" /><Metric value={data.positions.length} label="active positions" /><Metric value={data.next.length} label="next" /></div></section><section className="tce-stat-grid"><Stat label="Capital" value={money(capital)} /><Stat label="Available" value={money(available)} /><Stat label="Pending T+2" value={money(pending)} /></section><Section title="Capital Pools" action="Engine" href="/engines"><div className="tce-pool-balance-grid">{pools.map(pool => <article className={`tce-pool-balance ${pool.state === 'ACTIVE' || pool.state === 'FULL' ? 'is-active' : pool.availableCapital > 0 ? 'is-ready' : ''}`} key={pool.pool}><div className="tce-pool-balance-top"><strong>Pool {pool.pool}</strong><span>{pool.occupiedSlots}/{pool.totalSlots} slots</span></div><div className="tce-pool-balance-amount"><strong>{money(pool.allocatedCapital)}</strong><span className="tce-pool-balance-state">{pool.state}</span></div><div className="tce-pool-progress"><span style={{ width: `${Math.min(100, pool.usedRatio * 100)}%` }} /></div><div className="tce-pool-balance-meta"><span>{pool.usedCapital > 0 ? `used ${money(pool.usedCapital)}` : 'unused'}</span><span>free {money(pool.availableCapital)}</span></div></article>)}</div>{!pools.length && <Empty text="Waiting for Decision Engine pool state" />}</Section><Section title="Active Rotation">{data.positions.length ? <div className="tce-list-stack">{data.positions.slice(0, 9).map((row, index) => <Rotation key={row.id ?? row.symbol ?? index} row={row} />)}</div> : <Empty text="No active positions" />}</Section><Section title="Decision Queue">{decisionRows.length ? <div className="tce-list-stack">{decisionRows.map((row,index)=><Decision key={row.id??row.symbol??index} row={row} actions={actions}/>)}</div> : <Empty text="No candidates waiting"/>}</Section><Section title="Rotation Logic"><div className="tce-rotation-flow"><RotationStep title="Candidate" text="dividend event ≤ 30D" /><RotationStep title="Decision" text="pool + slot + allocation" /><RotationStep title="Planner" text="quantity + TP" /><RotationStep title="Execution" text="SSI + T+2 state" /></div></Section></div>;
+  return (
+    <div className="tce-mobile-view">
+      <MobileHeader
+        title="Hunting Dividend"
+        subtitle="Decision Engine · 30D rolling"
+        icon={<Layers3 className="size-5" />}
+      />
+      <section className="tce-status-card">
+        <div className="tce-section-row">
+          <div>
+            <span className="tce-label">DECISION ENGINE</span>
+            <strong>Hunting Dividend</strong>
+          </div>
+          <span className="tce-live-pill">
+            <CircleDot className="size-3" /> ACTIVE
+          </span>
+        </div>
+        <div className="tce-engine-meta">
+          <span>TP +5%</span>
+          <span>Lookback 30D</span>
+          <span>T+2 aware</span>
+        </div>
+        <div className="tce-market-metrics">
+          <Metric value={data.pools.length} label="candidates" />
+          <Metric value={data.positions.length} label="active positions" />
+          <Metric value={data.next.length} label="next" />
+        </div>
+      </section>
+      <section className="tce-stat-grid">
+        <Stat label="Capital" value={money(capital)} />
+        <Stat label="Available" value={money(available)} />
+        <Stat label="Pending T+2" value={money(pending)} />
+      </section>
+      <Section title="Capital Pools" action="Engine" href="/engines">
+        <div className="tce-pool-balance-grid">
+          {pools.map(pool => (
+            <article
+              className={`tce-pool-balance ${pool.state === 'ACTIVE' || pool.state === 'FULL' ? 'is-active' : pool.availableCapital > 0 ? 'is-ready' : ''}`}
+              key={pool.pool}
+            >
+              <div className="tce-pool-balance-top">
+                <strong>Pool {pool.pool}</strong>
+                <span>
+                  {pool.occupiedSlots}/{pool.totalSlots} slots
+                </span>
+              </div>
+              <div className="tce-pool-balance-amount">
+                <strong>{money(pool.allocatedCapital)}</strong>
+                <span className="tce-pool-balance-state">{pool.state}</span>
+              </div>
+              <div className="tce-pool-progress">
+                <span style={{ width: `${Math.min(100, pool.usedRatio * 100)}%` }} />
+              </div>
+              <div className="tce-pool-balance-meta">
+                <span>{pool.usedCapital > 0 ? `used ${money(pool.usedCapital)}` : 'unused'}</span>
+                <span>free {money(pool.availableCapital)}</span>
+              </div>
+            </article>
+          ))}
+        </div>
+        {!pools.length && <Empty text="Waiting for Decision Engine pool state" />}
+      </Section>
+      <Section title="Active Rotation">
+        {data.positions.length ? (
+          <div className="tce-list-stack">
+            {data.positions.slice(0, 9).map((row, index) => (
+              <Rotation key={row.id ?? row.symbol ?? index} row={row} />
+            ))}
+          </div>
+        ) : (
+          <Empty text="No active positions" />
+        )}
+      </Section>
+      <Section title="Decision Queue">
+        {decisionRows.length ? (
+          <div className="tce-list-stack">
+            {decisionRows.map((row, index) => (
+              <Decision key={row.id ?? row.symbol ?? index} row={row} actions={actions} />
+            ))}
+          </div>
+        ) : (
+          <Empty text="No candidates waiting" />
+        )}
+      </Section>
+      <Section title="Rotation Logic">
+        <div className="tce-rotation-flow">
+          <RotationStep title="Candidate" text="dividend event ≤ 30D" />
+          <RotationStep title="Decision" text="pool + slot + allocation" />
+          <RotationStep title="Planner" text="quantity + TP" />
+          <RotationStep title="Execution" text="SSI + T+2 state" />
+        </div>
+      </Section>
+    </div>
+  );
 }
-function Section({title,action,href,children}:{title:string;action?:string;href?:string;children:React.ReactNode}){return <section className="tce-section"><div className="tce-section-title"><h2>{title}</h2>{action&&href?<a href={href}>{action}<span aria-hidden>›</span></a>:null}</div>{children}</section>;}
-function MobileHeader({title,subtitle,icon}:{title:string;subtitle?:string;icon?:React.ReactNode}){return <header className="tce-mobile-header"><div className="tce-header-brand">{icon}<div><strong>{title}</strong>{subtitle&&<span>{subtitle}</span>}</div></div><span className="tce-live-pill"><CircleDot className="size-3"/> LIVE</span></header>;}
-function Stat({label,value}:{label:string;value:string}){return <div className="tce-stat"><span>{label}</span><strong>{value}</strong></div>;}
-function Metric({value,label}:{value:number;label:string}){return <div><strong>{value}</strong><span>{label}</span></div>;}
-function Empty({text}:{text:string}){return <div className="tce-empty-state">{text}</div>;}
-function RotationStep({title,text}:{title:string;text:string}){return <div className="tce-rotation-step"><div><b>{title}</b><span>{text}</span></div><span aria-hidden>›</span></div>;}
-function Rotation({row}:{row:any}){const price=number(row.currentPrice??row.marketPrice??row.current_price??row.market_price);const entry=number(row.positionPrice??row.position_price??row.avgBuyCost??row.avg_cost);const pnl=entry>0&&price>0?((price-entry)/entry)*100:number(row.pnlPct??row.pnl_percent);const tp=entry>0?entry*1.05:number(row.targetPrice??row.target_price);const quantity=number(row.quantity??row.total);const invested=number(row.costBasis??row.cost_basis??(entry*quantity));const pool=String(row.pool??row.pool_id??'—').toUpperCase();const slot=String(row.slot??'—');const sellable=row.sellableAt??row.sellable_at??'SELLABLE';return <article className="tce-rotation-row"><div className="tce-rotation-top"><div><strong>{symbol(row)}</strong><span>{pool} · {slot}</span></div><span className={pnl>=0?'tce-positive':'tce-negative'}>{pnl>=0?'+':''}{pnl.toFixed(2)}%</span></div><div className="tce-rotation-kpis"><div><span>Entry</span><b>{formatNumber(entry)}</b></div><div><span>Now</span><b>{formatNumber(price)}</b></div><div><span>TP +5%</span><b>{formatNumber(tp)}</b></div></div><div className="tce-rotation-footer"><span>{quantity>0?`${formatNumber(quantity)} shares`:'Position'}{invested>0?` · ${money(invested)}`:''}</span><span>{formatT2(sellable)}</span></div></article>;}
-function Decision({row,actions}:{row:any;actions:DashboardActions}){const price=number(row.currentPrice??row.current_price??row.marketPrice??row.market_price??row.price);const dividend=number(row.dividendValue??row.dividend_value);const ratio=row['Tỷ lệ']??row.ratio??row.dividendRatio;return <article className="tce-decision-row"><div className="tce-decision-content"><div className="tce-decision-top"><div><strong>{symbol(row)}</strong><span>{String(row.status??'CANDIDATE')} · {ratio?String(ratio):dividend?`${money(dividend)} ₫/CP`:'Dividend candidate'}</span></div><span className="tce-score"><strong>{Number(row.score??row.confidence??0)||'—'}</strong><span>score</span></span></div><div className="tce-decision-meta"><span>Price <b>{formatNumber(price)}</b></span><span>Event <b>{String(row.gdkhq_timestamp??row.gdkhqTimestamp??row.exDate??'—')}</b></span><span>TP <b>{price>0?formatNumber(price*1.05):'—'}</b></span></div></div><button className="tce-queue-action" type="button" onClick={()=>actions.promotePool(row)} disabled={actions.promoteBusy===String(row.id)} aria-label={`Queue ${symbol(row)}`}>{actions.promoteBusy===String(row.id)?'…':'Queue'}</button></article>;}
-function number(value:any){const n=Number(value);return Number.isFinite(n)?n:0;} function money(value:any){return new Intl.NumberFormat('vi-VN',{maximumFractionDigits:0}).format(number(value));} function formatNumber(value:any){const n=Number(value);return Number.isFinite(n)?new Intl.NumberFormat('en-US',{maximumFractionDigits:2}).format(n):'—';} function formatT2(value:any){const raw=String(value??'').trim();return raw||'T+2';} function symbol(row:any){return String(row?.symbol??row?.code??row?.ticker??'—').toUpperCase();}
+function Section({
+  title,
+  action,
+  href,
+  children,
+}: {
+  title: string;
+  action?: string;
+  href?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="tce-section">
+      <div className="tce-section-title">
+        <h2>{title}</h2>
+        {action && href ? (
+          <a href={href}>
+            {action}
+            <span aria-hidden>›</span>
+          </a>
+        ) : null}
+      </div>
+      {children}
+    </section>
+  );
+}
+function MobileHeader({
+  title,
+  subtitle,
+  icon,
+}: {
+  title: string;
+  subtitle?: string;
+  icon?: React.ReactNode;
+}) {
+  return (
+    <header className="tce-mobile-header">
+      <div className="tce-header-brand">
+        {icon}
+        <div>
+          <strong>{title}</strong>
+          {subtitle && <span>{subtitle}</span>}
+        </div>
+      </div>
+      <span className="tce-live-pill">
+        <CircleDot className="size-3" /> LIVE
+      </span>
+    </header>
+  );
+}
+function Stat({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="tce-stat">
+      <span>{label}</span>
+      <strong>{value}</strong>
+    </div>
+  );
+}
+function Metric({ value, label }: { value: number; label: string }) {
+  return (
+    <div>
+      <strong>{value}</strong>
+      <span>{label}</span>
+    </div>
+  );
+}
+function Empty({ text }: { text: string }) {
+  return <div className="tce-empty-state">{text}</div>;
+}
+function RotationStep({ title, text }: { title: string; text: string }) {
+  return (
+    <div className="tce-rotation-step">
+      <div>
+        <b>{title}</b>
+        <span>{text}</span>
+      </div>
+      <span aria-hidden>›</span>
+    </div>
+  );
+}
+function Rotation({ row }: { row: any }) {
+  const price = number(
+    row.currentPrice ?? row.marketPrice ?? row.current_price ?? row.market_price
+  );
+  const entry = number(row.positionPrice ?? row.position_price ?? row.avgBuyCost ?? row.avg_cost);
+  const pnl =
+    entry > 0 && price > 0
+      ? ((price - entry) / entry) * 100
+      : number(row.pnlPct ?? row.pnl_percent);
+  const tp = entry > 0 ? entry * 1.05 : number(row.targetPrice ?? row.target_price);
+  const quantity = number(row.quantity ?? row.total);
+  const invested = number(row.costBasis ?? row.cost_basis ?? entry * quantity);
+  const pool = String(row.pool ?? row.pool_id ?? '—').toUpperCase();
+  const slot = String(row.slot ?? '—');
+  const sellable = row.sellableAt ?? row.sellable_at ?? 'SELLABLE';
+  return (
+    <article className="tce-rotation-row">
+      <div className="tce-rotation-top">
+        <div>
+          <strong>{symbol(row)}</strong>
+          <span>
+            {pool} · {slot}
+          </span>
+        </div>
+        <span className={pnl >= 0 ? 'tce-positive' : 'tce-negative'}>
+          {pnl >= 0 ? '+' : ''}
+          {pnl.toFixed(2)}%
+        </span>
+      </div>
+      <div className="tce-rotation-kpis">
+        <div>
+          <span>Entry</span>
+          <b>{formatNumber(entry)}</b>
+        </div>
+        <div>
+          <span>Now</span>
+          <b>{formatNumber(price)}</b>
+        </div>
+        <div>
+          <span>TP +5%</span>
+          <b>{formatNumber(tp)}</b>
+        </div>
+      </div>
+      <div className="tce-rotation-footer">
+        <span>
+          {quantity > 0 ? `${formatNumber(quantity)} shares` : 'Position'}
+          {invested > 0 ? ` · ${money(invested)}` : ''}
+        </span>
+        <span>{formatT2(sellable)}</span>
+      </div>
+    </article>
+  );
+}
+function Decision({ row, actions }: { row: any; actions: DashboardActions }) {
+  const price = number(
+    row.currentPrice ?? row.current_price ?? row.marketPrice ?? row.market_price ?? row.price
+  );
+  const dividend = number(row.dividendValue ?? row.dividend_value);
+  const ratio = row['Tỷ lệ'] ?? row.ratio ?? row.dividendRatio;
+  return (
+    <article className="tce-decision-row">
+      <div className="tce-decision-content">
+        <div className="tce-decision-top">
+          <div>
+            <strong>{symbol(row)}</strong>
+            <span>
+              {String(row.status ?? 'CANDIDATE')} ·{' '}
+              {ratio ? String(ratio) : dividend ? `${money(dividend)} ₫/CP` : 'Dividend candidate'}
+            </span>
+          </div>
+          <span className="tce-score">
+            <strong>{Number(row.score ?? row.confidence ?? 0) || '—'}</strong>
+            <span>score</span>
+          </span>
+        </div>
+        <div className="tce-decision-meta">
+          <span>
+            Price <b>{formatNumber(price)}</b>
+          </span>
+          <span>
+            Event <b>{String(row.gdkhq_timestamp ?? row.gdkhqTimestamp ?? row.exDate ?? '—')}</b>
+          </span>
+          <span>
+            TP <b>{price > 0 ? formatNumber(price * 1.05) : '—'}</b>
+          </span>
+        </div>
+      </div>
+      <button
+        className="tce-queue-action"
+        type="button"
+        onClick={() => actions.promotePool(row)}
+        disabled={actions.promoteBusy === String(row.id)}
+        aria-label={`Queue ${symbol(row)}`}
+      >
+        {actions.promoteBusy === String(row.id) ? '…' : 'Queue'}
+      </button>
+    </article>
+  );
+}
+function number(value: any) {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : 0;
+}
+function money(value: any) {
+  return new Intl.NumberFormat('vi-VN', { maximumFractionDigits: 0 }).format(number(value));
+}
+function formatNumber(value: any) {
+  const n = Number(value);
+  return Number.isFinite(n)
+    ? new Intl.NumberFormat('en-US', { maximumFractionDigits: 2 }).format(n)
+    : '—';
+}
+function formatT2(value: any) {
+  const raw = String(value ?? '').trim();
+  return raw || 'T+2';
+}
+function symbol(row: any) {
+  return String(row?.symbol ?? row?.code ?? row?.ticker ?? '—').toUpperCase();
+}

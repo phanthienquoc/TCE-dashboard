@@ -23,11 +23,19 @@ function adapter(accountNo = '1234561') {
 test('SsiBrokerAdapter returns the configured account portfolio snapshot', async () => {
   const instance = adapter();
 
-  (instance as unknown as { positions: (acc: string) => Promise<{ ok: boolean; data: unknown[] }> }).positions = async () => ({
+  (
+    instance as unknown as { positions: (acc: string) => Promise<{ ok: boolean; data: unknown[] }> }
+  ).positions = async () => ({
     ok: true,
-    data: [{ symbol: 'SSI', quantity: 100, averagePrice: 30000, sellableQuantity: 100, source: 'ssi' }],
+    data: [
+      { symbol: 'SSI', quantity: 100, averagePrice: 30000, sellableQuantity: 100, source: 'ssi' },
+    ],
   });
-  (instance as unknown as { balance: (acc: string) => Promise<{ ok: boolean; data: Record<string, unknown> }> }).balance = async acc => ({
+  (
+    instance as unknown as {
+      balance: (acc: string) => Promise<{ ok: boolean; data: Record<string, unknown> }>;
+    }
+  ).balance = async acc => ({
     ok: true,
     data: {
       accountNo: acc,
@@ -39,7 +47,9 @@ test('SsiBrokerAdapter returns the configured account portfolio snapshot', async
       source: 'ssi',
     },
   });
-  (instance as unknown as { orders: (acc: string) => Promise<{ ok: boolean; data: unknown[] }> }).orders = async () => ({
+  (
+    instance as unknown as { orders: (acc: string) => Promise<{ ok: boolean; data: unknown[] }> }
+  ).orders = async () => ({
     ok: true,
     data: [],
   });
@@ -60,19 +70,31 @@ test('SsiBrokerAdapter current falls back to marginBalance when balance fails fo
   (instance as unknown as { accountInfo: () => Promise<unknown[]> }).accountInfo = async () => [
     { accountNo: '1234566', accountType: 'Margin' },
   ];
-  (instance as unknown as { positions: (acc: string) => Promise<{ ok: boolean; data: unknown[] }> }).positions = async () => ({
+  (
+    instance as unknown as { positions: (acc: string) => Promise<{ ok: boolean; data: unknown[] }> }
+  ).positions = async () => ({
     ok: true,
     data: [],
   });
-  (instance as unknown as { orders: (acc: string) => Promise<{ ok: boolean; data: unknown[] }> }).orders = async () => ({
+  (
+    instance as unknown as { orders: (acc: string) => Promise<{ ok: boolean; data: unknown[] }> }
+  ).orders = async () => ({
     ok: true,
     data: [],
   });
-  (instance as unknown as { balance: (acc: string) => Promise<{ ok: boolean; error?: { message: string } }> }).balance = async () => ({
+  (
+    instance as unknown as {
+      balance: (acc: string) => Promise<{ ok: boolean; error?: { message: string } }>;
+    }
+  ).balance = async () => ({
     ok: false,
     error: { message: 'Equity balance endpoint not supported for margin' },
   });
-  (instance as unknown as { marginBalance: (acc: string) => Promise<{ ok: boolean; data: Record<string, unknown> }> }).marginBalance = async acc => ({
+  (
+    instance as unknown as {
+      marginBalance: (acc: string) => Promise<{ ok: boolean; data: Record<string, unknown> }>;
+    }
+  ).marginBalance = async acc => ({
     ok: true,
     data: {
       accountNo: acc,
@@ -96,22 +118,44 @@ test('SsiBrokerAdapter current falls back to marginBalance when balance fails fo
 test('SsiBrokerAdapter syncPortfolio returns positions, orders, and balance', async () => {
   const instance = adapter();
 
-  (instance as unknown as { positions: (acc: string) => Promise<{ ok: boolean; data: unknown[] }> }).positions = async () => ({
+  (
+    instance as unknown as { positions: (acc: string) => Promise<{ ok: boolean; data: unknown[] }> }
+  ).positions = async () => ({
     ok: true,
     data: [
       { symbol: 'HPG', quantity: 500, averagePrice: 28000, source: 'ssi' },
       { symbol: 'VNM', quantity: 0, averagePrice: 70000, source: 'ssi' },
     ],
   });
-  (instance as unknown as { balance: (acc: string) => Promise<{ ok: boolean; data: Record<string, unknown> }> }).balance = async acc => ({
+  (
+    instance as unknown as {
+      balance: (acc: string) => Promise<{ ok: boolean; data: Record<string, unknown> }>;
+    }
+  ).balance = async acc => ({
     ok: true,
     data: { accountNo: acc, cash: 10000000, source: 'ssi' },
   });
-  (instance as unknown as { orders: (acc: string) => Promise<{ ok: boolean; data: unknown[] }> }).orders = async () => ({
+  (
+    instance as unknown as { orders: (acc: string) => Promise<{ ok: boolean; data: unknown[] }> }
+  ).orders = async () => ({
     ok: true,
     data: [
-      { externalId: 'ORD-101', symbol: 'HPG', side: 'BUY', quantity: 500, status: 'FF', source: 'ssi' },
-      { externalId: 'ORD-102', symbol: 'SSI', side: 'SELL', quantity: 0, status: 'CL', source: 'ssi' },
+      {
+        externalId: 'ORD-101',
+        symbol: 'HPG',
+        side: 'BUY',
+        quantity: 500,
+        status: 'FF',
+        source: 'ssi',
+      },
+      {
+        externalId: 'ORD-102',
+        symbol: 'SSI',
+        side: 'SELL',
+        quantity: 0,
+        status: 'CL',
+        source: 'ssi',
+      },
     ],
   });
 

@@ -9,10 +9,7 @@ import type {
   TradeDecision,
 } from '@tce/contracts';
 import { createExecutionIntent } from '../order/order-planner';
-import {
-  approveExecutionIntent,
-  type TceApprovedExecutionIntent,
-} from '../risk/guarded-execution';
+import { approveExecutionIntent, type TceApprovedExecutionIntent } from '../risk/guarded-execution';
 
 export type CapitalRotationExecutionRequest = Readonly<{
   decision: TradeDecision;
@@ -37,7 +34,7 @@ export type CapitalRotationExecutionPreparation =
   | Readonly<{ ok: false; code: string; message: string }>;
 
 export function prepareCapitalRotationExecution(
-  request: CapitalRotationExecutionRequest,
+  request: CapitalRotationExecutionRequest
 ): CapitalRotationExecutionPreparation {
   if (request.decision.decision !== 'BUY' && request.decision.decision !== 'SELL') {
     return {
@@ -48,11 +45,7 @@ export function prepareCapitalRotationExecution(
   }
 
   const decision = request.decisionForExecution;
-  if (
-    !decision.id.trim() ||
-    !decision.symbol.trim() ||
-    !request.orderPlanId.trim()
-  ) {
+  if (!decision.id.trim() || !decision.symbol.trim() || !request.orderPlanId.trim()) {
     return {
       ok: false,
       code: 'INVALID_EXECUTION_IDENTITY',
@@ -123,11 +116,7 @@ export function prepareCapitalRotationExecution(
     };
   }
 
-  const intentResult = createExecutionIntent(
-    orderPlan,
-    request.mode,
-    decision.id,
-  );
+  const intentResult = createExecutionIntent(orderPlan, request.mode, decision.id);
   if (!intentResult.ok) return intentResult;
 
   const intent: TceExecutionIntent = {

@@ -1,9 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import type { TradeDecision } from '@tce/contracts';
-import {
-  createCapitalRotationAllocationService,
-} from './capital-rotation-allocation';
+import { createCapitalRotationAllocationService } from './capital-rotation-allocation';
 
 const decision: TradeDecision = {
   engine: 'capital_rotation_decision',
@@ -26,7 +24,7 @@ const decision: TradeDecision = {
 test('allocation reserves a deterministic slot and is idempotent', () => {
   const service = createCapitalRotationAllocationService(
     [{ pool: 'A', capital: 8_000_000, slots: 1 }],
-    '2026-09-18T02:00:00.000Z',
+    '2026-09-18T02:00:00.000Z'
   );
 
   const first = service.reserve({ decision, timestamp: decision.timestamp });
@@ -42,25 +40,19 @@ test('allocation reserves a deterministic slot and is idempotent', () => {
 test('allocation activation and release recycle the slot', () => {
   const service = createCapitalRotationAllocationService(
     [{ pool: 'A', capital: 8_000_000, slots: 1 }],
-    '2026-09-18T02:00:00.000Z',
+    '2026-09-18T02:00:00.000Z'
   );
 
   const reserved = service.reserve({ decision, timestamp: decision.timestamp });
   assert.equal(reserved.ok, true);
   if (!reserved.ok) return;
 
-  const active = service.activate(
-    reserved.allocation.idempotencyKey,
-    '2026-09-18T02:01:00.000Z',
-  );
+  const active = service.activate(reserved.allocation.idempotencyKey, '2026-09-18T02:01:00.000Z');
   assert.equal(active.ok, true);
   if (!active.ok) return;
   assert.equal(active.allocation.state, 'ACTIVE');
 
-  const released = service.release(
-    reserved.allocation.idempotencyKey,
-    '2026-09-18T02:02:00.000Z',
-  );
+  const released = service.release(reserved.allocation.idempotencyKey, '2026-09-18T02:02:00.000Z');
   assert.equal(released.ok, true);
   if (!released.ok) return;
   assert.equal(released.allocation.state, 'RELEASED');
@@ -71,7 +63,7 @@ test('allocation activation and release recycle the slot', () => {
 test('allocation realization recycles principal plus pnl and records realized capital', () => {
   const service = createCapitalRotationAllocationService(
     [{ pool: 'A', capital: 8_000_000, slots: 1 }],
-    '2026-09-18T02:00:00.000Z',
+    '2026-09-18T02:00:00.000Z'
   );
   const reserved = service.reserve({ decision, timestamp: decision.timestamp });
   assert.equal(reserved.ok, true);
@@ -83,7 +75,7 @@ test('allocation realization recycles principal plus pnl and records realized ca
   const realized = service.realize(
     reserved.allocation.idempotencyKey,
     '2026-09-18T02:02:00.000Z',
-    250_000,
+    250_000
   );
   assert.equal(realized.ok, true);
   if (!realized.ok) return;

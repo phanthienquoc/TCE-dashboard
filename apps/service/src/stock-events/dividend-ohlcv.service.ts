@@ -10,7 +10,8 @@ const OHLCV_SYMBOL_CONCURRENCY = 5;
 export type DividendOhlcvSyncItem = {
   symbol: string;
   status: 'QUEUED' | 'RUNNING' | 'SUCCEEDED' | 'FAILED' | 'SKIPPED';
-  phase: 'QUEUED' | 'RESOLVING_RANGE' | 'FETCHING' | 'UPSERTING' | 'COMPLETED' | 'FAILED' | 'SKIPPED';
+  phase:
+    'QUEUED' | 'RESOLVING_RANGE' | 'FETCHING' | 'UPSERTING' | 'COMPLETED' | 'FAILED' | 'SKIPPED';
   batchIndex: number | null;
   batchTotal: number | null;
   batchFrom: string | null;
@@ -26,7 +27,7 @@ export type DividendOhlcvSyncItem = {
 export class DividendOhlcvService {
   constructor(
     private readonly db: SupabaseClientService,
-    private readonly ssi: SsiApplicationService,
+    private readonly ssi: SsiApplicationService
   ) {}
 
   async getHistory(symbolInput: string, days = DEFAULT_DAYS) {
@@ -45,7 +46,12 @@ export class DividendOhlcvService {
     return data ?? [];
   }
 
-  async syncDividendSymbols(userId: string, environment = 'production', fromDate?: string, toDate?: string) {
+  async syncDividendSymbols(
+    userId: string,
+    environment = 'production',
+    fromDate?: string,
+    toDate?: string
+  ) {
     const symbols = await this.dividendSymbols();
     const endDate = toDate ?? todayVietnam();
     const fallbackStart = fromDate ?? addDays(endDate, -(DEFAULT_DAYS - 1));
@@ -125,7 +131,7 @@ export class DividendOhlcvService {
             const result = await withTimeout(
               this.ssi.dailyOhlcv(userId, environment, [symbol], batch.from, batch.to),
               OHLCV_BATCH_TIMEOUT_MS,
-              `${symbol} ${batch.from} -> ${batch.to}`,
+              `${symbol} ${batch.from} -> ${batch.to}`
             );
             if (!result.ok) throw new Error(result.error.message);
 
@@ -233,7 +239,9 @@ export class DividendOhlcvService {
   async latestSyncProgress(userId: string) {
     const { data: run, error: runError } = await this.db.db
       .from('tce_dividend_ohlcv_sync_runs')
-      .select('id,status,started_at,finished_at,symbols_requested,symbols_synced,rows_synced,error_message,current_symbol,current_phase,current_batch_index,current_batch_total,current_batch_from,current_batch_to,current_rows_synced,updated_at')
+      .select(
+        'id,status,started_at,finished_at,symbols_requested,symbols_synced,rows_synced,error_message,current_symbol,current_phase,current_batch_index,current_batch_total,current_batch_from,current_batch_to,current_rows_synced,updated_at'
+      )
       .eq('user_id', userId)
       .order('started_at', { ascending: false })
       .limit(1)
@@ -243,7 +251,9 @@ export class DividendOhlcvService {
 
     const { data: items, error: itemError } = await this.db.db
       .from('tce_dividend_ohlcv_sync_items')
-      .select('id,symbol,status,phase,batch_index,batch_total,batch_from,batch_to,rows_synced,error_message,started_at,finished_at,updated_at')
+      .select(
+        'id,symbol,status,phase,batch_index,batch_total,batch_from,batch_to,rows_synced,error_message,started_at,finished_at,updated_at'
+      )
       .eq('run_id', run.id)
       .order('symbol', { ascending: true });
     if (itemError) throw itemError;
@@ -260,9 +270,17 @@ export class DividendOhlcvService {
       .order('ex_right_date', { ascending: true })
       .order('symbol', { ascending: true });
     if (error) throw error;
-    return [...new Set((data ?? [])
-      .map(row => String(row.symbol ?? '').trim().toUpperCase())
-      .filter(Boolean))];
+    return [
+      ...new Set(
+        (data ?? [])
+          .map(row =>
+            String(row.symbol ?? '')
+              .trim()
+              .toUpperCase()
+          )
+          .filter(Boolean)
+      ),
+    ];
   }
 
   private async createSyncRun(userId: string, symbols: string[]) {
@@ -347,7 +365,11 @@ export class DividendOhlcvService {
   }
 }
 
-async function runWithConcurrency<T>(items: T[], concurrency: number, worker: (item: T) => Promise<void>) {
+async function runWithConcurrency<T>(
+  items: T[],
+  concurrency: number,
+  worker: (item: T) => Promise<void>
+) {
   const workerCount = Math.max(1, Math.min(concurrency, items.length));
   let nextIndex = 0;
 
@@ -364,7 +386,9 @@ async function runWithConcurrency<T>(items: T[], concurrency: number, worker: (i
 }
 
 function normalizeSymbol(value: string) {
-  const symbol = String(value ?? '').trim().toUpperCase();
+  const symbol = String(value ?? '')
+    .trim()
+    .toUpperCase();
   if (!/^[A-Z0-9]{1,10}$/.test(symbol)) throw new Error('Invalid stock symbol');
   return symbol;
 }

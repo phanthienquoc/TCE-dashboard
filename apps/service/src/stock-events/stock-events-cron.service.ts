@@ -33,10 +33,12 @@ export class StockEventsCronService implements OnModuleInit, OnModuleDestroy {
     private readonly db: SupabaseClientService,
     private readonly scheduler: SchedulerRegistry,
     private readonly sync: StockEventsSyncService,
-    private readonly dividendOhlcv: DividendOhlcvService,
+    private readonly dividendOhlcv: DividendOhlcvService
   ) {}
 
-  async onModuleInit() { await this.reload(); }
+  async onModuleInit() {
+    await this.reload();
+  }
 
   onModuleDestroy() {
     for (const name of this.scheduler.getCronJobs().keys()) {
@@ -55,10 +57,17 @@ export class StockEventsCronService implements OnModuleInit, OnModuleDestroy {
     const timezone = String(input.timezone ?? existing.timezone ?? 'Asia/Ho_Chi_Minh').trim();
     const start = normalizeDate(input.syncStartDate ?? existing.sync_start_date);
     const end = normalizeDate(input.syncEndDate ?? existing.sync_end_date);
-    if (start && end && start > end) throw new Error('Sync start date must be before or equal to end date');
+    if (start && end && start > end)
+      throw new Error('Sync start date must be before or equal to end date');
     validateCronExpression(schedule, timezone);
-    const batchSize = Math.min(Math.max(Math.trunc(Number(input.batchSize ?? existing.batch_size ?? 200)), 50), 500);
-    const pageSize = Math.min(Math.max(Math.trunc(Number(input.pageSize ?? existing.page_size ?? DEFAULT_PAGE_SIZE)), 1), 100);
+    const batchSize = Math.min(
+      Math.max(Math.trunc(Number(input.batchSize ?? existing.batch_size ?? 200)), 50),
+      500
+    );
+    const pageSize = Math.min(
+      Math.max(Math.trunc(Number(input.pageSize ?? existing.page_size ?? DEFAULT_PAGE_SIZE)), 1),
+      100
+    );
     const payload = {
       enabled: input.enabled === undefined ? Boolean(existing.enabled) : input.enabled === true,
       schedule,
@@ -67,8 +76,14 @@ export class StockEventsCronService implements OnModuleInit, OnModuleDestroy {
       sync_end_date: end,
       batch_size: batchSize,
       page_size: pageSize,
-      price_sync_enabled: input.priceSyncEnabled === undefined ? Boolean(existing.price_sync_enabled) : input.priceSyncEnabled !== false,
-      telegram_credential_id: input.telegramCredentialId === undefined ? existing.telegram_credential_id ?? null : input.telegramCredentialId || null,
+      price_sync_enabled:
+        input.priceSyncEnabled === undefined
+          ? Boolean(existing.price_sync_enabled)
+          : input.priceSyncEnabled !== false,
+      telegram_credential_id:
+        input.telegramCredentialId === undefined
+          ? (existing.telegram_credential_id ?? null)
+          : input.telegramCredentialId || null,
       updated_at: new Date().toISOString(),
     };
     const { data, error } = await this.db.db
@@ -100,7 +115,10 @@ export class StockEventsCronService implements OnModuleInit, OnModuleDestroy {
     if (activeRun) return { status: 'RUNNING', alreadyRunning: true };
 
     void this.execute(job, true).catch(error => {
-      this.logger.error(`Stock event manual trigger ${jobId} failed`, error instanceof Error ? error.stack : String(error));
+      this.logger.error(
+        `Stock event manual trigger ${jobId} failed`,
+        error instanceof Error ? error.stack : String(error)
+      );
     });
     return { status: 'RUNNING', alreadyRunning: false };
   }
@@ -110,7 +128,9 @@ export class StockEventsCronService implements OnModuleInit, OnModuleDestroy {
     await this.recoverStaleRuns(String(job.id));
     const { data, error } = await this.db.db
       .from('tce_cron_runs')
-      .select('id,status,started_at,finished_at,inserted_count,updated_count,skipped_count,failed_count,symbols_requested,symbols_synced,error_message,metadata')
+      .select(
+        'id,status,started_at,finished_at,inserted_count,updated_count,skipped_count,failed_count,symbols_requested,symbols_synced,error_message,metadata'
+      )
       .eq('job_id', job.id)
       .order('started_at', { ascending: false })
       .limit(Math.min(Math.max(Number(limit) || 20, 1), 50));
@@ -119,7 +139,10 @@ export class StockEventsCronService implements OnModuleInit, OnModuleDestroy {
   }
 
   private async reload() {
-    const { data, error } = await this.db.db.from('tce_cron_jobs').select('*').eq('job_key', JOB_KEY);
+    const { data, error } = await this.db.db
+      .from('tce_cron_jobs')
+      .select('*')
+      .eq('job_key', JOB_KEY);
     if (error) {
       this.logger.warn(`Unable to load stock events cron jobs: ${error.message}`);
       return;
@@ -174,7 +197,11 @@ export class StockEventsCronService implements OnModuleInit, OnModuleDestroy {
 
   private async reconfigure(job: any) {
     const jobName = this.jobName(job);
-    try { this.scheduler.deleteCronJob(jobName); } catch { /* no-op */ }
+    try {
+      this.scheduler.deleteCronJob(jobName);
+    } catch {
+      /* no-op */
+    }
     if (!job.enabled) return;
     validateCronExpression(String(job.schedule), String(job.timezone));
     const cron = CronJob.from({
@@ -182,7 +209,10 @@ export class StockEventsCronService implements OnModuleInit, OnModuleDestroy {
       timeZone: String(job.timezone),
       onTick: () => {
         void this.execute(job, false).catch(error => {
-          this.logger.error(`Stock event cron ${jobName} failed`, error instanceof Error ? error.stack : String(error));
+          this.logger.error(
+            `Stock event cron ${jobName} failed`,
+            error instanceof Error ? error.stack : String(error)
+          );
         });
       },
       start: true,
@@ -218,14 +248,14 @@ export class StockEventsCronService implements OnModuleInit, OnModuleDestroy {
           String(job.user_id),
           'production',
           startDate,
-          endDate,
+          endDate
         );
         this.logger.log(
-          `Dividend K-line sync completed after Vietstock sync: run=${klineResult.runId}, requested=${klineResult.requested}, synced=${klineResult.syncedSymbols}, failed=${klineResult.failedSymbols}`,
+          `Dividend K-line sync completed after Vietstock sync: run=${klineResult.runId}, requested=${klineResult.requested}, synced=${klineResult.syncedSymbols}, failed=${klineResult.failedSymbols}`
         );
       } catch (error) {
         this.logger.error(
-          `Dividend K-line sync failed after Vietstock sync: ${error instanceof Error ? error.stack : String(error)}`,
+          `Dividend K-line sync failed after Vietstock sync: ${error instanceof Error ? error.stack : String(error)}`
         );
         throw error;
       }
@@ -244,7 +274,11 @@ export class StockEventsCronService implements OnModuleInit, OnModuleDestroy {
     const cutoff = new Date(Date.now() - STALE_RUN_MINUTES * 60_000).toISOString();
     const { data, error } = await this.db.db
       .from('tce_cron_runs')
-      .update({ status: 'FAILED', finished_at: new Date().toISOString(), error_message: 'Recovered stale RUNNING run after service restart' })
+      .update({
+        status: 'FAILED',
+        finished_at: new Date().toISOString(),
+        error_message: 'Recovered stale RUNNING run after service restart',
+      })
       .eq('job_id', jobId)
       .eq('status', 'RUNNING')
       .lt('started_at', cutoff)
@@ -253,7 +287,8 @@ export class StockEventsCronService implements OnModuleInit, OnModuleDestroy {
       this.logger.warn(`Unable to recover stale stock event runs: ${error.message}`);
       return;
     }
-    if (data?.length) this.logger.warn(`Recovered ${data.length} stale stock event run(s) for job ${jobId}`);
+    if (data?.length)
+      this.logger.warn(`Recovered ${data.length} stale stock event run(s) for job ${jobId}`);
   }
 
   private mapConfig(job: any): StockEventsCronConfig {
@@ -279,7 +314,12 @@ function normalizeDate(value?: string | null) {
 }
 
 function todayVietnam() {
-  return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Ho_Chi_Minh', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Ho_Chi_Minh',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(new Date());
 }
 
 function addDays(value: string, days: number) {
@@ -289,7 +329,8 @@ function addDays(value: string, days: number) {
 }
 
 function validateCronExpression(expression: string, timeZone: string) {
-  if (!expression || expression.split(/\s+/).length !== 5) throw new Error('Cron schedule must use 5 fields');
+  if (!expression || expression.split(/\s+/).length !== 5)
+    throw new Error('Cron schedule must use 5 fields');
   if (!timeZone.includes('/')) throw new Error('Invalid timezone');
   CronJob.from({ cronTime: expression, timeZone, onTick: () => undefined });
 }

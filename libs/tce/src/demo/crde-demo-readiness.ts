@@ -19,9 +19,7 @@ export type CrdeReadinessResult = {
  * live mode, a missing safety boundary, or any submitted order blocks demo
  * promotion. The gate is provider-neutral and does not submit orders.
  */
-export function evaluateCrdeDemoReadiness(
-  evidence: CrdeReadinessEvidence,
-): CrdeReadinessResult {
+export function evaluateCrdeDemoReadiness(evidence: CrdeReadinessEvidence): CrdeReadinessResult {
   const reasons: string[] = [];
 
   if (!evidence.requiredPhasesVerified) {

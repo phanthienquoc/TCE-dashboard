@@ -104,7 +104,10 @@ test('CRDE never opens a second position for an occupied symbol or slot', () => 
   assert.equal(decisions[0]?.decision, 'WAIT');
   assert.equal(decisions[0]?.symbol, 'DPM');
   assert.deepEqual(decisions[0]?.reasons, ['dividend_entitlement_unknown']);
-  assert.equal(decisions.some(decision => decision.decision === 'BUY'), false);
+  assert.equal(
+    decisions.some(decision => decision.decision === 'BUY'),
+    false
+  );
 });
 
 test('CRDE sells when target is reached and marks capital for recycling', () => {

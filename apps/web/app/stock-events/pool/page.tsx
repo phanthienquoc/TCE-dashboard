@@ -97,7 +97,9 @@ export default function StockDividendPoolPage() {
       label: 'Dividend',
       render: r => (
         <div>
-          <div className="font-semibold text-foreground">{r.dividendValue.toLocaleString('vi-VN')}</div>
+          <div className="font-semibold text-foreground">
+            {r.dividendValue.toLocaleString('vi-VN')}
+          </div>
           <Caption>{r.dividendRate || '—'}</Caption>
         </div>
       ),
@@ -161,16 +163,33 @@ export default function StockDividendPoolPage() {
           </select>
 
           <div className="ml-auto flex gap-1">
-            <Button size="sm" variant={sort === 'score' ? 'primary' : 'secondary'} onClick={() => setSort('score')}>
+            <Button
+              size="sm"
+              variant={sort === 'score' ? 'primary' : 'secondary'}
+              onClick={() => setSort('score')}
+            >
               Score
             </Button>
-            <Button size="sm" variant={sort === 'yield' ? 'primary' : 'secondary'} onClick={() => setSort('yield')}>
+            <Button
+              size="sm"
+              variant={sort === 'yield' ? 'primary' : 'secondary'}
+              onClick={() => setSort('yield')}
+            >
               Yield
             </Button>
-            <Button size="sm" variant={sort === 'exDate' ? 'primary' : 'secondary'} onClick={() => setSort('exDate')}>
+            <Button
+              size="sm"
+              variant={sort === 'exDate' ? 'primary' : 'secondary'}
+              onClick={() => setSort('exDate')}
+            >
               Ex-date
             </Button>
-            <Button size="sm" variant="secondary" onClick={() => void load(month)} aria-label="Refresh">
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={() => void load(month)}
+              aria-label="Refresh"
+            >
               <RefreshCw className="h-4 w-4" />
             </Button>
           </div>

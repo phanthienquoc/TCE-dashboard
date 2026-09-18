@@ -134,7 +134,10 @@ function resolveConfig(
   const source = { ...(config ?? {}), ...options };
   return {
     lookbackDays: positive(source.lookbackDays, DEFAULTS.lookbackDays),
-    takeProfitPercent: positive(source.takeProfitPercent ?? source.tpPercent, DEFAULTS.takeProfitPercent),
+    takeProfitPercent: positive(
+      source.takeProfitPercent ?? source.tpPercent,
+      DEFAULTS.takeProfitPercent
+    ),
     invalidationPercent: positive(source.invalidationPercent, DEFAULTS.invalidationPercent),
     maxHoldDays: positive(source.maxHoldDays, DEFAULTS.maxHoldDays),
     minConfidence: bounded(source.minConfidence, 0, 1, DEFAULTS.minConfidence),
@@ -153,7 +156,10 @@ function decideExistingPositions(
     const current = optionalNumber(position.currentPrice);
     const target = optionalNumber(position.targetPrice);
     const profitNet =
-      entry !== undefined && current !== undefined && Number.isFinite(position.quantity) && position.quantity > 0
+      entry !== undefined &&
+      current !== undefined &&
+      Number.isFinite(position.quantity) &&
+      position.quantity > 0
         ? (current - entry) * position.quantity
         : undefined;
 
@@ -168,7 +174,9 @@ function decideExistingPositions(
       profitNet,
       dividendNet: optionalNumber(position.dividendNet),
       candidateId: undefined,
-      decisionWindowKey: String(position.exRightDate ?? position.recordDate ?? 'NO_EVENT_DATE').slice(0, 10),
+      decisionWindowKey: String(
+        position.exRightDate ?? position.recordDate ?? 'NO_EVENT_DATE'
+      ).slice(0, 10),
       decisionId,
       strategyVersion: cfg.strategyVersion,
       timestamp: context.timestamp,
@@ -182,11 +190,24 @@ function decideExistingPositions(
     }
 
     if (target !== undefined && current !== undefined && current >= target) {
-      return { ...common, decision: 'SELL', reasons: ['target_reached', 'capital_recycling_ready'] };
+      return {
+        ...common,
+        decision: 'SELL',
+        reasons: ['target_reached', 'capital_recycling_ready'],
+      };
     }
 
-    if (entry !== undefined && current !== undefined && entry > 0 && current <= entry * (1 - cfg.invalidationPercent / 100)) {
-      return { ...common, decision: 'SELL', reasons: ['price_invalidation', 'capital_recycling_guard'] };
+    if (
+      entry !== undefined &&
+      current !== undefined &&
+      entry > 0 &&
+      current <= entry * (1 - cfg.invalidationPercent / 100)
+    ) {
+      return {
+        ...common,
+        decision: 'SELL',
+        reasons: ['price_invalidation', 'capital_recycling_guard'],
+      };
     }
 
     if (optionalNumber(position.dividendNet) !== undefined && Number.isFinite(profitNet)) {
@@ -207,7 +228,10 @@ function decideExistingPositions(
     return {
       ...common,
       decision: entitlement === 'PROTECTED' || entitlement === 'CONFIRMED' ? 'HOLD' : 'WAIT',
-      reasons: entitlement === 'PROTECTED' || entitlement === 'CONFIRMED' ? ['position_within_rotation_window'] : ['await_dividend_entitlement'],
+      reasons:
+        entitlement === 'PROTECTED' || entitlement === 'CONFIRMED'
+          ? ['position_within_rotation_window']
+          : ['await_dividend_entitlement'],
     };
   });
 }
@@ -235,11 +259,17 @@ function candidateScore(candidate: DecisionStockCandidate): number | null {
   return Number.isFinite(score) ? score : null;
 }
 
-function inLookback(candidate: DecisionStockCandidate, nowMs: number, lookbackDays: number): boolean {
+function inLookback(
+  candidate: DecisionStockCandidate,
+  nowMs: number,
+  lookbackDays: number
+): boolean {
   const raw = candidate.gdkhqTimestamp ?? candidate.exRightDate;
   if (!raw) return true;
   const timestamp = Date.parse(raw);
-  return Number.isFinite(timestamp) && timestamp >= nowMs - lookbackDays * DAY_MS && timestamp <= nowMs;
+  return (
+    Number.isFinite(timestamp) && timestamp >= nowMs - lookbackDays * DAY_MS && timestamp <= nowMs
+  );
 }
 
 function candidateIdOf(candidate: DecisionStockCandidate, index: number): string {
@@ -287,8 +317,12 @@ function deduplicate(decisions: TradeDecision[]): TradeDecision[] {
 
 const DAY_MS = 86_400_000;
 
-function resolveEntitlement(position: DecisionEngineContext['positions'][number], timestamp: string): 'UNKNOWN' | 'AT_RISK' | 'PROTECTED' | 'CONFIRMED' {
-  if (position.entitlementStatus === 'CONFIRMED' || position.entitlementStatus === 'PROTECTED') return position.entitlementStatus;
+function resolveEntitlement(
+  position: DecisionEngineContext['positions'][number],
+  timestamp: string
+): 'UNKNOWN' | 'AT_RISK' | 'PROTECTED' | 'CONFIRMED' {
+  if (position.entitlementStatus === 'CONFIRMED' || position.entitlementStatus === 'PROTECTED')
+    return position.entitlementStatus;
   if (position.entitlementStatus === 'AT_RISK') return 'AT_RISK';
   const raw = position.exRightDate ?? position.recordDate;
   if (!raw) return 'UNKNOWN';

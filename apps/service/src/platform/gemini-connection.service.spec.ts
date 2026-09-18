@@ -73,7 +73,11 @@ test('GeminiConnectionService maps auth, billing, quota, model and malformed-req
   const originalFetch = global.fetch;
   try {
     for (const [status, providerMessage, expected] of [
-      [400, 'API key not valid', 'Gemini request rejected. Check the API key and request configuration.'],
+      [
+        400,
+        'API key not valid',
+        'Gemini request rejected. Check the API key and request configuration.',
+      ],
       [401, '', 'Gemini authentication failed. Check the API key.'],
       [403, '', 'Gemini access denied. Check API access and billing/quota settings.'],
       [404, '', 'Gemini model was not found or is unavailable for this API key.'],

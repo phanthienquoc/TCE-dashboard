@@ -11,8 +11,7 @@
   padding: calc(20px + env(safe-area-inset-top)) 16px calc(20px + env(safe-area-inset-bottom));
   background:
     radial-gradient(circle at 82% 18%, rgb(59 190 255 / 0.055), transparent 30%),
-    radial-gradient(circle at 18% 72%, rgb(52 211 153 / 0.018), transparent 28%),
-    #061016 !important;
+    radial-gradient(circle at 18% 72%, rgb(52 211 153 / 0.018), transparent 28%), #061016 !important;
   color: #edf7fb !important;
 }
 
@@ -26,7 +25,13 @@
     linear-gradient(transparent 0 97%, rgb(111 169 195 / 0.028) 98%, transparent 100%),
     linear-gradient(90deg, transparent 0 97%, rgb(111 169 195 / 0.022) 98%, transparent 100%);
   background-size: 42px 42px;
-  mask-image: linear-gradient(to bottom, transparent, rgb(0 0 0 / 0.55) 22%, rgb(0 0 0 / 0.12) 78%, transparent);
+  mask-image: linear-gradient(
+    to bottom,
+    transparent,
+    rgb(0 0 0 / 0.55) 22%,
+    rgb(0 0 0 / 0.12) 78%,
+    transparent
+  );
 }
 
 .auth-shell::after {
@@ -42,7 +47,21 @@
   background:
     repeating-linear-gradient(170deg, rgb(76 178 221 / 0.1) 0 1px, transparent 1px 18px),
     linear-gradient(180deg, transparent, rgb(15 42 55 / 0.72));
-  clip-path: polygon(0 66%, 11% 56%, 20% 61%, 28% 45%, 36% 53%, 45% 37%, 56% 48%, 67% 31%, 77% 43%, 87% 24%, 100% 35%, 100% 100%, 0 100%);
+  clip-path: polygon(
+    0 66%,
+    11% 56%,
+    20% 61%,
+    28% 45%,
+    36% 53%,
+    45% 37%,
+    56% 48%,
+    67% 31%,
+    77% 43%,
+    87% 24%,
+    100% 35%,
+    100% 100%,
+    0 100%
+  );
 }
 
 .auth-glow {
@@ -65,7 +84,10 @@
   border: 1px solid rgb(75 173 212 / 0.22) !important;
   border-radius: 24px;
   background: linear-gradient(145deg, rgb(15 36 46 / 0.91), rgb(8 23 30 / 0.88)) !important;
-  box-shadow: 0 24px 58px rgb(0 0 0 / 0.26), inset 0 1px 0 rgb(255 255 255 / 0.025), inset 0 0 52px rgb(49 167 207 / 0.018);
+  box-shadow:
+    0 24px 58px rgb(0 0 0 / 0.26),
+    inset 0 1px 0 rgb(255 255 255 / 0.025),
+    inset 0 0 52px rgb(49 167 207 / 0.018);
   backdrop-filter: blur(16px);
 }
 
@@ -98,12 +120,16 @@
   background: rgb(5 20 27 / 0.78) !important;
   color: #edf7fb !important;
   box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.014);
-  transition: border-color 160ms ease, box-shadow 160ms ease;
+  transition:
+    border-color 160ms ease,
+    box-shadow 160ms ease;
 }
 
 .auth-card input:focus {
   border-color: rgb(78 195 244 / 0.62) !important;
-  box-shadow: 0 0 0 3px rgb(78 195 244 / 0.07), 0 0 22px rgb(48 164 212 / 0.05);
+  box-shadow:
+    0 0 0 3px rgb(78 195 244 / 0.07),
+    0 0 22px rgb(48 164 212 / 0.05);
 }
 
 .auth-card input::placeholder {
@@ -131,7 +157,11 @@
 .auth-passkey {
   min-height: 54px;
   border-radius: 14px;
-  transition: transform 160ms ease, filter 160ms ease, background-color 160ms ease, border-color 160ms ease;
+  transition:
+    transform 160ms ease,
+    filter 160ms ease,
+    background-color 160ms ease,
+    border-color 160ms ease;
 }
 
 .auth-submit:not(:disabled):active,

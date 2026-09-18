@@ -55,7 +55,7 @@ export class StockEventsSyncService {
     private readonly db: SupabaseClientService,
     private readonly crawler: VietstockEventsCrawler,
     private readonly ssiPrices: SsiMarketPriceService,
-    private readonly telegram: TelegramBotService,
+    private readonly telegram: TelegramBotService
   ) {}
 
   async run(options: StockEventsSyncOptions): Promise<StockEventsSyncResult> {
@@ -64,7 +64,16 @@ export class StockEventsSyncService {
     const startedAt = new Date().toISOString();
     const { data: run, error: runError } = await this.db.db
       .from('tce_cron_runs')
-      .insert({ job_id: options.jobId, status: 'RUNNING', started_at: startedAt, metadata: { sync: 'vietstock-events', priceSource: 'ssi', progress: this.initialProgress(pageSize) } })
+      .insert({
+        job_id: options.jobId,
+        status: 'RUNNING',
+        started_at: startedAt,
+        metadata: {
+          sync: 'vietstock-events',
+          priceSource: 'ssi',
+          progress: this.initialProgress(pageSize),
+        },
+      })
       .select('id')
       .single();
     if (runError) throw runError;
@@ -83,7 +92,10 @@ export class StockEventsSyncService {
       let symbolsRequested = 0;
       let symbolsSynced = 0;
 
-      const publishProgress = async (phase: SyncProgress['phase'] = 'EVENTS', progressPct?: number) => {
+      const publishProgress = async (
+        phase: SyncProgress['phase'] = 'EVENTS',
+        progressPct?: number
+      ) => {
         await this.updateProgress(String(run.id), {
           phase,
           progressPct: progressPct ?? this.eventProgress(processedEvents, estimatedTotalEvents),
@@ -143,7 +155,9 @@ export class StockEventsSyncService {
 
         if (!upserts.length) return [...batchSymbols].sort();
 
-        const { error } = await this.db.db.from('stock_events').upsert(upserts, { onConflict: 'mongo_id' });
+        const { error } = await this.db.db
+          .from('stock_events')
+          .upsert(upserts, { onConflict: 'mongo_id' });
         if (error) {
           failed += upserts.length;
           eventError = error.message;
@@ -162,17 +176,36 @@ export class StockEventsSyncService {
           symbolsRequested += symbolBatch.length;
           await publishProgress('SSI_PRICE');
           try {
-            const priceResult = await this.ssiPrices.syncSymbolsNow(options.userId, symbolBatch, batchSize);
+            const priceResult = await this.ssiPrices.syncSymbolsNow(
+              options.userId,
+              symbolBatch,
+              batchSize
+            );
             symbolsSynced += priceResult.data.symbolsSynced;
             if (!priceResult.ok) {
-              failed += priceResult.errors.length || Math.max(symbolBatch.length - priceResult.data.symbolsSynced, 1);
-              eventError = eventError ?? priceResult.errors[0]?.message ?? `SSI price sync failed for ${symbolBatch.length} symbols`;
-              this.logger.error(`SSI price sync failed for ${symbolBatch.length} symbols: ${priceResult.errors.map(error => error.message).join('; ') || 'unknown error'}`);
+              failed +=
+                priceResult.errors.length ||
+                Math.max(symbolBatch.length - priceResult.data.symbolsSynced, 1);
+              eventError =
+                eventError ??
+                priceResult.errors[0]?.message ??
+                `SSI price sync failed for ${symbolBatch.length} symbols`;
+              this.logger.error(
+                `SSI price sync failed for ${symbolBatch.length} symbols: ${priceResult.errors.map(error => error.message).join('; ') || 'unknown error'}`
+              );
             }
           } catch (error) {
             failed += symbolBatch.length;
-            eventError = eventError ?? (error instanceof Error ? error.message : typeof error === 'string' ? error : JSON.stringify(error));
-            this.logger.error(`SSI price sync batch failed (${symbolBatch.length} symbols): ${eventError}`);
+            eventError =
+              eventError ??
+              (error instanceof Error
+                ? error.message
+                : typeof error === 'string'
+                  ? error
+                  : JSON.stringify(error));
+            this.logger.error(
+              `SSI price sync batch failed (${symbolBatch.length} symbols): ${eventError}`
+            );
           }
           await publishProgress('SSI_PRICE');
         }
@@ -203,11 +236,32 @@ export class StockEventsSyncService {
         },
       });
 
-      const status = failed > 0 ? (inserted + updated + skipped > 0 ? 'PARTIAL' : 'FAILED') : 'SUCCEEDED';
-      await this.finishRun(String(run.id), { status, inserted, updated, skipped, failed, symbolsRequested, symbolsSynced, errorMessage: eventError });
+      const status =
+        failed > 0 ? (inserted + updated + skipped > 0 ? 'PARTIAL' : 'FAILED') : 'SUCCEEDED';
+      await this.finishRun(String(run.id), {
+        status,
+        inserted,
+        updated,
+        skipped,
+        failed,
+        symbolsRequested,
+        symbolsSynced,
+        errorMessage: eventError,
+      });
       await this.updateProgress(String(run.id), {
         phase: status === 'FAILED' ? 'FAILED' : 'COMPLETED',
-        progressPct: status === 'FAILED' ? Math.min(this.finalProgress(processedEvents, estimatedTotalEvents, symbolsRequested, symbolsSynced), 99) : 100,
+        progressPct:
+          status === 'FAILED'
+            ? Math.min(
+                this.finalProgress(
+                  processedEvents,
+                  estimatedTotalEvents,
+                  symbolsRequested,
+                  symbolsSynced
+                ),
+                99
+              )
+            : 100,
         processedEvents,
         estimatedTotalEvents,
         currentPage,
@@ -222,14 +276,52 @@ export class StockEventsSyncService {
         pageSize,
         updatedAt: new Date().toISOString(),
       });
-      const result = { runId: String(run.id), status, inserted, updated, skipped, failed, symbolsRequested, symbolsSynced } satisfies StockEventsSyncResult;
+      const result = {
+        runId: String(run.id),
+        status,
+        inserted,
+        updated,
+        skipped,
+        failed,
+        symbolsRequested,
+        symbolsSynced,
+      } satisfies StockEventsSyncResult;
       await this.notify(options, result);
       return result;
     } catch (error) {
-      const message = error instanceof Error ? error.message : typeof error === 'string' ? error : JSON.stringify(error);
-      await this.finishRun(String(run.id), { status: 'FAILED', inserted: 0, updated: 0, skipped: 0, failed: 1, symbolsRequested: 0, symbolsSynced: 0, errorMessage: message });
-      await this.updateProgress(String(run.id), { ...this.initialProgress(pageSize), phase: 'FAILED', progressPct: 0, failed: 1, updatedAt: new Date().toISOString() });
-      const result = { runId: String(run.id), status: 'FAILED' as const, inserted: 0, updated: 0, skipped: 0, failed: 1, symbolsRequested: 0, symbolsSynced: 0 } satisfies StockEventsSyncResult;
+      const message =
+        error instanceof Error
+          ? error.message
+          : typeof error === 'string'
+            ? error
+            : JSON.stringify(error);
+      await this.finishRun(String(run.id), {
+        status: 'FAILED',
+        inserted: 0,
+        updated: 0,
+        skipped: 0,
+        failed: 1,
+        symbolsRequested: 0,
+        symbolsSynced: 0,
+        errorMessage: message,
+      });
+      await this.updateProgress(String(run.id), {
+        ...this.initialProgress(pageSize),
+        phase: 'FAILED',
+        progressPct: 0,
+        failed: 1,
+        updatedAt: new Date().toISOString(),
+      });
+      const result = {
+        runId: String(run.id),
+        status: 'FAILED' as const,
+        inserted: 0,
+        updated: 0,
+        skipped: 0,
+        failed: 1,
+        symbolsRequested: 0,
+        symbolsSynced: 0,
+      } satisfies StockEventsSyncResult;
       await this.notify(options, result);
       this.logger.error(`Stock event sync failed: ${message}`);
       return result;
@@ -237,7 +329,23 @@ export class StockEventsSyncService {
   }
 
   private initialProgress(pageSize: number): SyncProgress {
-    return { phase: 'EVENTS', progressPct: 0, processedEvents: 0, estimatedTotalEvents: null, currentPage: 0, rowsOnPage: 0, hasMore: true, inserted: 0, updated: 0, skipped: 0, failed: 0, symbolsRequested: 0, symbolsSynced: 0, pageSize, updatedAt: new Date().toISOString() };
+    return {
+      phase: 'EVENTS',
+      progressPct: 0,
+      processedEvents: 0,
+      estimatedTotalEvents: null,
+      currentPage: 0,
+      rowsOnPage: 0,
+      hasMore: true,
+      inserted: 0,
+      updated: 0,
+      skipped: 0,
+      failed: 0,
+      symbolsRequested: 0,
+      symbolsSynced: 0,
+      pageSize,
+      updatedAt: new Date().toISOString(),
+    };
   }
 
   private eventProgress(processed: number, total: number | null) {
@@ -245,21 +353,34 @@ export class StockEventsSyncService {
     return Math.min(Math.max(Math.round((processed / total) * 80), 1), 80);
   }
 
-  private finalProgress(processed: number, total: number | null, requested: number, synced: number) {
+  private finalProgress(
+    processed: number,
+    total: number | null,
+    requested: number,
+    synced: number
+  ) {
     const eventPct = total ? Math.min((processed / total) * 80, 80) : 80;
     const pricePct = requested ? (synced / requested) * 20 : 20;
     return Math.round(eventPct + pricePct);
   }
 
   private async updateProgress(runId: string, progress: SyncProgress) {
-    const { error } = await this.db.db.from('tce_cron_runs').update({ metadata: { sync: 'vietstock-events', priceSource: 'ssi', progress } }).eq('id', runId);
+    const { error } = await this.db.db
+      .from('tce_cron_runs')
+      .update({ metadata: { sync: 'vietstock-events', priceSource: 'ssi', progress } })
+      .eq('id', runId);
     if (error) this.logger.warn(`Unable to persist stock event progress: ${error.message}`);
   }
 
   private async loadExisting(mongoIds: string[]) {
-    const map = new Map<string, { sync_status: string; sync_hash: string | null; sync_attempts: number }>();
+    const map = new Map<
+      string,
+      { sync_status: string; sync_hash: string | null; sync_attempts: number }
+    >();
     if (!mongoIds.length) return map;
-    const { data, error } = await this.db.db.rpc('stock_events_load_existing', { p_mongo_ids: mongoIds });
+    const { data, error } = await this.db.db.rpc('stock_events_load_existing', {
+      p_mongo_ids: mongoIds,
+    });
     if (error) throw error;
     for (const row of data ?? []) {
       map.set(String(row.mongo_id), {
@@ -282,24 +403,67 @@ export class StockEventsSyncService {
     if (error) throw error;
   }
 
-  private async finishRun(runId: string, result: Partial<StockEventsSyncResult> & { errorMessage?: string | null }) {
-    await this.db.db.from('tce_cron_runs').update({ status: result.status, finished_at: new Date().toISOString(), inserted_count: result.inserted ?? 0, updated_count: result.updated ?? 0, skipped_count: result.skipped ?? 0, failed_count: result.failed ?? 0, symbols_requested: result.symbolsRequested ?? 0, symbols_synced: result.symbolsSynced ?? 0, error_message: result.errorMessage ?? null, metadata: { sync: 'vietstock-events', priceSource: 'ssi' } }).eq('id', runId);
+  private async finishRun(
+    runId: string,
+    result: Partial<StockEventsSyncResult> & { errorMessage?: string | null }
+  ) {
+    await this.db.db
+      .from('tce_cron_runs')
+      .update({
+        status: result.status,
+        finished_at: new Date().toISOString(),
+        inserted_count: result.inserted ?? 0,
+        updated_count: result.updated ?? 0,
+        skipped_count: result.skipped ?? 0,
+        failed_count: result.failed ?? 0,
+        symbols_requested: result.symbolsRequested ?? 0,
+        symbols_synced: result.symbolsSynced ?? 0,
+        error_message: result.errorMessage ?? null,
+        metadata: { sync: 'vietstock-events', priceSource: 'ssi' },
+      })
+      .eq('id', runId);
   }
 
   private async notify(options: StockEventsSyncOptions, result: StockEventsSyncResult) {
     if (!options.telegramCredentialId) return;
-    const message = ['TCE Stock Events Sync', `Status: ${result.status}`, `Inserted: ${result.inserted}`, `Updated: ${result.updated}`, `Skipped: ${result.skipped}`, `Failed: ${result.failed}`, `SSI prices: ${result.symbolsSynced}/${result.symbolsRequested}`].join('\n');
-    try { await this.telegram.sendToCredential(options.userId, options.telegramCredentialId, message); } catch (error) { this.logger.warn(`Telegram sync notification failed: ${error instanceof Error ? error.message : String(error)}`); }
+    const message = [
+      'TCE Stock Events Sync',
+      `Status: ${result.status}`,
+      `Inserted: ${result.inserted}`,
+      `Updated: ${result.updated}`,
+      `Skipped: ${result.skipped}`,
+      `Failed: ${result.failed}`,
+      `SSI prices: ${result.symbolsSynced}/${result.symbolsRequested}`,
+    ].join('\n');
+    try {
+      await this.telegram.sendToCredential(options.userId, options.telegramCredentialId, message);
+    } catch (error) {
+      this.logger.warn(
+        `Telegram sync notification failed: ${error instanceof Error ? error.message : String(error)}`
+      );
+    }
   }
 }
 
 function chunk<T>(items: T[], size: number) {
   const result: T[][] = [];
-  for (let index = 0; index < items.length; index += size) result.push(items.slice(index, index + size));
+  for (let index = 0; index < items.length; index += size)
+    result.push(items.slice(index, index + size));
   return result;
 }
 
 function eventHash(event: CrawledStockEvent) {
-  const payload = { symbol: event.symbol, exchange: event.exchange, exRightDate: event.exRightDate, recordDate: event.recordDate, paymentDate: event.paymentDate, eventContent: event.eventContent, ratioText: event.ratioText, dividendValue: event.dividendValue, referencePrice: event.referencePrice, gdkhqTimestamp: event.gdkhqTimestamp };
+  const payload = {
+    symbol: event.symbol,
+    exchange: event.exchange,
+    exRightDate: event.exRightDate,
+    recordDate: event.recordDate,
+    paymentDate: event.paymentDate,
+    eventContent: event.eventContent,
+    ratioText: event.ratioText,
+    dividendValue: event.dividendValue,
+    referencePrice: event.referencePrice,
+    gdkhqTimestamp: event.gdkhqTimestamp,
+  };
   return createHash('sha256').update(JSON.stringify(payload)).digest('hex');
 }

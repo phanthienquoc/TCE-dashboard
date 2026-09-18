@@ -15,7 +15,7 @@ export class CapitalRotationRuntimeService {
 
   constructor(
     private readonly db: SupabaseClientService,
-    private readonly pool: StockDividendPoolService,
+    private readonly pool: StockDividendPoolService
   ) {}
 
   async evaluateAccount(userId: string, accountId: string, now = new Date().toISOString()) {
@@ -70,7 +70,7 @@ export class CapitalRotationRuntimeService {
     const availableCash = Number(account?.capital_available ?? 0);
     const activeValue = positionRows.reduce(
       (sum, position) => sum + Number(position.market_value ?? 0),
-      0,
+      0
     );
 
     const context: DecisionEngineContext = {
@@ -102,7 +102,7 @@ export class CapitalRotationRuntimeService {
       accountId,
       decisions,
       poolRows,
-      now,
+      now
     );
 
     return {
@@ -112,7 +112,7 @@ export class CapitalRotationRuntimeService {
       buyDecisions: decisions.filter(decision => decision.decision === 'BUY').length,
       sellDecisions: decisions.filter(decision => decision.decision === 'SELL').length,
       holdDecisions: decisions.filter(
-        decision => decision.decision === 'HOLD' || decision.decision === 'WAIT',
+        decision => decision.decision === 'HOLD' || decision.decision === 'WAIT'
       ).length,
       symbols: decisions.map(decision => decision.symbol).filter(Boolean),
     };
@@ -121,7 +121,9 @@ export class CapitalRotationRuntimeService {
   private async loadPositions(accountId: string) {
     const { data, error } = await this.db.db
       .from('tce_positions')
-      .select('id,symbol,quantity,avg_cost,cost_basis,market_price,market_value,unrealized_pnl,status,cycle_no')
+      .select(
+        'id,symbol,quantity,avg_cost,cost_basis,market_price,market_value,unrealized_pnl,status,cycle_no'
+      )
       .eq('account_id', accountId)
       .neq('status', 'CLOSED')
       .order('symbol');
@@ -142,7 +144,9 @@ export class CapitalRotationRuntimeService {
   private async loadStrategy(accountId: string) {
     const { data, error } = await this.db.db
       .from('tce_strategy_config')
-      .select('pool_size,core_capital,burst_capital,max_positions,profit_target_pct,max_asset_allocation_pct,buy_quantity_step,monitor_interval_minutes')
+      .select(
+        'pool_size,core_capital,burst_capital,max_positions,profit_target_pct,max_asset_allocation_pct,buy_quantity_step,monitor_interval_minutes'
+      )
       .eq('account_id', accountId)
       .maybeSingle();
     if (error) throw error;
@@ -154,13 +158,11 @@ export class CapitalRotationRuntimeService {
     accountId: string,
     decisions: readonly any[],
     poolRows: readonly any[],
-    snapshotAt: string,
+    snapshotAt: string
   ) {
     if (!decisions.length) return 0;
 
-      const poolBySymbol = new Map(
-      poolRows.map(row => [String(row.ticker).toUpperCase(), row]),
-    );
+    const poolBySymbol = new Map(poolRows.map(row => [String(row.ticker).toUpperCase(), row]));
     const rows = decisions.map(decision => {
       const poolRow = poolBySymbol.get(String(decision.symbol ?? '').toUpperCase());
       const dividendNet = Number(decision.dividendNet ?? poolRow?.dividendValue ?? 0);
@@ -180,17 +182,14 @@ export class CapitalRotationRuntimeService {
         expected_dividend_per_share: poolRow?.dividendValue ?? null,
         expected_net_dividend: dividendNet || null,
         net_unrealized_profit: profitNet || null,
-        profit_dividend_ratio:
-          dividendNet > 0 ? profitNet / dividendNet : null,
+        profit_dividend_ratio: dividendNet > 0 ? profitNet / dividendNet : null,
         ex_date: poolRow?.exDividendDate ?? null,
         record_date: null,
         payment_date: poolRow?.paymentDate ?? null,
         entitlement_secured:
-          decision.entitlementStatus === 'PROTECTED' ||
-          decision.entitlementStatus === 'CONFIRMED',
+          decision.entitlementStatus === 'PROTECTED' || decision.entitlementStatus === 'CONFIRMED',
         reasons: decision.reasons ?? [],
-        agent_note:
-          'CRDE runtime decision; execution remains guarded by Risk/Safety Gate.',
+        agent_note: 'CRDE runtime decision; execution remains guarded by Risk/Safety Gate.',
         snapshot_at: snapshotAt,
       };
     });
@@ -209,7 +208,7 @@ export class CapitalRotationRuntimeService {
 function buildPools(
   strategy: Record<string, any> | null,
   availableCash: number,
-  positions: readonly DecisionPositionState[],
+  positions: readonly DecisionPositionState[]
 ): DecisionPoolState[] {
   const configured = Number(strategy?.core_capital ?? availableCash);
   const coreA = Math.min(configured * 0.5333, availableCash);
@@ -248,6 +247,6 @@ function occupiedCapital(pool: string, positions: readonly DecisionPositionState
     .reduce(
       (sum, position) =>
         sum + Number(position.currentPrice ?? position.entryPrice ?? 0) * position.quantity,
-      0,
+      0
     );
 }

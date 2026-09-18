@@ -110,11 +110,11 @@ test('blocks execution before the provider port when the global kill switch is a
 
 test('creates an execution command only from a risk-approved intent', () => {
   const bridge = new TceGuardedExecutionBridge(fakePort({ submit: 0 }));
-  const prepared = bridge.prepareSubmit(
-    request(),
-    config,
-    { accountId: 'account-1', environment: 'production', clientRequestId: 'cr-1' }
-  );
+  const prepared = bridge.prepareSubmit(request(), config, {
+    accountId: 'account-1',
+    environment: 'production',
+    clientRequestId: 'cr-1',
+  });
 
   assert.equal(prepared.ok, true);
   if (!prepared.ok) return;
@@ -128,11 +128,11 @@ test('creates an execution command only from a risk-approved intent', () => {
 test('preserves orchestrator idempotency across repeated approved execution', async () => {
   const calls = { submit: 0 };
   const bridge = new TceGuardedExecutionBridge(fakePort(calls));
-  const prepared = bridge.prepareSubmit(
-    request(),
-    config,
-    { accountId: 'account-1', environment: 'production', clientRequestId: 'cr-1' }
-  );
+  const prepared = bridge.prepareSubmit(request(), config, {
+    accountId: 'account-1',
+    environment: 'production',
+    clientRequestId: 'cr-1',
+  });
   assert.equal(prepared.ok, true);
   if (!prepared.ok) return;
 

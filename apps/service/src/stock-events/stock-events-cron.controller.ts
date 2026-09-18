@@ -6,7 +6,7 @@ import { StockEventsCronService } from './stock-events-cron.service';
 export class StockEventsCronController {
   constructor(
     private readonly cron: StockEventsCronService,
-    private readonly jwt: JwtService,
+    private readonly jwt: JwtService
   ) {}
 
   private userId(auth?: string) {

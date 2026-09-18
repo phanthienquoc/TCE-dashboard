@@ -6,17 +6,21 @@ import { DividendOhlcvService } from './dividend-ohlcv.service';
 export class DividendOhlcvController {
   constructor(
     private readonly jwt: JwtService,
-    private readonly service: DividendOhlcvService,
+    private readonly service: DividendOhlcvService
   ) {}
 
   @Get('price-history')
   async history(
     @Headers('authorization') authorization: string | undefined,
     @Query('symbol') symbol?: string,
-    @Query('days') days?: string,
+    @Query('days') days?: string
   ) {
     const userId = this.userId(authorization);
-    return { ok: true, data: await this.service.getHistory(symbol ?? '', Number(days ?? 365)), userId };
+    return {
+      ok: true,
+      data: await this.service.getHistory(symbol ?? '', Number(days ?? 365)),
+      userId,
+    };
   }
 
   @Get('dividend-ohlcv-sync-progress')
@@ -25,7 +29,8 @@ export class DividendOhlcvController {
   }
 
   private userId(authorization?: string) {
-    if (!authorization?.startsWith('Bearer ')) throw new UnauthorizedException('Bearer token required');
+    if (!authorization?.startsWith('Bearer '))
+      throw new UnauthorizedException('Bearer token required');
     return String(this.jwt.verify(authorization.slice(7)).sub);
   }
 }

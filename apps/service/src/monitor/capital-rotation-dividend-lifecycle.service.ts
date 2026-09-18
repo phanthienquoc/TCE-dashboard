@@ -43,7 +43,7 @@ export class CapitalRotationDividendLifecycleService {
     const { data: positions, error } = await this.supabase.db
       .from('tce_positions')
       .select(
-        'id,account_id,symbol,quantity,avg_cost,market_price,dividend_lifecycle,ex_dividend_at,record_date,dividend_payment_at,lifecycle_updated_at,lifecycle_idempotency_key,status',
+        'id,account_id,symbol,quantity,avg_cost,market_price,dividend_lifecycle,ex_dividend_at,record_date,dividend_payment_at,lifecycle_updated_at,lifecycle_idempotency_key,status'
       )
       .eq('account_id', accountId)
       .eq('status', 'OPEN')
@@ -64,7 +64,7 @@ export class CapitalRotationDividendLifecycleService {
     }
 
     const mappedState = lifecycleStateFromDividend(
-      (row.dividend_lifecycle ?? 'ELIGIBLE') as Parameters<typeof lifecycleStateFromDividend>[0],
+      (row.dividend_lifecycle ?? 'ELIGIBLE') as Parameters<typeof lifecycleStateFromDividend>[0]
     );
     const currentState: CapitalRotationLifecyclePosition['state'] =
       mappedState ??
@@ -85,7 +85,8 @@ export class CapitalRotationDividendLifecycleService {
       dividendPerShare: event.dividend_value == null ? undefined : Number(event.dividend_value),
       exDividendAt: row.ex_dividend_at ?? exAt,
       paymentAt: row.dividend_payment_at ?? paymentAt,
-      dividendLifecycle: (row.dividend_lifecycle ?? 'ELIGIBLE') as CapitalRotationLifecyclePosition['dividendLifecycle'],
+      dividendLifecycle: (row.dividend_lifecycle ??
+        'ELIGIBLE') as CapitalRotationLifecyclePosition['dividendLifecycle'],
       state: currentState,
       updatedAt: row.lifecycle_updated_at ?? new Date(0).toISOString(),
     };
@@ -98,24 +99,25 @@ export class CapitalRotationDividendLifecycleService {
         'EX_DIVIDEND',
         correlationId,
         `ex-date-reached:${event.ex_right_date}`,
-        { exDividendAt: exAt, paymentAt, recordDate: event.record_date },
+        { exDividendAt: exAt, paymentAt, recordDate: event.record_date }
       );
     }
 
     const t2At = expectedT2Window(exAt);
     if (currentState === 'EX_DIVIDEND' && t2At && Date.parse(t2At) <= now) {
-      return this.persist(
-        row,
-        position,
-        'T2_PENDING',
-        correlationId,
-        `t2-window-reached:${t2At}`,
-        { exDividendAt: exAt, paymentAt, recordDate: event.record_date },
-      );
+      return this.persist(row, position, 'T2_PENDING', correlationId, `t2-window-reached:${t2At}`, {
+        exDividendAt: exAt,
+        paymentAt,
+        recordDate: event.record_date,
+      });
     }
 
     if (currentState === 'T2_PENDING' && paymentAt && Date.parse(paymentAt) <= now) {
-      const confirmation = await this.findDividendConfirmation(row.account_id, row.symbol, event.payment_date!);
+      const confirmation = await this.findDividendConfirmation(
+        row.account_id,
+        row.symbol,
+        event.payment_date!
+      );
       if (confirmation) {
         return this.persist(
           row,
@@ -128,10 +130,15 @@ export class CapitalRotationDividendLifecycleService {
             paymentAt,
             recordDate: event.record_date,
             netCash: Number(confirmation.net_cash ?? 0),
-          },
+          }
         );
       }
-      return { symbol: row.symbol, state: currentState, action: 'WAIT', reason: 'payment_due_confirmation_missing' };
+      return {
+        symbol: row.symbol,
+        state: currentState,
+        action: 'WAIT',
+        reason: 'payment_due_confirmation_missing',
+      };
     }
 
     return { symbol: row.symbol, state: currentState, action: 'HOLD' };
@@ -143,11 +150,20 @@ export class CapitalRotationDividendLifecycleService {
     to: CapitalRotationLifecyclePosition['state'],
     correlationId: string,
     reason: string,
-    evidence?: { exDividendAt?: string; paymentAt?: string; recordDate?: string | null; netCash?: number },
+    evidence?: {
+      exDividendAt?: string;
+      paymentAt?: string;
+      recordDate?: string | null;
+      netCash?: number;
+    }
   ) {
     const idempotencyKey = `crde:lifecycle:${row.id}:${to}:${evidence?.paymentAt ?? evidence?.exDividendAt ?? 'na'}`;
     if (row.lifecycle_idempotency_key === idempotencyKey) {
-      return { symbol: row.symbol, state: row.dividend_lifecycle ?? position.state, action: 'IDEMPOTENT_REPLAY' };
+      return {
+        symbol: row.symbol,
+        state: row.dividend_lifecycle ?? position.state,
+        action: 'IDEMPOTENT_REPLAY',
+      };
     }
 
     const result = this.lifecycle.transition(
@@ -155,7 +171,7 @@ export class CapitalRotationDividendLifecycleService {
       to,
       { correlationId, idempotencyKey },
       reason,
-      evidence,
+      evidence
     );
     if (!result.ok) {
       this.logger.warn(`Lifecycle transition rejected for ${row.symbol}: ${result.code}`);

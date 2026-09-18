@@ -49,7 +49,10 @@ export const useDividendOhlcvStore = create<OhlcvState>((set, get) => ({
     } catch (error: any) {
       set(state => ({
         loading: { ...state.loading, [normalized]: false },
-        errors: { ...state.errors, [normalized]: error?.response?.data?.message ?? 'Unable to load 1Y candle history' },
+        errors: {
+          ...state.errors,
+          [normalized]: error?.response?.data?.message ?? 'Unable to load 1Y candle history',
+        },
       }));
     }
   },

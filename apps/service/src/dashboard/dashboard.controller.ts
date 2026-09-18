@@ -83,7 +83,9 @@ export class DashboardController {
   @Get('engine-runtime') async getEngineRuntime(@Headers('authorization') auth?: string) {
     return this.runtime.getRuntime(await this.dashboardAccountId(this.userId(auth)));
   }
-  @Get('engine-runtime/start-plan') async getEngineStartPlan(@Headers('authorization') auth?: string) {
+  @Get('engine-runtime/start-plan') async getEngineStartPlan(
+    @Headers('authorization') auth?: string
+  ) {
     return this.runtime.getStartPlan(await this.dashboardAccountId(this.userId(auth)));
   }
   @Patch('engines/:engineId/status') setEngineStatus(
