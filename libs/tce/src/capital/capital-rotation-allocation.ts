@@ -196,7 +196,7 @@ export class CapitalRotationAllocationService {
       };
     }
 
-    const released = this.allocator.release(existing.ownerKey, timestamp);
+    const released = this.allocator.realize(existing.ownerKey, pnl, timestamp);
     if (!released.ok) return released;
 
     const next = { ...existing, state: 'REALIZED' as const };
