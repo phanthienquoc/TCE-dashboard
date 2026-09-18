@@ -13,6 +13,7 @@ import { VietstockEventsCrawler } from './stock-events/vietstock-events.crawler'
 import { DividendOhlcvService } from './stock-events/dividend-ohlcv.service';
 import { DividendOhlcvCronService } from './stock-events/dividend-ohlcv-cron.service';
 import { CapitalRotationCronService } from './stock-events/capital-rotation-cron.service';
+import { CapitalRotationCronController } from './stock-events/capital-rotation-cron.controller';
 import { TelegramBotModule } from './telegram/telegram-bot.module';
 
 @Module({
@@ -26,7 +27,7 @@ import { TelegramBotModule } from './telegram/telegram-bot.module';
     ProfitExitModule,
     ProfitExitSettingsModule,
   ],
-  controllers: [StockEventsCronController],
+  controllers: [StockEventsCronController, CapitalRotationCronController],
   providers: [
     StockEventsCronService,
     CapitalRotationCronService,
