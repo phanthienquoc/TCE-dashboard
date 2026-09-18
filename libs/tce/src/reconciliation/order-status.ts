@@ -2,6 +2,10 @@ import type { TceOrderState } from '@tce/contracts';
 
 const STATUS_MAP: Readonly<Record<string, TceOrderState>> = {
   NEW: 'SUBMITTED',
+  READY: 'SUBMITTED',
+  SENT: 'SUBMITTED',
+  QUEUED: 'SUBMITTED',
+  RS: 'SUBMITTED',
   PENDING_NEW: 'SUBMITTED',
   OPEN: 'SUBMITTED',
   WORKING: 'SUBMITTED',

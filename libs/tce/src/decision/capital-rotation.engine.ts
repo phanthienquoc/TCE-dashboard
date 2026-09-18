@@ -57,7 +57,10 @@ export class CapitalRotationDecisionEngine implements DecisionEngine {
 
     for (const pool of context.pools) {
       if (!Number.isFinite(pool.availableCapital) || pool.availableCapital <= 0) continue;
-      const slotCapital = pool.allocatedCapital > 0 ? pool.allocatedCapital / cfg.slotsPerPool : pool.availableCapital / cfg.slotsPerPool;
+      const slotCapital =
+        pool.allocatedCapital > 0
+          ? pool.allocatedCapital / cfg.slotsPerPool
+          : pool.availableCapital / cfg.slotsPerPool;
       if (!Number.isFinite(slotCapital) || slotCapital <= 0) continue;
 
       for (let slotIndex = 1; slotIndex <= cfg.slotsPerPool; slotIndex += 1) {
@@ -78,7 +81,9 @@ export class CapitalRotationDecisionEngine implements DecisionEngine {
           const allocation = Math.min(slotCapital, pool.availableCapital);
           const symbol = normalize(candidate.symbol);
           const candidateId = candidateIdOf(candidate, item.index);
-          const windowKey = String(candidate.exRightDate ?? candidate.gdkhqTimestamp ?? 'NO_EVENT_DATE').slice(0, 10);
+          const windowKey = String(
+            candidate.exRightDate ?? candidate.gdkhqTimestamp ?? 'NO_EVENT_DATE'
+          ).slice(0, 10);
           const decisionId = `${cfg.strategyVersion}:${symbol}:BUY:${slot}:${candidateId}:${windowKey}`;
 
           if (seen.has(decisionId)) continue;
@@ -169,15 +174,11 @@ function decideExistingPositions(
       timestamp: context.timestamp,
     };
 
-    if (entitlement === 'UNKNOWN') {
-      return { ...common, decision: 'WAIT', reasons: ['dividend_entitlement_unknown'] };
-    }
+    // A reached target or price invalidation is actionable even when dividend
+    // entitlement metadata is unavailable. Only an explicit AT_RISK state
+    // protects the entitlement before allowing a sale.
     if (entitlement === 'AT_RISK') {
       return { ...common, decision: 'HOLD', reasons: ['protect_dividend_entitlement'] };
-    }
-
-    if (entitlement === 'UNKNOWN' && target !== undefined && current !== undefined && current >= target) {
-      return { ...common, decision: 'SELL', reasons: ['target_reached', 'capital_recycling_ready'] };
     }
 
     if (target !== undefined && current !== undefined && current >= target) {
@@ -197,6 +198,10 @@ function decideExistingPositions(
           reasons: ['profit_net_exceeds_expected_dividend', 'capital_recycling_ready'],
         };
       }
+    }
+
+    if (entitlement === 'UNKNOWN') {
+      return { ...common, decision: 'WAIT', reasons: ['dividend_entitlement_unknown'] };
     }
 
     return {
@@ -281,7 +286,6 @@ function deduplicate(decisions: TradeDecision[]): TradeDecision[] {
 }
 
 const DAY_MS = 86_400_000;
-
 
 function resolveEntitlement(position: DecisionEngineContext['positions'][number], timestamp: string): 'UNKNOWN' | 'AT_RISK' | 'PROTECTED' | 'CONFIRMED' {
   if (position.entitlementStatus === 'CONFIRMED' || position.entitlementStatus === 'PROTECTED') return position.entitlementStatus;
