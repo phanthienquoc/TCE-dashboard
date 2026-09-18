@@ -7,6 +7,8 @@ import { TceEngineService } from './tce-engine.service';
 import { TceSignalService } from './tce-signal.service';
 import { BinanceEngineService } from './binance-engine.service';
 import { BinancePositionWatcherService } from './binance-position-watcher.service';
+import { BinanceExecutionEngine } from '../platform/binance-execution.engine';
+import { BinanceDerivativesEngine } from '../platform/binance-derivatives.engine';
 import { GeminiSignalParserService } from './gemini-signal-parser.service';
 
 @Module({
@@ -15,6 +17,10 @@ import { GeminiSignalParserService } from './gemini-signal-parser.service';
   providers: [
     TceEngineService,
     TceSignalService,
+    BinanceExecutionEngine,
+    BinanceDerivativesEngine,
+    BinanceExecutionEngine,
+    BinanceDerivativesEngine,
     BinanceEngineService,
     BinancePositionWatcherService,
     GeminiSignalParserService,
