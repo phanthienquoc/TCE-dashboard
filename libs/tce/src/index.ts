@@ -33,6 +33,7 @@ export * from './execution/capital-rotation-execution';
 export * from './execution/trading-authorization';
 export * from './execution/paper-execution';
 export * from './execution/assisted-approval';
+export * from './reconciliation/capital-rotation-dividend-lifecycle';
 export * from './reconciliation/order-status';
 export * from './reconciliation/order-state-reconciler';
 export * from './reconciliation/reconciliation-persistence';
