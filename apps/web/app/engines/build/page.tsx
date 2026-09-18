@@ -40,7 +40,7 @@ const BUILD_STEPS: BuildStep[] = [
     phase: '03',
     title: 'Capital Rotation Decision',
     description: 'Decide BUY / HOLD / SELL / ROTATE / WAIT / SKIP using expected net return per capital-day.',
-    status: 'todo',
+    status: 'in-progress',
     deliverables: ['CRDE core', 'Entry gates', 'Exit gates', 'Rotation rules'],
     verification: 'Decision-engine test matrix',
   },
