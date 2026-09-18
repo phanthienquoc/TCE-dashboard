@@ -19,6 +19,7 @@ export * from './decision/hunting-dividend.engine';
 export * from './decision/capital-rotation.engine';
 export * from './capital/capital-slot-allocator';
 export * from './capital/capital-allocation-lifecycle';
+export * from './capital/capital-rotation-allocation';
 export * from './order/order-planner';
 export * from './order/order-planner-allocation';
 export * from './order/order-precision';
