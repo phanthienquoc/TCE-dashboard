@@ -5,6 +5,7 @@ import type {
   TceRiskGateConfig,
   TceRiskGateContext,
   TceRiskGateRequest,
+  TceDecision,
   TradeDecision,
 } from '@tce/contracts';
 import { approveExecutionIntent, type TceApprovedExecutionIntent } from '../risk/guarded-execution';
@@ -13,6 +14,7 @@ import { createExecutionIntent } from '../order/order-planner';
 export type CapitalRotationExecutionRequest = Readonly<{
   decision: TradeDecision;
   orderPlanId: string;
+  quantity: number;
   mode: TceExecutionMode;
   accountId: string;
   environment: string;
@@ -30,18 +32,10 @@ export function prepareCapitalRotationExecution(
   request: CapitalRotationExecutionRequest,
 ): CapitalRotationExecutionPreparation {
   if (request.decision.decision !== 'BUY' && request.decision.decision !== 'SELL') {
-    return {
-      ok: false,
-      code: 'DECISION_NOT_EXECUTABLE',
-      message: 'Only BUY and SELL CRDE decisions can reach execution preparation',
-    };
+    return { ok: false, code: 'DECISION_NOT_EXECUTABLE', message: 'Only BUY and SELL CRDE decisions can reach execution preparation' };
   }
   if (!request.decision.decisionId || !request.decision.symbol || !request.orderPlanId.trim()) {
-    return {
-      ok: false,
-      code: 'INVALID_EXECUTION_IDENTITY',
-      message: 'Decision id, symbol and orderPlanId are required',
-    };
+    return { ok: false, code: 'INVALID_EXECUTION_IDENTITY', message: 'Decision id, symbol and orderPlanId are required' };
   }
 
   const side = request.decision.decision;
