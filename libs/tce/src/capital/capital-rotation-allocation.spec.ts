@@ -67,3 +67,28 @@ test('allocation activation and release recycle the slot', () => {
   assert.equal(released.snapshot.pools[0]?.availableCapital, 8_000_000);
   assert.equal(released.snapshot.slots[0]?.state, 'AVAILABLE');
 });
+
+test('allocation realization recycles principal plus pnl and records realized capital', () => {
+  const service = createCapitalRotationAllocationService(
+    [{ pool: 'A', capital: 8_000_000, slots: 1 }],
+    '2026-09-18T02:00:00.000Z',
+  );
+  const reserved = service.reserve({ decision, timestamp: decision.timestamp });
+  assert.equal(reserved.ok, true);
+  if (!reserved.ok) return;
+  const active = service.activate(reserved.allocation.idempotencyKey, '2026-09-18T02:01:00.000Z');
+  assert.equal(active.ok, true);
+  if (!active.ok) return;
+
+  const realized = service.realize(
+    reserved.allocation.idempotencyKey,
+    '2026-09-18T02:02:00.000Z',
+    250_000,
+  );
+  assert.equal(realized.ok, true);
+  if (!realized.ok) return;
+  assert.equal(realized.allocation.state, 'REALIZED');
+  assert.equal(realized.snapshot.pools[0]?.availableCapital, 8_250_000);
+  assert.equal(realized.snapshot.pools[0]?.realizedCapital, 250_000);
+  assert.equal(realized.snapshot.slots[0]?.state, 'AVAILABLE');
+});
