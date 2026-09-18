@@ -1,4 +1,4 @@
-export type EngineId = 'tce-decision' | 'ssi-execution' | 'binance-market' | 'binance-execution' | 'binance-derivatives' | 'binance-xau';
+export type EngineId = 'tce-decision' | 'capital-rotation-decision' | 'ssi-execution' | 'binance-market' | 'binance-execution' | 'binance-derivatives' | 'binance-xau';
 
 export type EngineDefinition = {
   id: EngineId;
@@ -21,6 +21,34 @@ export const ENGINE_REGISTRY: EngineDefinition[] = [
     layer: 'decision',
     provider: 'tce',
     defaults: { poolSize: 20, maxPositions: 2, coreCapital: 15_000_000, burstCapital: 5_000_000, profitTargetPct: 10, maxAssetAllocationPct: 40, buyQuantityStep: 100, buyFromRemainingBudget: true, monitorIntervalMinutes: 60, timezone: 'Asia/Ho_Chi_Minh', marketOpen: '09:00:00', marketClose: '14:45:00', autoSellEnabled: false, autoSellProfitTargetPct: 10, autoSellIntervalMinutes: 60 },
+  },
+  {
+    id: 'capital-rotation-decision',
+    name: 'Capital Rotation Decision Engine',
+    description: 'Optimizes capital rotation across dividend capture, post-ex-dividend recovery and capital turnover opportunities for VN cash equities.',
+    platform: 'TCE',
+    category: 'Decision',
+    layer: 'decision',
+    provider: 'tce',
+    defaults: {
+      poolSize: 20,
+      maxPositions: 2,
+      coreCapital: 15_000_000,
+      burstCapital: 5_000_000,
+      maxAssetAllocationPct: 40,
+      buyQuantityStep: 100,
+      buyFromRemainingBudget: true,
+      monitorIntervalMinutes: 60,
+      timezone: 'Asia/Ho_Chi_Minh',
+      marketOpen: '09:00:00',
+      marketClose: '14:45:00',
+      lookbackDays: 30,
+      takeProfitPct: 5,
+      minConfidence: 0.5,
+      maxHoldDays: 30,
+      slotsPerPool: 1,
+      liveTradingEnabled: false,
+    },
   },
   {
     id: 'ssi-execution',

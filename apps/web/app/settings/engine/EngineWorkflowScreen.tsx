@@ -7,7 +7,7 @@ import { EngineRuntimeSkeleton } from '../../../components/ui/page-skeleton';
 import { ENGINE_REGISTRY, getEngine, type EngineId } from '../../engines/engine-registry';
 import { EngineWorkflow, type WorkflowEngine } from '../../engines/EngineWorkflow';
 
-const DEPENDENCIES: Record<string, string[]> = { 'tce-decision': [], 'ssi-execution': ['tce-decision'], 'binance-market': [], 'binance-execution': ['binance-market'], 'binance-derivatives': ['binance-market'], 'binance-xau': ['binance-derivatives'] };
+const DEPENDENCIES: Record<string, string[]> = { 'tce-decision': [], 'capital-rotation-decision': [], 'ssi-execution': ['tce-decision'], 'binance-market': [], 'binance-execution': ['binance-market'], 'binance-derivatives': ['binance-market'], 'binance-xau': ['binance-derivatives'] };
 type RuntimeRow = { engineId: string; configuredEnabled: boolean; status: 'ACTIVE' | 'PAUSED' | 'ERROR'; dependencies: string[] };
 
 export default function EngineWorkflowScreen() {
@@ -19,7 +19,7 @@ export default function EngineWorkflowScreen() {
     try {
       const { data } = await dashboardApi.engineRuntime();
       const rows = ((data as { engines?: RuntimeRow[] })?.engines ?? []);
-      setRuntime(ENGINE_REGISTRY.map(definition => { const row = rows.find(item => item.engineId === definition.id); return { id: definition.id, name: definition.name, shortName: definition.id === 'ssi-execution' ? 'SSI Execution' : definition.id === 'binance-market' ? 'Binance Market' : definition.id === 'binance-execution' ? 'Binance Execution' : definition.id === 'binance-derivatives' ? 'Binance Derivatives' : definition.id === 'binance-xau' ? 'Binance XAU' : 'TCE Decision', category: definition.category, description: definition.description, status: row?.status ?? 'PAUSED', enabled: Boolean(row?.configuredEnabled), dependencies: row?.dependencies ?? DEPENDENCIES[definition.id] ?? [], configSummary: definition.platform, href: definition.id === 'binance-xau' || definition.id === 'binance-derivatives' ? '/xau' : `/settings/engine/${definition.id}`, onToggle: toggle } satisfies WorkflowEngine; }));
+      setRuntime(ENGINE_REGISTRY.map(definition => { const row = rows.find(item => item.engineId === definition.id); return { id: definition.id, name: definition.name, shortName: definition.id === 'capital-rotation-decision' ? 'Capital Rotation' : definition.id === 'ssi-execution' ? 'SSI Execution' : definition.id === 'binance-market' ? 'Binance Market' : definition.id === 'binance-execution' ? 'Binance Execution' : definition.id === 'binance-derivatives' ? 'Binance Derivatives' : definition.id === 'binance-xau' ? 'Binance XAU' : 'TCE Decision', category: definition.category, description: definition.description, status: row?.status ?? 'PAUSED', enabled: Boolean(row?.configuredEnabled), dependencies: row?.dependencies ?? DEPENDENCIES[definition.id] ?? [], configSummary: definition.platform, href: definition.id === 'binance-xau' || definition.id === 'binance-derivatives' ? '/xau' : `/settings/engine/${definition.id}`, onToggle: toggle } satisfies WorkflowEngine; }));
     } finally { setLoading(false); }
   }
   async function toggle(id: string) { const current = runtime.find(engine => engine.id === id); if (!current || updating) return; if (!current.enabled && current.dependencies.some(dependencyId => runtime.find(engine => engine.id === dependencyId)?.status !== 'ACTIVE')) return; setUpdating(id); try { await dashboardApi.setEngineStatus(id, current.enabled ? 'INACTIVE' : 'ACTIVE'); await load(); } finally { setUpdating(null); } }
