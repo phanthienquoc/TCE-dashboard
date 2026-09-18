@@ -8,6 +8,7 @@ export type BinanceMarketSnapshot = {
 
 export { BINANCE_FUTURES_URLS, getBinanceFuturesUrl } from './binance.constants';
 export type { BinanceFuturesEnvironment } from './binance.constants';
+export { BinanceMarketAdapter } from './binance.market.adapter';
 export { BinanceFuturesExecutionAdapter } from './binance.futures.execution.adapter';
 export { BinanceFuturesStateAdapter } from './binance.futures.state.adapter';
 export { BinanceFuturesUserDataStream } from './binance.futures.user-data-stream';

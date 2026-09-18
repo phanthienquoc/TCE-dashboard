@@ -4,7 +4,7 @@ import { SupabaseClientService } from '../db/supabase.client';
 import { DashboardSourcesService } from './dashboard-sources.service';
 import { DashboardCapitalPoolEngine } from './capital-pool.engine';
 
-const ENGINE_IDS = ['tce-decision', 'ssi-execution', 'binance-market', 'binance-xau'] as const;
+const ENGINE_IDS = ['tce-decision', 'ssi-execution', 'binance-market', 'binance-execution', 'binance-derivatives', 'binance-xau'] as const;
 type EngineId = (typeof ENGINE_IDS)[number];
 const DEFAULT_ENGINE_CONFIG = { enabled: false, profitTargetPct: 10, maxTotalAssets: 5, maxAssetAllocationPct: 40, buyQuantityStep: 100, buyFromRemainingBudget: true };
 

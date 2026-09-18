@@ -2,6 +2,7 @@ import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/commo
 import { BinanceFuturesService } from '../platform/binance-futures.service';
 import { SupabaseClientService } from '../db/supabase.client';
 import { BinanceEngineService } from './binance-engine.service';
+import { BinanceDerivativesEngine } from '../platform/binance-derivatives.engine';
 
 /**
  * Reconciliation layer for Binance Futures positions.
@@ -18,7 +19,8 @@ export class BinancePositionWatcherService implements OnModuleInit, OnModuleDest
   constructor(
     private readonly supabase: SupabaseClientService,
     private readonly binance: BinanceFuturesService,
-    private readonly engine: BinanceEngineService
+    private readonly engine: BinanceEngineService,
+    private readonly derivatives: BinanceDerivativesEngine
   ) {}
 
   onModuleInit() {
@@ -43,7 +45,7 @@ export class BinancePositionWatcherService implements OnModuleInit, OnModuleDest
         const symbol = String(config.binance_xau_symbol ?? 'XAUUSDT').toUpperCase();
         for (const environment of ['production', 'testnet']) {
           try {
-            const positions = await this.binance.positions(userId, environment, symbol);
+            const positions = await this.derivatives.positions(userId, environment, symbol);
             const active = positions.filter(item => Math.abs(item.positionAmt) > 0);
             const fingerprint = JSON.stringify(
               active.map(item => [item.symbol, item.positionAmt, item.entryPrice, item.markPrice])
