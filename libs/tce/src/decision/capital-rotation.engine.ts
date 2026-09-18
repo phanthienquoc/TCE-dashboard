@@ -176,6 +176,10 @@ function decideExistingPositions(
       return { ...common, decision: 'HOLD', reasons: ['protect_dividend_entitlement'] };
     }
 
+    if (entitlement === 'UNKNOWN' && target !== undefined && current !== undefined && current >= target) {
+      return { ...common, decision: 'SELL', reasons: ['target_reached', 'capital_recycling_ready'] };
+    }
+
     if (target !== undefined && current !== undefined && current >= target) {
       return { ...common, decision: 'SELL', reasons: ['target_reached', 'capital_recycling_ready'] };
     }
