@@ -19,7 +19,9 @@ const ENGINE_DEPENDENCIES: Record<string, string[]> = {
   'tce-decision': [],
   'ssi-execution': ['tce-decision'],
   'binance-market': [],
-  'binance-xau': ['binance-market'],
+  'binance-execution': ['binance-market'],
+  'binance-derivatives': ['binance-market'],
+  'binance-xau': ['binance-derivatives'],
 };
 
 @Injectable()
