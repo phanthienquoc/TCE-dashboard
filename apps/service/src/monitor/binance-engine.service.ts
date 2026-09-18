@@ -1,5 +1,4 @@
 import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
-import { BinanceFuturesService } from '../platform/binance-futures.service';
 import { BinanceExecutionEngine } from '../platform/binance-execution.engine';
 import { BinanceDerivativesEngine } from '../platform/binance-derivatives.engine';
 import { SupabaseClientService } from '../db/supabase.client';
