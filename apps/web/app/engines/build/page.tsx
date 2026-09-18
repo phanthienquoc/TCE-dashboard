@@ -51,14 +51,14 @@ const BUILD_STEPS: BuildStep[] = [
     description: 'Connect CRDE decisions to A/B/C capital pools, slot reservation and recycling without over-allocation.',
     status: 'todo',
     deliverables: ['Allocator integration', 'Slot reservation', 'Recycle on close', 'Idempotency'],
-    verification: 'Allocation lifecycle tests',
+    verification: 'PR #745 squash-merged; idempotent reserve/activate/release tests pass'
   },
   {
     id: 'execution',
     phase: '05',
     title: 'SSI execution bridge',
     description: 'Turn approved decisions into guarded SSI order intents using the existing SDK adapter.',
-    status: 'todo',
+    status: 'in-progress',
     deliverables: ['Order planner', 'Risk gate', 'SSI adapter', 'Order reconciliation'],
     verification: 'Paper/assisted execution test',
   },
