@@ -150,6 +150,71 @@ export class CapitalSlotAllocator {
     };
   }
 
+  realize(ownerKey: string, pnl: number, timestamp: string): CapitalSlotAllocatorOutcome {
+    const slot = [...this.slots.values()].find(
+      candidate =>
+        candidate.ownerKey === ownerKey &&
+        (candidate.state === 'RESERVED' || candidate.state === 'ACTIVE')
+    );
+    if (!slot) {
+      return {
+        ok: false,
+        code: 'ALLOCATION_NOT_FOUND',
+        message: `No allocation exists for ${ownerKey}`,
+      };
+    }
+    if (!Number.isFinite(pnl)) {
+      return { ok: false, code: 'INVALID_PNL', message: 'pnl must be finite' };
+    }
+    if (slot.state !== 'ACTIVE') {
+      return { ok: false, code: 'NOT_ACTIVE', message: `Slot ${slot.id} is not active` };
+    }
+    if (slot.reservedCapital <= 0) {
+      return { ok: false, code: 'INVALID_RESERVATION', message: `Slot ${slot.id} has no active capital` };
+    }
+    const pool = this.pools.get(slot.pool);
+    if (!pool) {
+      return { ok: false, code: 'POOL_NOT_FOUND', message: `Capital pool ${slot.pool} was not found` };
+    }
+    const principal = slot.reservedCapital;
+    if (principal > pool.allocatedCapital) {
+      return { ok: false, code: 'INVALID_POOL_STATE', message: `Slot ${slot.id} exceeds pool allocated capital` };
+    }
+    const nextPool = {
+      ...pool,
+      allocatedCapital: pool.allocatedCapital - principal,
+      reservedCapital: Math.max(0, pool.reservedCapital - principal),
+      availableCapital: pool.availableCapital + principal + pnl,
+      realizedCapital: pool.realizedCapital + pnl,
+    };
+    if (nextPool.availableCapital < 0) {
+      return { ok: false, code: 'INVALID_POOL_STATE', message: 'Realized pnl would make available capital negative' };
+    }
+    const nextSlot = {
+      ...slot,
+      state: 'AVAILABLE' as const,
+      ownerKey: undefined,
+      reservedCapital: 0,
+      updatedAt: timestamp,
+    };
+    this.pools.set(pool.pool, nextPool);
+    this.slots.set(slot.id, nextSlot);
+    return {
+      ok: true,
+      allocation: {
+        pool: nextPool,
+        slot: nextSlot,
+        allocation: {
+          pool: nextPool.pool,
+          slotId: nextSlot.id,
+          ownerKey,
+          amount: principal,
+          allocationKey: `${nextPool.pool}:${nextSlot.id}:${ownerKey}`,
+        },
+      },
+    };
+  }
+
   release(ownerKey: string, timestamp: string): CapitalSlotAllocatorOutcome {
     const slot = [...this.slots.values()].find(
       candidate =>
