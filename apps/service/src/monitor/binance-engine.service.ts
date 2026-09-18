@@ -1,7 +1,6 @@
 import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import { BinanceFuturesService } from '../platform/binance-futures.service';
 import { SupabaseClientService } from '../db/supabase.client';
-import type { BinanceFuturesUserDataEvent } from '@tce/binance';
 
 const ACTIVE_STATUSES = ['QUEUED', 'ACCEPTED'] as const;
 const PROTECTION_TYPES = new Set(['STOP', 'STOP_MARKET', 'TAKE_PROFIT', 'TAKE_PROFIT_MARKET']);
@@ -19,6 +18,7 @@ type SignalRow = {
   sl: number;
   status: string;
 };
+
 export type BinanceEngineConfig = {
   enabled: boolean;
   quantity: number;
@@ -32,9 +32,18 @@ export type BinanceEngineConfig = {
   notificationId: string | null;
 };
 
+/**
+ * Backward-compatible compatibility facade.
+ *
+ * New code should depend on BinanceDerivativesEngine. The facade is kept so
+ * existing controllers/watchers keep working while the runtime is migrated.
+ */
 @Injectable()
-export class BinanceEngineService implements OnModuleInit, OnModuleDestroy {
-  private readonly logger = new Logger(BinanceEngineService.name);
+export class BinanceEngineService extends BinanceDerivativesEngine implements OnModuleInit, OnModuleDestroy {}
+
+@Injectable()
+export class BinanceDerivativesEngine implements OnModuleInit, OnModuleDestroy {
+  private readonly logger = new Logger(BinanceDerivativesEngine.name);
   private timer?: ReturnType<typeof setInterval>;
   private readonly processing = new Set<string>();
   private readonly streams = new Map<
@@ -70,6 +79,58 @@ export class BinanceEngineService implements OnModuleInit, OnModuleDestroy {
     return this.binance.openOrders(userId, environment, symbol);
   }
 
+  async scan() {
+    const { data, error } = await this.supabase.db
+      .from('tce_telegram_signals')
+      .select('id,user_id,environment,symbol,side,entry,tp,sl,status')
+      .in('status', [...ACTIVE_STATUSES])
+      .order('created_at', { ascending: true })
+      .limit(20);
+    if (error) {
+      this.logger.warn(`Binance derivatives signal scan failed: ${error.message}`);
+      return;
+    }
+    for (const row of data ?? []) {
+      const signal = row as SignalRow;
+      const key = `${signal.user_id}:${signal.environment}:${signal.symbol}`;
+      if (this.processing.has(key)) continue;
+      this.processing.add(key);
+      try {
+        await this.ensureStream(signal.user_id, signal.environment);
+        await this.process(signal);
+      } catch (error) {
+        this.logger.error(
+          `${signal.symbol} ${signal.id}: ${error instanceof Error ? error.message : String(error)}`
+        );
+      } finally {
+        this.processing.delete(key);
+      }
+    }
+  }
+
+  private async ensureStream(userId: string, environment: string) {
+    const key = `${userId}:${environment}`;
+    if (this.streams.has(key)) return;
+    const stream = await this.binance.userDataStream(userId, environment);
+    const unsubscribe = stream.on(event => {
+      if (
+        event.e === 'ACCOUNT_UPDATE' ||
+        event.e === 'ORDER_TRADE_UPDATE' ||
+        event.e === 'listenKeyExpired'
+      )
+        void this.scan();
+    });
+    this.streams.set(key, { stop: () => stream.stop(), unsubscribe });
+    try {
+      await stream.start();
+    } catch (error) {
+      unsubscribe();
+      this.streams.delete(key);
+      await stream.stop();
+      throw error;
+    }
+  }
+
   private async accountIdForUser(userId: string) {
     const { data, error } = await this.supabase.db
       .from('tce_accounts')
@@ -97,7 +158,6 @@ export class BinanceEngineService implements OnModuleInit, OnModuleDestroy {
       String(input.xauSymbol ?? DEFAULT_SYMBOL)
         .trim()
         .toUpperCase() || DEFAULT_SYMBOL;
-
     let notificationId: string | null = input.notificationId ? String(input.notificationId) : null;
     if (notificationId) {
       const { data: telegram, error: telegramError } = await this.supabase.db
@@ -112,7 +172,6 @@ export class BinanceEngineService implements OnModuleInit, OnModuleDestroy {
       if (!telegram) throw new Error('Selected Telegram notification channel is not available.');
       notificationId = telegram.id;
     }
-
     const payload = {
       account_id: accountId,
       binance_engine_enabled: Boolean(input.enabled),
@@ -142,58 +201,6 @@ export class BinanceEngineService implements OnModuleInit, OnModuleDestroy {
       slPct,
       notificationId,
     };
-  }
-
-  async scan() {
-    const { data, error } = await this.supabase.db
-      .from('tce_telegram_signals')
-      .select('id,user_id,environment,symbol,side,entry,tp,sl,status')
-      .in('status', [...ACTIVE_STATUSES])
-      .order('created_at', { ascending: true })
-      .limit(20);
-    if (error) {
-      this.logger.warn(`Binance signal scan failed: ${error.message}`);
-      return;
-    }
-    for (const row of data ?? []) {
-      const signal = row as SignalRow;
-      const key = `${signal.user_id}:${signal.environment}:${signal.symbol}`;
-      if (this.processing.has(key)) continue;
-      this.processing.add(key);
-      try {
-        await this.ensureStream(signal.user_id, signal.environment);
-        await this.process(signal);
-      } catch (error) {
-        this.logger.error(
-          `${signal.symbol} ${signal.id}: ${error instanceof Error ? error.message : String(error)}`
-        );
-      } finally {
-        this.processing.delete(key);
-      }
-    }
-  }
-
-  private async ensureStream(userId: string, environment: string) {
-    const key = `${userId}:${environment}`;
-    if (this.streams.has(key)) return;
-    const stream = await this.binance.userDataStream(userId, environment);
-    const unsubscribe = stream.on((event: BinanceFuturesUserDataEvent) => {
-      if (
-        event.e === 'ACCOUNT_UPDATE' ||
-        event.e === 'ORDER_TRADE_UPDATE' ||
-        event.e === 'listenKeyExpired'
-      )
-        void this.scan();
-    });
-    this.streams.set(key, { stop: () => stream.stop(), unsubscribe });
-    try {
-      await stream.start();
-    } catch (error) {
-      unsubscribe();
-      this.streams.delete(key);
-      await stream.stop();
-      throw error;
-    }
   }
 
   private async config(userId: string): Promise<BinanceEngineConfig> {
@@ -375,21 +382,27 @@ export class BinanceEngineService implements OnModuleInit, OnModuleDestroy {
       ? signal.sl < signal.entry && signal.entry < signal.tp
       : signal.tp < signal.entry && signal.entry < signal.sl;
   }
+
   private percentPrice(base: number, pct: number) {
     return Number((base * (1 + pct / 100)).toFixed(2));
   }
+
   private samePrice(a: number | undefined, b: number) {
     return a != null && Number.isFinite(a) && Math.abs(a - b) < Math.max(1e-8, Math.abs(b) * 1e-8);
   }
+
   private entryClientId(id: string) {
     return `TCE-E-${id.replace(/-/g, '').slice(0, 24)}`;
   }
+
   private tpClientId(id: string) {
     return `TCE-TP-${id.replace(/-/g, '').slice(0, 23)}`;
   }
+
   private slClientId(id: string) {
     return `TCE-SL-${id.replace(/-/g, '').slice(0, 23)}`;
   }
+
   private async touchStatus(id: string, status: 'ACCEPTED' | 'EXECUTED') {
     const { error } = await this.supabase.db
       .from('tce_telegram_signals')
@@ -397,11 +410,11 @@ export class BinanceEngineService implements OnModuleInit, OnModuleDestroy {
       .eq('id', id);
     if (error) throw error;
   }
+
   private async fail(id: string, message: string) {
     const { error } = await this.supabase.db
       .from('tce_telegram_signals')
       .update({ status: 'FAILED', error_message: message, updated_at: new Date().toISOString() })
       .eq('id', id);
-    if (error) throw error;
   }
 }
