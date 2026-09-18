@@ -149,7 +149,7 @@ export default function EngineDetailPage() {
   }
 
   async function toggleStatus() {
-    if (updatingStatus || !runtime) return;
+    if (updatingStatus || !runtime || !engine) return;
     setUpdatingStatus(true);
     try {
       await dashboardApi.setEngineStatus(engine.id, isActive ? 'INACTIVE' : 'ACTIVE');
