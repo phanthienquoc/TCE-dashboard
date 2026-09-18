@@ -680,7 +680,8 @@ function formatValue(key: string, value: EngineValue) {
   if (typeof value === 'number') {
     if (/capital/i.test(key)) return `${new Intl.NumberFormat('vi-VN', { notation: 'compact', maximumFractionDigits: 1 }).format(value)} ₫`;
     if (/pct/i.test(key)) return `${value}%`;
-    if (/interval/i.test(key) || /seconds/i.test(key)) return `${value} min`;
+    if (/interval/i.test(key)) return `${value} min`;
+    if (/seconds/i.test(key)) return `${value} s`;
     return new Intl.NumberFormat('vi-VN').format(value);
   }
   return value.replace('Asia/Ho_Chi_Minh', 'Asia/Ho Chi Minh');
