@@ -83,13 +83,21 @@ export class CapitalRotationDecisionEngine implements DecisionEngine {
 
           const entry = Number(candidate.price);
           const expectedReturn = optionalNumber(candidate.expectedReturn) ?? 0;
-          const target = optionalNumber(candidate.targetPrice) ?? round(entry * (1 + cfg.takeProfitPercent / 100));
+          const target =
+            optionalNumber(candidate.targetPrice) ??
+            round(entry * (1 + cfg.takeProfitPercent / 100));
           const invalidation =
             cfg.invalidationPercent > 0
               ? round(entry * (1 - cfg.invalidationPercent / 100))
               : undefined;
           const allocation = Math.min(slotCapital, state.availableCapital);
-          if (!Number.isFinite(entry) || entry <= 0 || !Number.isFinite(target) || target <= entry || allocation <= 0)
+          if (
+            !Number.isFinite(entry) ||
+            entry <= 0 ||
+            !Number.isFinite(target) ||
+            target <= entry ||
+            allocation <= 0
+          )
             continue;
           if (
             invalidation !== undefined &&
@@ -260,7 +268,8 @@ function candidateScore(candidate: Record<string, unknown>): number | null {
   const recovery = Number(candidate.recoveryScore ?? 0);
   const liquidity = Number(candidate.liquidityScore ?? 0);
   const risk = Number(candidate.riskScore ?? 0);
-  const score = dividendYield * 5 + expectedReturn * 3 + recovery * 1 + liquidity * 0.5 - risk * 0.5;
+  const score =
+    dividendYield * 5 + expectedReturn * 3 + recovery * 1 + liquidity * 0.5 - risk * 0.5;
   return Number.isFinite(score) ? Math.max(0, Math.min(100, score)) : null;
 }
 
@@ -270,10 +279,13 @@ function resolveEntitlement(
 ): DividendEntitlementStatus {
   if (position.entitlementStatus) return position.entitlementStatus as DividendEntitlementStatus;
   if (!position.exRightDate && !position.sellableAt) return 'UNKNOWN';
-  const exDate = position.exRightDate ? new Date(String(position.exRightDate)).getTime() : Number.NaN;
+  const exDate = position.exRightDate
+    ? new Date(String(position.exRightDate)).getTime()
+    : Number.NaN;
   const now = new Date(timestamp).getTime();
   if (Number.isFinite(exDate) && now < exDate) return 'AT_RISK';
-  if (position.sellableAt && now < new Date(String(position.sellableAt)).getTime()) return 'PROTECTED';
+  if (position.sellableAt && now < new Date(String(position.sellableAt)).getTime())
+    return 'PROTECTED';
   if (Number.isFinite(exDate) && now >= exDate) return 'PROTECTED';
   return 'UNKNOWN';
 }
