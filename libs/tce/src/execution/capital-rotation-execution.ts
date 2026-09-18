@@ -74,7 +74,7 @@ export function prepareCapitalRotationExecution(
     };
   }
 
-  const quantity = Math.floor(Math.min(request.decision.capital, request.riskContext.availableCapital) / decision.entry);
+  const quantity = Math.floor(Math.min(request.decision.capital ?? 0, request.riskContext.availableCapital) / decision.entry);
   if (!Number.isInteger(quantity) || quantity <= 0) {
     return {
       ok: false,
