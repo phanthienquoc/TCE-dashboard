@@ -40,11 +40,8 @@ export type BinanceEngineConfig = {
  * existing controllers/watchers keep working while the runtime is migrated.
  */
 @Injectable()
-export class BinanceEngineService extends BinanceDerivativesEngine implements OnModuleInit, OnModuleDestroy {}
-
-@Injectable()
-export class BinanceDerivativesEngine implements OnModuleInit, OnModuleDestroy {
-  private readonly logger = new Logger(BinanceDerivativesEngine.name);
+export class BinanceEngineService implements OnModuleInit, OnModuleDestroy {
+  private readonly logger = new Logger(BinanceEngineService.name);
   private timer?: ReturnType<typeof setInterval>;
   private readonly processing = new Set<string>();
   private readonly streams = new Map<
