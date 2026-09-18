@@ -16,6 +16,7 @@ function candidate(overrides: Partial<DecisionStockCandidate>): DecisionStockCan
     averageVolume: 100_000,
     observedAt: now,
     exRightDate: '2026-09-20T02:00:00.000Z',
+    dividendEventId: 'event-dpm',
     ...overrides,
   };
 }
@@ -23,9 +24,9 @@ function candidate(overrides: Partial<DecisionStockCandidate>): DecisionStockCan
 test('Pool 20 scorer ranks deterministically and caps the output at 20', () => {
   const scorer = new CapitalRotationPoolScorer({ size: 20 });
   const input = [
-    candidate({ symbol: 'VCB', id: 'event-vcb', dividendYieldPct: 3 }),
-    candidate({ symbol: 'DPM', id: 'event-dpm', dividendYieldPct: 6 }),
-    candidate({ symbol: 'DPM', id: 'event-dpm', dividendYieldPct: 5 }),
+    candidate({ symbol: 'VCB', dividendEventId: 'event-vcb', dividendYieldPct: 3 }),
+    candidate({ symbol: 'DPM', dividendEventId: 'event-dpm', dividendYieldPct: 6 }),
+    candidate({ symbol: 'DPM', dividendEventId: 'event-dpm', dividendYieldPct: 5 }),
   ];
 
   const first = scorer.rank(input, now);
@@ -41,7 +42,7 @@ test('Pool 20 scorer ranks deterministically and caps the output at 20', () => {
 test('Pool 20 scorer rejects non-cash events', () => {
   const scorer = new CapitalRotationPoolScorer();
   const result = scorer.rank(
-    [candidate({ symbol: 'ABC', id: 'stock-bonus', dividendType: 'STOCK' })],
+    [candidate({ symbol: 'ABC', dividendEventId: 'stock-bonus', dividendType: 'STOCK' })],
     now,
   );
 
