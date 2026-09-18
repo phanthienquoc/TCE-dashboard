@@ -74,7 +74,18 @@ export function prepareCapitalRotationExecution(
     };
   }
 
-  const quantity = Math.floor(Math.min(request.decision.capital ?? 0, request.riskContext.availableCapital) / decision.entry);
+  const entryPrice = Number(decision.entry);
+  const capital = Number(request.decision.capital ?? 0);
+  const availableCapital = Number(request.riskContext.availableCapital);
+  if (!Number.isFinite(entryPrice) || entryPrice <= 0 || !Number.isFinite(capital) || capital <= 0 || !Number.isFinite(availableCapital) || availableCapital <= 0) {
+    return {
+      ok: false,
+      code: 'INVALID_ORDER_PLAN',
+      message: 'Positive entry price, decision capital and available capital are required',
+    };
+  }
+
+  const quantity = Math.floor(Math.min(capital, availableCapital) / entryPrice);
   if (!Number.isInteger(quantity) || quantity <= 0) {
     return {
       ok: false,
@@ -89,15 +100,14 @@ export function prepareCapitalRotationExecution(
     symbol: decision.symbol,
     side: decision.action,
     quantity,
-    entryPrice: decision.entry,
+    entryPrice,
     targetPrice: decision.target > 0 ? decision.target : undefined,
     invalidationPrice: decision.invalidation,
-    notional: quantity * decision.entry,
+    notional: quantity * entryPrice,
     pool: decision.pool,
     slotId: decision.slotId,
     createdAt: decision.decidedAt,
   };
-
   if (!Number.isFinite(orderPlan.entryPrice) || orderPlan.entryPrice <= 0) {
     return {
       ok: false,
