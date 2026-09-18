@@ -17,6 +17,7 @@ export type EngineRuntimeNode = {
 
 const ENGINE_DEPENDENCIES: Record<string, string[]> = {
   'tce-decision': [],
+  'capital-rotation-decision': [],
   'ssi-execution': ['tce-decision'],
   'binance-market': [],
   'binance-execution': ['binance-market'],
@@ -41,6 +42,7 @@ export class EngineRuntimeService {
     const engineIds = new Set<string>([
       ...configById.keys(),
       ...stateById.keys(),
+      'capital-rotation-decision',
     ]);
 
     const engines = [...engineIds].sort().map(engineId => {
