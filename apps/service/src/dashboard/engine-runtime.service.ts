@@ -39,7 +39,6 @@ export class EngineRuntimeService {
     const configById = new Map((configs ?? []).map((row: any) => [String(row.engine_id), row]));
     const stateById = new Map((states ?? []).map((row: any) => [String(row.engine_id), row]));
     const engineIds = new Set<string>([
-      ...Object.keys(ENGINE_DEPENDENCIES),
       ...configById.keys(),
       ...stateById.keys(),
     ]);
