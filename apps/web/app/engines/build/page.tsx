@@ -42,14 +42,14 @@ const BUILD_STEPS: BuildStep[] = [
     description: 'Decide BUY / HOLD / SELL / ROTATE / WAIT / SKIP using expected net return per capital-day.',
     status: 'todo',
     deliverables: ['CRDE core', 'Entry gates', 'Exit gates', 'Rotation rules'],
-    verification: 'Decision-engine test matrix',
+    verification: 'PR #743 squash-merged; entitlement/TP/invalidation decision gates verified'
   },
   {
     id: 'allocation',
     phase: '04',
     title: 'Capital & slot lifecycle',
     description: 'Connect CRDE decisions to A/B/C capital pools, slot reservation and recycling without over-allocation.',
-    status: 'todo',
+    status: 'in-progress',
     deliverables: ['Allocator integration', 'Slot reservation', 'Recycle on close', 'Idempotency'],
     verification: 'Allocation lifecycle tests',
   },
