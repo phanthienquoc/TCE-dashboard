@@ -50,8 +50,8 @@ export class CapitalRotationRuntimeService {
 
     const positionStates = positionRows.map(position => ({
       symbol: String(position.symbol).toUpperCase(),
-      pool: poolForPosition(position.symbol, strategy?.pool_size),
-      slot: 'A1',
+      pool: position.pool === 'B' || position.pool === 'C' ? position.pool : 'A',
+      slot: typeof position.slot === 'string' && position.slot ? position.slot : `${position.pool ?? 'A'}1`,
       quantity: Number(position.quantity ?? 0),
       entryPrice: position.avg_cost == null ? undefined : Number(position.avg_cost),
       currentPrice: position.market_price == null ? undefined : Number(position.market_price),
@@ -121,7 +121,7 @@ export class CapitalRotationRuntimeService {
   private async loadPositions(accountId: string) {
     const { data, error } = await this.db.db
       .from('tce_positions')
-      .select('id,symbol,quantity,avg_cost,cost_basis,market_price,market_value,unrealized_pnl,status,cycle_no')
+      .select('id,symbol,quantity,avg_cost,cost_basis,market_price,market_value,unrealized_pnl,status,cycle_no,pool,slot')
       .eq('account_id', accountId)
       .neq('status', 'CLOSED')
       .order('symbol');
@@ -158,7 +158,7 @@ export class CapitalRotationRuntimeService {
   ) {
     if (!decisions.length) return 0;
 
-    const poolBySymbol = new Map(
+      const poolBySymbol = new Map(
       poolRows.map(row => [String(row.ticker).toUpperCase(), row]),
     );
     const rows = decisions.map(decision => {
