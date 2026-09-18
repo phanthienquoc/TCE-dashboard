@@ -118,8 +118,9 @@ test('SsiBrokerAdapter syncPortfolio returns positions, orders, and balance', as
   const result = await instance.syncPortfolio('1234561', {});
   assert.equal(result.ok, true);
   if (result.ok) {
-    assert.equal(result.data.positions.length, 1);
+    assert.equal(result.data.positions.length, 2);
     assert.equal(result.data.positions[0]?.symbol, 'HPG');
+    assert.equal(result.data.positions[1]?.symbol, 'VNM');
     assert.equal(result.data.orders.length, 2);
     assert.equal(result.data.orders[0]?.externalId, 'ORD-101');
     assert.equal(result.data.orders[1]?.externalId, 'ORD-102');
