@@ -67,9 +67,9 @@ const BUILD_STEPS: BuildStep[] = [
     phase: '06',
     title: 'T+2 & dividend lifecycle',
     description: 'Reconcile filled positions through ex-date, T+2, dividend confirmation and capital release.',
-    status: 'todo',
+    status: 'done',
     deliverables: ['Position lifecycle', 'Entitlement confirmation', 'Cashflow evidence', 'Exit readiness'],
-    verification: 'Lifecycle replay tests',
+    verification: 'PR #752 squash-merged; lifecycle replay + T+2/dividend evidence tests verified',
   },
   {
     id: 'cron',
