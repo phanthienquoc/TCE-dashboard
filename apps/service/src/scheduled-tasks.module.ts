@@ -14,6 +14,7 @@ import { DividendOhlcvService } from './stock-events/dividend-ohlcv.service';
 import { DividendOhlcvCronService } from './stock-events/dividend-ohlcv-cron.service';
 import { CapitalRotationCronService } from './stock-events/capital-rotation-cron.service';
 import { CapitalRotationCronController } from './stock-events/capital-rotation-cron.controller';
+import { CapitalRotationRuntimeService } from './stock-events/capital-rotation-runtime.service';
 import { TelegramBotModule } from './telegram/telegram-bot.module';
 
 @Module({
@@ -31,6 +32,7 @@ import { TelegramBotModule } from './telegram/telegram-bot.module';
   providers: [
     StockEventsCronService,
     CapitalRotationCronService,
+    CapitalRotationRuntimeService,
     StockEventsSyncService,
     VietstockEventsCrawler,
     DividendOhlcvService,
