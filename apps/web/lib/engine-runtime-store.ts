@@ -26,7 +26,7 @@ type EngineRuntimeState = {
 
 let inFlight: Promise<void> | null = null;
 
-export const useEngineRuntimeStore = create<EngineRuntimeState>((set, get) => ({
+export const useEngineRuntimeStore = create<EngineRuntimeState>(set => ({
   engines: [],
   loading: false,
   initialized: false,
