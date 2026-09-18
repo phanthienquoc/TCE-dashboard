@@ -67,9 +67,9 @@ const BUILD_STEPS: BuildStep[] = [
     phase: '06',
     title: 'T+2 & dividend lifecycle',
     description: 'Reconcile filled positions through ex-date, T+2, dividend confirmation and capital release.',
-    status: 'done',
+    status: 'in-progress',
     deliverables: ['Position lifecycle', 'Entitlement confirmation', 'Cashflow evidence', 'Exit readiness'],
-    verification: 'Phase lifecycle baseline is present on the unified branch; final CI verification pending',
+    verification: 'Persistence/runtime adapter implemented in ab15802; CI is red on pre-existing test/format failures, so DONE is blocked',
   },
   {
     id: 'cron',
@@ -268,7 +268,10 @@ function Metric({
 }) {
   return (
     <div className="rounded-2xl border border-white/10 bg-white/[0.025] p-3">
-      <div className="flex items-center gap-1.5 text-slate-500">{icon}<span className="text-[11px]">{label}</span></div>
+      <div className="flex items-center gap-1.5 text-slate-500">
+        {icon}
+        <span className="text-[11px]">{label}</span>
+      </div>
       <p className="mt-2 text-lg font-semibold text-white">{value}</p>
     </div>
   );

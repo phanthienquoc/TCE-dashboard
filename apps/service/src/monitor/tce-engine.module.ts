@@ -10,6 +10,7 @@ import { BinancePositionWatcherService } from './binance-position-watcher.servic
 import { BinanceExecutionEngine } from '../platform/binance-execution.engine';
 import { BinanceDerivativesEngine } from '../platform/binance-derivatives.engine';
 import { GeminiSignalParserService } from './gemini-signal-parser.service';
+import { CapitalRotationDividendLifecycleService } from './capital-rotation-dividend-lifecycle.service';
 
 @Module({
   imports: [DbModule, AuthModule, PlatformCredentialsModule],
@@ -22,6 +23,7 @@ import { GeminiSignalParserService } from './gemini-signal-parser.service';
     BinanceEngineService,
     BinancePositionWatcherService,
     GeminiSignalParserService,
+    CapitalRotationDividendLifecycleService,
   ],
   exports: [
     TceEngineService,
@@ -29,6 +31,7 @@ import { GeminiSignalParserService } from './gemini-signal-parser.service';
     BinanceEngineService,
     BinancePositionWatcherService,
     GeminiSignalParserService,
+    CapitalRotationDividendLifecycleService,
   ],
 })
 export class TceEngineModule {}
