@@ -69,7 +69,7 @@ const BUILD_STEPS: BuildStep[] = [
     description: 'Reconcile filled positions through ex-date, T+2, dividend confirmation and capital release.',
     status: 'done',
     deliverables: ['Position lifecycle', 'Entitlement confirmation', 'Cashflow evidence', 'Exit readiness'],
-    verification: 'Rebuilt baseline and lifecycle evidence verified in unified CRDE branch',
+    verification: 'Phase lifecycle baseline is present on the unified branch; final CI verification pending',
   },
   {
     id: 'cron',
@@ -78,7 +78,7 @@ const BUILD_STEPS: BuildStep[] = [
     description: 'Run the engine continuously during VN market hours and persist every run/decision for audit.',
     status: 'done',
     deliverables: ['CRDE cron', 'Run lock/idempotency', 'Decision snapshots', 'Failure recovery'],
-    verification: 'PR #753 squash-merged; 15m scheduler/audit wiring verified; job disabled by default',
+    verification: 'Phase runtime baseline is present on the unified branch; final CI verification pending',
   },
   {
     id: 'demo',
