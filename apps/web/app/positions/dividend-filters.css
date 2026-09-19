@@ -1,0 +1,38 @@
+/* Dividend Positions filter/sort controls. */
+.tce-dividend-sort-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 2px 0 4px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.tce-dividend-sort-bar::-webkit-scrollbar { display: none; }
+.tce-dividend-sort-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-right: 2px;
+  flex: 0 0 auto;
+  color: var(--muted, #94a3b8);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+}
+.tce-dividend-sort-bar button {
+  min-height: 34px;
+  padding: 0 11px;
+  border: 1px solid var(--border, rgba(255,255,255,.1));
+  border-radius: 999px;
+  background: var(--surface, rgba(255,255,255,.035));
+  color: var(--muted, #94a3b8);
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.tce-dividend-sort-bar button.active {
+  border-color: var(--primary, #38bdf8);
+  background: color-mix(in srgb, var(--primary, #38bdf8) 12%, transparent);
+  color: var(--foreground, #e2e8f0);
+}
