@@ -1,5 +1,5 @@
 'use client';
-import { WalletCards, CircleDot, Tag, CalendarDays } from 'lucide-react';
+import { WalletCards, CircleDot, Tag, CalendarDays, ArrowUpDown } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { useStockEventStore, type StockEvent } from '../../lib/stock-event-store';
 import { useDashboardStore } from '../../lib/store';
@@ -10,13 +10,21 @@ import { DividendSkeleton } from '../ui/page-skeleton';
 type ViewProps = { data: DashboardData; actions: DashboardActions };
 type MonthGroup = { monthKey: string; cards: Array<{ symbol: string; events: StockEvent[] }> };
 const PRICE_OPTIONS = Array.from({ length: 9 }, (_, i) => (i + 1) * 10_000);
-const DEFAULT_PRICE_FILTER = 30_000;
+const DEFAULT_PRICE_FILTER = 50_000;
+type SortKey = 'date' | 'price' | 'yield';
+type SortDirection = 'asc' | 'desc';
+const DEFAULT_SORT_KEY: SortKey = 'date';
+const DEFAULT_SORT_DIRECTION: SortDirection = 'asc';
+const VIEW_STATE_KEY = 'tce:positions:dividend:view-state';
 
 export function DividendPositionsView({ data, actions }: ViewProps) {
   const [tab, setTab] = useState<'current' | 'dividend' | 'history'>('dividend');
   const [expanded, setExpanded] = useState<string | null>(null);
   const [selectedMonth, setSelectedMonth] = useState(currentMonthKey);
   const [priceFilter, setPriceFilter] = useState(DEFAULT_PRICE_FILTER);
+  const [sortKey, setSortKey] = useState<SortKey>(DEFAULT_SORT_KEY);
+  const [sortDirection, setSortDirection] = useState<SortDirection>(DEFAULT_SORT_DIRECTION);
+  const [viewStateHydrated, setViewStateHydrated] = useState(false);
   const events = useStockEventStore(s => s.events);
   const loading = useStockEventStore(s => s.loading);
   const error = useStockEventStore(s => s.error);
@@ -25,15 +33,33 @@ export function DividendPositionsView({ data, actions }: ViewProps) {
   const syncMarketPrices = useDashboardStore(s => s.syncMarketPrices);
 
   useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem(VIEW_STATE_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw) as { priceFilter?: number; sortKey?: SortKey; sortDirection?: SortDirection };
+        if (typeof parsed.priceFilter === 'number' && PRICE_OPTIONS.includes(parsed.priceFilter)) setPriceFilter(parsed.priceFilter);
+        if (parsed.sortKey === 'date' || parsed.sortKey === 'price' || parsed.sortKey === 'yield') setSortKey(parsed.sortKey);
+        if (parsed.sortDirection === 'asc' || parsed.sortDirection === 'desc') setSortDirection(parsed.sortDirection);
+      }
+    } catch {}
+    setViewStateHydrated(true);
+  }, []);
+
+  useEffect(() => {
+    if (!viewStateHydrated) return;
+    window.localStorage.setItem(VIEW_STATE_KEY, JSON.stringify({ priceFilter, sortKey, sortDirection }));
+  }, [priceFilter, sortKey, sortDirection, viewStateHydrated]);
+
+  useEffect(() => {
     void load(2000, true, null);
   }, [load]);
 
   const monthGroups = useMemo(
     () =>
-      buildFutureMonthGroups(events, priceFilter, marketPrices).filter(
+      buildFutureMonthGroups(events, priceFilter, marketPrices, sortKey, sortDirection).filter(
         g => g.monthKey === selectedMonth
       ),
-    [events, selectedMonth, priceFilter, marketPrices]
+    [events, selectedMonth, priceFilter, marketPrices, sortKey, sortDirection]
   );
   const monthOptions = useMemo(() => futureMonthKeys(), []);
   const symbolsKey = useMemo(
@@ -60,6 +86,19 @@ export function DividendPositionsView({ data, actions }: ViewProps) {
         <div className="tce-dividend-filter-divider" aria-hidden="true" />
         <label className="tce-dividend-filter-field" htmlFor="positions-current-price"><Tag className="size-4" aria-hidden="true" /><span><small>Current price (VND)</small><select id="positions-current-price" value={priceFilter} onChange={e => { setPriceFilter(Number(e.target.value)); setExpanded(null); }} aria-label="Current price filter">{PRICE_OPTIONS.map(v => <option key={v} value={v}>≤ {v.toLocaleString('vi-VN')}</option>)}</select></span></label>
       </div>
+      <div className="tce-dividend-sort-bar" role="group" aria-label="Sort dividend positions">
+        <span className="tce-dividend-sort-label"><ArrowUpDown className="size-4" aria-hidden="true" /> Sort</span>
+        {(['date', 'price', 'yield'] as const).map(key => {
+          const active = sortKey === key;
+          const arrow = active ? (sortDirection === 'asc' ? '↑' : '↓') : '↕';
+          const label = key === 'date' ? 'Date' : key === 'price' ? 'Price' : 'Yield';
+          return <button key={key} type="button" className={active ? 'active' : ''} onClick={() => {
+            setExpanded(null);
+            if (sortKey === key) setSortDirection(current => current === 'asc' ? 'desc' : 'asc');
+            else { setSortKey(key); setSortDirection(key === 'date' ? 'asc' : 'desc'); }
+          }} aria-pressed={active}>{label} {arrow}</button>;
+        })}
+      </div>
       {loading ? <DividendSkeleton /> : error ? <EmptyState text={error} /> : monthGroups.length ? monthGroups.map(group => <section className="tce-dividend-month-group" key={group.monthKey}><div className="tce-list-stack tce-dividend-month-cards">{group.cards.map(item => {
         const pool = data.pools.find(p => String(p.symbol ?? p.code ?? '').toUpperCase() === item.symbol);
         const event = item.events[0];
@@ -74,11 +113,28 @@ export function DividendPositionsView({ data, actions }: ViewProps) {
 }
 function currentMonthKey(): string { const n = new Date(); return `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, '0')}`; }
 function futureMonthKeys(): string[] { const n = new Date(); const s = new Date(n.getFullYear(), n.getMonth(), 1); return Array.from({ length: 13 }, (_, i) => { const d = new Date(s.getFullYear(), s.getMonth() + i, 1); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`; }); }
-function buildFutureMonthGroups(events: StockEvent[], maxPrice: number, marketPrices: Record<string, { price?: number | null }>): MonthGroup[] {
+function buildFutureMonthGroups(events: StockEvent[], maxPrice: number, marketPrices: Record<string, { price?: number | null }>, sortKey: SortKey, sortDirection: SortDirection): MonthGroup[] {
   const n = new Date(); const today = new Date(n.getFullYear(), n.getMonth(), n.getDate()).getTime(); const s = new Date(n.getFullYear(), n.getMonth(), 1);
   const months = Array.from({ length: 13 }, (_, i) => new Date(s.getFullYear(), s.getMonth() + i, 1)); const monthKeys = new Set(months.map(d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`)); const grouped = new Map<string, Map<string, StockEvent[]>>();
   for (const event of events) { const date = dividendEventDate(event); const symbol = String(event.ticker ?? '').trim().toUpperCase(); if (!date || !symbol || date.getTime() < today) continue; const live = marketPrices[symbol]?.price; const price = Number(live) > 0 ? Number(live) : Number(event.currentPrice ?? event.price ?? 0); if (price <= 0 || price > maxPrice) continue; const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`; if (!monthKeys.has(monthKey)) continue; const bucket = grouped.get(monthKey) ?? new Map<string, StockEvent[]>(); bucket.set(symbol, [...(bucket.get(symbol) ?? []), event]); grouped.set(monthKey, bucket); }
   return months.map(month => { const monthKey = `${month.getFullYear()}-${String(month.getMonth() + 1).padStart(2, '0')}`; const bucket = grouped.get(monthKey) ?? new Map<string, StockEvent[]>(); const cards = [...bucket.entries()].map(([symbol, tickerEvents]) => ({ symbol, events: tickerEvents.sort((a, b) => (dividendEventDate(b)?.getTime() ?? 0) - (dividendEventDate(a)?.getTime() ?? 0)) })).sort((a, b) => (dividendEventDate(b.events[0])?.getTime() ?? 0) - (dividendEventDate(a.events[0])?.getTime() ?? 0)); return { monthKey, cards }; }).filter(g => g.cards.length > 0);
+}
+
+function compareCards(a: { symbol: string; events: StockEvent[] }, b: { symbol: string; events: StockEvent[] }, sortKey: SortKey, sortDirection: SortDirection, marketPrices: Record<string, { price?: number | null }>): number {
+  const av = sortValue(a, sortKey, marketPrices);
+  const bv = sortValue(b, sortKey, marketPrices);
+  if (av === bv) return a.symbol.localeCompare(b.symbol);
+  return (av < bv ? -1 : 1) * (sortDirection === 'asc' ? 1 : -1);
+}
+function sortValue(card: { symbol: string; events: StockEvent[] }, sortKey: SortKey, marketPrices: Record<string, { price?: number | null }>): number {
+  const event = card.events[0];
+  if (sortKey === 'date') return dividendEventDate(event)?.getTime() ?? Number.MAX_SAFE_INTEGER;
+  if (sortKey === 'price') {
+    const live = Number(marketPrices[card.symbol]?.price);
+    return live > 0 ? live : Number(event?.currentPrice ?? event?.price ?? Number.POSITIVE_INFINITY);
+  }
+  const y = Number(event?.dividendYieldPct);
+  return Number.isFinite(y) ? y : Number.NEGATIVE_INFINITY;
 }
 function dividendEventDate(event: StockEvent): Date | null { const raw = event.exDividendTimestamp ?? event.exDividendDate ?? event.exDate; if (!raw) return null; const value = String(raw).trim(); const parsed = new Date(value); if (!Number.isNaN(parsed.getTime())) return parsed; const match = value.match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})$/); if (!match) return null; const [, day, month, year] = match; const fallback = new Date(Number(year), Number(month) - 1, Number(day)); return Number.isNaN(fallback.getTime()) ? null : fallback; }
 function dividendMonthLabel(key: string): string { const [year, month] = key.split('-').map(Number); return `${String(month).padStart(2, '0')}/${year}`; }
