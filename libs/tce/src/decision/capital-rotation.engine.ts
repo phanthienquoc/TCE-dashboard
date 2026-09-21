@@ -126,7 +126,7 @@ function resolveConfig(
   config: Record<string, unknown> | undefined,
   options: CapitalRotationDecisionOptions
 ) {
-  const source = { ...(config ?? {}), ...options };
+  const source: Record<string, unknown> = { ...(config ?? {}), ...options };
   return {
     lookbackDays: positive(source.lookbackDays, DEFAULTS.lookbackDays),
     takeProfitPercent: positive(source.takeProfitPercent ?? source.tpPercent, DEFAULTS.takeProfitPercent),
