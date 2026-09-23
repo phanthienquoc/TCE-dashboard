@@ -219,7 +219,7 @@ jobs:
             echo "- Platform Infra: dispatch sent for both components"
           } >> "$GITHUB_STEP_SUMMARY"
 
-  notify-telegram:
+  notify-telegram-promoted:
     name: Notify Telegram — release promoted
     needs: [detect, build-frontend, build-backend, platform-infra-release]
     if: ${{ always() && needs.detect.result == 'success' && needs.build-frontend.result == 'success' && needs.build-backend.result == 'success' && needs.platform-infra-release.result == 'success' }}
@@ -233,10 +233,10 @@ jobs:
           set -euo pipefail
           test -n "$TELEGRAM_BOT_TOKEN" || { echo "Missing GitHub variable: TELEGRAM_BOT_TOKEN"; exit 1; }
           test -n "$TELEGRAM_CHAT_ID" || { echo "Missing GitHub variable: TELEGRAM_CHAT_ID"; exit 1; }
-      - name: Send deployment success message
+      - name: Send release promoted message
         run: |
           set -euo pipefail
-          MESSAGE="🚀 *TCE — WF-03 RELEASE PROMOTED*\n\n📦 Environment: production\n🏷️ Image tag: ${{ needs.detect.outputs.image_tag }}\n🌿 Branch: ${{ github.ref_name }}\n🔖 Commit: ${{ github.sha }}\n👤 Actor: ${{ github.actor }}\n🕐 Time: $(TZ=Asia/Ho_Chi_Minh date '+%Y-%m-%d %H:%M:%S ICT')\n\n✅ ARM64 images published to GHCR\n✅ Platform Infra GitOps promotion dispatched\n🔗 Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          MESSAGE="📦 *TCE — RELEASE PROMOTED*\n\n📦 Environment: production\n🏷️ Image tag: ${{ needs.detect.outputs.image_tag }}\n✅ ARM64 images published to GHCR\n✅ Platform Infra promotion triggered\n⏳ Waiting for production rollout in K3s\n🔗 TCE run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
 
           curl --fail-with-body -sS -X POST \
             "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
