@@ -1,5 +1,5 @@
 'use client';
-import { WalletCards, CircleDot, Tag, CalendarDays, Percent } from 'lucide-react';
+import { WalletCards, CircleDot, Tag, CalendarDays, Percent, SlidersHorizontal, X, ChevronDown } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { useStockEventStore, type StockEvent } from '../../lib/stock-event-store';
 import { useDashboardStore } from '../../lib/store';
@@ -27,6 +27,11 @@ export function DividendPositionsView({ data, actions }: ViewProps) {
   const [minYield, setMinYield] = useState<number | null>(null);
   const [maxYield, setMaxYield] = useState<number | null>(null);
   const [filtersHydrated, setFiltersHydrated] = useState(false);
+  const [filterOpen, setFilterOpen] = useState(false);
+  const [draftMonth, setDraftMonth] = useState(selectedMonth);
+  const [draftPriceFilter, setDraftPriceFilter] = useState(priceFilter);
+  const [draftMinYield, setDraftMinYield] = useState<number | null>(minYield);
+  const [draftMaxYield, setDraftMaxYield] = useState<number | null>(maxYield);
   const events = useStockEventStore(s => s.events);
   const loading = useStockEventStore(s => s.loading);
   const error = useStockEventStore(s => s.error);
@@ -79,6 +84,28 @@ export function DividendPositionsView({ data, actions }: ViewProps) {
     [events, selectedMonth, priceFilter, minYield, maxYield, marketPrices]
   );
   const monthOptions = useMemo(() => futureMonthKeys(), []);
+
+  const openFilters = () => {
+    setDraftMonth(selectedMonth);
+    setDraftPriceFilter(priceFilter);
+    setDraftMinYield(minYield);
+    setDraftMaxYield(maxYield);
+    setFilterOpen(true);
+  };
+  const applyFilters = () => {
+    setSelectedMonth(draftMonth);
+    setPriceFilter(draftPriceFilter);
+    setMinYield(draftMinYield);
+    setMaxYield(draftMaxYield);
+    setExpanded(null);
+    setFilterOpen(false);
+  };
+  const resetFilters = () => {
+    setDraftMonth(currentMonthKey());
+    setDraftPriceFilter(DEFAULT_PRICE_FILTER);
+    setDraftMinYield(null);
+    setDraftMaxYield(null);
+  };
   const symbolsKey = useMemo(
     () => monthGroups.flatMap(g => g.cards.map(c => c.symbol)).join(','),
     [monthGroups]
@@ -99,13 +126,45 @@ export function DividendPositionsView({ data, actions }: ViewProps) {
     {tab === 'current' && <div className="tce-list-stack">{data.positions.length ? data.positions.map((row, i) => <article className="tce-dividend-card" key={row.id ?? row.symbol ?? i}><div className="flex items-center gap-2"><strong>{String(row.symbol ?? '—')}</strong><span className="tce-muted">Current position</span></div><div className="tce-pool-grid mt-2"><div><span>Entry</span><b>{formatNumber(row.positionPrice ?? row.position_price ?? row.avgBuyCost ?? row.avg_cost)}</b></div><div><span>Now</span><b>{formatNumber(row.marketPrice ?? row.market_price ?? row.currentPrice ?? row.current_price)}</b></div><div><span>P&L</span><b>{formatNumber(row.pnl ?? row.unrealizedPnl ?? row.unrealized_pnl)}</b></div></div><button className="tce-secondary-action mt-3" onClick={() => actions.openPositionSell(row)}>SELL</button></article>) : <EmptyState text="No current positions" />}</div>}
     {tab === 'dividend' && <div className="tce-list-stack tce-dividend-month-groups">
       <div className="tce-dividend-filter-bar" role="group" aria-label="Dividend filters">
-        <div className="tce-dividend-filter-grid">
-          <label className="tce-dividend-filter-field" htmlFor="positions-dividend-month"><CalendarDays className="size-4" aria-hidden="true" /><span><small>Ex-date month</small><select id="positions-dividend-month" value={selectedMonth} onChange={e => { setSelectedMonth(e.target.value); setExpanded(null); }} aria-label="Ex-date month">{monthOptions.map(m => <option key={m} value={m}>{dividendMonthLabel(m)}</option>)}</select></span></label>
-          <label className="tce-dividend-filter-field" htmlFor="positions-current-price"><Tag className="size-4" aria-hidden="true" /><span><small>Current price (VND)</small><select id="positions-current-price" value={priceFilter} onChange={e => { setPriceFilter(Number(e.target.value)); setExpanded(null); }} aria-label="Current price filter">{PRICE_OPTIONS.map(v => <option key={v} value={v}>≤ {v.toLocaleString('vi-VN')}</option>)}</select></span></label>
-          <label className="tce-dividend-filter-field" htmlFor="positions-min-yield"><Percent className="size-4" aria-hidden="true" /><span><small>Min yield (%)</small><input id="positions-min-yield" type="number" min="0" step="0.1" inputMode="decimal" value={minYield ?? ''} placeholder="Any" onChange={e => { const next = parseYieldFilter(e.target.value); setMinYield(next); if (next != null && maxYield != null && next > maxYield) setMaxYield(next); setExpanded(null); }} aria-label="Minimum dividend yield" /></span></label>
-          <label className="tce-dividend-filter-field" htmlFor="positions-max-yield"><Percent className="size-4" aria-hidden="true" /><span><small>Max yield (%)</small><input id="positions-max-yield" type="number" min="0" step="0.1" inputMode="decimal" value={maxYield ?? ''} placeholder="Any" onChange={e => { const next = parseYieldFilter(e.target.value); setMaxYield(next); if (next != null && minYield != null && next < minYield) setMinYield(next); setExpanded(null); }} aria-label="Maximum dividend yield" /></span></label>
-        </div>
+        <button type="button" className="tce-dividend-filter-summary" onClick={openFilters} aria-label="Open dividend filters">
+          <span className="tce-dividend-filter-summary-icon"><SlidersHorizontal className="size-4" aria-hidden="true" /></span>
+          <span className="tce-dividend-filter-summary-copy">
+            <span><b>Ex-date {dividendMonthLabel(selectedMonth)}</b><i>•</i><b>Price ≤ {priceFilter.toLocaleString('vi-VN')} ₫</b><i>•</i><b>Yield {minYield ?? 0}–{maxYield ?? '∞'}%</b></span>
+            <small>{monthGroups.reduce((count, group) => count + group.cards.length, 0)} candidates · tap to edit filters</small>
+          </span>
+          <ChevronDown className="size-4 tce-dividend-filter-chevron" aria-hidden="true" />
+        </button>
       </div>
+      {filterOpen && <div className="tce-filter-sheet-backdrop" role="presentation" onMouseDown={e => { if (e.currentTarget === e.target) setFilterOpen(false); }}>
+        <section className="tce-filter-sheet" role="dialog" aria-modal="true" aria-labelledby="dividend-filter-title">
+          <div className="tce-filter-sheet-handle" />
+          <div className="tce-filter-sheet-header">
+            <div><strong id="dividend-filter-title">Filter Dividend</strong><span>Choose the dividend month and screening rules</span></div>
+            <button type="button" className="tce-filter-sheet-close" onClick={() => setFilterOpen(false)} aria-label="Close filters"><X className="size-5" /></button>
+          </div>
+          <div className="tce-filter-sheet-body">
+            <label className="tce-filter-control" htmlFor="positions-filter-month"><span><CalendarDays className="size-4" />Ex-date month</span><select id="positions-filter-month" value={draftMonth} onChange={e => setDraftMonth(e.target.value)}>{monthOptions.map(m => <option key={m} value={m}>{dividendMonthLabel(m)}</option>)}</select></label>
+            <div className="tce-filter-control">
+              <span><Tag className="size-4" />Current price</span>
+              <div className="tce-filter-input-row">
+                <span className="tce-filter-prefix">≤</span>
+                <select aria-label="Maximum current price" value={draftPriceFilter} onChange={e => setDraftPriceFilter(Number(e.target.value))}>{PRICE_OPTIONS.map(v => <option key={v} value={v}>{v.toLocaleString('vi-VN')} ₫</option>)}</select>
+              </div>
+              <div className="tce-filter-quick-row">{[10000,20000,30000,50000].map(v => <button key={v} type="button" className={draftPriceFilter === v ? 'active' : ''} onClick={() => setDraftPriceFilter(v)}>≤ {v / 1000}k</button>)}</div>
+            </div>
+            <div className="tce-filter-control">
+              <span><Percent className="size-4" />Dividend yield</span>
+              <div className="tce-filter-range-row">
+                <input type="number" min="0" step="0.1" inputMode="decimal" value={draftMinYield ?? ''} placeholder="Min" onChange={e => { const next = parseYieldFilter(e.target.value); setDraftMinYield(next); if (next != null && draftMaxYield != null && next > draftMaxYield) setDraftMaxYield(next); }} aria-label="Minimum dividend yield" />
+                <span>to</span>
+                <input type="number" min="0" step="0.1" inputMode="decimal" value={draftMaxYield ?? ''} placeholder="Max" onChange={e => { const next = parseYieldFilter(e.target.value); setDraftMaxYield(next); if (next != null && draftMinYield != null && next < draftMinYield) setDraftMinYield(next); }} aria-label="Maximum dividend yield" />
+              </div>
+              <div className="tce-filter-quick-row">{[{label:'≥ 3%',min:3,max:null},{label:'≥ 5%',min:5,max:null},{label:'6–61%',min:6,max:61},{label:'≥ 10%',min:10,max:null}].map(item => <button key={item.label} type="button" className={draftMinYield === item.min && draftMaxYield === item.max ? 'active' : ''} onClick={() => { setDraftMinYield(item.min); setDraftMaxYield(item.max); }}>{item.label}</button>)}</div>
+            </div>
+          </div>
+          <div className="tce-filter-sheet-footer"><button type="button" className="tce-filter-reset" onClick={resetFilters}>Reset</button><button type="button" className="tce-filter-apply" onClick={applyFilters}>Apply</button></div>
+        </section>
+      </div>}
       {loading ? <DividendSkeleton /> : error ? <EmptyState text={error} /> : monthGroups.length ? monthGroups.map(group => <section className="tce-dividend-month-group" key={group.monthKey}><div className="tce-list-stack tce-dividend-month-cards">{group.cards.map(item => {
         const pool = data.pools.find(p => String(p.symbol ?? p.code ?? '').toUpperCase() === item.symbol);
         const event = item.events[0];
