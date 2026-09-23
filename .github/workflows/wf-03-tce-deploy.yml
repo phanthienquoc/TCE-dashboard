@@ -29,10 +29,9 @@ jobs:
       - name: Send deployment started message
         run: |
           set -euo pipefail
-          MESSAGE="$(printf '%s\n%s\n%s' \
-            "🚀 TCE — production release started" \
-            "🌿 ${{ github.ref_name }}" \
-            "#642")"
+          MESSAGE="$(printf '%s\n%s' \
+            "🚀 <b>TCE • PROD RELEASE</b>" \
+            "🌿 <code>${{ github.ref_name }}</code> • CI started")"
 
           curl --fail-with-body -sS -X POST \
             "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
@@ -236,10 +235,15 @@ jobs:
       - name: Send release promoted message
         run: |
           set -euo pipefail
-          MESSAGE="📦 *TCE — RELEASE PROMOTED*\n\n📦 Environment: production\n🏷️ Image tag: ${{ needs.detect.outputs.image_tag }}\n✅ ARM64 images published to GHCR\n✅ Platform Infra promotion triggered\n⏳ Waiting for production rollout in K3s\n🔗 TCE run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          MESSAGE="$(printf '%s\n%s\n%s\n%s\n%s' \
+            "📦 <b>TCE • RELEASE PROMOTED</b>" \
+            "🏷️ <code>${{ needs.detect.outputs.image_tag }}</code>" \
+            "✓ ARM64 images → GHCR" \
+            "✓ GitOps promotion → platform-infra" \
+            "⏳ VPS rollout pending")"
 
           curl --fail-with-body -sS -X POST \
             "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
             -d "chat_id=${TELEGRAM_CHAT_ID}" \
             --data-urlencode "text=${MESSAGE}" \
-            -d "parse_mode=Markdown"
+            -d "parse_mode=HTML"
