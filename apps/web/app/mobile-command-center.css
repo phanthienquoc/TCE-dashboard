@@ -770,15 +770,40 @@ body {
     font-size: 10px;
   }
 
-  .tce-segmented {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    padding: 3px;
-    margin-bottom: 12px;
-    background: rgba(255, 255, 255, 0.035);
-    border: 1px solid var(--tce-border);
-    border-radius: 11px;
+  .tce-dividend-skeleton-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
   }
+  .tce-dividend-skeleton-card {
+    padding: 14px;
+    border: 1px solid var(--tce-border);
+    border-radius: 17px;
+    background: linear-gradient(145deg, rgba(16, 32, 41, 0.98), rgba(9, 22, 29, 0.98));
+    border-left: 3px solid rgba(85, 191, 255, 0.35);
+  }
+  .tce-dividend-skeleton-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .tce-dividend-skeleton-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 7px;
+    margin-top: 10px;
+  }
+  .tce-dividend-skeleton-cell {
+    min-width: 0;
+    padding: 10px;
+    border: 1px solid var(--tce-border);
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.025);
+  }
+  .tce-dividend-skeleton-cell .tce-skeleton:last-child {
+    max-width: 100%;
+  }
+
   .tce-segmented button {
     border: 0;
     background: transparent;
