@@ -302,6 +302,7 @@ export function DividendPositionsFilter({ className = '' }: Props) {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+    </>
   );
 }
 
