@@ -1,7 +1,19 @@
 'use client';
 
-import { CalendarDays, ChevronDown, Percent, SlidersHorizontal, Tag, X } from 'lucide-react';
+import { CalendarDays, ChevronDown, Percent, SlidersHorizontal, Tag } from 'lucide-react';
 import { useEffect, useMemo, useState, type Dispatch, type SetStateAction } from 'react';
+import { Button } from '../ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '../ui/dialog';
+import { Input } from '../ui/input';
+import { Label } from '../ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { useDashboardStore } from '../../lib/store';
 import {
   usePositionFilterStore,
