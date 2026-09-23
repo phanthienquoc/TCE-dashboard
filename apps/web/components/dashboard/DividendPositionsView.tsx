@@ -142,7 +142,8 @@ export function DividendPositionsView({ data, actions }: ViewProps) {
             <div><strong id="dividend-filter-title">Filter Dividend</strong><span>Choose the dividend month and screening rules</span></div>
             <button type="button" className="tce-filter-sheet-close" onClick={() => setFilterOpen(false)} aria-label="Close filters"><X className="size-5" /></button>
           </div>
-          <div className="tce-filter-sheet-body">
+          <div className="tce-filter-sheet-content">
+            <div className="tce-filter-sheet-body">
             <label className="tce-filter-control" htmlFor="positions-filter-month"><span><CalendarDays className="size-4" />Ex-date month</span><select id="positions-filter-month" value={draftMonth} onChange={e => setDraftMonth(e.target.value)}>{monthOptions.map(m => <option key={m} value={m}>{dividendMonthLabel(m)}</option>)}</select></label>
             <div className="tce-filter-control">
               <span><Tag className="size-4" />Current price</span>
@@ -160,6 +161,7 @@ export function DividendPositionsView({ data, actions }: ViewProps) {
                 <input type="number" min="0" step="0.1" inputMode="decimal" value={draftMaxYield ?? ''} placeholder="Max" onChange={e => { const next = parseYieldFilter(e.target.value); setDraftMaxYield(next); if (next != null && draftMinYield != null && next < draftMinYield) setDraftMinYield(next); }} aria-label="Maximum dividend yield" />
               </div>
               <div className="tce-filter-quick-row">{[{label:'≥ 3%',min:3,max:null},{label:'≥ 5%',min:5,max:null},{label:'6–61%',min:6,max:61},{label:'≥ 10%',min:10,max:null}].map(item => <button key={item.label} type="button" className={draftMinYield === item.min && draftMaxYield === item.max ? 'active' : ''} onClick={() => { setDraftMinYield(item.min); setDraftMaxYield(item.max); }}>{item.label}</button>)}</div>
+            </div>
             </div>
           </div>
           <div className="tce-filter-sheet-footer"><button type="button" className="tce-filter-reset" onClick={resetFilters}>Reset</button><button type="button" className="tce-filter-apply" onClick={applyFilters}>Apply</button></div>
