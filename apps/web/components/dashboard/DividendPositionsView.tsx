@@ -76,7 +76,7 @@ export function DividendPositionsView({ data, actions }: ViewProps) {
       buildFutureMonthGroups(events, { maxPrice: priceFilter, minYield, maxYield, marketPrices }).filter(
         g => g.monthKey === selectedMonth
       ),
-    [events, selectedMonth, priceFilter, marketPrices]
+    [events, selectedMonth, priceFilter, minYield, maxYield, marketPrices]
   );
   const monthOptions = useMemo(() => futureMonthKeys(), []);
   const symbolsKey = useMemo(
