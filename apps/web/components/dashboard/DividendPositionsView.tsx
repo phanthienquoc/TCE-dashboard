@@ -45,9 +45,7 @@ export function DividendPositionsView({ data, actions }: ViewProps) {
       if (raw) {
         const saved = JSON.parse(raw) as DividendFilterPreferences;
         const months = futureMonthKeys();
-        if (typeof saved.selectedMonth === 'string' && months.includes(saved.selectedMonth)) {
-          setSelectedMonth(saved.selectedMonth);
-        }
+        if (typeof saved.selectedMonth === 'string' && months.includes(saved.selectedMonth)) setSelectedMonth(saved.selectedMonth);
         const savedPrice = Number(saved.priceFilter);
         if (Number.isFinite(savedPrice) && savedPrice > 0) setPriceFilter(savedPrice);
         setMinYield(parseYieldFilter(saved.minYield));
@@ -63,10 +61,7 @@ export function DividendPositionsView({ data, actions }: ViewProps) {
   useEffect(() => {
     if (!filtersHydrated) return;
     try {
-      window.localStorage.setItem(
-        FILTER_STORAGE_KEY,
-        JSON.stringify({ selectedMonth, priceFilter, minYield, maxYield })
-      );
+      window.localStorage.setItem(FILTER_STORAGE_KEY, JSON.stringify({ selectedMonth, priceFilter, minYield, maxYield }));
     } catch {
       // Ignore storage quota/privacy-mode errors; filters remain usable in memory.
     }
@@ -77,10 +72,7 @@ export function DividendPositionsView({ data, actions }: ViewProps) {
   }, [load]);
 
   const monthGroups = useMemo(
-    () =>
-      buildFutureMonthGroups(events, { maxPrice: priceFilter, minYield, maxYield, marketPrices }).filter(
-        g => g.monthKey === selectedMonth
-      ),
+    () => buildFutureMonthGroups(events, { maxPrice: priceFilter, minYield, maxYield, marketPrices }).filter(g => g.monthKey === selectedMonth),
     [events, selectedMonth, priceFilter, minYield, maxYield, marketPrices]
   );
   const monthOptions = useMemo(() => futureMonthKeys(), []);
@@ -106,10 +98,7 @@ export function DividendPositionsView({ data, actions }: ViewProps) {
     setDraftMinYield(null);
     setDraftMaxYield(null);
   };
-  const symbolsKey = useMemo(
-    () => monthGroups.flatMap(g => g.cards.map(c => c.symbol)).join(','),
-    [monthGroups]
-  );
+  const symbolsKey = useMemo(() => monthGroups.flatMap(g => g.cards.map(c => c.symbol)).join(','), [monthGroups]);
 
   useEffect(() => {
     const symbols = [...new Set(monthGroups.flatMap(g => g.cards.map(c => c.symbol)))];
@@ -190,18 +179,57 @@ type DividendFilterOptions = {
 
 function buildFutureMonthGroups(events: StockEvent[], filters: DividendFilterOptions): MonthGroup[] {
   const { maxPrice, minYield, maxYield, marketPrices } = filters;
-  const n = new Date(); const today = new Date(n.getFullYear(), n.getMonth(), n.getDate()).getTime(); const s = new Date(n.getFullYear(), n.getMonth(), 1);
-  const months = Array.from({ length: 13 }, (_, i) => new Date(s.getFullYear(), s.getMonth() + i, 1)); const monthKeys = new Set(months.map(d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`)); const grouped = new Map<string, Map<string, StockEvent[]>>();
-  for (const event of events) { const date = dividendEventDate(event); const symbol = String(event.ticker ?? '').trim().toUpperCase(); if (!date || !symbol || date.getTime() < today) continue; const live = marketPrices[symbol]?.price; const price = Number(live) > 0 ? Number(live) : Number(event.currentPrice ?? event.price ?? 0); if (price <= 0 || price > maxPrice) continue; const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`; if (!monthKeys.has(monthKey)) continue; const bucket = grouped.get(monthKey) ?? new Map<string, StockEvent[]>(); bucket.set(symbol, [...(bucket.get(symbol) ?? []), event]); grouped.set(monthKey, bucket); }
-  return months.map(month => { const monthKey = `${month.getFullYear()}-${String(month.getMonth() + 1).padStart(2, '0')}`; const bucket = grouped.get(monthKey) ?? new Map<string, StockEvent[]>(); const cards = [...bucket.entries()].map(([symbol, tickerEvents]) => ({ symbol, events: tickerEvents.sort((a, b) => (dividendEventDate(b)?.getTime() ?? 0) - (dividendEventDate(a)?.getTime() ?? 0)) })).sort((a, b) => (dividendEventDate(b.events[0])?.getTime() ?? 0) - (dividendEventDate(a.events[0])?.getTime() ?? 0)); return { monthKey, cards }; }).filter(g => g.cards.length > 0);
+  const n = new Date();
+  const today = new Date(n.getFullYear(), n.getMonth(), n.getDate()).getTime();
+  const s = new Date(n.getFullYear(), n.getMonth(), 1);
+  const months = Array.from({ length: 13 }, (_, i) => new Date(s.getFullYear(), s.getMonth() + i, 1));
+  const monthKeys = new Set(months.map(d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`));
+  const grouped = new Map<string, Map<string, StockEvent[]>>();
+
+  for (const event of events) {
+    const date = dividendEventDate(event);
+    const symbol = String(event.ticker ?? '').trim().toUpperCase();
+    if (!date || !symbol || date.getTime() < today) continue;
+
+    const live = marketPrices[symbol]?.price;
+    const price = Number(live) > 0 ? Number(live) : Number(event.currentPrice ?? event.price ?? 0);
+    if (price <= 0 || price > maxPrice) continue;
+
+    // Yield is part of the event being rendered, so apply the same value used by the card.
+    // Keep missing/invalid yields out when a yield filter is explicitly active.
+    const yieldPct = Number(event.dividendYieldPct);
+    if (minYield != null || maxYield != null) {
+      if (!Number.isFinite(yieldPct)) continue;
+      if (minYield != null && yieldPct < minYield) continue;
+      if (maxYield != null && yieldPct > maxYield) continue;
+    }
+
+    const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+    if (!monthKeys.has(monthKey)) continue;
+    const bucket = grouped.get(monthKey) ?? new Map<string, StockEvent[]>();
+    bucket.set(symbol, [...(bucket.get(symbol) ?? []), event]);
+    grouped.set(monthKey, bucket);
+  }
+
+  return months.map(month => {
+    const monthKey = `${month.getFullYear()}-${String(month.getMonth() + 1).padStart(2, '0')}`;
+    const bucket = grouped.get(monthKey) ?? new Map<string, StockEvent[]>();
+    const cards = [...bucket.entries()]
+      .map(([symbol, tickerEvents]) => ({
+        symbol,
+        events: tickerEvents.sort((a, b) => (dividendEventDate(b)?.getTime() ?? 0) - (dividendEventDate(a)?.getTime() ?? 0)),
+      }))
+      .sort((a, b) => (dividendEventDate(b.events[0])?.getTime() ?? 0) - (dividendEventDate(a.events[0])?.getTime() ?? 0));
+    return { monthKey, cards };
+  }).filter(g => g.cards.length > 0);
 }
+
 function parseYieldFilter(value: unknown): number | null {
   if (value === null || value === undefined || value === '') return null;
   const n = Number(value);
   return Number.isFinite(n) && n >= 0 ? n : null;
 }
-
-function dividendEventDate(event: StockEvent): Date | null { const raw = event.exDividendTimestamp ?? event.exDividendDate ?? event.exDate; if (!raw) return null; const value = String(raw).trim(); const parsed = new Date(value); if (!Number.isNaN(parsed.getTime())) return parsed; const match = value.match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})$/); if (!match) return null; const [, day, month, year] = match; const fallback = new Date(Number(year), Number(month) - 1, Number(day)); return Number.isNaN(fallback.getTime()) ? null : fallback; }
+function dividendEventDate(event: StockEvent): Date | null { const raw = event.exDividendTimestamp ?? event.exDividendDate ?? event.exDate; if (!raw) return null; const value = String(raw).trim(); const parsed = new Date(value); if (!Number.isNaN(parsed.getTime())) return parsed; const match = value.match(/^(\\d{1,2})[\\/-](\\d{1,2})[\\/-](\\d{4})$/); if (!match) return null; const [, day, month, year] = match; const fallback = new Date(Number(year), Number(month) - 1, Number(day)); return Number.isNaN(fallback.getTime()) ? null : fallback; }
 function dividendMonthLabel(key: string): string { const [year, month] = key.split('-').map(Number); return `${String(month).padStart(2, '0')}/${year}`; }
 function formatNumber(value: unknown): string { const n = Number(value); return Number.isFinite(n) && n > 0 ? n.toLocaleString('vi-VN') : '—'; }
 function formatPercent(value: unknown): string { const n = Number(value); return Number.isFinite(n) ? `${n.toFixed(2)}%` : '—'; }
