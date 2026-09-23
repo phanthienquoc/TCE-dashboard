@@ -1,7 +1,19 @@
 'use client';
 
-import { CalendarDays, ChevronDown, Percent, SlidersHorizontal, Tag, X } from 'lucide-react';
+import { CalendarDays, ChevronDown, Percent, SlidersHorizontal, Tag } from 'lucide-react';
 import { useEffect, useMemo, useState, type Dispatch, type SetStateAction } from 'react';
+import { Button } from '../ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '../ui/dialog';
+import { Input } from '../ui/input';
+import { Label } from '../ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { useDashboardStore } from '../../lib/store';
 import {
   usePositionFilterStore,
@@ -151,153 +163,145 @@ export function DividendPositionsFilter({ className = '' }: Props) {
         </button>
       </div>
 
-      {open && (
-        <div
-          className="tce-filter-sheet-backdrop"
-          role="presentation"
-          onMouseDown={event => {
-            if (event.currentTarget === event.target) setOpen(false);
-          }}
-        >
-          <section
-            className="tce-filter-sheet"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="dividend-filter-title"
-          >
-            <div className="tce-filter-sheet-handle" />
-            <div className="tce-filter-sheet-header">
-              <div>
-                <strong id="dividend-filter-title">Filter Dividend</strong>
-                <span>Choose the dividend month and screening rules</span>
-              </div>
-              <button
-                type="button"
-                className="tce-filter-sheet-close"
-                onClick={() => setOpen(false)}
-                aria-label="Close filters"
-              >
-                <X className="size-5" />
-              </button>
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent aria-describedby="dividend-filter-description">
+          <DialogHeader className="pr-12">
+            <div>
+              <DialogTitle>Filter Dividend</DialogTitle>
+              <DialogDescription id="dividend-filter-description">
+                Choose the dividend month and screening rules
+              </DialogDescription>
             </div>
-            <div className="tce-filter-sheet-content">
-              <div className="tce-filter-sheet-body">
-                <label className="tce-filter-control" htmlFor="positions-filter-month">
-                  <span>
-                    <CalendarDays className="size-4" />
-                    Ex-date month
-                  </span>
-                  <select
-                    id="positions-filter-month"
-                    value={draft.selectedMonth}
-                    onChange={e => setDraft(s => ({ ...s, selectedMonth: e.target.value }))}
-                  >
+          </DialogHeader>
+
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-3">
+            <div className="grid gap-2.5">
+              <div className="grid gap-2 rounded-[13px] border border-border bg-surface/40 p-3">
+                <Label htmlFor="positions-filter-month">
+                  <CalendarDays className="size-4 text-primary" />
+                  Ex-date month
+                </Label>
+                <Select
+                  value={draft.selectedMonth}
+                  onValueChange={value => setDraft(s => ({ ...s, selectedMonth: value }))}
+                >
+                  <SelectTrigger id="positions-filter-month">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
                     {monthOptions.map(month => (
-                      <option key={month} value={month}>
+                      <SelectItem key={month} value={month}>
                         {dividendMonthLabel(month)}
-                      </option>
+                      </SelectItem>
                     ))}
-                  </select>
-                </label>
-                <div className="tce-filter-control">
-                  <span>
-                    <Tag className="size-4" />
-                    Current price
-                  </span>
-                  <div className="tce-filter-input-row">
-                    <span className="tce-filter-prefix">≤</span>
-                    <select
-                      aria-label="Maximum current price"
-                      value={draft.priceFilter}
-                      onChange={e => setDraft(s => ({ ...s, priceFilter: Number(e.target.value) }))}
-                    >
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="grid gap-2 rounded-[13px] border border-border bg-surface/40 p-3">
+                <Label>
+                  <Tag className="size-4 text-primary" />
+                  Current price
+                </Label>
+                <div className="grid grid-cols-[34px_minmax(0,1fr)] gap-1.5">
+                  <span className="grid min-h-11 place-items-center rounded-xl border border-border bg-surface-strong text-sm font-extrabold text-muted">≤</span>
+                  <Select
+                    value={String(draft.priceFilter)}
+                    onValueChange={value =>
+                      setDraft(s => ({ ...s, priceFilter: Number(value) }))
+                    }
+                  >
+                    <SelectTrigger aria-label="Maximum current price">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
                       {PRICE_OPTIONS.map(value => (
-                        <option key={value} value={value}>
+                        <SelectItem key={value} value={String(value)}>
                           {value.toLocaleString('vi-VN')} ₫
-                        </option>
+                        </SelectItem>
                       ))}
-                    </select>
-                  </div>
-                  <div className="tce-filter-quick-row">
-                    {[10_000, 20_000, 30_000, 50_000].map(value => (
-                      <button
-                        key={value}
-                        type="button"
-                        className={draft.priceFilter === value ? 'active' : ''}
-                        onClick={() => setDraft(s => ({ ...s, priceFilter: value }))}
-                      >
-                        ≤ {value / 1000}k
-                      </button>
-                    ))}
-                  </div>
+                    </SelectContent>
+                  </Select>
                 </div>
-                <div className="tce-filter-control">
-                  <span>
-                    <Percent className="size-4" />
-                    Dividend yield
-                  </span>
-                  <div className="tce-filter-range-row">
-                    <input
-                      type="number"
-                      min="0"
-                      step="0.1"
-                      inputMode="decimal"
-                      value={draft.minYield ?? ''}
-                      placeholder="Min"
-                      onChange={e =>
-                        updateYield(setDraft, 'minYield', e.target.value, draft.maxYield)
+                <div className="flex gap-1.5 overflow-x-auto pb-0.5 [scrollbar-width:none]">
+                  {[10_000, 20_000, 30_000, 50_000].map(value => (
+                    <Button
+                      key={value}
+                      type="button"
+                      size="sm"
+                      variant={draft.priceFilter === value ? 'outline' : 'ghost'}
+                      className={draft.priceFilter === value ? 'shrink-0 border-primary/40 bg-primary/10 text-primary' : 'shrink-0 border border-border'}
+                      onClick={() => setDraft(s => ({ ...s, priceFilter: value }))}
+                    >
+                      ≤ {value / 1000}k
+                    </Button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="grid gap-2 rounded-[13px] border border-border bg-surface/40 p-3">
+                <Label>
+                  <Percent className="size-4 text-primary" />
+                  Dividend yield
+                </Label>
+                <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-1.5">
+                  <Input
+                    type="number"
+                    min="0"
+                    step="0.1"
+                    inputMode="decimal"
+                    value={draft.minYield ?? ''}
+                    placeholder="Min"
+                    onChange={e => updateYield(setDraft, 'minYield', e.target.value, draft.maxYield)}
+                    aria-label="Minimum dividend yield"
+                  />
+                  <span className="text-[9px] text-muted">to</span>
+                  <Input
+                    type="number"
+                    min="0"
+                    step="0.1"
+                    inputMode="decimal"
+                    value={draft.maxYield ?? ''}
+                    placeholder="Max"
+                    onChange={e => updateYield(setDraft, 'maxYield', e.target.value, draft.minYield)}
+                    aria-label="Maximum dividend yield"
+                  />
+                </div>
+                <div className="flex gap-1.5 overflow-x-auto pb-0.5 [scrollbar-width:none]">
+                  {[
+                    { label: '≥ 3%', min: 3, max: null },
+                    { label: '≥ 5%', min: 5, max: null },
+                    { label: '6–61%', min: 6, max: 61 },
+                    { label: '≥ 10%', min: 10, max: null },
+                  ].map(item => (
+                    <Button
+                      key={item.label}
+                      type="button"
+                      size="sm"
+                      variant={
+                        draft.minYield === item.min && draft.maxYield === item.max ? 'outline' : 'ghost'
                       }
-                      aria-label="Minimum dividend yield"
-                    />
-                    <span>to</span>
-                    <input
-                      type="number"
-                      min="0"
-                      step="0.1"
-                      inputMode="decimal"
-                      value={draft.maxYield ?? ''}
-                      placeholder="Max"
-                      onChange={e =>
-                        updateYield(setDraft, 'maxYield', e.target.value, draft.minYield)
-                      }
-                      aria-label="Maximum dividend yield"
-                    />
-                  </div>
-                  <div className="tce-filter-quick-row">
-                    {[
-                      { label: '≥ 3%', min: 3, max: null },
-                      { label: '≥ 5%', min: 5, max: null },
-                      { label: '6–61%', min: 6, max: 61 },
-                      { label: '≥ 10%', min: 10, max: null },
-                    ].map(item => (
-                      <button
-                        key={item.label}
-                        type="button"
-                        className={
-                          draft.minYield === item.min && draft.maxYield === item.max ? 'active' : ''
-                        }
-                        onClick={() =>
-                          setDraft(s => ({ ...s, minYield: item.min, maxYield: item.max }))
-                        }
-                      >
-                        {item.label}
-                      </button>
-                    ))}
-                  </div>
+                      className="shrink-0 border border-border"
+                      onClick={() => setDraft(s => ({ ...s, minYield: item.min, maxYield: item.max }))}
+                    >
+                      {item.label}
+                    </Button>
+                  ))}
                 </div>
               </div>
             </div>
-            <div className="tce-filter-sheet-footer">
-              <button type="button" className="tce-filter-reset" onClick={resetDraft}>
-                Reset
-              </button>
-              <button type="button" className="tce-filter-apply" onClick={applyFilters}>
-                Apply
-              </button>
-            </div>
-          </section>
-        </div>
-      )}
+          </div>
+
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={resetDraft}>
+              Reset
+            </Button>
+            <Button type="button" onClick={applyFilters}>
+              Apply
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }
