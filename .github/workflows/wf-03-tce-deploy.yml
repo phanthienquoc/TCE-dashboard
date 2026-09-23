@@ -30,8 +30,8 @@ jobs:
         run: |
           set -euo pipefail
           MESSAGE="$(printf '%s\n%s' \
-            "🚀 <b>TCE • PROD RELEASE</b>" \
-            "🌿 <code>${{ github.ref_name }}</code> • CI started")"
+            "🚀 <b>TCE • PRODUCTION RELEASE</b>" \
+            "🌿 Branch    <code>${{ github.ref_name }}</code>\n🔖 Commit    <code>${GITHUB_SHA::7}</code>")"
 
           curl --fail-with-body -sS -X POST \
             "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
@@ -219,32 +219,3 @@ jobs:
             echo "- Platform Infra: dispatch sent for both components"
           } >> "$GITHUB_STEP_SUMMARY"
 
-  notify-telegram-promoted:
-    name: Notify Telegram — release promoted
-    needs: [detect, build-frontend, build-backend, platform-infra-release]
-    if: ${{ always() && needs.detect.result == 'success' && needs.build-frontend.result == 'success' && needs.build-backend.result == 'success' && needs.platform-infra-release.result == 'success' }}
-    runs-on: ubuntu-latest
-    env:
-      TELEGRAM_BOT_TOKEN: ${{ vars.TELEGRAM_BOT_TOKEN }}
-      TELEGRAM_CHAT_ID: ${{ vars.TELEGRAM_CHAT_ID }}
-    steps:
-      - name: Validate Telegram configuration
-        run: |
-          set -euo pipefail
-          test -n "$TELEGRAM_BOT_TOKEN" || { echo "Missing GitHub variable: TELEGRAM_BOT_TOKEN"; exit 1; }
-          test -n "$TELEGRAM_CHAT_ID" || { echo "Missing GitHub variable: TELEGRAM_CHAT_ID"; exit 1; }
-      - name: Send release promoted message
-        run: |
-          set -euo pipefail
-          MESSAGE="$(printf '%s\n%s\n%s\n%s\n%s' \
-            "📦 <b>TCE • RELEASE PROMOTED</b>" \
-            "🏷️ <code>${{ needs.detect.outputs.image_tag }}</code>" \
-            "✓ ARM64 images → GHCR" \
-            "✓ GitOps promotion → platform-infra" \
-            "⏳ VPS rollout pending")"
-
-          curl --fail-with-body -sS -X POST \
-            "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
-            -d "chat_id=${TELEGRAM_CHAT_ID}" \
-            --data-urlencode "text=${MESSAGE}" \
-            -d "parse_mode=HTML"
