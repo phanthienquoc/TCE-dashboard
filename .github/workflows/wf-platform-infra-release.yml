@@ -62,10 +62,10 @@ jobs:
       - name: Publish exact release images to GHCR
         run: |
           set -euo pipefail
-          docker tag "tce-frontend:$TAG" "ghcr.io/${{ github.repository }}/web:$TAG"
-          docker tag "tce-service:$TAG" "ghcr.io/${{ github.repository }}/service:$TAG"
-          docker push "ghcr.io/${{ github.repository }}/web:$TAG"
-          docker push "ghcr.io/${{ github.repository }}/service:$TAG"
+          docker tag "tce-frontend:$TAG" "ghcr.io/phanthienquoc/tce-dashboard/web:$TAG"
+          docker tag "tce-service:$TAG" "ghcr.io/phanthienquoc/tce-dashboard/service:$TAG"
+          docker push "ghcr.io/phanthienquoc/tce-dashboard/web:$TAG"
+          docker push "ghcr.io/phanthienquoc/tce-dashboard/service:$TAG"
 
       - name: Notify platform-infra
         env:
