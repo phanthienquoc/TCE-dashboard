@@ -1,15 +1,9 @@
 name: Platform Infra image release
 
 on:
-  push:
-    branches: [master]
-    paths:
-      - Dockerfile
-      - apps/service/**
-      - package.json
-      - package-lock.json
-      - libs/**
-      - packages/**
+  workflow_run:
+    workflows: ["WF-03 TCE Production Deploy"]
+    types: [completed]
   workflow_dispatch:
 
 permissions:
@@ -18,48 +12,62 @@ permissions:
 
 jobs:
   release:
+    if: \${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-24.04-arm
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout released commit
+        uses: actions/checkout@v4
+        with:
+          ref: \${{ github.event.workflow_run.head_sha || github.sha }}
+
       - uses: docker/setup-buildx-action@v3
+
       - uses: docker/login-action@v3
         with:
           registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          username: \${{ github.actor }}
+          password: \${{ secrets.GITHUB_TOKEN }}
+
       - name: Resolve immutable release tag
         id: release
+        env:
+          RELEASE_SHA: \${{ github.event.workflow_run.head_sha || github.sha }}
         run: |
           set -euo pipefail
           VERSION="$(node -p "require('./package.json').version")"
-          SHA="${GITHUB_SHA::7}"
-          TAG="prod-v${VERSION}-${SHA}"
+          SHA="\${RELEASE_SHA::7}"
+          TAG="prod-v\${VERSION}-\${SHA}"
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "Release commit: $RELEASE_SHA"
           echo "Release tag: $TAG"
 
       - name: Build and push frontend
         env:
-          TAG: ${{ steps.release.outputs.tag }}
+          TAG: \${{ steps.release.outputs.tag }}
         run: |
           set -euo pipefail
-          docker build --pull -t ghcr.io/${{ github.repository }}/web:$TAG -f Dockerfile .
-          docker push ghcr.io/${{ github.repository }}/web:$TAG
+          docker build --pull -t "ghcr.io/\${{ github.repository }}/web:$TAG" -f Dockerfile .
+          docker push "ghcr.io/\${{ github.repository }}/web:$TAG"
 
       - name: Build and push service
         env:
-          TAG: ${{ steps.release.outputs.tag }}
+          TAG: \${{ steps.release.outputs.tag }}
         run: |
           set -euo pipefail
-          docker build --pull -t ghcr.io/${{ github.repository }}/service:$TAG -f apps/service/Dockerfile .
-          docker push ghcr.io/${{ github.repository }}/service:$TAG
+          docker build --pull -t "ghcr.io/\${{ github.repository }}/service:$TAG" -f apps/service/Dockerfile .
+          docker push "ghcr.io/\${{ github.repository }}/service:$TAG"
 
       - name: Notify platform-infra
         env:
-          TOKEN: ${{ secrets.PLATFORM_INFRA_TOKEN }}
-          TAG: ${{ steps.release.outputs.tag }}
+          TOKEN: \${{ secrets.PLATFORM_INFRA_TOKEN }}
+          TAG: \${{ steps.release.outputs.tag }}
         run: |
           set -euo pipefail
-          if [ -z "$TOKEN" ]; then echo "PLATFORM_INFRA_TOKEN is not configured; image publication succeeded but promotion is skipped."; exit 0; fi
+          test -n "$TOKEN" || {
+            echo "PLATFORM_INFRA_TOKEN is required for production GitOps promotion."
+            exit 1
+          }
+
           dispatch() {
             local component="$1"
             curl --fail-with-body -sS -X POST \
@@ -69,5 +77,6 @@ jobs:
               https://api.github.com/repos/phanthienquoc/platform-infra/dispatches \
               -d "{\"event_type\":\"image-published\",\"client_payload\":{\"app\":\"tce-dashboard\",\"component\":\"$component\",\"tag\":\"$TAG\"}}"
           }
+
           dispatch web
           dispatch service
