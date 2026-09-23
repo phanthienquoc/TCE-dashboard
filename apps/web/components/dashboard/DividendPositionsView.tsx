@@ -153,7 +153,6 @@ export function DividendPositionsView({ data, actions }: ViewProps) {
           <div className="tce-filter-sheet-footer"><button type="button" className="tce-filter-reset" onClick={resetFilters}>Reset</button><button type="button" className="tce-filter-apply" onClick={applyFilters}>Apply</button></div>
         </section>
       </div>}
-      </div>
       <div className="tce-positions-list">
       {loading ? <DividendSkeleton /> : error ? <EmptyState text={error} /> : monthGroups.length ? monthGroups.map(group => <section className="tce-dividend-month-group" key={group.monthKey}><div className="tce-list-stack tce-dividend-month-cards">{group.cards.map(item => {
         const pool = data.pools.find(p => String(p.symbol ?? p.code ?? '').toUpperCase() === item.symbol);
