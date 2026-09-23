@@ -110,7 +110,7 @@ export function DividendPositionsView({ data, actions }: ViewProps) {
 
   return <div className="tce-mobile-view">
     <header className="tce-mobile-header"><div className="tce-header-brand"><WalletCards className="size-5" /><div><strong>Positions</strong><span>Live exposure</span></div></div><span className="tce-live-pill"><CircleDot className="size-3" /> LIVE</span></header>
-    <div className="tce-list-stack tce-dividend-month-groups">
+    <div className="tce-positions-content">
       <div className="tce-dividend-filter-bar" role="group" aria-label="Dividend filters">
         <button type="button" className="tce-dividend-filter-summary" onClick={openFilters} aria-label="Open dividend filters">
           <span className="tce-dividend-filter-summary-icon"><SlidersHorizontal className="size-4" aria-hidden="true" /></span>
@@ -153,6 +153,8 @@ export function DividendPositionsView({ data, actions }: ViewProps) {
           <div className="tce-filter-sheet-footer"><button type="button" className="tce-filter-reset" onClick={resetFilters}>Reset</button><button type="button" className="tce-filter-apply" onClick={applyFilters}>Apply</button></div>
         </section>
       </div>}
+      </div>
+      <div className="tce-positions-list">
       {loading ? <DividendSkeleton /> : error ? <EmptyState text={error} /> : monthGroups.length ? monthGroups.map(group => <section className="tce-dividend-month-group" key={group.monthKey}><div className="tce-list-stack tce-dividend-month-cards">{group.cards.map(item => {
         const pool = data.pools.find(p => String(p.symbol ?? p.code ?? '').toUpperCase() === item.symbol);
         const event = item.events[0];
@@ -161,6 +163,7 @@ export function DividendPositionsView({ data, actions }: ViewProps) {
         const key = `${group.monthKey}:${item.symbol}`;
         return <article className="tce-dividend-card" key={key}><button type="button" className="w-full text-left" onClick={() => setExpanded(expanded === key ? null : key)} aria-expanded={expanded === key}><div className="flex items-center gap-2"><strong>{item.symbol}</strong>{event && <span className="tce-muted">{formatDate(event.exDividendTimestamp ?? event.exDividendDate ?? event.exDate)}</span>}<span className="ml-auto">{expanded === key ? '−' : '+'}</span></div><div className="tce-pool-grid mt-2"><div><span>Dividend</span><b>{Number(event?.dividendValue ?? 0) ? `${money(Number(event?.dividendValue))} ₫` : '—'}</b></div><div><span>Current Price</span><b>{formatNumber(price)}</b></div><div><span>Yield</span><b>{formatPercent(event?.dividendYieldPct)}</b></div><div><span>1Y Low</span><b>{formatNumber(event?.oneYearLow)}</b></div><div><span>1Y High</span><b>{formatNumber(event?.oneYearHigh)}</b></div><div><span>1Y Range</span><b>{formatRange(event?.oneYearLow, event?.oneYearHigh)}</b></div></div></button>{expanded === key && <><DividendOneYearCandleChart symbol={item.symbol} /><div className="tce-card-actions mt-3"><span className="text-xs">Entry {formatEntry(pool?.entryLow ?? pool?.entry_low, pool?.entryHigh ?? pool?.entry_high)}</span><span className="text-xs">TP {formatNumber(pool?.targetPrice ?? pool?.target_price)}</span><button type="button" onClick={() => actions.openTrade({ ...pool, symbol: item.symbol, currentPrice: price, side: 'BUY' })}>BUY</button></div></>}</article>;
       })}</div></section>) : <EmptyState text={`No dividend events scheduled for ${dividendMonthLabel(selectedMonth)} with the current filters`} />}
+      </div>
     </div>
   </div>;
 }
