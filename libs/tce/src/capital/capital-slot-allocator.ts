@@ -170,15 +170,27 @@ export class CapitalSlotAllocator {
       return { ok: false, code: 'NOT_ACTIVE', message: `Slot ${slot.id} is not active` };
     }
     if (slot.reservedCapital <= 0) {
-      return { ok: false, code: 'INVALID_RESERVATION', message: `Slot ${slot.id} has no active capital` };
+      return {
+        ok: false,
+        code: 'INVALID_RESERVATION',
+        message: `Slot ${slot.id} has no active capital`,
+      };
     }
     const pool = this.pools.get(slot.pool);
     if (!pool) {
-      return { ok: false, code: 'POOL_NOT_FOUND', message: `Capital pool ${slot.pool} was not found` };
+      return {
+        ok: false,
+        code: 'POOL_NOT_FOUND',
+        message: `Capital pool ${slot.pool} was not found`,
+      };
     }
     const principal = slot.reservedCapital;
     if (principal > pool.allocatedCapital) {
-      return { ok: false, code: 'INVALID_POOL_STATE', message: `Slot ${slot.id} exceeds pool allocated capital` };
+      return {
+        ok: false,
+        code: 'INVALID_POOL_STATE',
+        message: `Slot ${slot.id} exceeds pool allocated capital`,
+      };
     }
     const nextPool = {
       ...pool,
@@ -188,7 +200,11 @@ export class CapitalSlotAllocator {
       realizedCapital: pool.realizedCapital + pnl,
     };
     if (nextPool.availableCapital < 0) {
-      return { ok: false, code: 'INVALID_POOL_STATE', message: 'Realized pnl would make available capital negative' };
+      return {
+        ok: false,
+        code: 'INVALID_POOL_STATE',
+        message: 'Realized pnl would make available capital negative',
+      };
     }
     const nextSlot = {
       ...slot,

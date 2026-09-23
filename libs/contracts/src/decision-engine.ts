@@ -2,11 +2,7 @@ export type DecisionAction = 'BUY' | 'SELL' | 'HOLD' | 'WAIT' | 'SKIP';
 export type CapitalPoolId = 'A' | 'B' | 'C';
 
 export type DividendEntitlementStatus =
-  | 'UNKNOWN'
-  | 'NOT_ELIGIBLE'
-  | 'AT_RISK'
-  | 'PROTECTED'
-  | 'CONFIRMED';
+  'UNKNOWN' | 'NOT_ELIGIBLE' | 'AT_RISK' | 'PROTECTED' | 'CONFIRMED';
 
 export type DecisionStockCandidate = {
   symbol: string;

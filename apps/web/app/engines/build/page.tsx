@@ -21,43 +21,48 @@ const BUILD_STEPS: BuildStep[] = [
     id: 'contracts',
     phase: '01',
     title: 'Engine contract & registry',
-    description: 'Register CRDE as a first-class Decision layer engine and define provider-neutral inputs/outputs.',
+    description:
+      'Register CRDE as a first-class Decision layer engine and define provider-neutral inputs/outputs.',
     status: 'done',
     deliverables: ['CRDE engine ID', 'Decision contract', 'Runtime registry metadata'],
-    verification: 'Phase foundation fixes merged in #747; runtime/registry wiring verified'
+    verification: 'Phase foundation fixes merged in #747; runtime/registry wiring verified',
   },
   {
     id: 'market-pool',
     phase: '02',
     title: 'Market → Pool 20',
-    description: 'Build the candidate pipeline around verified dividend events, liquidity, recovery potential and turnover.',
+    description:
+      'Build the candidate pipeline around verified dividend events, liquidity, recovery potential and turnover.',
     status: 'done',
     deliverables: ['Pool 20 scoring', 'Deduplication', 'Freshness gates', 'Capital-turnover score'],
-    verification: 'PR #741 merged squash; deterministic Pool 20 scorer + gates verified'
+    verification: 'PR #741 merged squash; deterministic Pool 20 scorer + gates verified',
   },
   {
     id: 'decision',
     phase: '03',
     title: 'Capital Rotation Decision',
-    description: 'Decide BUY / HOLD / SELL / ROTATE / WAIT / SKIP using expected net return per capital-day.',
+    description:
+      'Decide BUY / HOLD / SELL / ROTATE / WAIT / SKIP using expected net return per capital-day.',
     status: 'done',
     deliverables: ['CRDE core', 'Entry gates', 'Exit gates', 'Rotation rules'],
-    verification: 'PR #743 merged squash; entitlement/TP/invalidation gates verified'
+    verification: 'PR #743 merged squash; entitlement/TP/invalidation gates verified',
   },
   {
     id: 'allocation',
     phase: '04',
     title: 'Capital & slot lifecycle',
-    description: 'Connect CRDE decisions to A/B/C capital pools, slot reservation and recycling without over-allocation.',
+    description:
+      'Connect CRDE decisions to A/B/C capital pools, slot reservation and recycling without over-allocation.',
     status: 'done',
     deliverables: ['Allocator integration', 'Slot reservation', 'Recycle on close', 'Idempotency'],
-    verification: 'PR #745 + #747 merged; realized-P&L recycling regression covered'
+    verification: 'PR #745 + #747 merged; realized-P&L recycling regression covered',
   },
   {
     id: 'execution',
     phase: '05',
     title: 'SSI execution bridge',
-    description: 'Turn approved decisions into guarded SSI order intents using the existing SDK adapter.',
+    description:
+      'Turn approved decisions into guarded SSI order intents using the existing SDK adapter.',
     status: 'done',
     deliverables: ['Order planner', 'Risk gate', 'SSI adapter', 'Order reconciliation'],
     verification: 'PR #749 squash-merged; PAPER E2E + Risk/Safety Gate boundary verified',
@@ -66,25 +71,34 @@ const BUILD_STEPS: BuildStep[] = [
     id: 'lifecycle',
     phase: '06',
     title: 'T+2 & dividend lifecycle',
-    description: 'Reconcile filled positions through ex-date, T+2, dividend confirmation and capital release.',
+    description:
+      'Reconcile filled positions through ex-date, T+2, dividend confirmation and capital release.',
     status: 'todo',
-    deliverables: ['Position lifecycle', 'Entitlement confirmation', 'Cashflow evidence', 'Exit readiness'],
+    deliverables: [
+      'Position lifecycle',
+      'Entitlement confirmation',
+      'Cashflow evidence',
+      'Exit readiness',
+    ],
     verification: 'Lifecycle replay tests',
   },
   {
     id: 'cron',
     phase: '07',
     title: 'Runtime cron & observability',
-    description: 'Run the engine continuously during VN market hours and persist every run/decision for audit.',
+    description:
+      'Run the engine continuously during VN market hours and persist every run/decision for audit.',
     status: 'done',
     deliverables: ['CRDE cron', 'Run lock/idempotency', 'Decision snapshots', 'Failure recovery'],
-    verification: 'PR #753 squash-merged; 15m scheduler/audit wiring verified; job disabled by default',
+    verification:
+      'PR #753 squash-merged; 15m scheduler/audit wiring verified; job disabled by default',
   },
   {
     id: 'demo',
     phase: '08',
     title: 'Demo readiness gate',
-    description: 'Validate the complete path with cash disabled first, then enable the smallest controlled demo allocation.',
+    description:
+      'Validate the complete path with cash disabled first, then enable the smallest controlled demo allocation.',
     status: 'in-progress',
     deliverables: ['E2E smoke test', 'Kill switch', 'Paper → assisted checklist', 'Demo sign-off'],
     verification: 'All gates green; no live order before approval',
@@ -118,9 +132,7 @@ export default function EngineBuildTrackerPage() {
                 <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
                   Build Control
                 </p>
-                <h1 className="mt-1 text-2xl font-semibold text-white">
-                  Capital Rotation
-                </h1>
+                <h1 className="mt-1 text-2xl font-semibold text-white">Capital Rotation</h1>
                 <p className="mt-1 text-sm text-slate-400">
                   CRDE implementation tracker · demo gate
                 </p>
@@ -143,9 +155,7 @@ export default function EngineBuildTrackerPage() {
                     <span className="text-sm font-semibold text-white">
                       {progress.done}/{progress.total} phases complete
                     </span>
-                    <span className="text-xs font-semibold text-sky-300">
-                      {progress.percent}%
-                    </span>
+                    <span className="text-xs font-semibold text-sky-300">{progress.percent}%</span>
                   </div>
                   <div className="mt-2 h-2 overflow-hidden rounded-full bg-white/10">
                     <div
@@ -162,9 +172,21 @@ export default function EngineBuildTrackerPage() {
           </header>
 
           <section className="grid grid-cols-3 gap-2">
-            <Metric label="Done" value={String(progress.done)} icon={<CheckCircle2 className="size-4" />} />
-            <Metric label="Building" value={String(progress.active)} icon={<Clock3 className="size-4" />} />
-            <Metric label="Remaining" value={String(progress.total - progress.done)} icon={<Circle className="size-4" />} />
+            <Metric
+              label="Done"
+              value={String(progress.done)}
+              icon={<CheckCircle2 className="size-4" />}
+            />
+            <Metric
+              label="Building"
+              value={String(progress.active)}
+              icon={<Clock3 className="size-4" />}
+            />
+            <Metric
+              label="Remaining"
+              value={String(progress.total - progress.done)}
+              icon={<Circle className="size-4" />}
+            />
           </section>
 
           <section className="rounded-3xl border border-amber-400/20 bg-amber-400/[0.04] p-4">
@@ -212,7 +234,9 @@ export default function EngineBuildTrackerPage() {
                       <div className="flex items-start justify-between gap-2">
                         <div>
                           <h2 className="text-sm font-semibold text-white">{step.title}</h2>
-                          <p className="mt-1 text-xs leading-5 text-slate-500">{step.description}</p>
+                          <p className="mt-1 text-xs leading-5 text-slate-500">
+                            {step.description}
+                          </p>
                         </div>
                         <span
                           className={
@@ -257,18 +281,13 @@ export default function EngineBuildTrackerPage() {
   );
 }
 
-function Metric({
-  label,
-  value,
-  icon,
-}: {
-  label: string;
-  value: string;
-  icon: React.ReactNode;
-}) {
+function Metric({ label, value, icon }: { label: string; value: string; icon: React.ReactNode }) {
   return (
     <div className="rounded-2xl border border-white/10 bg-white/[0.025] p-3">
-      <div className="flex items-center gap-1.5 text-slate-500">{icon}<span className="text-[11px]">{label}</span></div>
+      <div className="flex items-center gap-1.5 text-slate-500">
+        {icon}
+        <span className="text-[11px]">{label}</span>
+      </div>
       <p className="mt-2 text-lg font-semibold text-white">{value}</p>
     </div>
   );

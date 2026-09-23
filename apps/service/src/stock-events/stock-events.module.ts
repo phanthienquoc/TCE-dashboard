@@ -13,7 +13,18 @@ import { DividendOhlcvController } from './dividend-ohlcv.controller';
 @Module({
   imports: [AuthModule, PlatformCredentialsModule],
   controllers: [StockEventsController, StockDividendPoolController, DividendOhlcvController],
-  providers: [StockEventsService, StockEventsSupabaseRepository, StockDividendPoolService, HuntingDividendScannerService, DividendOhlcvService],
-  exports: [StockEventsService, StockDividendPoolService, HuntingDividendScannerService, DividendOhlcvService],
+  providers: [
+    StockEventsService,
+    StockEventsSupabaseRepository,
+    StockDividendPoolService,
+    HuntingDividendScannerService,
+    DividendOhlcvService,
+  ],
+  exports: [
+    StockEventsService,
+    StockDividendPoolService,
+    HuntingDividendScannerService,
+    DividendOhlcvService,
+  ],
 })
 export class StockEventsModule {}

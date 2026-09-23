@@ -12,7 +12,12 @@ import { EngineRuntimeService } from './engine-runtime.service';
 
 @Module({
   imports: [AuthModule, PlatformCredentialsModule, StockEventsModule],
-  controllers: [DashboardController, DashboardPriceHistoryController, PoolPromotionController, NextPositionController],
+  controllers: [
+    DashboardController,
+    DashboardPriceHistoryController,
+    PoolPromotionController,
+    NextPositionController,
+  ],
   providers: [DashboardService, DashboardSourcesService, EngineRuntimeService],
   exports: [DashboardSourcesService, EngineRuntimeService],
 })

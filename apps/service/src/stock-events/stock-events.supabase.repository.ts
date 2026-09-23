@@ -48,12 +48,15 @@ export class StockEventsSupabaseRepository {
 
     const { data, error } = await this.supabase.db
       .from('tce_stock_event_market_metrics')
-      .select('id,mongo_id,symbol,ex_right_date,gdkhq_timestamp,payment_date,event_content,ratio_text,dividend_value,reference_price,current_price,current_price_date,dividend_yield_pct,one_year_low,one_year_high,crawled_at')
+      .select(
+        'id,mongo_id,symbol,ex_right_date,gdkhq_timestamp,payment_date,event_content,ratio_text,dividend_value,reference_price,current_price,current_price_date,dividend_yield_pct,one_year_low,one_year_high,crawled_at'
+      )
       .gte('gdkhq_timestamp', today.toISOString())
       .order('gdkhq_timestamp', { ascending: true })
       .limit(limit);
 
-    if (error) throw new ServiceUnavailableException(`Stock events Supabase query failed: ${error.message}`);
+    if (error)
+      throw new ServiceUnavailableException(`Stock events Supabase query failed: ${error.message}`);
 
     return ((data ?? []) as StockEventRow[])
       .map(row => ({
@@ -65,7 +68,12 @@ export class StockEventsSupabaseRepository {
         eventContent: row.event_content ?? '',
         dividendRate: row.ratio_text ?? '',
         dividendValue: Number(row.dividend_value ?? 0),
-        price: row.current_price == null ? (row.reference_price == null ? null : Number(row.reference_price)) : Number(row.current_price),
+        price:
+          row.current_price == null
+            ? row.reference_price == null
+              ? null
+              : Number(row.reference_price)
+            : Number(row.current_price),
         currentPrice: row.current_price == null ? null : Number(row.current_price),
         currentPriceDate: row.current_price_date,
         dividendYieldPct: row.dividend_yield_pct == null ? null : Number(row.dividend_yield_pct),

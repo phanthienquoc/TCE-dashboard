@@ -38,11 +38,19 @@ export function ConfigSection({ title, children }: { title: string; children: Re
   const [open, setOpen] = React.useState(true);
   return (
     <Card className="panel-card">
-      <button type="button" onClick={() => setOpen(value => !value)} className="flex min-h-12 w-full items-center justify-between px-4 text-left">
+      <button
+        type="button"
+        onClick={() => setOpen(value => !value)}
+        className="flex min-h-12 w-full items-center justify-between px-4 text-left"
+      >
         <span className="flex items-center gap-2 font-semibold">{title}</span>
-        <ChevronDown className={`size-4 text-muted transition-transform ${open ? '' : '-rotate-90'}`} />
+        <ChevronDown
+          className={`size-4 text-muted transition-transform ${open ? '' : '-rotate-90'}`}
+        />
       </button>
-      {open ? <CardContent className="divide-y divide-[var(--line)] p-0">{children}</CardContent> : null}
+      {open ? (
+        <CardContent className="divide-y divide-[var(--line)] p-0">{children}</CardContent>
+      ) : null}
     </Card>
   );
 }
@@ -63,7 +71,9 @@ export function ConfigField({
     <div className="flex min-h-[68px] items-center gap-3 px-4 py-2.5">
       <div className="min-w-0 flex-1">
         <p className="text-sm font-medium">{labelize(keyName)}</p>
-        {description ? <p className="mt-0.5 text-[11px] leading-4 text-muted">{description}</p> : null}
+        {description ? (
+          <p className="mt-0.5 text-[11px] leading-4 text-muted">{description}</p>
+        ) : null}
       </div>
       {boolean ? (
         <button
@@ -73,7 +83,9 @@ export function ConfigField({
           onClick={() => onChange(!value)}
           className={`relative h-8 w-14 shrink-0 rounded-full p-1 transition ${value ? 'bg-[var(--accent)]' : 'bg-white/10'}`}
         >
-          <span className={`block size-6 rounded-full bg-white shadow transition-transform ${value ? 'translate-x-6' : ''}`} />
+          <span
+            className={`block size-6 rounded-full bg-white shadow transition-transform ${value ? 'translate-x-6' : ''}`}
+          />
         </button>
       ) : (
         <div className="relative w-[145px] shrink-0">
@@ -81,10 +93,16 @@ export function ConfigField({
             type={typeof value === 'number' ? 'number' : 'text'}
             inputMode={typeof value === 'number' ? 'decimal' : undefined}
             value={String(value)}
-            onChange={event => onChange(typeof value === 'number' ? Number(event.target.value) : event.target.value)}
+            onChange={event =>
+              onChange(typeof value === 'number' ? Number(event.target.value) : event.target.value)
+            }
             className="h-11 w-full rounded-xl border border-[var(--line)] bg-white/[0.03] px-3 text-right text-sm outline-none focus:border-[var(--accent)]/40"
           />
-          {suffixFor(keyName) ? <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted">{suffixFor(keyName)}</span> : null}
+          {suffixFor(keyName) ? (
+            <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted">
+              {suffixFor(keyName)}
+            </span>
+          ) : null}
         </div>
       )}
     </div>
@@ -123,16 +141,28 @@ export function SyncAction({
 
 export function ResultBanner({ result }: { result: ActionResult }) {
   return (
-    <div className={`rounded-xl border px-3 py-2.5 text-xs ${result.ok ? 'border-emerald-300/15 bg-emerald-300/[0.05] text-emerald-200' : 'border-red-300/15 bg-red-300/[0.05] text-red-200'}`}>
+    <div
+      className={`rounded-xl border px-3 py-2.5 text-xs ${result.ok ? 'border-emerald-300/15 bg-emerald-300/[0.05] text-emerald-200' : 'border-red-300/15 bg-red-300/[0.05] text-red-200'}`}
+    >
       {result.message}
     </div>
   );
 }
 
-export function ActivityItem({ icon, title, value }: { icon: React.ReactNode; title: string; value: string }) {
+export function ActivityItem({
+  icon,
+  title,
+  value,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  value: string;
+}) {
   return (
     <div className="flex items-center gap-3 border-b border-[var(--line)] py-3 last:border-b-0">
-      <span className="grid size-8 shrink-0 place-items-center rounded-full bg-[var(--accent)]/10 text-[var(--accent)]">{icon}</span>
+      <span className="grid size-8 shrink-0 place-items-center rounded-full bg-[var(--accent)]/10 text-[var(--accent)]">
+        {icon}
+      </span>
       <span className="min-w-0 flex-1">
         <span className="block text-sm font-medium">{title}</span>
         <span className="mt-0.5 block text-xs text-muted">{value}</span>
@@ -146,13 +176,19 @@ export function formatDate(value?: string | null) {
   if (!value) return '—';
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return '—';
-  return date.toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' });
+  return date.toLocaleString('vi-VN', {
+    hour: '2-digit',
+    minute: '2-digit',
+    day: '2-digit',
+    month: '2-digit',
+  });
 }
 
 export function formatValue(key: string, value: EngineValue) {
   if (typeof value === 'boolean') return value ? 'On' : 'Off';
   if (typeof value === 'number') {
-    if (/capital/i.test(key)) return `${new Intl.NumberFormat('vi-VN', { notation: 'compact', maximumFractionDigits: 1 }).format(value)} ₫`;
+    if (/capital/i.test(key))
+      return `${new Intl.NumberFormat('vi-VN', { notation: 'compact', maximumFractionDigits: 1 }).format(value)} ₫`;
     if (/pct/i.test(key)) return `${value}%`;
     if (/interval/i.test(key)) return `${value} min`;
     if (/seconds/i.test(key)) return `${value} s`;

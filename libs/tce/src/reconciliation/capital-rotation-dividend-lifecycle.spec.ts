@@ -27,7 +27,7 @@ test('CRDE lifecycle follows HOLDING → EX_DIVIDEND → T2_PENDING → DIVIDEND
     'EX_DIVIDEND',
     { correlationId: 'corr-1', idempotencyKey: 'life-1' },
     'ex-date-reached',
-    { exDividendAt: base.exDividendAt, paymentAt: base.paymentAt },
+    { exDividendAt: base.exDividendAt, paymentAt: base.paymentAt }
   );
   assert.equal(ex.ok, true);
   if (!ex.ok) return;
@@ -37,7 +37,7 @@ test('CRDE lifecycle follows HOLDING → EX_DIVIDEND → T2_PENDING → DIVIDEND
     ex.position,
     'T2_PENDING',
     { correlationId: 'corr-1', idempotencyKey: 'life-2' },
-    'filled-position-awaiting-settlement',
+    'filled-position-awaiting-settlement'
   );
   assert.equal(t2.ok, true);
   if (!t2.ok) return;
@@ -48,7 +48,7 @@ test('CRDE lifecycle follows HOLDING → EX_DIVIDEND → T2_PENDING → DIVIDEND
     'DIVIDEND_CONFIRMED',
     { correlationId: 'corr-1', idempotencyKey: 'life-3' },
     'cash-dividend-confirmed',
-    { netCash: 475 },
+    { netCash: 475 }
   );
   assert.equal(confirmed.ok, true);
   if (!confirmed.ok) return;
@@ -62,7 +62,7 @@ test('CRDE lifecycle blocks dividend confirmation before payment is due', () => 
     { ...base, state: 'T2_PENDING', dividendLifecycle: 'T2_PENDING' },
     'DIVIDEND_CONFIRMED',
     { correlationId: 'corr-2', idempotencyKey: 'life-4' },
-    'premature-confirmation',
+    'premature-confirmation'
   );
 
   assert.equal(result.ok, false);
@@ -76,7 +76,7 @@ test('CRDE lifecycle rejects invalid jumps and supports idempotent replay', () =
     base,
     'DIVIDEND_CONFIRMED',
     { correlationId: 'corr-3', idempotencyKey: 'life-5' },
-    'invalid-jump',
+    'invalid-jump'
   );
   assert.equal(invalid.ok, false);
 
@@ -84,7 +84,7 @@ test('CRDE lifecycle rejects invalid jumps and supports idempotent replay', () =
     base,
     'EX_DIVIDEND',
     { correlationId: 'corr-3', idempotencyKey: 'life-6' },
-    'ex-date-reached',
+    'ex-date-reached'
   );
   assert.equal(first.ok, true);
   if (!first.ok) return;
@@ -92,7 +92,7 @@ test('CRDE lifecycle rejects invalid jumps and supports idempotent replay', () =
     base,
     'EX_DIVIDEND',
     { correlationId: 'corr-3', idempotencyKey: 'life-6' },
-    'different-reason',
+    'different-reason'
   );
   assert.equal(replay.ok, true);
   if (!replay.ok) return;
@@ -100,8 +100,5 @@ test('CRDE lifecycle rejects invalid jumps and supports idempotent replay', () =
 });
 
 test('expected T+2 window is deterministic', () => {
-  assert.equal(
-    expectedT2Window('2026-09-20T00:00:00.000Z'),
-    '2026-09-22T00:00:00.000Z',
-  );
+  assert.equal(expectedT2Window('2026-09-20T00:00:00.000Z'), '2026-09-22T00:00:00.000Z');
 });

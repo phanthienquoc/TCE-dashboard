@@ -71,7 +71,9 @@ export function BottomTabs({ items, onSelect }: BottomTabsProps) {
               (pathname === href ||
                 (href === '/engines' && pathname.startsWith('/engines/')) ||
                 (href === '/settings/engines' && pathname.startsWith('/settings/engines/')) ||
-                (href !== '/engines' && href !== '/settings/engines' && pathname.startsWith(`${href}/`))));
+                (href !== '/engines' &&
+                  href !== '/settings/engines' &&
+                  pathname.startsWith(`${href}/`))));
           const Icon = item.icon;
           const className = cn('tce-bottom-tab', active && 'tce-bottom-tab-active');
           const content = (

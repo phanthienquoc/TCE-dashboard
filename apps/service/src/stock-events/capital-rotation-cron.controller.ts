@@ -6,7 +6,7 @@ import { CapitalRotationCronService } from './capital-rotation-cron.service';
 export class CapitalRotationCronController {
   constructor(
     private readonly cron: CapitalRotationCronService,
-    private readonly jwt: JwtService,
+    private readonly jwt: JwtService
   ) {}
 
   private userId(auth?: string) {
@@ -24,10 +24,7 @@ export class CapitalRotationCronController {
   }
 
   @Get('runs')
-  runs(
-    @Headers('authorization') auth?: string,
-    @Headers('x-limit') limit?: string,
-  ) {
+  runs(@Headers('authorization') auth?: string, @Headers('x-limit') limit?: string) {
     return this.cron.runs(this.userId(auth), Number(limit ?? 20));
   }
 }

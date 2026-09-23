@@ -387,7 +387,7 @@ export class SsiBrokerAdapter implements BrokerPort, SsiConnectionPort {
 
   async syncPortfolio(
     accountNo: string,
-    input: SsiAuthInput = {},
+    input: SsiAuthInput = {}
   ): Promise<ContractResult<SsiPortfolioSnapshot>> {
     const normalizedAccountNo = accountNo.trim();
     if (!normalizedAccountNo) throw new Error('SSI account number is required for portfolio sync');
@@ -397,7 +397,7 @@ export class SsiBrokerAdapter implements BrokerPort, SsiConnectionPort {
 
   async startOrderStatusStream(
     accountNo: string,
-    onEvent: (event: SsiOrderStatusEvent) => void | Promise<void>,
+    onEvent: (event: SsiOrderStatusEvent) => void | Promise<void>
   ) {
     const normalizedAccountNo = accountNo.trim();
     if (!normalizedAccountNo) throw new Error('SSI account number is required for order stream');
@@ -417,12 +417,15 @@ export class SsiBrokerAdapter implements BrokerPort, SsiConnectionPort {
     await stream.connect();
   }
 
-  private normalizeOrderStatusEvent(message: unknown, accountNo: string): SsiOrderStatusEvent | undefined {
-    const value = message && typeof message === 'object' ? (message as SsiStreamMessage) : undefined;
+  private normalizeOrderStatusEvent(
+    message: unknown,
+    accountNo: string
+  ): SsiOrderStatusEvent | undefined {
+    const value =
+      message && typeof message === 'object' ? (message as SsiStreamMessage) : undefined;
     if (!value) return undefined;
-    const payload = value.data && typeof value.data === 'object'
-      ? (value.data as SsiStreamMessage)
-      : value;
+    const payload =
+      value.data && typeof value.data === 'object' ? (value.data as SsiStreamMessage) : value;
     const messageAccountNo = payload.accountNo ? String(payload.accountNo) : accountNo;
     if (messageAccountNo !== accountNo) return undefined;
     const orderId = payload.orderId ? String(payload.orderId) : undefined;
@@ -689,7 +692,7 @@ export class SsiBrokerAdapter implements BrokerPort, SsiConnectionPort {
   async dailyOhlcv(
     symbols: string[],
     fromDate: string,
-    toDate: string,
+    toDate: string
   ): Promise<ContractResult<SsiDailyOhlcv[]>> {
     return this.result(async () => {
       const auth = await this.authenticateMarketData();

@@ -28,12 +28,28 @@ type CrawlOptions = {
   maxPages?: number;
   batchSize?: number;
   pageSize?: number;
-  onPage?: (pageNumber: number, rowsOnPage: number, total: number | null, hasMore: boolean) => Promise<void>;
-  onBatch?: (events: CrawledStockEvent[], pageNumber: number, estimatedTotal: number | null, meta: CrawlPageMeta) => Promise<void>;
+  onPage?: (
+    pageNumber: number,
+    rowsOnPage: number,
+    total: number | null,
+    hasMore: boolean
+  ) => Promise<void>;
+  onBatch?: (
+    events: CrawledStockEvent[],
+    pageNumber: number,
+    estimatedTotal: number | null,
+    meta: CrawlPageMeta
+  ) => Promise<void>;
 };
 
 type VietstockPage = { rows: unknown[]; hasMore: boolean; total: number | null };
-type BrowserSession = { browser: Browser; page: Page; fromDate: string; toDate: string; pageSize: number };
+type BrowserSession = {
+  browser: Browser;
+  page: Page;
+  fromDate: string;
+  toDate: string;
+  pageSize: number;
+};
 
 const BASE_URL = 'https://finance.vietstock.vn';
 const EVENTS_PAGE = '/lich-su-kien.htm';
@@ -42,7 +58,8 @@ const EXCHANGE = -1;
 const DEFAULT_PAGE_SIZE = 10;
 const DEFAULT_FROM_DATE = '2015-01-11';
 const DEFAULT_BATCH_SIZE = 200;
-const USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/126 Safari/537.36';
+const USER_AGENT =
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/126 Safari/537.36';
 const RENDER_TIMEOUT_MS = 45_000;
 const STABLE_SAMPLE_DELAY_MS = 350;
 
@@ -54,7 +71,10 @@ export class VietstockEventsCrawler {
     const startDate = options.startDate || DEFAULT_FROM_DATE;
     const endDate = options.endDate || this.today();
     const maxPages = Math.min(Math.max(Number(options.maxPages ?? 200) || 200, 1), 500);
-    const batchSize = Math.min(Math.max(Math.trunc(options.batchSize ?? DEFAULT_BATCH_SIZE), 30), 500);
+    const batchSize = Math.min(
+      Math.max(Math.trunc(options.batchSize ?? DEFAULT_BATCH_SIZE), 30),
+      500
+    );
     const pageSize = Math.min(Math.max(Math.trunc(options.pageSize ?? DEFAULT_PAGE_SIZE), 1), 100);
     const all: CrawledStockEvent[] = [];
     const session = await this.createBrowserSession(startDate, endDate, pageSize);
@@ -76,7 +96,7 @@ export class VietstockEventsCrawler {
         lastPageMeta = meta;
 
         this.logger.log(
-          `Vietstock events page=${pageNumber}: raw=${result.rows.length}, parsed=${rows.length}, hasMore=${result.hasMore}, total=${result.total ?? 'unknown'}`,
+          `Vietstock events page=${pageNumber}: raw=${result.rows.length}, parsed=${rows.length}, hasMore=${result.hasMore}, total=${result.total ?? 'unknown'}`
         );
 
         await options.onPage?.(pageNumber, result.rows.length, estimatedTotal, result.hasMore);
@@ -111,7 +131,11 @@ export class VietstockEventsCrawler {
     return [...unique.values()];
   }
 
-  private async createBrowserSession(fromDate: string, toDate: string, pageSize: number): Promise<BrowserSession> {
+  private async createBrowserSession(
+    fromDate: string,
+    toDate: string,
+    pageSize: number
+  ): Promise<BrowserSession> {
     const executablePath = process.env.PUPPETEER_EXECUTABLE_PATH;
     if (!executablePath) throw new Error('PUPPETEER_EXECUTABLE_PATH is not configured');
 
@@ -134,17 +158,35 @@ export class VietstockEventsCrawler {
   }
 
   private async fetchPage(pageNumber: number, session: BrowserSession): Promise<VietstockPage> {
-    await this.gotoEventsPage(session.page, session.fromDate, session.toDate, pageNumber, session.pageSize);
+    await this.gotoEventsPage(
+      session.page,
+      session.fromDate,
+      session.toDate,
+      pageNumber,
+      session.pageSize
+    );
 
     const tableHtml = await this.readRenderedTable(session.page);
     const rows = this.parseHtmlRows(tableHtml);
     const total = this.parseRenderedTotal(tableHtml);
-    const hasMore = this.resolveHasMore(session.page, rows.length, total, pageNumber, session.pageSize);
+    const hasMore = this.resolveHasMore(
+      session.page,
+      rows.length,
+      total,
+      pageNumber,
+      session.pageSize
+    );
 
     return { rows, hasMore, total };
   }
 
-  private async gotoEventsPage(page: Page, fromDate: string, toDate: string, pageNumber: number, pageSize: number): Promise<void> {
+  private async gotoEventsPage(
+    page: Page,
+    fromDate: string,
+    toDate: string,
+    pageNumber: number,
+    pageSize: number
+  ): Promise<void> {
     const url = new URL(EVENTS_PAGE, BASE_URL);
     url.searchParams.set('group', String(GROUP));
     url.searchParams.set('exchange', String(EXCHANGE));
@@ -154,7 +196,10 @@ export class VietstockEventsCrawler {
     url.searchParams.set('pageSize', String(pageSize));
     url.searchParams.set('tab', '1');
 
-    const response = await page.goto(url.toString(), { waitUntil: 'domcontentloaded', timeout: RENDER_TIMEOUT_MS });
+    const response = await page.goto(url.toString(), {
+      waitUntil: 'domcontentloaded',
+      timeout: RENDER_TIMEOUT_MS,
+    });
     const status = response?.status();
     try {
       await page.waitForSelector('#event-content', { timeout: RENDER_TIMEOUT_MS });
@@ -162,7 +207,9 @@ export class VietstockEventsCrawler {
       const title = await page.title().catch(() => '');
       const currentUrl = page.url();
       const reason = error instanceof Error ? error.message : JSON.stringify(error);
-      throw new Error(`Vietstock page load failed (HTTP ${status ?? 'unknown'}, title="${title}", url=${currentUrl}): ${reason}`);
+      throw new Error(
+        `Vietstock page load failed (HTTP ${status ?? 'unknown'}, title="${title}", url=${currentUrl}): ${reason}`
+      );
     }
   }
 
@@ -176,7 +223,7 @@ export class VietstockEventsCrawler {
         const text = (root.textContent || '').toLowerCase();
         return /không có|no data|no records|không tìm thấy/.test(text);
       },
-      { timeout: RENDER_TIMEOUT_MS },
+      { timeout: RENDER_TIMEOUT_MS }
     );
 
     let previous = '';
@@ -186,22 +233,34 @@ export class VietstockEventsCrawler {
     while (Date.now() < deadline) {
       const snapshot = await page.$eval('#event-content', element => {
         const root = element as HTMLElement;
-        const rows = [...root.querySelectorAll('tbody tr')].map(row => (row.textContent || '').replace(/\s+/g, ' ').trim());
-        return JSON.stringify({ rows, text: root.textContent?.replace(/\s+/g, ' ').trim().slice(-500) || '' });
+        const rows = [...root.querySelectorAll('tbody tr')].map(row =>
+          (row.textContent || '').replace(/\s+/g, ' ').trim()
+        );
+        return JSON.stringify({
+          rows,
+          text: root.textContent?.replace(/\s+/g, ' ').trim().slice(-500) || '',
+        });
       });
 
       if (snapshot === previous) stableSamples += 1;
       else stableSamples = 0;
       previous = snapshot;
 
-      if (stableSamples >= 2) return await page.$eval('#event-content', element => element.outerHTML);
+      if (stableSamples >= 2)
+        return await page.$eval('#event-content', element => element.outerHTML);
       await new Promise(resolve => setTimeout(resolve, STABLE_SAMPLE_DELAY_MS));
     }
 
     throw new Error(`Vietstock events page did not stabilize within ${RENDER_TIMEOUT_MS}ms`);
   }
 
-  private resolveHasMore(_page: Page, rowCount: number, total: number | null, pageNumber: number, pageSize: number) {
+  private resolveHasMore(
+    _page: Page,
+    rowCount: number,
+    total: number | null,
+    pageNumber: number,
+    pageSize: number
+  ) {
     if (total != null) return pageNumber * pageSize < total;
     return rowCount >= pageSize;
   }
@@ -213,11 +272,20 @@ export class VietstockEventsCrawler {
     if (!rows.length) return [];
     const headerIndex = rows.findIndex(row => /<t[hd]\b/i.test(row));
     if (headerIndex < 0) return [];
-    const headers = this.cells(rows[headerIndex]).map(cell => this.clean(this.stripTags(cell).replace(/[▼▲]/g, '')));
+    const headers = this.cells(rows[headerIndex]).map(cell =>
+      this.clean(this.stripTags(cell).replace(/[▼▲]/g, ''))
+    );
     return rows.slice(headerIndex + 1).flatMap(row => {
       const cells = this.cells(row);
       if (!cells.length) return [];
-      return [Object.fromEntries(headers.map((header, index) => [header || `column${index}`, this.clean(this.stripTags(cells[index] ?? ''))]))];
+      return [
+        Object.fromEntries(
+          headers.map((header, index) => [
+            header || `column${index}`,
+            this.clean(this.stripTags(cells[index] ?? '')),
+          ])
+        ),
+      ];
     });
   }
 
@@ -233,9 +301,25 @@ export class VietstockEventsCrawler {
     const parsed: CrawledStockEvent[] = [];
     for (const row of rows) {
       const data = this.normalizeRow(row);
-      const symbol = this.pick(data, ['Mã CK', 'Mã chứng khoán', 'Code', 'StockCode', 'stockCode', 'Symbol', 'symbol']).toUpperCase();
-      const eventContent = this.pick(data, ['Nội dung sự kiện', 'EventContent', 'EventName', 'Content', 'eventContent']);
-      const exRightDate = this.parseAnyDate(this.pick(data, ['Ngày GDKHQ', 'ExRightDate', 'ExDate', 'GDKHQDate', 'exRightDate']));
+      const symbol = this.pick(data, [
+        'Mã CK',
+        'Mã chứng khoán',
+        'Code',
+        'StockCode',
+        'stockCode',
+        'Symbol',
+        'symbol',
+      ]).toUpperCase();
+      const eventContent = this.pick(data, [
+        'Nội dung sự kiện',
+        'EventContent',
+        'EventName',
+        'Content',
+        'eventContent',
+      ]);
+      const exRightDate = this.parseAnyDate(
+        this.pick(data, ['Ngày GDKHQ', 'ExRightDate', 'ExDate', 'GDKHQDate', 'exRightDate'])
+      );
       if (!symbol || !exRightDate) continue;
       parsed.push({
         mongoId: `${symbol}:${exRightDate}:${eventContent}`,
@@ -243,12 +327,16 @@ export class VietstockEventsCrawler {
         exchange: this.pick(data, ['Sàn', 'Sàn GD', 'Exchange', 'exchange']) || null,
         exRightDate,
         recordDate: this.parseAnyDate(this.pick(data, ['Ngày ĐKCC', 'RecordDate', 'recordDate'])),
-        paymentDate: this.parseAnyDate(this.pick(data, ['Ngày thực hiện', 'PaymentDate', 'paymentDate'])),
+        paymentDate: this.parseAnyDate(
+          this.pick(data, ['Ngày thực hiện', 'PaymentDate', 'paymentDate'])
+        ),
         gdkhqTimestamp: `${exRightDate}T00:00:00.000Z`,
         eventContent,
         ratioText: this.pick(data, ['Tỷ lệ', 'Ratio', 'RatioText', 'ratioText']),
         dividendValue: this.parseDividendValue(eventContent),
-        referencePrice: this.parseNumber(this.pick(data, ['Giá tham chiếu', 'ReferencePrice', 'referencePrice'])),
+        referencePrice: this.parseNumber(
+          this.pick(data, ['Giá tham chiếu', 'ReferencePrice', 'referencePrice'])
+        ),
         rawData: data,
         crawledAt: new Date().toISOString(),
       });
@@ -257,7 +345,13 @@ export class VietstockEventsCrawler {
   }
 
   private normalizeRow(row: unknown): Record<string, string> {
-    if (row && typeof row === 'object' && !Array.isArray(row)) return Object.fromEntries(Object.entries(row as Record<string, unknown>).map(([key, value]) => [key, this.clean(String(value ?? ''))]));
+    if (row && typeof row === 'object' && !Array.isArray(row))
+      return Object.fromEntries(
+        Object.entries(row as Record<string, unknown>).map(([key, value]) => [
+          key,
+          this.clean(String(value ?? '')),
+        ])
+      );
     if (typeof row === 'string') return this.parseHtmlRow(row);
     return {};
   }
@@ -276,7 +370,14 @@ export class VietstockEventsCrawler {
   }
 
   private clean(value: string) {
-    return value.replace(/&nbsp;/gi, ' ').replace(/&#x27;/gi, "'").replace(/&#39;/gi, "'").replace(/&amp;/gi, '&').replace(/&quot;/gi, '"').replace(/\s+/g, ' ').trim();
+    return value
+      .replace(/&nbsp;/gi, ' ')
+      .replace(/&#x27;/gi, "'")
+      .replace(/&#39;/gi, "'")
+      .replace(/&amp;/gi, '&')
+      .replace(/&quot;/gi, '"')
+      .replace(/\s+/g, ' ')
+      .trim();
   }
 
   private pick(data: Record<string, string>, keys: string[]) {
@@ -311,6 +412,11 @@ export class VietstockEventsCrawler {
   }
 
   private today() {
-    return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Ho_Chi_Minh', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
+    return new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Asia/Ho_Chi_Minh',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).format(new Date());
   }
 }

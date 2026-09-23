@@ -84,7 +84,7 @@ export const usePasskeyStore = create<PasskeyState>((set, get) => ({
     const shouldRemove =
       confirmed ??
       window.confirm(
-        `Remove “${passkey.friendly_name}”? You will no longer be able to use it to sign in.`,
+        `Remove “${passkey.friendly_name}”? You will no longer be able to use it to sign in.`
       );
     if (!shouldRemove || get().busy) return;
     set({ busy: true, error: '', success: '' });

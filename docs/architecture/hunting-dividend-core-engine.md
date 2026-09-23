@@ -46,7 +46,7 @@ type DividendCandidate = {
 
 type DividendPosition = {
   symbol: string;
-  pool: "A" | "B" | "C";
+  pool: 'A' | 'B' | 'C';
   slot: string;
   quantity: number;
   entryPrice?: number;
@@ -57,12 +57,7 @@ type DividendPosition = {
   exRightDate?: string;
   recordDate?: string;
   paymentDate?: string;
-  entitlementStatus?:
-    | "UNKNOWN"
-    | "NOT_ELIGIBLE"
-    | "AT_RISK"
-    | "PROTECTED"
-    | "CONFIRMED";
+  entitlementStatus?: 'UNKNOWN' | 'NOT_ELIGIBLE' | 'AT_RISK' | 'PROTECTED' | 'CONFIRMED';
   sellableAt?: string;
   status?: string;
 };

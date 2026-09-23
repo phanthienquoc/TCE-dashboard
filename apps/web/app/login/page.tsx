@@ -30,10 +30,16 @@ export default function LoginPage() {
       frame = requestAnimationFrame(() => {
         const active = document.activeElement;
         const card = document.querySelector<HTMLElement>('.auth-card');
-        if (!(active instanceof HTMLElement) || !card) { setKeyboardShift(0); return; }
+        if (!(active instanceof HTMLElement) || !card) {
+          setKeyboardShift(0);
+          return;
+        }
         const isField = active.matches('input, textarea, select');
         const keyboardOpen = window.innerHeight - viewport.height > 120;
-        if (!isField || !keyboardOpen) { setKeyboardShift(0); return; }
+        if (!isField || !keyboardOpen) {
+          setKeyboardShift(0);
+          return;
+        }
         const viewportBottom = viewport.offsetTop + viewport.height;
         const fieldBottom = active.getBoundingClientRect().bottom;
         const overlap = fieldBottom + 20 - viewportBottom;
@@ -59,52 +65,118 @@ export default function LoginPage() {
   const submit = async (event: FormEvent) => {
     event.preventDefault();
     if (busy) return;
-    setBusy(true); setError('');
+    setBusy(true);
+    setError('');
     try {
       if (pending) await mfa(pending, code.trim());
       else {
         const result = await login(email.trim(), password);
-        if (result.mfaRequired) { setPending(result.userId!); return; }
+        if (result.mfaRequired) {
+          setPending(result.userId!);
+          return;
+        }
       }
       router.replace('/');
     } catch (err: any) {
       setError(err?.response?.data?.message ?? 'Unable to sign in');
-    } finally { setBusy(false); }
+    } finally {
+      setBusy(false);
+    }
   };
 
   const passkeySubmit = async () => {
     if (busy) return;
-    setBusy(true); setError('');
+    setBusy(true);
+    setError('');
     try {
       const result = await loginWithPasskey();
-      if (result.mfaRequired) { setPending(result.userId!); return; }
+      if (result.mfaRequired) {
+        setPending(result.userId!);
+        return;
+      }
       router.replace('/');
     } catch (err: any) {
       setError(err?.response?.data?.message ?? err?.message ?? 'Unable to sign in with passkey');
-    } finally { setBusy(false); }
+    } finally {
+      setBusy(false);
+    }
   };
 
   return (
     <main className="auth-shell">
       <div className="auth-glow" aria-hidden="true" />
-      <section className="auth-card" aria-label="Sign in" style={{ '--auth-keyboard-shift': `${keyboardShift}px` } as CSSProperties}>
+      <section
+        className="auth-card"
+        aria-label="Sign in"
+        style={{ '--auth-keyboard-shift': `${keyboardShift}px` } as CSSProperties}
+      >
         <form onSubmit={submit} noValidate>
           {pending ? (
-            <label><span className="sr-only">MFA code</span><Input autoFocus required value={code} onChange={e => setCode(e.target.value)} inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]*" maxLength={8} aria-label="MFA code" /></label>
+            <label>
+              <span className="sr-only">MFA code</span>
+              <Input
+                autoFocus
+                required
+                value={code}
+                onChange={e => setCode(e.target.value)}
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                pattern="[0-9]*"
+                maxLength={8}
+                aria-label="MFA code"
+              />
+            </label>
           ) : (
             <>
-              <label><span className="sr-only">Email</span><Input type="email" required value={email} onChange={e => setEmail(e.target.value)} autoComplete="username" inputMode="email" autoCapitalize="none" spellCheck={false} placeholder="you@example.com" aria-label="Email" /></label>
-              <label><span className="sr-only">Password</span><Input type="password" required value={password} onChange={e => setPassword(e.target.value)} autoComplete="current-password" placeholder="••••••••" aria-label="Password" /></label>
+              <label>
+                <span className="sr-only">Email</span>
+                <Input
+                  type="email"
+                  required
+                  value={email}
+                  onChange={e => setEmail(e.target.value)}
+                  autoComplete="username"
+                  inputMode="email"
+                  autoCapitalize="none"
+                  spellCheck={false}
+                  placeholder="you@example.com"
+                  aria-label="Email"
+                />
+              </label>
+              <label>
+                <span className="sr-only">Password</span>
+                <Input
+                  type="password"
+                  required
+                  value={password}
+                  onChange={e => setPassword(e.target.value)}
+                  autoComplete="current-password"
+                  placeholder="••••••••"
+                  aria-label="Password"
+                />
+              </label>
             </>
           )}
-          {error && <p className="auth-error" role="alert">{error}</p>}
+          {error && (
+            <p className="auth-error" role="alert">
+              {error}
+            </p>
+          )}
           <div className="auth-actions">
             <Button className="auth-submit auth-sign-in" type="submit" disabled={busy}>
               <span>{busy ? 'Working…' : pending ? 'Verify code' : 'Sign in'}</span>
               <ArrowRight size={19} strokeWidth={2} aria-hidden="true" />
             </Button>
             {!pending && (
-              <Button className="auth-passkey" type="button" variant="outline" disabled={busy} onClick={() => void passkeySubmit()} aria-label="Sign in with passkey" title="Sign in with passkey">
+              <Button
+                className="auth-passkey"
+                type="button"
+                variant="outline"
+                disabled={busy}
+                onClick={() => void passkeySubmit()}
+                aria-label="Sign in with passkey"
+                title="Sign in with passkey"
+              >
                 <KeyRound size={24} strokeWidth={2} aria-hidden="true" />
               </Button>
             )}

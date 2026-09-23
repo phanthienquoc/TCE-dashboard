@@ -81,7 +81,10 @@ export default function SettingsEnginesPage() {
                 >
                   <div className="flex items-center gap-3 border-b border-white/10 px-4 py-3.5">
                     <span
-                      className={'flex size-8 shrink-0 items-center justify-center rounded-xl text-xs font-semibold ' + layer.badge}
+                      className={
+                        'flex size-8 shrink-0 items-center justify-center rounded-xl text-xs font-semibold ' +
+                        layer.badge
+                      }
                     >
                       {String(index + 1).padStart(2, '0')}
                     </span>
@@ -89,9 +92,7 @@ export default function SettingsEnginesPage() {
                       <h2 className={'text-[15px] font-semibold ' + layer.accent}>
                         {layer.label} Layer
                       </h2>
-                      <p className="mt-0.5 truncate text-xs text-slate-500">
-                        {layer.description}
-                      </p>
+                      <p className="mt-0.5 truncate text-xs text-slate-500">{layer.description}</p>
                     </div>
                     <span className="text-slate-500">
                       <ChevronDown className="size-4" />
@@ -107,7 +108,10 @@ export default function SettingsEnginesPage() {
                           className="group flex min-h-[68px] items-center gap-3 rounded-2xl border border-white/10 bg-black/10 px-3.5 transition-colors active:bg-white/5"
                         >
                           <span
-                            className={'flex size-10 shrink-0 items-center justify-center rounded-xl ' + layer.badge}
+                            className={
+                              'flex size-10 shrink-0 items-center justify-center rounded-xl ' +
+                              layer.badge
+                            }
                           >
                             <Cpu className={'size-5 ' + layer.accent} />
                           </span>

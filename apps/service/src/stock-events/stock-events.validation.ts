@@ -12,7 +12,10 @@ export type StockEventValidation = {
 };
 
 export function validateStockEvents(rows: StockEvent[]): StockEventValidation {
-  const timestamps = rows.map(row => row.exDividendTimestamp).filter((value): value is string => Boolean(value)).sort();
+  const timestamps = rows
+    .map(row => row.exDividendTimestamp)
+    .filter((value): value is string => Boolean(value))
+    .sort();
   return {
     count: rows.length,
     distinctIds: new Set(rows.map(row => row.id)).size,

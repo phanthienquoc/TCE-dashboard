@@ -4,8 +4,30 @@ import { validateStockEvents } from './stock-events.validation';
 describe('validateStockEvents', () => {
   it('reports deterministic count, uniqueness, required fields and range', () => {
     const result = validateStockEvents([
-      { id: '1', ticker: 'AAA', exDividendDate: '2026-01-01', exDividendTimestamp: '2026-01-01T00:00:00.000Z', executionDate: null, eventContent: '', dividendRate: '', dividendValue: 100, price: 10, crawledAt: null },
-      { id: '2', ticker: 'BBB', exDividendDate: '2026-01-02', exDividendTimestamp: '2026-01-02T00:00:00.000Z', executionDate: null, eventContent: '', dividendRate: '', dividendValue: 200, price: null, crawledAt: null },
+      {
+        id: '1',
+        ticker: 'AAA',
+        exDividendDate: '2026-01-01',
+        exDividendTimestamp: '2026-01-01T00:00:00.000Z',
+        executionDate: null,
+        eventContent: '',
+        dividendRate: '',
+        dividendValue: 100,
+        price: 10,
+        crawledAt: null,
+      },
+      {
+        id: '2',
+        ticker: 'BBB',
+        exDividendDate: '2026-01-02',
+        exDividendTimestamp: '2026-01-02T00:00:00.000Z',
+        executionDate: null,
+        eventContent: '',
+        dividendRate: '',
+        dividendValue: 200,
+        price: null,
+        crawledAt: null,
+      },
     ]);
     expect(result.count).toBe(2);
     expect(result.distinctIds).toBe(2);

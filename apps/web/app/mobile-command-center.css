@@ -515,7 +515,12 @@ body {
     padding: 8px 1px 10px;
     border: 0;
     border-radius: 0;
-    background: linear-gradient(180deg, rgba(7, 16, 22, 0.99) 0%, rgba(7, 16, 22, 0.96) 82%, rgba(7, 16, 22, 0) 100%);
+    background: linear-gradient(
+      180deg,
+      rgba(7, 16, 22, 0.99) 0%,
+      rgba(7, 16, 22, 0.96) 82%,
+      rgba(7, 16, 22, 0) 100%
+    );
     overflow: visible;
   }
 
@@ -904,7 +909,6 @@ body {
 }
 
 /* Restored pre-705 mobile layout. */
-
 
 @media screen and (max-width: 767px) {
   .tce-positions-content {
