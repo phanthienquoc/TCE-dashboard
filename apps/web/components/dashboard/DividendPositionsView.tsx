@@ -1,5 +1,5 @@
 'use client';
-import { WalletCards, CircleDot, Tag, CalendarDays } from 'lucide-react';
+import { WalletCards, CircleDot, Tag, CalendarDays, Percent } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { useStockEventStore, type StockEvent } from '../../lib/stock-event-store';
 import { useDashboardStore } from '../../lib/store';
@@ -11,12 +11,22 @@ type ViewProps = { data: DashboardData; actions: DashboardActions };
 type MonthGroup = { monthKey: string; cards: Array<{ symbol: string; events: StockEvent[] }> };
 const PRICE_OPTIONS = Array.from({ length: 9 }, (_, i) => (i + 1) * 10_000);
 const DEFAULT_PRICE_FILTER = 30_000;
+const FILTER_STORAGE_KEY = 'tce:positions:dividend-filters:v1';
+type DividendFilterPreferences = {
+  selectedMonth?: string;
+  priceFilter?: number;
+  minYield?: number | null;
+  maxYield?: number | null;
+};
 
 export function DividendPositionsView({ data, actions }: ViewProps) {
   const [tab, setTab] = useState<'current' | 'dividend' | 'history'>('dividend');
   const [expanded, setExpanded] = useState<string | null>(null);
   const [selectedMonth, setSelectedMonth] = useState(currentMonthKey);
   const [priceFilter, setPriceFilter] = useState(DEFAULT_PRICE_FILTER);
+  const [minYield, setMinYield] = useState<number | null>(null);
+  const [maxYield, setMaxYield] = useState<number | null>(null);
+  const [filtersHydrated, setFiltersHydrated] = useState(false);
   const events = useStockEventStore(s => s.events);
   const loading = useStockEventStore(s => s.loading);
   const error = useStockEventStore(s => s.error);
@@ -25,15 +35,48 @@ export function DividendPositionsView({ data, actions }: ViewProps) {
   const syncMarketPrices = useDashboardStore(s => s.syncMarketPrices);
 
   useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem(FILTER_STORAGE_KEY);
+      if (raw) {
+        const saved = JSON.parse(raw) as DividendFilterPreferences;
+        const months = futureMonthKeys();
+        if (typeof saved.selectedMonth === 'string' && months.includes(saved.selectedMonth)) {
+          setSelectedMonth(saved.selectedMonth);
+        }
+        const savedPrice = Number(saved.priceFilter);
+        if (Number.isFinite(savedPrice) && savedPrice > 0) setPriceFilter(savedPrice);
+        setMinYield(parseYieldFilter(saved.minYield));
+        setMaxYield(parseYieldFilter(saved.maxYield));
+      }
+    } catch {
+      // Invalid or unavailable local preferences should not block the dividend view.
+    } finally {
+      setFiltersHydrated(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!filtersHydrated) return;
+    try {
+      window.localStorage.setItem(
+        FILTER_STORAGE_KEY,
+        JSON.stringify({ selectedMonth, priceFilter, minYield, maxYield })
+      );
+    } catch {
+      // Ignore storage quota/privacy-mode errors; filters remain usable in memory.
+    }
+  }, [filtersHydrated, selectedMonth, priceFilter, minYield, maxYield]);
+
+  useEffect(() => {
     void load(2000, true, null);
   }, [load]);
 
   const monthGroups = useMemo(
     () =>
-      buildFutureMonthGroups(events, priceFilter, marketPrices).filter(
+      buildFutureMonthGroups(events, { maxPrice: priceFilter, minYield, maxYield, marketPrices }).filter(
         g => g.monthKey === selectedMonth
       ),
-    [events, selectedMonth, priceFilter, marketPrices]
+    [events, selectedMonth, priceFilter, minYield, maxYield, marketPrices]
   );
   const monthOptions = useMemo(() => futureMonthKeys(), []);
   const symbolsKey = useMemo(
@@ -56,9 +99,12 @@ export function DividendPositionsView({ data, actions }: ViewProps) {
     {tab === 'current' && <div className="tce-list-stack">{data.positions.length ? data.positions.map((row, i) => <article className="tce-dividend-card" key={row.id ?? row.symbol ?? i}><div className="flex items-center gap-2"><strong>{String(row.symbol ?? '—')}</strong><span className="tce-muted">Current position</span></div><div className="tce-pool-grid mt-2"><div><span>Entry</span><b>{formatNumber(row.positionPrice ?? row.position_price ?? row.avgBuyCost ?? row.avg_cost)}</b></div><div><span>Now</span><b>{formatNumber(row.marketPrice ?? row.market_price ?? row.currentPrice ?? row.current_price)}</b></div><div><span>P&L</span><b>{formatNumber(row.pnl ?? row.unrealizedPnl ?? row.unrealized_pnl)}</b></div></div><button className="tce-secondary-action mt-3" onClick={() => actions.openPositionSell(row)}>SELL</button></article>) : <EmptyState text="No current positions" />}</div>}
     {tab === 'dividend' && <div className="tce-list-stack tce-dividend-month-groups">
       <div className="tce-dividend-filter-bar" role="group" aria-label="Dividend filters">
-        <label className="tce-dividend-filter-field" htmlFor="positions-dividend-month"><CalendarDays className="size-4" aria-hidden="true" /><span><small>Ex-date month</small><select id="positions-dividend-month" value={selectedMonth} onChange={e => { setSelectedMonth(e.target.value); setExpanded(null); }} aria-label="Ex-date month">{monthOptions.map(m => <option key={m} value={m}>{dividendMonthLabel(m)}</option>)}</select></span></label>
-        <div className="tce-dividend-filter-divider" aria-hidden="true" />
-        <label className="tce-dividend-filter-field" htmlFor="positions-current-price"><Tag className="size-4" aria-hidden="true" /><span><small>Current price (VND)</small><select id="positions-current-price" value={priceFilter} onChange={e => { setPriceFilter(Number(e.target.value)); setExpanded(null); }} aria-label="Current price filter">{PRICE_OPTIONS.map(v => <option key={v} value={v}>≤ {v.toLocaleString('vi-VN')}</option>)}</select></span></label>
+        <div className="tce-dividend-filter-grid">
+          <label className="tce-dividend-filter-field" htmlFor="positions-dividend-month"><CalendarDays className="size-4" aria-hidden="true" /><span><small>Ex-date month</small><select id="positions-dividend-month" value={selectedMonth} onChange={e => { setSelectedMonth(e.target.value); setExpanded(null); }} aria-label="Ex-date month">{monthOptions.map(m => <option key={m} value={m}>{dividendMonthLabel(m)}</option>)}</select></span></label>
+          <label className="tce-dividend-filter-field" htmlFor="positions-current-price"><Tag className="size-4" aria-hidden="true" /><span><small>Current price (VND)</small><select id="positions-current-price" value={priceFilter} onChange={e => { setPriceFilter(Number(e.target.value)); setExpanded(null); }} aria-label="Current price filter">{PRICE_OPTIONS.map(v => <option key={v} value={v}>≤ {v.toLocaleString('vi-VN')}</option>)}</select></span></label>
+          <label className="tce-dividend-filter-field" htmlFor="positions-min-yield"><Percent className="size-4" aria-hidden="true" /><span><small>Min yield (%)</small><input id="positions-min-yield" type="number" min="0" step="0.1" inputMode="decimal" value={minYield ?? ''} placeholder="Any" onChange={e => { const next = parseYieldFilter(e.target.value); setMinYield(next); if (next != null && maxYield != null && next > maxYield) setMaxYield(next); setExpanded(null); }} aria-label="Minimum dividend yield" /></span></label>
+          <label className="tce-dividend-filter-field" htmlFor="positions-max-yield"><Percent className="size-4" aria-hidden="true" /><span><small>Max yield (%)</small><input id="positions-max-yield" type="number" min="0" step="0.1" inputMode="decimal" value={maxYield ?? ''} placeholder="Any" onChange={e => { const next = parseYieldFilter(e.target.value); setMaxYield(next); if (next != null && minYield != null && next < minYield) setMinYield(next); setExpanded(null); }} aria-label="Maximum dividend yield" /></span></label>
+        </div>
       </div>
       {loading ? <DividendSkeleton /> : error ? <EmptyState text={error} /> : monthGroups.length ? monthGroups.map(group => <section className="tce-dividend-month-group" key={group.monthKey}><div className="tce-list-stack tce-dividend-month-cards">{group.cards.map(item => {
         const pool = data.pools.find(p => String(p.symbol ?? p.code ?? '').toUpperCase() === item.symbol);
@@ -67,19 +113,33 @@ export function DividendPositionsView({ data, actions }: ViewProps) {
         const price = Number(livePrice) > 0 ? livePrice : event?.currentPrice ?? event?.price ?? pool?.currentPrice ?? pool?.current_price;
         const key = `${group.monthKey}:${item.symbol}`;
         return <article className="tce-dividend-card" key={key}><button type="button" className="w-full text-left" onClick={() => setExpanded(expanded === key ? null : key)} aria-expanded={expanded === key}><div className="flex items-center gap-2"><strong>{item.symbol}</strong>{event && <span className="tce-muted">{formatDate(event.exDividendTimestamp ?? event.exDividendDate ?? event.exDate)}</span>}<span className="ml-auto">{expanded === key ? '−' : '+'}</span></div><div className="tce-pool-grid mt-2"><div><span>Dividend</span><b>{Number(event?.dividendValue ?? 0) ? `${money(Number(event?.dividendValue))} ₫` : '—'}</b></div><div><span>Current Price</span><b>{formatNumber(price)}</b></div><div><span>Yield</span><b>{formatPercent(event?.dividendYieldPct)}</b></div><div><span>1Y Low</span><b>{formatNumber(event?.oneYearLow)}</b></div><div><span>1Y High</span><b>{formatNumber(event?.oneYearHigh)}</b></div><div><span>1Y Range</span><b>{formatRange(event?.oneYearLow, event?.oneYearHigh)}</b></div></div></button>{expanded === key && <><DividendOneYearCandleChart symbol={item.symbol} /><div className="tce-card-actions mt-3"><span className="text-xs">Entry {formatEntry(pool?.entryLow ?? pool?.entry_low, pool?.entryHigh ?? pool?.entry_high)}</span><span className="text-xs">TP {formatNumber(pool?.targetPrice ?? pool?.target_price)}</span><button type="button" onClick={() => actions.openTrade({ ...pool, symbol: item.symbol, currentPrice: price, side: 'BUY' })}>BUY</button></div></>}</article>;
-      })}</div></section>) : <EmptyState text={`No dividend events scheduled for ${dividendMonthLabel(selectedMonth)} under ${priceFilter.toLocaleString('vi-VN')} VND`} />}
+      })}</div></section>) : <EmptyState text={`No dividend events scheduled for ${dividendMonthLabel(selectedMonth)} with the current filters`} />}
     </div>}
     {tab === 'history' && <EmptyState text="Position history is ready for the next history feed." />}
   </div>;
 }
 function currentMonthKey(): string { const n = new Date(); return `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, '0')}`; }
 function futureMonthKeys(): string[] { const n = new Date(); const s = new Date(n.getFullYear(), n.getMonth(), 1); return Array.from({ length: 13 }, (_, i) => { const d = new Date(s.getFullYear(), s.getMonth() + i, 1); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`; }); }
-function buildFutureMonthGroups(events: StockEvent[], maxPrice: number, marketPrices: Record<string, { price?: number | null }>): MonthGroup[] {
+type DividendFilterOptions = {
+  maxPrice: number;
+  minYield: number | null;
+  maxYield: number | null;
+  marketPrices: Record<string, { price?: number | null }>;
+};
+
+function buildFutureMonthGroups(events: StockEvent[], filters: DividendFilterOptions): MonthGroup[] {
+  const { maxPrice, minYield, maxYield, marketPrices } = filters;
   const n = new Date(); const today = new Date(n.getFullYear(), n.getMonth(), n.getDate()).getTime(); const s = new Date(n.getFullYear(), n.getMonth(), 1);
   const months = Array.from({ length: 13 }, (_, i) => new Date(s.getFullYear(), s.getMonth() + i, 1)); const monthKeys = new Set(months.map(d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`)); const grouped = new Map<string, Map<string, StockEvent[]>>();
   for (const event of events) { const date = dividendEventDate(event); const symbol = String(event.ticker ?? '').trim().toUpperCase(); if (!date || !symbol || date.getTime() < today) continue; const live = marketPrices[symbol]?.price; const price = Number(live) > 0 ? Number(live) : Number(event.currentPrice ?? event.price ?? 0); if (price <= 0 || price > maxPrice) continue; const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`; if (!monthKeys.has(monthKey)) continue; const bucket = grouped.get(monthKey) ?? new Map<string, StockEvent[]>(); bucket.set(symbol, [...(bucket.get(symbol) ?? []), event]); grouped.set(monthKey, bucket); }
   return months.map(month => { const monthKey = `${month.getFullYear()}-${String(month.getMonth() + 1).padStart(2, '0')}`; const bucket = grouped.get(monthKey) ?? new Map<string, StockEvent[]>(); const cards = [...bucket.entries()].map(([symbol, tickerEvents]) => ({ symbol, events: tickerEvents.sort((a, b) => (dividendEventDate(b)?.getTime() ?? 0) - (dividendEventDate(a)?.getTime() ?? 0)) })).sort((a, b) => (dividendEventDate(b.events[0])?.getTime() ?? 0) - (dividendEventDate(a.events[0])?.getTime() ?? 0)); return { monthKey, cards }; }).filter(g => g.cards.length > 0);
 }
+function parseYieldFilter(value: unknown): number | null {
+  if (value === null || value === undefined || value === '') return null;
+  const n = Number(value);
+  return Number.isFinite(n) && n >= 0 ? n : null;
+}
+
 function dividendEventDate(event: StockEvent): Date | null { const raw = event.exDividendTimestamp ?? event.exDividendDate ?? event.exDate; if (!raw) return null; const value = String(raw).trim(); const parsed = new Date(value); if (!Number.isNaN(parsed.getTime())) return parsed; const match = value.match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})$/); if (!match) return null; const [, day, month, year] = match; const fallback = new Date(Number(year), Number(month) - 1, Number(day)); return Number.isNaN(fallback.getTime()) ? null : fallback; }
 function dividendMonthLabel(key: string): string { const [year, month] = key.split('-').map(Number); return `${String(month).padStart(2, '0')}/${year}`; }
 function formatNumber(value: unknown): string { const n = Number(value); return Number.isFinite(n) && n > 0 ? n.toLocaleString('vi-VN') : '—'; }

@@ -496,6 +496,83 @@ body {
     opacity: 0.45;
   }
 
+  .tce-dividend-filter-bar {
+    margin-bottom: 2px;
+    padding: 8px;
+    border: 1px solid var(--tce-border);
+    border-radius: 14px;
+    background: rgba(255, 255, 255, 0.02);
+  }
+  .tce-dividend-filter-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 7px;
+  }
+  .tce-dividend-filter-field {
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    padding: 8px 9px;
+    border: 1px solid var(--tce-border);
+    border-radius: 10px;
+    background: rgba(11, 23, 30, 0.88);
+  }
+  .tce-dividend-filter-field > svg {
+    flex: 0 0 auto;
+    color: var(--tce-muted);
+  }
+  .tce-dividend-filter-field > span {
+    min-width: 0;
+    flex: 1 1 auto;
+  }
+  .tce-dividend-filter-field small {
+    display: block;
+    margin-bottom: 3px;
+    overflow: hidden;
+    color: var(--tce-muted);
+    font-size: 7px;
+    font-weight: 700;
+    line-height: 1;
+    letter-spacing: 0.06em;
+    text-overflow: ellipsis;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+  .tce-dividend-filter-field select,
+  .tce-dividend-filter-field input {
+    width: 100%;
+    min-width: 0;
+    min-height: 18px;
+    margin: 0;
+    border: 0;
+    outline: 0;
+    padding: 0;
+    background: transparent;
+    color: var(--tce-text);
+    font-size: 11px;
+    font-weight: 700;
+  }
+  .tce-dividend-filter-field input::placeholder {
+    color: var(--tce-muted);
+    opacity: 1;
+  }
+  .tce-dividend-filter-field input::-webkit-inner-spin-button,
+  .tce-dividend-filter-field input::-webkit-outer-spin-button {
+    margin: 0;
+  }
+  .tce-dividend-month-groups {
+    gap: 10px;
+  }
+  .tce-empty-state {
+    padding: 22px 12px;
+    border: 1px dashed var(--tce-border);
+    border-radius: 13px;
+    color: var(--tce-muted);
+    text-align: center;
+    font-size: 10px;
+  }
+
   .tce-segmented {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
