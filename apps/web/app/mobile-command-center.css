@@ -570,15 +570,16 @@ body {
     inset: 0;
     z-index: 90;
     display: flex;
-    align-items: flex-end;
+    align-items: flex-start;
     justify-content: center;
-    padding: 0;
+    padding: max(16px, env(safe-area-inset-top)) 0 max(16px, env(safe-area-inset-bottom));
     background: rgba(0, 0, 0, 0.56);
+    overflow: hidden;
   }
   .tce-filter-sheet {
-    width: 100%;
-    max-width: 520px;
-    max-height: min(88dvh, 760px);
+    width: min(100%, 520px);
+    max-height: calc(100dvh - max(32px, env(safe-area-inset-top) + env(safe-area-inset-bottom)));
+    margin-top: clamp(8px, 5dvh, 42px);
     display: flex;
     flex-direction: column;
     overflow: hidden;
