@@ -35,6 +35,24 @@ export function DividendPositionsFilter({ className = '' }: Props) {
 
   useEffect(() => {
     const store = usePositionFilterStore.persist;
+    try {
+      const legacyRaw = window.localStorage.getItem('tce:positions:dividend-filters:v1');
+      if (legacyRaw) {
+        const legacy = JSON.parse(legacyRaw) as Partial<PositionDividendFilters>;
+        if (legacy.selectedMonth || legacy.priceFilter || legacy.minYield != null || legacy.maxYield != null) {
+          usePositionFilterStore.setState(current => ({
+            ...current,
+            selectedMonth: typeof legacy.selectedMonth === 'string' ? legacy.selectedMonth : current.selectedMonth,
+            priceFilter: Number.isFinite(Number(legacy.priceFilter)) && Number(legacy.priceFilter) > 0 ? Number(legacy.priceFilter) : current.priceFilter,
+            minYield: parseYieldFilter(legacy.minYield),
+            maxYield: parseYieldFilter(legacy.maxYield),
+          }));
+        }
+        window.localStorage.removeItem('tce:positions:dividend-filters:v1');
+      }
+    } catch {
+      // Ignore invalid legacy filter state.
+    }
     const onHydrate = () => setHydrated(false);
     const onFinish = () => {
       setHydrated(true);
