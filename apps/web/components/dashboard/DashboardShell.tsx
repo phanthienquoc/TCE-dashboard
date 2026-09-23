@@ -45,8 +45,10 @@ export type DashboardActions = {
 export default function DashboardShell({
   view,
   children,
+  pageFilter,
 }: {
   view: DashboardView;
+  pageFilter?: ReactNode;
   children: (data: DashboardData, actions: DashboardActions) => ReactNode;
 }) {
   const router = useRouter();
@@ -267,6 +269,7 @@ export default function DashboardShell({
       {error && <div className="error-banner">{error}</div>}
       {promoteError && <div className="error-banner">{promoteError}</div>}
       {returnError && <div className="error-banner">{returnError}</div>}
+      {pageFilter && <div className="page-filter-slot">{pageFilter}</div>}
       {children(viewData, actions)}
     </DashboardLayout>
   );
