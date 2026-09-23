@@ -204,12 +204,12 @@ export function DividendPositionsFilter({ className = '' }: Props) {
                   Current price
                 </Label>
                 <div className="grid grid-cols-[34px_minmax(0,1fr)] gap-1.5">
-                  <span className="grid min-h-11 place-items-center rounded-xl border border-border bg-surface-strong text-sm font-extrabold text-muted">≤</span>
+                  <span className="grid min-h-11 place-items-center rounded-xl border border-border bg-surface-strong text-sm font-extrabold text-muted">
+                    ≤
+                  </span>
                   <Select
                     value={String(draft.priceFilter)}
-                    onValueChange={value =>
-                      setDraft(s => ({ ...s, priceFilter: Number(value) }))
-                    }
+                    onValueChange={value => setDraft(s => ({ ...s, priceFilter: Number(value) }))}
                   >
                     <SelectTrigger aria-label="Maximum current price">
                       <SelectValue />
@@ -230,7 +230,11 @@ export function DividendPositionsFilter({ className = '' }: Props) {
                       type="button"
                       size="sm"
                       variant={draft.priceFilter === value ? 'outline' : 'ghost'}
-                      className={draft.priceFilter === value ? 'shrink-0 border-primary/40 bg-primary/10 text-primary' : 'shrink-0 border border-border'}
+                      className={
+                        draft.priceFilter === value
+                          ? 'shrink-0 border-primary/40 bg-primary/10 text-primary'
+                          : 'shrink-0 border border-border'
+                      }
                       onClick={() => setDraft(s => ({ ...s, priceFilter: value }))}
                     >
                       ≤ {value / 1000}k
@@ -252,7 +256,9 @@ export function DividendPositionsFilter({ className = '' }: Props) {
                     inputMode="decimal"
                     value={draft.minYield ?? ''}
                     placeholder="Min"
-                    onChange={e => updateYield(setDraft, 'minYield', e.target.value, draft.maxYield)}
+                    onChange={e =>
+                      updateYield(setDraft, 'minYield', e.target.value, draft.maxYield)
+                    }
                     aria-label="Minimum dividend yield"
                   />
                   <span className="text-[9px] text-muted">to</span>
@@ -263,7 +269,9 @@ export function DividendPositionsFilter({ className = '' }: Props) {
                     inputMode="decimal"
                     value={draft.maxYield ?? ''}
                     placeholder="Max"
-                    onChange={e => updateYield(setDraft, 'maxYield', e.target.value, draft.minYield)}
+                    onChange={e =>
+                      updateYield(setDraft, 'maxYield', e.target.value, draft.minYield)
+                    }
                     aria-label="Maximum dividend yield"
                   />
                 </div>
@@ -279,10 +287,14 @@ export function DividendPositionsFilter({ className = '' }: Props) {
                       type="button"
                       size="sm"
                       variant={
-                        draft.minYield === item.min && draft.maxYield === item.max ? 'outline' : 'ghost'
+                        draft.minYield === item.min && draft.maxYield === item.max
+                          ? 'outline'
+                          : 'ghost'
                       }
                       className="shrink-0 border border-border"
-                      onClick={() => setDraft(s => ({ ...s, minYield: item.min, maxYield: item.max }))}
+                      onClick={() =>
+                        setDraft(s => ({ ...s, minYield: item.min, maxYield: item.max }))
+                      }
                     >
                       {item.label}
                     </Button>
