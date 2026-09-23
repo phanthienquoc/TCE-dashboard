@@ -8,7 +8,7 @@ import {
   Tag,
   X,
 } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type Dispatch, type SetStateAction } from 'react';
 import { useDashboardStore } from '../../lib/store';
 import { usePositionFilterStore, DEFAULT_POSITION_PRICE_FILTER, type PositionDividendFilters } from '../../lib/position-filter-store';
 import { useStockEventStore, type StockEvent } from '../../lib/stock-event-store';
@@ -22,7 +22,7 @@ type Props = {
 export function DividendPositionsFilter({ className = '' }: Props) {
   const events = useStockEventStore(s => s.events);
   const marketPrices = useDashboardStore(s => s.marketPrices);
-  const { selectedMonth, priceFilter, minYield, maxYield, setFilters, resetFilters } =
+  const { selectedMonth, priceFilter, minYield, maxYield, setFilters } =
     usePositionFilterStore();
   const [hydrated, setHydrated] = useState(false);
   const [open, setOpen] = useState(false);
@@ -89,7 +89,6 @@ export function DividendPositionsFilter({ className = '' }: Props) {
       maxYield: null,
     };
     setDraft(next);
-    resetFilters();
   };
 
   return (
@@ -185,7 +184,7 @@ export function DividendPositionsFilter({ className = '' }: Props) {
 }
 
 function updateYield(
-  setDraft: React.Dispatch<React.SetStateAction<PositionDividendFilters>>,
+  setDraft: Dispatch<SetStateAction<PositionDividendFilters>>,
   field: 'minYield' | 'maxYield',
   value: string,
   other: number | null
