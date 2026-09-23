@@ -4,23 +4,54 @@ on:
   workflow_run:
     workflows: ["WF-03 TCE Production Deploy"]
     types: [completed]
-  workflow_dispatch:
 
 permissions:
   contents: read
+  actions: read
   packages: write
 
 jobs:
   release:
-    if: \${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    if: \${{ github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-24.04-arm
     steps:
-      - name: Checkout released commit
+      - name: Checkout deployed commit
         uses: actions/checkout@v4
         with:
-          ref: \${{ github.event.workflow_run.head_sha || github.sha }}
+          ref: \${{ github.event.workflow_run.head_sha }}
 
       - uses: docker/setup-buildx-action@v3
+
+      - name: Download exact WF-03 release artifacts
+        uses: actions/download-artifact@v4
+        with:
+          github-token: \${{ secrets.GITHUB_TOKEN }}
+          repository: \${{ github.repository }}
+          run-id: \${{ github.event.workflow_run.id }}
+          pattern: tce-*-image
+          merge-multiple: true
+          path: /tmp/images
+
+      - name: Load and validate exact release images
+        env:
+          RELEASE_SHA: \${{ github.event.workflow_run.head_sha }}
+        run: |
+          set -euo pipefail
+          SHA="\${RELEASE_SHA::7}"
+          VERSION="$(node -p "require('./package.json').version")"
+          TAG="prod-v\${VERSION}-\${SHA}"
+          echo "Release tag: $TAG"
+
+          for image in tce-frontend tce-service; do
+            test -s "/tmp/images/$image.tar"
+            test -s "/tmp/images/$image.sha256"
+            (cd /tmp/images && sha256sum -c "$image.sha256")
+            docker load -i "/tmp/images/$image.tar"
+            docker image inspect "$image:$TAG" >/dev/null
+            test "$(docker image inspect "$image:$TAG" --format '{{.Architecture}}')" = "arm64"
+          done
+
+          echo "tag=$TAG" >> "$GITHUB_ENV"
 
       - uses: docker/login-action@v3
         with:
@@ -28,39 +59,17 @@ jobs:
           username: \${{ github.actor }}
           password: \${{ secrets.GITHUB_TOKEN }}
 
-      - name: Resolve immutable release tag
-        id: release
-        env:
-          RELEASE_SHA: \${{ github.event.workflow_run.head_sha || github.sha }}
+      - name: Publish exact release images to GHCR
         run: |
           set -euo pipefail
-          VERSION="$(node -p "require('./package.json').version")"
-          SHA="\${RELEASE_SHA::7}"
-          TAG="prod-v\${VERSION}-\${SHA}"
-          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
-          echo "Release commit: $RELEASE_SHA"
-          echo "Release tag: $TAG"
-
-      - name: Build and push frontend
-        env:
-          TAG: \${{ steps.release.outputs.tag }}
-        run: |
-          set -euo pipefail
-          docker build --pull -t "ghcr.io/\${{ github.repository }}/web:$TAG" -f Dockerfile .
+          docker tag "tce-frontend:$TAG" "ghcr.io/\${{ github.repository }}/web:$TAG"
+          docker tag "tce-service:$TAG" "ghcr.io/\${{ github.repository }}/service:$TAG"
           docker push "ghcr.io/\${{ github.repository }}/web:$TAG"
-
-      - name: Build and push service
-        env:
-          TAG: \${{ steps.release.outputs.tag }}
-        run: |
-          set -euo pipefail
-          docker build --pull -t "ghcr.io/\${{ github.repository }}/service:$TAG" -f apps/service/Dockerfile .
           docker push "ghcr.io/\${{ github.repository }}/service:$TAG"
 
       - name: Notify platform-infra
         env:
           TOKEN: \${{ secrets.PLATFORM_INFRA_TOKEN }}
-          TAG: \${{ steps.release.outputs.tag }}
         run: |
           set -euo pipefail
           test -n "$TOKEN" || {
