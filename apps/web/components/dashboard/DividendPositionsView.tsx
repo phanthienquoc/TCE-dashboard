@@ -38,8 +38,6 @@ export function DividendPositionsView({ data, actions }: ViewProps) {
       }).filter(g => g.monthKey === selectedMonth),
     [events, selectedMonth, priceFilter, minYield, maxYield, marketPrices]
   );
-  const monthOptions = useMemo(() => futureMonthKeys(), []);
-
   const symbolsKey = useMemo(
     () => monthGroups.flatMap(g => g.cards.map(c => c.symbol)).join(','),
     [monthGroups]
