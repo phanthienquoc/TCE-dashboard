@@ -22,7 +22,7 @@ export function CampaignSkeleton() {
 }
 
 export function DividendSkeleton() {
-  return <div className="tce-skeleton-list" role="status" aria-label="Loading dividend events"><div className="tce-skeleton-filter"><Skeleton className="h-10 flex-1 rounded-xl" /><Skeleton className="h-10 flex-1 rounded-xl" /></div>{Array.from({ length: 6 }, (_, index) => <div key={index} className="tce-skeleton-card"><div className="tce-skeleton-row"><Skeleton className="h-5 w-14" /><Skeleton className="h-3 w-16" /><Skeleton className="ml-auto h-5 w-5 rounded-md" /></div><div className="tce-skeleton-grid-six">{Array.from({ length: 6 }, (_, item) => <Skeleton key={item} className="h-10 rounded-lg" />)}</div></div>)}<SkeletonStyles /></div>;
+  return <div className="tce-dividend-skeleton-list" role="status" aria-label="Loading dividend events">{Array.from({ length: 4 }, (_, index) => <div key={index} className="tce-dividend-skeleton-card"><div className="tce-dividend-skeleton-head"><Skeleton className="h-9 w-20 rounded-xl" /><Skeleton className="h-7 w-16 rounded-full" /><Skeleton className="ml-auto h-10 w-10 rounded-xl" /></div><div className="tce-dividend-skeleton-grid">{Array.from({ length: 6 }, (_, item) => <div key={item} className="tce-dividend-skeleton-cell"><Skeleton className="h-2.5 w-16" /><Skeleton className="mt-2 h-5 w-20" /></div>)}</div></div>)}<SkeletonStyles /></div>;
 }
 
 export function DetailSkeleton() {
