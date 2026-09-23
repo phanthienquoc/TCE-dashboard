@@ -46,10 +46,7 @@ export type CapitalRotationLifecycleOutcome =
     }>
   | Readonly<{ ok: false; code: string; message: string }>;
 
-const allowed: Record<
-  CapitalRotationLifecycleState,
-  readonly CapitalRotationLifecycleState[]
-> = {
+const allowed: Record<CapitalRotationLifecycleState, readonly CapitalRotationLifecycleState[]> = {
   HOLDING: ['EX_DIVIDEND', 'EXIT_READY', 'CLOSED'],
   EX_DIVIDEND: ['T2_PENDING'],
   T2_PENDING: ['DIVIDEND_CONFIRMED', 'EXIT_READY'],
@@ -67,7 +64,7 @@ export class CapitalRotationDividendLifecycle {
     to: CapitalRotationLifecycleState,
     identity: { correlationId: string; idempotencyKey: string },
     reason: string,
-    evidence?: CapitalRotationLifecycleEvent['dividendEvidence'],
+    evidence?: CapitalRotationLifecycleEvent['dividendEvidence']
   ): CapitalRotationLifecycleOutcome {
     if (!identity.correlationId.trim() || !identity.idempotencyKey.trim()) {
       return {
@@ -171,7 +168,7 @@ export function expectedT2Window(exDividendAt: string): string | undefined {
 }
 
 export function lifecycleStateFromDividend(
-  lifecycle: TceDividendLifecycle,
+  lifecycle: TceDividendLifecycle
 ): CapitalRotationLifecycleState | undefined {
   switch (lifecycle) {
     case 'EX_DIVIDEND':

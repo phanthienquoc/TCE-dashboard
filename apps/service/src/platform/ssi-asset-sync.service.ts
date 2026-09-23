@@ -90,7 +90,7 @@ export class SsiAssetSyncService {
       cashSynced += cash;
 
       const positions = new Map<string, AccountPosition>();
-      for (const position of (positionsByAccount.get(accountNo) ?? snapshot.positions ?? [])) {
+      for (const position of positionsByAccount.get(accountNo) ?? snapshot.positions ?? []) {
         const symbol = String(position.symbol ?? '')
           .trim()
           .toUpperCase();

@@ -16,7 +16,11 @@ export type CapitalRotationAllocation = Readonly<{
 }>;
 
 export type CapitalRotationAllocationOutcome =
-  | Readonly<{ ok: true; allocation: CapitalRotationAllocation; snapshot: CapitalSlotAllocatorSnapshot }>
+  | Readonly<{
+      ok: true;
+      allocation: CapitalRotationAllocation;
+      snapshot: CapitalSlotAllocatorSnapshot;
+    }>
   | Readonly<{ ok: false; code: string; message: string }>;
 
 export type CapitalRotationAllocationRequest = Readonly<{
@@ -97,10 +101,7 @@ export class CapitalRotationAllocationService {
     };
   }
 
-  activate(
-    idempotencyKey: string,
-    timestamp: string
-  ): CapitalRotationAllocationOutcome {
+  activate(idempotencyKey: string, timestamp: string): CapitalRotationAllocationOutcome {
     const existing = this.allocations.get(idempotencyKey);
     if (!existing) {
       return {
@@ -129,10 +130,7 @@ export class CapitalRotationAllocationService {
     };
   }
 
-  release(
-    idempotencyKey: string,
-    timestamp: string
-  ): CapitalRotationAllocationOutcome {
+  release(idempotencyKey: string, timestamp: string): CapitalRotationAllocationOutcome {
     const existing = this.allocations.get(idempotencyKey);
     if (!existing) {
       return {
@@ -217,11 +215,7 @@ export class CapitalRotationAllocationService {
   }
 
   private idempotencyKey(decision: TradeDecision): string {
-    return [
-      'crde',
-      decision.strategyVersion ?? 'unknown',
-      decision.decisionId,
-    ].join(':');
+    return ['crde', decision.strategyVersion ?? 'unknown', decision.decisionId].join(':');
   }
 }
 

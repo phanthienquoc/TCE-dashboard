@@ -55,7 +55,8 @@ export class StockDividendPoolService {
       if (error) throw error;
 
       const scorer = new CapitalRotationPoolScorer({ size: safeLimit });
-      const candidates = (data as StockEventRow[]).map(row => {
+      const candidates = (data as StockEventRow[])
+        .map(row => {
           const ticker = String(row.symbol ?? '').trim();
           const dividendValue = Number(row.dividend_value ?? 0);
           const price = Number(row.current_price ?? row.reference_price ?? 0);
@@ -95,7 +96,8 @@ export class StockDividendPoolService {
           symbol: row.ticker,
           price: Number(row.currentPrice ?? row.price ?? 0),
           dividendValue: row.dividendValue,
-          dividendYieldPct: row.dividendYieldPct ?? yieldPctFrom(row.dividendValue, row.currentPrice ?? row.price),
+          dividendYieldPct:
+            row.dividendYieldPct ?? yieldPctFrom(row.dividendValue, row.currentPrice ?? row.price),
           exRightDate: row.exDividendDate,
           gdkhqTimestamp: row.exDividendTimestamp ?? undefined,
           paymentDate: row.paymentDate ?? undefined,
@@ -105,7 +107,7 @@ export class StockDividendPoolService {
           oneYearHigh: row.oneYearHigh ?? undefined,
           dividendEventId: row.id,
         })),
-        new Date().toISOString(),
+        new Date().toISOString()
       );
 
       const rankedKeys = new Set(
@@ -116,7 +118,8 @@ export class StockDividendPoolService {
         .map(row => {
           const key = `${row.ticker.toUpperCase()}:${row.id}`;
           const item = ranked.find(
-            candidate => `${candidate.symbol.toUpperCase()}:${String(candidate.dividendEventId ?? '')}` === key
+            candidate =>
+              `${candidate.symbol.toUpperCase()}:${String(candidate.dividendEventId ?? '')}` === key
           );
           if (!item || !rankedKeys.has(key)) return null;
           return {

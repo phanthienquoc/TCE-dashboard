@@ -42,17 +42,37 @@ type Tab = 'overview' | 'configuration' | 'activity';
 type SsiAuthDetails = { transactionId?: string; action?: string; message?: string };
 
 const CONFIG_GROUPS: Record<string, string[]> = {
-  Decision: ['poolSize', 'maxPositions', 'profitTargetPct', 'maxAssetAllocationPct', 'buyQuantityStep', 'buyFromRemainingBudget'],
+  Decision: [
+    'poolSize',
+    'maxPositions',
+    'profitTargetPct',
+    'maxAssetAllocationPct',
+    'buyQuantityStep',
+    'buyFromRemainingBudget',
+  ],
   Capital: ['coreCapital', 'burstCapital'],
   Market: ['marketOpen', 'marketClose', 'timezone', 'monitorIntervalMinutes', 'pollingSeconds'],
-  Execution: ['autoSellEnabled', 'autoSellProfitTargetPct', 'autoSellIntervalMinutes', 'orderStream', 'portfolioSync', 'reconcileFilledOrders', 'reconcileOpenOrders', 'idempotentClientOrderIds', 'autoProtection'],
+  Execution: [
+    'autoSellEnabled',
+    'autoSellProfitTargetPct',
+    'autoSellIntervalMinutes',
+    'orderStream',
+    'portfolioSync',
+    'reconcileFilledOrders',
+    'reconcileOpenOrders',
+    'idempotentClientOrderIds',
+    'autoProtection',
+  ],
 };
 
 export default function EngineDetailPage() {
   const params = useParams<{ engineId: string }>();
   const engine = useMemo(() => getEngine(params.engineId), [params.engineId]);
   const { engines, refresh: refreshRuntime } = useEngineRuntimeStore();
-  const runtime = useMemo(() => engines.find(item => item.engineId === params.engineId), [engines, params.engineId]);
+  const runtime = useMemo(
+    () => engines.find(item => item.engineId === params.engineId),
+    [engines, params.engineId]
+  );
 
   const [config, setConfig] = useState<EngineConfig>({});
   const [configUpdatedAt, setConfigUpdatedAt] = useState<string | null>(null);
@@ -89,7 +109,8 @@ export default function EngineDetailPage() {
         const remoteConfig: EngineConfig = {};
         for (const [key, value] of Object.entries(remote)) {
           if (key === 'updatedAt') continue;
-          if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') remoteConfig[key] = value;
+          if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean')
+            remoteConfig[key] = value;
         }
         setConfig({ ...engine.defaults, ...remoteConfig });
         setConfigUpdatedAt(typeof remote.updatedAt === 'string' ? remote.updatedAt : null);
@@ -112,7 +133,9 @@ export default function EngineDetailPage() {
       <div className="engine-detail-page">
         <Card className="panel-card p-5">
           <p className="font-semibold">Engine not found</p>
-          <Link href="/engines" className="mt-3 inline-flex text-sm text-[var(--accent)]">Back to engines</Link>
+          <Link href="/engines" className="mt-3 inline-flex text-sm text-[var(--accent)]">
+            Back to engines
+          </Link>
         </Card>
       </div>
     );
@@ -124,10 +147,20 @@ export default function EngineDetailPage() {
   const visibleGroups = Object.entries(CONFIG_GROUPS)
     .map(([group, keys]) => [group, keys.filter(key => key in config)] as const)
     .filter(([, keys]) => keys.length > 0);
-  const ungrouped = Object.keys(config).filter(key => !Object.values(CONFIG_GROUPS).some(keys => keys.includes(key)));
+  const ungrouped = Object.keys(config).filter(
+    key => !Object.values(CONFIG_GROUPS).some(keys => keys.includes(key))
+  );
   if (ungrouped.length) visibleGroups.push(['Other', ungrouped]);
 
-  const metricKeys = ['poolSize', 'maxPositions', 'coreCapital', 'burstCapital', 'profitTargetPct', 'maxAssetAllocationPct', 'pollingSeconds']
+  const metricKeys = [
+    'poolSize',
+    'maxPositions',
+    'coreCapital',
+    'burstCapital',
+    'profitTargetPct',
+    'maxAssetAllocationPct',
+    'pollingSeconds',
+  ]
     .filter(key => key in config)
     .slice(0, 4);
 
@@ -168,7 +201,13 @@ export default function EngineDetailPage() {
       const data = response.data as {
         ok?: boolean;
         error?: { message?: string };
-        data?: { usersSynced?: number; symbolsRequested?: number; symbolsSynced?: number; failedSymbols?: string[]; partial?: boolean };
+        data?: {
+          usersSynced?: number;
+          symbolsRequested?: number;
+          symbolsSynced?: number;
+          failedSymbols?: string[];
+          partial?: boolean;
+        };
       };
       const result = data?.data;
       if (!data?.ok) {
@@ -178,7 +217,9 @@ export default function EngineDetailPage() {
       const symbolsSynced = Number(result?.symbolsSynced ?? 0);
       const symbolsRequested = Number(result?.symbolsRequested ?? symbolsSynced);
       const usersSynced = Number(result?.usersSynced ?? 0);
-      const failed = result?.failedSymbols?.length ? ` Failed: ${result.failedSymbols.join(', ')}.` : '';
+      const failed = result?.failedSymbols?.length
+        ? ` Failed: ${result.failedSymbols.join(', ')}.`
+        : '';
       setSyncResult({
         ok: !result?.partial,
         message: result?.partial
@@ -186,8 +227,18 @@ export default function EngineDetailPage() {
           : `Synced ${symbolsSynced}/${symbolsRequested} symbols across ${usersSynced} account(s).`,
       });
     } catch (error) {
-      const value = error as { response?: { data?: { message?: string; error?: { message?: string } } }; message?: string };
-      setSyncResult({ ok: false, message: value?.response?.data?.error?.message ?? value?.response?.data?.message ?? value?.message ?? 'SSI market sync failed' });
+      const value = error as {
+        response?: { data?: { message?: string; error?: { message?: string } } };
+        message?: string;
+      };
+      setSyncResult({
+        ok: false,
+        message:
+          value?.response?.data?.error?.message ??
+          value?.response?.data?.message ??
+          value?.message ??
+          'SSI market sync failed',
+      });
     } finally {
       setSyncing(false);
     }
@@ -212,7 +263,10 @@ export default function EngineDetailPage() {
     setSsiOtpError(null);
     try {
       const response = await platformApi.ssiApprove({ environment: 'production', transactionId });
-      const data = response.data as { ok?: boolean; error?: { message?: string; code?: string; details?: SsiAuthDetails } };
+      const data = response.data as {
+        ok?: boolean;
+        error?: { message?: string; code?: string; details?: SsiAuthDetails };
+      };
       if (data?.ok) {
         setSsiOtpOpen(false);
         setSsiApprovalWaiting(false);
@@ -221,9 +275,15 @@ export default function EngineDetailPage() {
         return;
       }
       const code = data?.error?.code;
-      if (code === 'SSI_REAUTH_PENDING' || code === 'SSI_APPROVAL_PENDING' || /pending|not.*approv|waiting/i.test(data?.error?.message ?? '')) {
+      if (
+        code === 'SSI_REAUTH_PENDING' ||
+        code === 'SSI_APPROVAL_PENDING' ||
+        /pending|not.*approv|waiting/i.test(data?.error?.message ?? '')
+      ) {
         setSsiApprovalWaiting(true);
-        setSsiOtpError('SSI approval is still pending. Approve the request in the SSI app, then check again.');
+        setSsiOtpError(
+          'SSI approval is still pending. Approve the request in the SSI app, then check again.'
+        );
         return;
       }
       if (code === 'SSI_OTP_REQUIRED' || /otp/i.test(data?.error?.message ?? '')) {
@@ -233,9 +293,17 @@ export default function EngineDetailPage() {
       }
       setSsiOtpError(data?.error?.message ?? 'SSI approval could not be verified.');
     } catch (error) {
-      const value = error as { response?: { data?: { error?: { code?: string; message?: string }; message?: string } }; message?: string };
+      const value = error as {
+        response?: { data?: { error?: { code?: string; message?: string }; message?: string } };
+        message?: string;
+      };
       const authError = value?.response?.data?.error;
-      setSsiOtpError(authError?.message ?? value?.response?.data?.message ?? value?.message ?? 'SSI approval could not be verified.');
+      setSsiOtpError(
+        authError?.message ??
+          value?.response?.data?.message ??
+          value?.message ??
+          'SSI approval could not be verified.'
+      );
     } finally {
       setSsiOtpLoading(false);
     }
@@ -250,7 +318,11 @@ export default function EngineDetailPage() {
     setSsiOtpLoading(true);
     setSsiOtpError(null);
     try {
-      const response = await platformApi.ssiApprove({ environment: 'production', otp, ...(ssiTransactionId ? { transactionId: ssiTransactionId } : {}) });
+      const response = await platformApi.ssiApprove({
+        environment: 'production',
+        otp,
+        ...(ssiTransactionId ? { transactionId: ssiTransactionId } : {}),
+      });
       const data = response.data as { ok?: boolean; error?: { message?: string } };
       if (!data?.ok) {
         setSsiOtpError(data?.error?.message ?? 'SSI OTP verification failed');
@@ -262,8 +334,16 @@ export default function EngineDetailPage() {
       setSsiApprovalWaiting(false);
       await syncPortfolio();
     } catch (error) {
-      const value = error as { response?: { data?: { message?: string; error?: { message?: string } } }; message?: string };
-      setSsiOtpError(value?.response?.data?.error?.message ?? value?.response?.data?.message ?? value?.message ?? 'SSI OTP verification failed');
+      const value = error as {
+        response?: { data?: { message?: string; error?: { message?: string } } };
+        message?: string;
+      };
+      setSsiOtpError(
+        value?.response?.data?.error?.message ??
+          value?.response?.data?.message ??
+          value?.message ??
+          'SSI OTP verification failed'
+      );
     } finally {
       setSsiOtpLoading(false);
     }
@@ -278,17 +358,30 @@ export default function EngineDetailPage() {
       const data = response.data as {
         ok?: boolean;
         error?: { code?: string; message?: string; details?: SsiAuthDetails };
-        data?: { accountsSynced?: number; assetsSynced?: number; positionsSynced?: number; positionsClosed?: number; cashSynced?: number };
+        data?: {
+          accountsSynced?: number;
+          assetsSynced?: number;
+          positionsSynced?: number;
+          positionsClosed?: number;
+          cashSynced?: number;
+        };
       };
       const result = data?.data;
       if (!data?.ok) {
         const authError = data?.error;
         if (authError?.code === 'SSI_AUTH_REQUIRED') {
-          setPortfolioResult({ ok: false, message: 'Open the SSI app and approve the sign-in request. OTP is only needed if SSI asks for it.' });
+          setPortfolioResult({
+            ok: false,
+            message:
+              'Open the SSI app and approve the sign-in request. OTP is only needed if SSI asks for it.',
+          });
           openSsiApproval(authError.details);
           return;
         }
-        setPortfolioResult({ ok: false, message: authError?.message ?? 'SSI portfolio sync failed' });
+        setPortfolioResult({
+          ok: false,
+          message: authError?.message ?? 'SSI portfolio sync failed',
+        });
         return;
       }
       const accounts = Number(result?.accountsSynced ?? 0);
@@ -301,13 +394,32 @@ export default function EngineDetailPage() {
         message: `Synced ${accounts} SSI account(s), ${assets} asset row(s), ${positions} position(s). Cash ${cash.toLocaleString('vi-VN')} VND.${closed ? ` Closed ${closed} stale position(s).` : ''}`,
       });
     } catch (error) {
-      const value = error as { response?: { data?: { message?: string; error?: { code?: string; message?: string; details?: SsiAuthDetails } } }; message?: string };
+      const value = error as {
+        response?: {
+          data?: {
+            message?: string;
+            error?: { code?: string; message?: string; details?: SsiAuthDetails };
+          };
+        };
+        message?: string;
+      };
       const authError = value?.response?.data?.error;
       if (authError?.code === 'SSI_AUTH_REQUIRED') {
-        setPortfolioResult({ ok: false, message: 'Open the SSI app and approve the sign-in request. OTP is only needed if SSI asks for it.' });
+        setPortfolioResult({
+          ok: false,
+          message:
+            'Open the SSI app and approve the sign-in request. OTP is only needed if SSI asks for it.',
+        });
         openSsiApproval(authError.details);
       } else {
-        setPortfolioResult({ ok: false, message: authError?.message ?? value?.response?.data?.message ?? value?.message ?? 'SSI portfolio sync failed' });
+        setPortfolioResult({
+          ok: false,
+          message:
+            authError?.message ??
+            value?.response?.data?.message ??
+            value?.message ??
+            'SSI portfolio sync failed',
+        });
       }
     } finally {
       setSyncingPortfolio(false);
@@ -317,7 +429,10 @@ export default function EngineDetailPage() {
   return (
     <div className="engine-detail-page space-y-4 pb-6">
       <header className="space-y-3">
-        <Link href="/engines" className="inline-flex min-h-10 items-center gap-1.5 text-sm font-medium text-[var(--accent)]">
+        <Link
+          href="/engines"
+          className="inline-flex min-h-10 items-center gap-1.5 text-sm font-medium text-[var(--accent)]"
+        >
           <ArrowLeft className="size-4" /> Engines
         </Link>
 
@@ -328,12 +443,18 @@ export default function EngineDetailPage() {
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-2">
               <h1 className="text-[22px] font-semibold leading-tight">{engine.name}</h1>
-              <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold ${status === 'ACTIVE' ? 'bg-emerald-500/12 text-emerald-300' : status === 'ERROR' ? 'bg-red-500/12 text-red-300' : 'bg-white/7 text-slate-400'}`}>
-                <span className={`size-1.5 rounded-full ${status === 'ACTIVE' ? 'bg-emerald-400' : status === 'ERROR' ? 'bg-red-400' : 'bg-slate-500'}`} />
+              <span
+                className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold ${status === 'ACTIVE' ? 'bg-emerald-500/12 text-emerald-300' : status === 'ERROR' ? 'bg-red-500/12 text-red-300' : 'bg-white/7 text-slate-400'}`}
+              >
+                <span
+                  className={`size-1.5 rounded-full ${status === 'ACTIVE' ? 'bg-emerald-400' : status === 'ERROR' ? 'bg-red-400' : 'bg-slate-500'}`}
+                />
                 {statusLabel}
               </span>
             </div>
-            <p className="mt-1 text-xs text-muted">{engine.platform} · {engine.category} · {engine.layer}</p>
+            <p className="mt-1 text-xs text-muted">
+              {engine.platform} · {engine.category} · {engine.layer}
+            </p>
           </div>
           <Button
             variant="ghost"
@@ -341,7 +462,13 @@ export default function EngineDetailPage() {
             disabled={updatingStatus || !runtime}
             onClick={() => void toggleStatus()}
           >
-            {updatingStatus ? <RefreshCw className="size-4 animate-spin" /> : isActive ? <Pause className="size-4" /> : <Play className="size-4" />}
+            {updatingStatus ? (
+              <RefreshCw className="size-4 animate-spin" />
+            ) : isActive ? (
+              <Pause className="size-4" />
+            ) : (
+              <Play className="size-4" />
+            )}
             <span className="hidden sm:inline">{isActive ? 'Pause' : 'Start'}</span>
           </Button>
         </div>
@@ -354,12 +481,17 @@ export default function EngineDetailPage() {
         ) : null}
       </header>
 
-      <nav className="grid grid-cols-3 rounded-xl border border-[var(--line)] bg-[var(--panel)] p-1" aria-label="Engine detail">
-        {([
-          ['overview', 'Overview'],
-          ['configuration', 'Configuration'],
-          ['activity', 'Activity'],
-        ] as const).map(([value, label]) => (
+      <nav
+        className="grid grid-cols-3 rounded-xl border border-[var(--line)] bg-[var(--panel)] p-1"
+        aria-label="Engine detail"
+      >
+        {(
+          [
+            ['overview', 'Overview'],
+            ['configuration', 'Configuration'],
+            ['activity', 'Activity'],
+          ] as const
+        ).map(([value, label]) => (
           <button
             key={value}
             type="button"
@@ -377,9 +509,13 @@ export default function EngineDetailPage() {
             <CardContent className="p-4">
               <div className="flex items-center justify-between gap-3">
                 <div>
-                  <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted">Runtime</p>
+                  <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted">
+                    Runtime
+                  </p>
                   <div className="mt-2 flex items-center gap-2">
-                    <span className={`size-2.5 rounded-full ${status === 'ACTIVE' ? 'bg-emerald-400' : status === 'ERROR' ? 'bg-red-400' : 'bg-slate-500'}`} />
+                    <span
+                      className={`size-2.5 rounded-full ${status === 'ACTIVE' ? 'bg-emerald-400' : status === 'ERROR' ? 'bg-red-400' : 'bg-slate-500'}`}
+                    />
                     <p className="text-xl font-semibold">{statusLabel}</p>
                   </div>
                 </div>
@@ -392,7 +528,9 @@ export default function EngineDetailPage() {
               </div>
 
               {runtime?.error ? (
-                <div className="mt-3 rounded-xl border border-red-300/15 bg-red-300/[0.05] px-3 py-2.5 text-xs text-red-200">{runtime.error}</div>
+                <div className="mt-3 rounded-xl border border-red-300/15 bg-red-300/[0.05] px-3 py-2.5 text-xs text-red-200">
+                  {runtime.error}
+                </div>
               ) : (
                 <div className="mt-3 flex items-center gap-2 rounded-xl border border-emerald-300/15 bg-emerald-300/[0.05] px-3 py-2.5 text-xs text-emerald-200">
                   <ShieldCheck className="size-4" /> Runtime state is healthy.
@@ -405,7 +543,11 @@ export default function EngineDetailPage() {
             <SectionTitle title="Key metrics" />
             <div className="grid grid-cols-2 gap-2">
               {metricKeys.map(key => (
-                <MetricCard key={key} label={key.replace(/([A-Z])/g, ' $1').replace(/^./, char => char.toUpperCase())} value={formatValue(key, config[key])} />
+                <MetricCard
+                  key={key}
+                  label={key.replace(/([A-Z])/g, ' $1').replace(/^./, char => char.toUpperCase())}
+                  value={formatValue(key, config[key])}
+                />
               ))}
             </div>
           </section>
@@ -413,23 +555,53 @@ export default function EngineDetailPage() {
           {engine.id === 'ssi-execution' && (
             <section className="space-y-2">
               <SectionTitle title="Quick actions" />
-              <SyncAction title="SSI portfolio" description="Sync SSI accounts and positions into TCE." loading={syncingPortfolio} onClick={() => void syncPortfolio()} />
-              <SyncAction title="Market data" description="Trigger SSI market-price sync now." loading={syncing} onClick={() => void syncMarketData()} />
+              <SyncAction
+                title="SSI portfolio"
+                description="Sync SSI accounts and positions into TCE."
+                loading={syncingPortfolio}
+                onClick={() => void syncPortfolio()}
+              />
+              <SyncAction
+                title="Market data"
+                description="Trigger SSI market-price sync now."
+                loading={syncing}
+                onClick={() => void syncMarketData()}
+              />
               {portfolioResult ? <ResultBanner result={portfolioResult} /> : null}
               {syncResult ? <ResultBanner result={syncResult} /> : null}
             </section>
           )}
 
           <section>
-            <SectionTitle title="Configuration summary" action={<button type="button" className="text-xs font-semibold text-[var(--accent)]" onClick={() => setTab('configuration')}>Edit</button>} />
+            <SectionTitle
+              title="Configuration summary"
+              action={
+                <button
+                  type="button"
+                  className="text-xs font-semibold text-[var(--accent)]"
+                  onClick={() => setTab('configuration')}
+                >
+                  Edit
+                </button>
+              }
+            />
             <Card className="panel-card">
               <CardContent className="divide-y divide-[var(--line)] p-0">
-                {Object.entries(config).slice(0, 6).map(([key, value]) => (
-                  <div key={key} className="flex min-h-12 items-center justify-between gap-3 px-3.5">
-                    <span className="text-sm text-muted">{key.replace(/([A-Z])/g, ' $1').replace(/^./, char => char.toUpperCase())}</span>
-                    <span className="max-w-[55%] truncate text-right text-sm font-medium">{formatValue(key, value)}</span>
-                  </div>
-                ))}
+                {Object.entries(config)
+                  .slice(0, 6)
+                  .map(([key, value]) => (
+                    <div
+                      key={key}
+                      className="flex min-h-12 items-center justify-between gap-3 px-3.5"
+                    >
+                      <span className="text-sm text-muted">
+                        {key.replace(/([A-Z])/g, ' $1').replace(/^./, char => char.toUpperCase())}
+                      </span>
+                      <span className="max-w-[55%] truncate text-right text-sm font-medium">
+                        {formatValue(key, value)}
+                      </span>
+                    </div>
+                  ))}
               </CardContent>
             </Card>
           </section>
@@ -444,12 +616,19 @@ export default function EngineDetailPage() {
           </div>
 
           {loading ? (
-            <Card className="panel-card p-5"><p className="text-sm text-muted">Loading configuration…</p></Card>
+            <Card className="panel-card p-5">
+              <p className="text-sm text-muted">Loading configuration…</p>
+            </Card>
           ) : (
             visibleGroups.map(([group, keys]) => (
               <ConfigSection key={group} title={group}>
                 {keys.map(key => (
-                  <ConfigField key={key} keyName={key} value={config[key]} onChange={value => update(key, value)} />
+                  <ConfigField
+                    key={key}
+                    keyName={key}
+                    value={config[key]}
+                    onChange={value => update(key, value)}
+                  />
                 ))}
               </ConfigSection>
             ))
@@ -458,8 +637,18 @@ export default function EngineDetailPage() {
           {engine.id === 'ssi-execution' && (
             <div className="space-y-2">
               <SectionTitle title="Provider actions" />
-              <SyncAction title="Sync portfolio" description="Reconcile SSI accounts, cash and positions." loading={syncingPortfolio} onClick={() => void syncPortfolio()} />
-              <SyncAction title="Sync market data" description="Fetch current SSI market prices." loading={syncing} onClick={() => void syncMarketData()} />
+              <SyncAction
+                title="Sync portfolio"
+                description="Reconcile SSI accounts, cash and positions."
+                loading={syncingPortfolio}
+                onClick={() => void syncPortfolio()}
+              />
+              <SyncAction
+                title="Sync market data"
+                description="Fetch current SSI market prices."
+                loading={syncing}
+                onClick={() => void syncMarketData()}
+              />
               {portfolioResult ? <ResultBanner result={portfolioResult} /> : null}
               {syncResult ? <ResultBanner result={syncResult} /> : null}
             </div>
@@ -470,8 +659,16 @@ export default function EngineDetailPage() {
               <span className={`px-2 text-xs ${saved ? 'text-emerald-300' : 'text-amber-300'}`}>
                 {saved ? 'All changes saved' : 'Unsaved changes'}
               </span>
-              <Button className="touch-target" disabled={loading || saving || saved} onClick={() => void save()}>
-                {saving ? <RefreshCw className="size-4 animate-spin" /> : <Save className="size-4" />}
+              <Button
+                className="touch-target"
+                disabled={loading || saving || saved}
+                onClick={() => void save()}
+              >
+                {saving ? (
+                  <RefreshCw className="size-4 animate-spin" />
+                ) : (
+                  <Save className="size-4" />
+                )}
                 {saving ? 'Saving…' : 'Save changes'}
               </Button>
             </div>
@@ -487,12 +684,22 @@ export default function EngineDetailPage() {
                 <Clock3 className="size-5 text-[var(--accent)]" />
                 <div>
                   <p className="font-semibold">Latest activity</p>
-                  <p className="text-xs text-muted">Current runtime and configuration timestamps.</p>
+                  <p className="text-xs text-muted">
+                    Current runtime and configuration timestamps.
+                  </p>
                 </div>
               </div>
               <div className="mt-4 space-y-0">
-                <ActivityItem icon={<Activity className="size-3.5" />} title="Runtime state updated" value={formatDate(runtime?.updatedAt)} />
-                <ActivityItem icon={<Save className="size-3.5" />} title="Configuration synced" value={formatDate(configUpdatedAt)} />
+                <ActivityItem
+                  icon={<Activity className="size-3.5" />}
+                  title="Runtime state updated"
+                  value={formatDate(runtime?.updatedAt)}
+                />
+                <ActivityItem
+                  icon={<Save className="size-3.5" />}
+                  title="Configuration synced"
+                  value={formatDate(configUpdatedAt)}
+                />
               </div>
             </CardContent>
           </Card>
@@ -501,12 +708,17 @@ export default function EngineDetailPage() {
             <CardContent className="p-4">
               <p className="font-semibold">Dependencies</p>
               <div className="mt-3 space-y-2">
-                {runtime?.dependencies?.length ? runtime.dependencies.map(id => (
-                  <div key={id} className="flex items-center justify-between rounded-xl border border-[var(--line)] px-3 py-2.5">
-                    <span className="text-sm">{id}</span>
-                    <ChevronRight className="size-4 text-muted" />
-                  </div>
-                )) : (
+                {runtime?.dependencies?.length ? (
+                  runtime.dependencies.map(id => (
+                    <div
+                      key={id}
+                      className="flex items-center justify-between rounded-xl border border-[var(--line)] px-3 py-2.5"
+                    >
+                      <span className="text-sm">{id}</span>
+                      <ChevronRight className="size-4 text-muted" />
+                    </div>
+                  ))
+                ) : (
                   <p className="text-sm text-muted">No runtime dependencies.</p>
                 )}
               </div>
@@ -522,20 +734,40 @@ export default function EngineDetailPage() {
               <div>
                 <p className="text-base font-semibold">SSI approval required</p>
                 <p className="mt-1 text-xs leading-5 text-muted">
-                  {ssiApprovalWaiting ? 'Approve the request in the SSI app, then check again.' : 'Enter the OTP sent by SSI.'}
+                  {ssiApprovalWaiting
+                    ? 'Approve the request in the SSI app, then check again.'
+                    : 'Enter the OTP sent by SSI.'}
                 </p>
               </div>
-              <button type="button" aria-label="Close" onClick={() => setSsiOtpOpen(false)} className="rounded-lg p-1.5 text-muted hover:bg-white/[0.06] hover:text-white">
+              <button
+                type="button"
+                aria-label="Close"
+                onClick={() => setSsiOtpOpen(false)}
+                className="rounded-lg p-1.5 text-muted hover:bg-white/[0.06] hover:text-white"
+              >
                 <X className="size-4" />
               </button>
             </div>
 
             {ssiApprovalWaiting ? (
               <>
-                <div className="rounded-xl border border-amber-300/15 bg-amber-300/[0.05] px-3 py-3 text-xs text-amber-100">Waiting for approval in SSI app…</div>
+                <div className="rounded-xl border border-amber-300/15 bg-amber-300/[0.05] px-3 py-3 text-xs text-amber-100">
+                  Waiting for approval in SSI app…
+                </div>
                 <div className="mt-5 flex justify-end gap-2">
-                  <Button variant="ghost" className="touch-target" disabled={ssiOtpLoading} onClick={() => setSsiOtpOpen(false)}>Close</Button>
-                  <Button className="touch-target" disabled={ssiOtpLoading || !ssiTransactionId} onClick={() => void checkSsiApproval()}>
+                  <Button
+                    variant="ghost"
+                    className="touch-target"
+                    disabled={ssiOtpLoading}
+                    onClick={() => setSsiOtpOpen(false)}
+                  >
+                    Close
+                  </Button>
+                  <Button
+                    className="touch-target"
+                    disabled={ssiOtpLoading || !ssiTransactionId}
+                    onClick={() => void checkSsiApproval()}
+                  >
                     <RefreshCw className={`size-4 ${ssiOtpLoading ? 'animate-spin' : ''}`} />
                     {ssiOtpLoading ? 'Checking…' : 'Check approval'}
                   </Button>
@@ -551,15 +783,28 @@ export default function EngineDetailPage() {
                     autoComplete="one-time-code"
                     value={ssiOtp}
                     onChange={event => setSsiOtp(event.target.value.replace(/\D/g, ''))}
-                    onKeyDown={event => { if (event.key === 'Enter') void approveSsiOtp(); }}
+                    onKeyDown={event => {
+                      if (event.key === 'Enter') void approveSsiOtp();
+                    }}
                     placeholder="Enter OTP"
                     className="h-12 w-full rounded-xl border border-[var(--line)] bg-white/[0.04] px-3 text-center text-lg tracking-[0.35em] outline-none focus:border-[var(--accent)]/40"
                   />
                 </label>
                 {ssiOtpError ? <p className="mt-2 text-xs text-red-300">{ssiOtpError}</p> : null}
                 <div className="mt-5 flex justify-end gap-2">
-                  <Button variant="ghost" className="touch-target" disabled={ssiOtpLoading} onClick={() => setSsiOtpOpen(false)}>Cancel</Button>
-                  <Button className="touch-target" disabled={ssiOtpLoading || !ssiOtp.trim()} onClick={() => void approveSsiOtp()}>
+                  <Button
+                    variant="ghost"
+                    className="touch-target"
+                    disabled={ssiOtpLoading}
+                    onClick={() => setSsiOtpOpen(false)}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    className="touch-target"
+                    disabled={ssiOtpLoading || !ssiOtp.trim()}
+                    onClick={() => void approveSsiOtp()}
+                  >
                     {ssiOtpLoading ? 'Verifying…' : 'Verify & sync'}
                   </Button>
                 </div>

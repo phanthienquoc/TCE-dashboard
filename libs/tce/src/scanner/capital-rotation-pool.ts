@@ -61,7 +61,7 @@ export class CapitalRotationPoolScorer {
         (a, b) =>
           b.poolScore - a.poolScore ||
           a.expectedHoldDays - b.expectedHoldDays ||
-          normalize(a.symbol).localeCompare(normalize(b.symbol)),
+          normalize(a.symbol).localeCompare(normalize(b.symbol))
       )
       .slice(0, cfg.size)
       .map((candidate, index) => ({
@@ -87,15 +87,18 @@ function resolvePolicy(policy: CapitalRotationPoolPolicy): ResolvedPolicy {
 function scoreCandidate(
   candidate: DecisionStockCandidate,
   nowMs: number,
-  cfg: ResolvedPolicy,
+  cfg: ResolvedPolicy
 ): CapitalRotationPoolCandidate | null {
   const symbol = normalize(candidate.symbol);
   const price = numberOr(candidate.price, Number.NaN);
   if (!symbol || !Number.isFinite(price) || price < cfg.minPrice) return null;
 
-  const observedRaw = String(candidate.observedAt ?? candidate.currentPriceDate ?? candidate.gdkhqTimestamp ?? '');
+  const observedRaw = String(
+    candidate.observedAt ?? candidate.currentPriceDate ?? candidate.gdkhqTimestamp ?? ''
+  );
   const observedMs = observedRaw ? Date.parse(observedRaw) : Number.NaN;
-  if (Number.isFinite(observedMs) && nowMs - observedMs > cfg.maxDataAgeMinutes * 60_000) return null;
+  if (Number.isFinite(observedMs) && nowMs - observedMs > cfg.maxDataAgeMinutes * 60_000)
+    return null;
 
   const turnover = numberOr(candidate.averageTurnover ?? candidate.turnover, 0);
   const volume = numberOr(candidate.averageVolume ?? candidate.volume, 0);
@@ -104,14 +107,25 @@ function scoreCandidate(
   const eventType = String(candidate.dividendType ?? candidate.eventType ?? 'CASH').toUpperCase();
   if (eventType !== 'CASH') return null;
 
-  const yieldPct = positiveNumber(candidate.dividendYieldPct ?? candidate.dividendRatio ?? candidate.dividendValue, 0, price);
-  const recoveryPct = bounded(numberOr(candidate.recoveryScore, recoveryFromRange(candidate)), 0, 15);
+  const yieldPct = positiveNumber(
+    candidate.dividendYieldPct ?? candidate.dividendRatio ?? candidate.dividendValue,
+    0,
+    price
+  );
+  const recoveryPct = bounded(
+    numberOr(candidate.recoveryScore, recoveryFromRange(candidate)),
+    0,
+    15
+  );
   const liquidityScore = bounded(liquidityFromTurnover(turnover), 0, 15);
   const turnoverScore = bounded(liquidityFromTurnover(turnover) * 0.5, 0, 5);
   const riskScore = bounded(numberOr(candidate.riskScore ?? candidate.volatility, 0), 0, 10);
   const catalystScore = bounded(eventProximityScore(candidate, nowMs), 0, 10);
   const dividendScore = bounded(yieldPct * 2, 0, 20);
-  const expectedReturnPct = Math.max(0, bounded(numberOr(candidate.expectedReturn, yieldPct), 0, 20));
+  const expectedReturnPct = Math.max(
+    0,
+    bounded(numberOr(candidate.expectedReturn, yieldPct), 0, 20)
+  );
   const expectedHoldDays = holdDays(candidate, nowMs);
   const poolScore = bounded(
     dividendScore +
@@ -123,7 +137,7 @@ function scoreCandidate(
       (10 - riskScore) +
       turnoverScore,
     0,
-    100,
+    100
   );
 
   return {
@@ -209,7 +223,9 @@ function bounded(value: number, min: number, max: number): number {
 }
 
 function normalize(value: unknown): string {
-  return String(value ?? '').trim().toUpperCase();
+  return String(value ?? '')
+    .trim()
+    .toUpperCase();
 }
 
 function round(value: number): number {

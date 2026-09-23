@@ -16,7 +16,7 @@ export class DividendOhlcvCronService implements OnModuleInit, OnModuleDestroy {
   constructor(
     private readonly scheduler: SchedulerRegistry,
     private readonly db: SupabaseClientService,
-    private readonly service: DividendOhlcvService,
+    private readonly service: DividendOhlcvService
   ) {}
 
   async onModuleInit() {

@@ -106,28 +106,44 @@ export class PlatformCredentialsController {
     @Body() body: FuturesEntryOrderInput & { environment?: string }
   ) {
     const { environment, ...input } = body;
-    return this.binanceExecution.entry(this.userId(auth), input, this.binanceEnvironment(environment));
+    return this.binanceExecution.entry(
+      this.userId(auth),
+      input,
+      this.binanceEnvironment(environment)
+    );
   }
   @Post('binance/tp') takeProfitBinance(
     @Headers('authorization') auth: string | undefined,
     @Body() body: FuturesTpSlInput & { environment?: string }
   ) {
     const { environment, ...input } = body;
-    return this.binanceExecution.takeProfit(this.userId(auth), input, this.binanceEnvironment(environment));
+    return this.binanceExecution.takeProfit(
+      this.userId(auth),
+      input,
+      this.binanceEnvironment(environment)
+    );
   }
   @Post('binance/sl') stopLossBinance(
     @Headers('authorization') auth: string | undefined,
     @Body() body: FuturesTpSlInput & { environment?: string }
   ) {
     const { environment, ...input } = body;
-    return this.binanceExecution.stopLoss(this.userId(auth), input, this.binanceEnvironment(environment));
+    return this.binanceExecution.stopLoss(
+      this.userId(auth),
+      input,
+      this.binanceEnvironment(environment)
+    );
   }
   @Post('binance/close') closeBinance(
     @Headers('authorization') auth: string | undefined,
     @Body() body: FuturesCancelOrderInput & { environment?: string }
   ) {
     const { environment, ...input } = body;
-    return this.binanceExecution.cancel(this.userId(auth), input, this.binanceEnvironment(environment));
+    return this.binanceExecution.cancel(
+      this.userId(auth),
+      input,
+      this.binanceEnvironment(environment)
+    );
   }
   @Post(':provider/request-otp') requestOtp(
     @Headers('authorization') auth: string | undefined,

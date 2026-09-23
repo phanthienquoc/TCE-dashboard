@@ -26,11 +26,13 @@ const labels: Record<string, string> = {
 };
 
 function humanize(segment: string) {
-  return labels[segment] ??
+  return (
+    labels[segment] ??
     segment
       .replace(/^\[|\]$/g, '')
       .replace(/[-_]+/g, ' ')
-      .replace(/\b\w/g, char => char.toUpperCase());
+      .replace(/\b\w/g, char => char.toUpperCase())
+  );
 }
 
 export default function Breadcrumbs() {

@@ -16,16 +16,25 @@ import { SupabaseClientService } from '../db/supabase.client';
 @Injectable()
 export class SsiApplicationService {
   private readonly sessions = new Map<string, { adapter: SsiBrokerAdapter; accountNo: string }>();
-  private readonly reauthTransactions = new Map<string, { transactionId: string; createdAt: number }>();
+  private readonly reauthTransactions = new Map<
+    string,
+    { transactionId: string; createdAt: number }
+  >();
 
   constructor(
     @Inject(CONTRACT_TOKENS.credentials) private readonly credentials: PlatformCredentialPort,
     @Inject(CONTRACT_TOKENS.positionRepository) private readonly positions: PositionRepository,
     @Inject(CONTRACT_TOKENS.orderRepository) private readonly orders: OrderRepository,
-    private readonly supabase: SupabaseClientService,
+    private readonly supabase: SupabaseClientService
   ) {}
 
-  private fromRaw(raw: Record<string, unknown>, userId: string, environment: string, accountNoOverride?: string, persistToken = false) {
+  private fromRaw(
+    raw: Record<string, unknown>,
+    userId: string,
+    environment: string,
+    accountNoOverride?: string,
+    persistToken = false
+  ) {
     const apiKey = String(raw.apiKey ?? '');
     const apiSecret = String(raw.apiSecret ?? '');
     const clientId = String(raw.clientId ?? '');
@@ -50,7 +59,9 @@ export class SsiApplicationService {
           tokenType: raw.tokenType ? String(raw.tokenType) : undefined,
           expiresAt: raw.expiresAt ? Number(raw.expiresAt) : undefined,
           refreshToken: raw.refreshToken ? String(raw.refreshToken) : undefined,
-          refreshTokenExpiresAt: raw.refreshTokenExpiresAt ? Number(raw.refreshTokenExpiresAt) : undefined,
+          refreshTokenExpiresAt: raw.refreshTokenExpiresAt
+            ? Number(raw.refreshTokenExpiresAt)
+            : undefined,
           refreshExpiresAt: raw.refreshExpiresAt ? Number(raw.refreshExpiresAt) : undefined,
         },
         onTokenUpdated,
@@ -66,7 +77,9 @@ export class SsiApplicationService {
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       if (message === 'Platform credentials not configured') {
-        throw new NotFoundException(`SSI credentials are not configured for environment: ${environment}`);
+        throw new NotFoundException(
+          `SSI credentials are not configured for environment: ${environment}`
+        );
       }
       console.error('[SSI_CREDENTIALS_LOAD]', { userId, environment, message });
       throw new ServiceUnavailableException('Unable to load SSI credentials');
@@ -93,7 +106,7 @@ export class SsiApplicationService {
   private async handleOrderEvent(
     accountId: string,
     session: { adapter: SsiBrokerAdapter; accountNo: string },
-    event: SsiOrderStatusEvent,
+    event: SsiOrderStatusEvent
   ) {
     if (!event.orderId || !event.symbol) return;
     await this.orders.upsert({
@@ -117,19 +130,29 @@ export class SsiApplicationService {
     }
   }
 
-  private async startOrderStream(accountId: string, session: { adapter: SsiBrokerAdapter; accountNo: string }) {
+  private async startOrderStream(
+    accountId: string,
+    session: { adapter: SsiBrokerAdapter; accountNo: string }
+  ) {
     try {
-      await session.adapter.startOrderStatusStream(session.accountNo, (event: SsiOrderStatusEvent) => {
-        void this.handleOrderEvent(accountId, session, event).catch((error) =>
-          console.error('[SSI_ORDER_EVENT]', error),
-        );
-      });
+      await session.adapter.startOrderStatusStream(
+        session.accountNo,
+        (event: SsiOrderStatusEvent) => {
+          void this.handleOrderEvent(accountId, session, event).catch(error =>
+            console.error('[SSI_ORDER_EVENT]', error)
+          );
+        }
+      );
     } catch (error) {
       console.error('[SSI_ORDER_STREAM_START]', error);
     }
   }
 
-  private storeSession(userId: string, environment: string, session: { adapter: SsiBrokerAdapter; accountNo: string }) {
+  private storeSession(
+    userId: string,
+    environment: string,
+    session: { adapter: SsiBrokerAdapter; accountNo: string }
+  ) {
     this.sessions.set(`${userId}:ssi:${environment}`, session);
   }
 
@@ -149,7 +172,12 @@ export class SsiApplicationService {
     return result;
   }
 
-  private async authenticateReauth(userId: string, environment: string, input: SsiAuthInput, transactionId?: string) {
+  private async authenticateReauth(
+    userId: string,
+    environment: string,
+    input: SsiAuthInput,
+    transactionId?: string
+  ) {
     const credentials = await this.credentials.get(userId, 'ssi', environment);
     const session = this.fromRaw(credentials, userId, environment, undefined, true);
     const result = await session.adapter.connect({
@@ -182,7 +210,12 @@ export class SsiApplicationService {
     return this.authenticateReauth(userId, environment, input, transactionId);
   }
 
-  async test(userId: string, environment: string, input: SsiAuthInput, credentials?: Record<string, unknown>) {
+  async test(
+    userId: string,
+    environment: string,
+    input: SsiAuthInput,
+    credentials?: Record<string, unknown>
+  ) {
     const key = `${userId}:ssi:${environment}`;
     const existing = this.sessions.get(key);
     const session =
@@ -231,7 +264,7 @@ export class SsiApplicationService {
     environment: string,
     credentials: Record<string, unknown>,
     input: SsiAuthInput,
-    accountNo: string,
+    accountNo: string
   ) {
     if (!accountNo) throw new NotFoundException('SSI account number is required');
     const key = `${userId}:ssi:${environment}`;
@@ -285,7 +318,8 @@ export class SsiApplicationService {
       ok: false as const,
       error: {
         code: 'SSI_AUTH_REQUIRED' as const,
-        message: 'Open the SSI app and approve the sign-in request. Use OTP only if SSI asks for it.',
+        message:
+          'Open the SSI app and approve the sign-in request. Use OTP only if SSI asks for it.',
         retryable: true,
         provider: 'ssi' as const,
         details: {
@@ -312,7 +346,7 @@ export class SsiApplicationService {
     environment: string,
     symbols: string[],
     fromDate: string,
-    toDate: string,
+    toDate: string
   ): Promise<ContractResult<SsiDailyOhlcv[]>> {
     const { adapter } = await this.adapter(userId, environment, false);
     return adapter.dailyOhlcv(symbols, fromDate, toDate);
@@ -321,7 +355,7 @@ export class SsiApplicationService {
   async placeOrder(
     userId: string,
     environment: string,
-    request: Omit<BrokerOrderRequest, 'accountNo'> & { accountNo?: string },
+    request: Omit<BrokerOrderRequest, 'accountNo'> & { accountNo?: string }
   ) {
     const key = `${userId}:ssi:${environment}`;
     const existing = this.sessions.get(key);
@@ -346,40 +380,44 @@ export class SsiApplicationService {
       const orders = await session.adapter.orders(accountNo);
       if (orders.ok) {
         const match = orders.data.find(
-          (order) =>
+          order =>
             (result.data.orderId && order.externalId === result.data.orderId) ||
             (requestedClientRequestId && order.clientRequestId === requestedClientRequestId) ||
-            (result.data.clientRequestId && order.clientRequestId === result.data.clientRequestId),
+            (result.data.clientRequestId && order.clientRequestId === result.data.clientRequestId)
         );
 
         if (match) {
           confirmed = true;
           confirmedOrderId = match.externalId;
           providerStatus = match.status;
-          await this.handleOrderEvent(accountId, { ...session, accountNo }, {
-            type: 'orderEvent',
-            accountNo,
-            clientRequestId: match.clientRequestId,
-            orderId: match.externalId,
-            symbol: match.symbol,
-            side: match.side === 'SELL' ? 'S' : 'B',
-            orderType: match.orderType,
-            price: match.price,
-            quantity: match.quantity,
-            osQuantity: match.osQuantity,
-            cancelQuantity: match.cancelQuantity,
-            filledQuantity: match.filledQuantity,
-            status: match.status,
-            inputTime: match.createdAt,
-            modifyTime: match.modifyTime,
-            message: match.message,
-          });
+          await this.handleOrderEvent(
+            accountId,
+            { ...session, accountNo },
+            {
+              type: 'orderEvent',
+              accountNo,
+              clientRequestId: match.clientRequestId,
+              orderId: match.externalId,
+              symbol: match.symbol,
+              side: match.side === 'SELL' ? 'S' : 'B',
+              orderType: match.orderType,
+              price: match.price,
+              quantity: match.quantity,
+              osQuantity: match.osQuantity,
+              cancelQuantity: match.cancelQuantity,
+              filledQuantity: match.filledQuantity,
+              status: match.status,
+              inputTime: match.createdAt,
+              modifyTime: match.modifyTime,
+              message: match.message,
+            }
+          );
           break;
         }
       }
 
       if (attempt < 3) {
-        await new Promise((resolve) => setTimeout(resolve, 250));
+        await new Promise(resolve => setTimeout(resolve, 250));
       }
     }
 
@@ -397,7 +435,7 @@ export class SsiApplicationService {
   async placeTakeProfit(
     userId: string,
     environment: string,
-    request: Omit<BrokerOrderRequest, 'accountNo' | 'orderType'> & { accountNo?: string },
+    request: Omit<BrokerOrderRequest, 'accountNo' | 'orderType'> & { accountNo?: string }
   ) {
     const key = `${userId}:ssi:${environment}`;
     const existing = this.sessions.get(key);

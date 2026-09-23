@@ -43,7 +43,7 @@ test('Pool 20 scorer rejects non-cash events', () => {
   const scorer = new CapitalRotationPoolScorer();
   const result = scorer.rank(
     [candidate({ symbol: 'ABC', dividendEventId: 'stock-bonus', dividendType: 'STOCK' })],
-    now,
+    now
   );
 
   assert.deepEqual(result, []);
@@ -62,7 +62,7 @@ test('Pool 20 scorer rejects stale or illiquid market snapshots', () => {
         averageTurnover: 100_000,
       }),
     ],
-    now,
+    now
   );
 
   assert.deepEqual(result, []);

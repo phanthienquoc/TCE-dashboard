@@ -28,7 +28,7 @@ export class StockEventsService {
 
   constructor(
     private readonly mongo: MongoDbClient,
-    private readonly supabaseEvents: StockEventsSupabaseRepository,
+    private readonly supabaseEvents: StockEventsSupabaseRepository
   ) {}
 
   async getUpcoming(limit = DEFAULT_LIMIT) {
@@ -40,23 +40,50 @@ export class StockEventsService {
       if (source === 'shadow') {
         const supabaseRows = await this.supabaseEvents.getUpcoming(safeLimit);
         const mismatches = compareEvents(mongoRows, supabaseRows);
-        if (mismatches.length) this.logger.warn(`Stock events shadow mismatch count=${mismatches.length}; sample=${mismatches.slice(0, 5).join(',')}`);
+        if (mismatches.length)
+          this.logger.warn(
+            `Stock events shadow mismatch count=${mismatches.length}; sample=${mismatches.slice(0, 5).join(',')}`
+          );
       }
       return mongoRows;
     } catch (error) {
       if (error instanceof ServiceUnavailableException) throw error;
-      throw new ServiceUnavailableException(`Stock events query failed: ${error instanceof Error ? error.message : String(error)}`);
+      throw new ServiceUnavailableException(
+        `Stock events query failed: ${error instanceof Error ? error.message : String(error)}`
+      );
     }
   }
 
   private async getUpcomingFromMongo(limit: number): Promise<StockEvent[]> {
     const collectionName = process.env.MONGO_EVENTS_COLLECTION?.trim() || DEFAULT_COLLECTION;
-    const today = new Date(); today.setUTCHours(0, 0, 0, 0);
+    const today = new Date();
+    today.setUTCHours(0, 0, 0, 0);
     const db = await this.mongo.getDb();
-    const rows = await db.collection<StockEventRow>(collectionName).find({ gdkhq_timestamp: { $gte: today } }).sort({ gdkhq_timestamp: 1 }).limit(limit).toArray();
-    return rows.map(row => ({
-      id: String(row._id ?? ''), ticker: row['Mã CK'] ?? row.symbol ?? '', exDividendDate: row['Ngày GDKHQ'] ?? normalizeDate(row.gdkhq_timestamp) ?? '', exDividendTimestamp: normalizeDate(row.gdkhq_timestamp), executionDate: row['Ngày thực hiện'] ?? null, eventContent: row['Nội dung sự kiện'] ?? '', dividendRate: row['Tỷ lệ'] ?? '', dividendValue: Number(row.dividendValue ?? 0), price: row.price == null ? null : Number(row.price), currentPrice: null, currentPriceDate: null, dividendYieldPct: null, oneYearLow: null, oneYearHigh: null, crawledAt: normalizeDate(row.crawled_at),
-    })).filter(row => row.ticker && row.exDividendDate);
+    const rows = await db
+      .collection<StockEventRow>(collectionName)
+      .find({ gdkhq_timestamp: { $gte: today } })
+      .sort({ gdkhq_timestamp: 1 })
+      .limit(limit)
+      .toArray();
+    return rows
+      .map(row => ({
+        id: String(row._id ?? ''),
+        ticker: row['Mã CK'] ?? row.symbol ?? '',
+        exDividendDate: row['Ngày GDKHQ'] ?? normalizeDate(row.gdkhq_timestamp) ?? '',
+        exDividendTimestamp: normalizeDate(row.gdkhq_timestamp),
+        executionDate: row['Ngày thực hiện'] ?? null,
+        eventContent: row['Nội dung sự kiện'] ?? '',
+        dividendRate: row['Tỷ lệ'] ?? '',
+        dividendValue: Number(row.dividendValue ?? 0),
+        price: row.price == null ? null : Number(row.price),
+        currentPrice: null,
+        currentPriceDate: null,
+        dividendYieldPct: null,
+        oneYearLow: null,
+        oneYearHigh: null,
+        crawledAt: normalizeDate(row.crawled_at),
+      }))
+      .filter(row => row.ticker && row.exDividendDate);
   }
 }
 
@@ -67,11 +94,26 @@ function readSource(): ReadSource {
 }
 
 function compareEvents(left: StockEvent[], right: StockEvent[]): string[] {
-  const normalize = (event: StockEvent) => JSON.stringify({ ticker: event.ticker, exDividendDate: event.exDividendDate, exDividendTimestamp: event.exDividendTimestamp, executionDate: event.executionDate, eventContent: event.eventContent, dividendRate: event.dividendRate, dividendValue: event.dividendValue, price: event.price, crawledAt: event.crawledAt });
+  const normalize = (event: StockEvent) =>
+    JSON.stringify({
+      ticker: event.ticker,
+      exDividendDate: event.exDividendDate,
+      exDividendTimestamp: event.exDividendTimestamp,
+      executionDate: event.executionDate,
+      eventContent: event.eventContent,
+      dividendRate: event.dividendRate,
+      dividendValue: event.dividendValue,
+      price: event.price,
+      crawledAt: event.crawledAt,
+    });
   const rightByKey = new Map(right.map(event => [event.id, normalize(event)]));
-  const mismatches = left.filter(event => rightByKey.get(event.id) !== normalize(event)).map(event => event.id);
+  const mismatches = left
+    .filter(event => rightByKey.get(event.id) !== normalize(event))
+    .map(event => event.id);
   const leftKeys = new Set(left.map(event => event.id));
-  right.forEach(event => { if (!leftKeys.has(event.id)) mismatches.push(event.id); });
+  right.forEach(event => {
+    if (!leftKeys.has(event.id)) mismatches.push(event.id);
+  });
   return mismatches;
 }
 

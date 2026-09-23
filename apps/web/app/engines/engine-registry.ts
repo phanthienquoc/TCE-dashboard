@@ -1,4 +1,11 @@
-export type EngineId = 'tce-decision' | 'capital-rotation-decision' | 'ssi-execution' | 'binance-market' | 'binance-execution' | 'binance-derivatives' | 'binance-xau';
+export type EngineId =
+  | 'tce-decision'
+  | 'capital-rotation-decision'
+  | 'ssi-execution'
+  | 'binance-market'
+  | 'binance-execution'
+  | 'binance-derivatives'
+  | 'binance-xau';
 
 export type EngineDefinition = {
   id: EngineId;
@@ -20,12 +27,29 @@ export const ENGINE_REGISTRY: EngineDefinition[] = [
     category: 'Decision',
     layer: 'decision',
     provider: 'tce',
-    defaults: { poolSize: 20, maxPositions: 2, coreCapital: 15_000_000, burstCapital: 5_000_000, profitTargetPct: 10, maxAssetAllocationPct: 40, buyQuantityStep: 100, buyFromRemainingBudget: true, monitorIntervalMinutes: 60, timezone: 'Asia/Ho_Chi_Minh', marketOpen: '09:00:00', marketClose: '14:45:00', autoSellEnabled: false, autoSellProfitTargetPct: 10, autoSellIntervalMinutes: 60 },
+    defaults: {
+      poolSize: 20,
+      maxPositions: 2,
+      coreCapital: 15_000_000,
+      burstCapital: 5_000_000,
+      profitTargetPct: 10,
+      maxAssetAllocationPct: 40,
+      buyQuantityStep: 100,
+      buyFromRemainingBudget: true,
+      monitorIntervalMinutes: 60,
+      timezone: 'Asia/Ho_Chi_Minh',
+      marketOpen: '09:00:00',
+      marketClose: '14:45:00',
+      autoSellEnabled: false,
+      autoSellProfitTargetPct: 10,
+      autoSellIntervalMinutes: 60,
+    },
   },
   {
     id: 'capital-rotation-decision',
     name: 'Capital Rotation Decision Engine',
-    description: 'Optimizes capital rotation across dividend capture, post-ex-dividend recovery and capital turnover opportunities for VN cash equities.',
+    description:
+      'Optimizes capital rotation across dividend capture, post-ex-dividend recovery and capital turnover opportunities for VN cash equities.',
     platform: 'TCE',
     category: 'Decision',
     layer: 'decision',
@@ -63,7 +87,8 @@ export const ENGINE_REGISTRY: EngineDefinition[] = [
   {
     id: 'binance-market',
     name: 'Binance Market Engine',
-    description: 'Provides Binance market connectivity and realtime market data for supported workflows.',
+    description:
+      'Provides Binance market connectivity and realtime market data for supported workflows.',
     platform: 'Binance',
     category: 'Market Data',
     layer: 'market-data',
@@ -73,7 +98,8 @@ export const ENGINE_REGISTRY: EngineDefinition[] = [
   {
     id: 'binance-execution',
     name: 'Binance Execution Engine',
-    description: 'Provider-neutral execution capability for Binance Futures order submission, cancellation and reconciliation.',
+    description:
+      'Provider-neutral execution capability for Binance Futures order submission, cancellation and reconciliation.',
     platform: 'Binance',
     category: 'Execution',
     layer: 'execution',
@@ -83,7 +109,8 @@ export const ENGINE_REGISTRY: EngineDefinition[] = [
   {
     id: 'binance-derivatives',
     name: 'Binance Derivatives Engine',
-    description: 'Owns Binance Futures strategy orchestration, position reconciliation and XAU protection workflows.',
+    description:
+      'Owns Binance Futures strategy orchestration, position reconciliation and XAU protection workflows.',
     platform: 'Binance',
     category: 'Derivatives',
     layer: 'derivatives',

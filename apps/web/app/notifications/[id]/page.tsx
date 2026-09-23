@@ -55,13 +55,22 @@ export default function NotificationDetailPage() {
         <section className="empty-state p-5">
           <p className="eyebrow">Notification channel</p>
           <h1 className="mt-2 text-xl font-semibold">Bot not found</h1>
-          <p className="page-subtitle">This Telegram channel may have been removed or is no longer available.</p>
-          <Button type="button" variant="outline" className="mt-4" onClick={() => router.push('/notifications')}>
+          <p className="page-subtitle">
+            This Telegram channel may have been removed or is no longer available.
+          </p>
+          <Button
+            type="button"
+            variant="outline"
+            className="mt-4"
+            onClick={() => router.push('/notifications')}
+          >
             Back to notifications
           </Button>
         </section>
       ) : (
-        <div className="notification-page-content"><TelegramBotConfig /></div>
+        <div className="notification-page-content">
+          <TelegramBotConfig />
+        </div>
       )}
     </DashboardLayout>
   );

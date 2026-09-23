@@ -107,7 +107,7 @@ export const useStockSyncStore = create<StockSyncState>((set, get) => ({
   refreshRuns: async () => {
     const response = await api.get<StockSyncRun[]>(
       '/stock-events-cron/runs?limit=20&_ts=' + Date.now(),
-      noCache,
+      noCache
     );
     set({ runs: Array.isArray(response.data) ? response.data : [] });
   },
@@ -166,13 +166,13 @@ export const useStockSyncStore = create<StockSyncState>((set, get) => ({
     set({ triggering: true, message: null });
     try {
       const response = await api.post<StockSyncRun>('/stock-events-cron/trigger', {});
-      await get().refreshRuns().catch(() => undefined);
+      await get()
+        .refreshRuns()
+        .catch(() => undefined);
       set({
         triggering: false,
         message:
-          response.data.status === 'RUNNING'
-            ? null
-            : `Sync ${response.data.status.toLowerCase()}`,
+          response.data.status === 'RUNNING' ? null : `Sync ${response.data.status.toLowerCase()}`,
         tab: 'runs',
       });
     } catch (error) {

@@ -1,12 +1,24 @@
-import { Inject, Injectable, ServiceUnavailableException, UnauthorizedException } from '@nestjs/common';
+import {
+  Inject,
+  Injectable,
+  ServiceUnavailableException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { CONTRACT_TOKENS, PlatformCredentialPort } from '@tce/contracts';
-import { BinanceFuturesExecutionAdapter, BinanceFuturesStateAdapter, BinanceFuturesUserDataStream, BinanceMarketAdapter } from '@tce/binance';
+import {
+  BinanceFuturesExecutionAdapter,
+  BinanceFuturesStateAdapter,
+  BinanceFuturesUserDataStream,
+  BinanceMarketAdapter,
+} from '@tce/binance';
 type BinanceEnvironment = 'production' | 'testnet';
 type Credentials = { apiKey: string; apiSecret: string };
 
 @Injectable()
 export class BinanceProviderService {
-  constructor(@Inject(CONTRACT_TOKENS.credentials) private readonly credentials: PlatformCredentialPort) {}
+  constructor(
+    @Inject(CONTRACT_TOKENS.credentials) private readonly credentials: PlatformCredentialPort
+  ) {}
 
   private environment(value = 'production'): BinanceEnvironment {
     if (value !== 'production' && value !== 'testnet')
@@ -14,7 +26,10 @@ export class BinanceProviderService {
     return value;
   }
 
-  private async resolve(userId: string, environment = 'production'): Promise<{ environment: BinanceEnvironment; credentials: Credentials }> {
+  private async resolve(
+    userId: string,
+    environment = 'production'
+  ): Promise<{ environment: BinanceEnvironment; credentials: Credentials }> {
     const selected = this.environment(environment);
     const raw = await this.credentials.get(userId, 'binance', selected);
     const apiKey = typeof raw.apiKey === 'string' ? raw.apiKey.trim() : '';
