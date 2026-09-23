@@ -14,7 +14,10 @@ export const SelectTrigger = React.forwardRef<
 >(({ className, children, ...props }, ref) => (
   <SelectPrimitive.Trigger
     ref={ref}
-    className={cn('flex min-h-11 w-full items-center justify-between gap-2 rounded-xl border border-border bg-surface-strong px-3 text-sm font-semibold text-foreground outline-none focus-visible:ring-2 focus-visible:ring-primary/30', className)}
+    className={cn(
+      'flex min-h-11 w-full items-center justify-between gap-2 rounded-xl border border-border bg-surface-strong px-3 text-sm font-semibold text-foreground outline-none focus-visible:ring-2 focus-visible:ring-primary/30',
+      className
+    )}
     {...props}
   >
     {children}
@@ -31,7 +34,10 @@ export const SelectContent = React.forwardRef<
     <SelectPrimitive.Content
       ref={ref}
       position={position}
-      className={cn('z-[100] min-w-[8rem] overflow-hidden rounded-xl border border-border bg-surface-strong p-1 text-foreground shadow-xl', className)}
+      className={cn(
+        'z-[100] min-w-[8rem] overflow-hidden rounded-xl border border-border bg-surface-strong p-1 text-foreground shadow-xl',
+        className
+      )}
       {...props}
     >
       <SelectPrimitive.Viewport className="p-0.5">{children}</SelectPrimitive.Viewport>
@@ -46,7 +52,10 @@ export const SelectItem = React.forwardRef<
 >(({ className, children, ...props }, ref) => (
   <SelectPrimitive.Item
     ref={ref}
-    className={cn('relative flex min-h-10 cursor-pointer select-none items-center rounded-lg px-3 pr-8 text-sm outline-none focus:bg-surface data-[highlighted]:bg-surface', className)}
+    className={cn(
+      'relative flex min-h-10 cursor-pointer select-none items-center rounded-lg px-3 pr-8 text-sm outline-none focus:bg-surface data-[highlighted]:bg-surface',
+      className
+    )}
     {...props}
   >
     <SelectPrimitive.ItemText>{children}</SelectPrimitive.ItemText>
