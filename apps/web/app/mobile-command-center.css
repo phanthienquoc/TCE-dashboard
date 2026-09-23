@@ -496,30 +496,22 @@ body {
     opacity: 0.45;
   }
 
-  .tce-positions-content {
+  .page-filter-slot {
     width: 100%;
-    position: relative;
-    min-height: 0;
+    margin: 10px 0 12px;
   }
 
-  .tce-positions-list {
+  .tce-page-filter {
     width: 100%;
-    min-width: 0;
   }
 
-  .tce-positions-content .tce-dividend-filter-bar {
-    position: sticky;
-    top: calc(44px + env(safe-area-inset-top));
-    z-index: 30;
-    margin: 0 0 10px;
-    padding: 6px 0 8px;
-    background: linear-gradient(
-      180deg,
-      rgba(7, 16, 22, 0.98) 0%,
-      rgba(7, 16, 22, 0.94) 72%,
-      rgba(7, 16, 22, 0) 100%
-    );
-    overflow: visible;
+  .tce-page-filter .tce-dividend-filter-summary {
+    border: 1px solid var(--tce-border);
+    border-radius: 15px;
+    background: rgba(12, 27, 35, 0.94);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.14);
+    backdrop-filter: blur(14px) saturate(120%);
+    -webkit-backdrop-filter: blur(14px) saturate(120%);
   }
 
   .tce-dividend-filter-summary {
@@ -888,47 +880,4 @@ body {
 
 /* Restored pre-705 mobile layout. */
 
-@media screen and (max-width: 767px) {
-  .tce-positions-content {
-    position: relative;
-    min-height: 0;
-  }
 
-  .tce-positions-content .tce-dividend-filter-bar {
-    position: sticky;
-    top: calc(44px + env(safe-area-inset-top) + 6px);
-    z-index: 30;
-    margin-bottom: 10px;
-    background: rgba(7, 16, 22, 0.9);
-    backdrop-filter: blur(16px) saturate(125%);
-    -webkit-backdrop-filter: blur(16px) saturate(125%);
-  }
-
-  .tce-positions-list {
-    min-width: 0;
-  }
-
-  .tce-filter-sheet-backdrop {
-    z-index: 200;
-  }
-
-  body:has(.tce-filter-sheet-backdrop) {
-    overflow: hidden;
-  }
-}
-
-@media screen and (min-width: 768px) {
-  .tce-positions-content {
-    position: relative;
-  }
-
-  .tce-positions-content .tce-dividend-filter-bar {
-    position: sticky;
-    top: 12px;
-    z-index: 30;
-  }
-
-  .tce-positions-list {
-    min-width: 0;
-  }
-}
