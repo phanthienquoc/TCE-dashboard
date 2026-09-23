@@ -496,13 +496,22 @@ body {
     opacity: 0.45;
   }
 
+  .tce-positions-content {
+    width: 100%;
+  }
+  .tce-positions-list {
+    width: 100%;
+  }
   .tce-dividend-filter-bar {
-    margin-bottom: 2px;
-    padding: 0;
-    border: 1px solid var(--tce-border);
-    border-radius: 14px;
-    background: rgba(255, 255, 255, 0.02);
-    overflow: hidden;
+    position: sticky;
+    top: 0;
+    z-index: 30;
+    margin-bottom: 10px;
+    padding: 6px 0 10px;
+    border: 0;
+    border-radius: 0;
+    background: linear-gradient(180deg, rgba(7, 16, 22, 0.98) 0%, rgba(7, 16, 22, 0.94) 78%, rgba(7, 16, 22, 0) 100%);
+    overflow: visible;
   }
   .tce-dividend-filter-summary {
     width: 100%;
