@@ -215,6 +215,6 @@ jobs:
             echo "- Tag: `$TAG`"
             echo "- Web: `ghcr.io/phanthienquoc/tce-dashboard/web:$TAG`"
             echo "- Service: `ghcr.io/phanthienquoc/tce-dashboard/service:$TAG`"
-            echo "- Platform Infra: dispatch sent for both components"
+            echo "- Platform Infra: release request dispatched (fan-out to web + service)"
           } >> "$GITHUB_STEP_SUMMARY"
 
