@@ -11,9 +11,11 @@ const variants = cva(
       variant: {
         default: 'bg-[var(--primary)] text-[var(--primary-foreground)] hover:opacity-90',
         secondary: 'bg-[var(--surface)] text-[var(--foreground)] hover:brightness-[0.97]',
-        outline: 'border border-[var(--border)] bg-[var(--surface-strong)] text-[var(--foreground)] hover:bg-[var(--surface)]',
+        outline:
+          'border border-[var(--border)] bg-[var(--surface-strong)] text-[var(--foreground)] hover:bg-[var(--surface)]',
         ghost: 'text-[var(--muted)] hover:bg-[var(--surface)] hover:text-[var(--foreground)]',
-        destructive: 'bg-[color-mix(in_srgb,var(--danger)_10%,transparent)] text-[var(--danger)] hover:bg-[color-mix(in_srgb,var(--danger)_15%,transparent)]',
+        destructive:
+          'bg-[color-mix(in_srgb,var(--danger)_10%,transparent)] text-[var(--danger)] hover:bg-[color-mix(in_srgb,var(--danger)_15%,transparent)]',
       },
       size: {
         default: 'px-4 py-2',
