@@ -281,27 +281,27 @@ jobs:
               "$API?event=repository_dispatch&per_page=20")"
 
             MATCH="$(printf '%s' "$RUNS_JSON" | python3 -c '
-import json
-import sys
-from datetime import datetime
+            import json
+            import sys
+            from datetime import datetime
 
-data = json.load(sys.stdin)
-cutoff = int(sys.argv[1])
+            data = json.load(sys.stdin)
+            cutoff = int(sys.argv[1])
 
-for run in data.get("workflow_runs", []):
-    created = run.get("created_at")
-    if not created:
-        continue
+            for run in data.get("workflow_runs", []):
+                created = run.get("created_at")
+                if not created:
+                    continue
 
-    ts = int(datetime.fromisoformat(created.replace("Z", "+00:00")).timestamp())
-    if ts >= cutoff - 5 and run.get("name") == "GitOps Image Promotion":
-        print("{}|{}|{}|{}".format(
-            run.get("id"),
-            run.get("name"),
-            run.get("status"),
-            run.get("html_url"),
-        ))
-        break
+                ts = int(datetime.fromisoformat(created.replace("Z", "+00:00")).timestamp())
+                if ts >= cutoff - 5 and run.get("name") == "GitOps Image Promotion":
+                    print("{}|{}|{}|{}".format(
+                        run.get("id"),
+                        run.get("name"),
+                        run.get("status"),
+                        run.get("html_url"),
+                    ))
+                    break
 ' "$DISPATCHED_AT")"
 
             if [ -n "$MATCH" ]; then
