@@ -287,33 +287,33 @@ jobs:
               -H "X-GitHub-Api-Version: 2022-11-28" \
               "$API?event=repository_dispatch&per_page=20")"
 
-            MATCH="$(printf '%s' "$RUNS_JSON" | python3 -c '
-              import json
-              import sys
-              from datetime import datetime
-  
-              data = json.load(sys.stdin)
-              cutoff = int(sys.argv[1])
-  
-              matches = []
-              for run in data.get("workflow_runs", []):
-                  created = run.get("created_at")
-                  if not created:
-                      continue
-  
-                  ts = int(datetime.fromisoformat(created.replace("Z", "+00:00")).timestamp())
-                  if ts >= cutoff - 5 and run.get("name", "").startswith("GitOps Image Promotion"):
-                      matches.append(run)
-  
-              if matches:
-                  for run in sorted(matches, key=lambda item: item.get("created_at", "")):
-                      print("{}|{}|{}|{}".format(
-                          run.get("id"),
-                          run.get("name"),
-                          run.get("status"),
-                          run.get("html_url"),
-                      ))
-            ' "$DISPATCHED_AT")"
+            MATCH="$(RUNS_JSON="$RUNS_JSON" python3 - "$DISPATCHED_AT" <<'PY'
+import json
+import os
+import sys
+from datetime import datetime
+
+data = json.loads(os.environ["RUNS_JSON"])
+cutoff = int(sys.argv[1])
+
+matches = []
+for run in data.get("workflow_runs", []):
+    created = run.get("created_at")
+    if not created:
+        continue
+    ts = int(datetime.fromisoformat(created.replace("Z", "+00:00")).timestamp())
+    if ts >= cutoff - 5 and run.get("name", "").startswith("GitOps Image Promotion"):
+        matches.append(run)
+
+for run in sorted(matches, key=lambda item: item.get("created_at", "")):
+    print("{}|{}|{}|{}".format(
+        run.get("id"),
+        run.get("name"),
+        run.get("status"),
+        run.get("html_url"),
+    ))
+PY
+            )"
 
             if [ -n "$MATCH" ]; then
               echo "Platform-infra workflow scheduled: $MATCH"
