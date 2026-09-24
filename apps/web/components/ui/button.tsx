@@ -5,15 +5,15 @@ import { cva, type VariantProps } from 'class-variance-authority';
 import { cn } from '@/lib/utils';
 
 const variants = cva(
-  'inline-flex min-h-11 items-center justify-center gap-2 rounded-xl text-sm font-semibold transition-all active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 disabled:pointer-events-none disabled:opacity-50',
+  'inline-flex min-h-11 items-center justify-center gap-2 rounded-xl text-sm font-semibold transition-all active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)]/30 disabled:pointer-events-none disabled:opacity-50',
   {
     variants: {
       variant: {
-        default: 'bg-primary text-primary-foreground hover:opacity-90',
-        secondary: 'bg-surface text-foreground hover:brightness-[0.97]',
-        outline: 'border border-border bg-surface-strong text-foreground hover:bg-surface',
-        ghost: 'text-muted hover:bg-surface hover:text-foreground',
-        destructive: 'bg-danger/10 text-danger hover:bg-danger/15',
+        default: 'bg-[var(--primary)] text-[var(--primary-foreground)] hover:opacity-90',
+        secondary: 'bg-[var(--surface)] text-[var(--foreground)] hover:brightness-[0.97]',
+        outline: 'border border-[var(--border)] bg-[var(--surface-strong)] text-[var(--foreground)] hover:bg-[var(--surface)]',
+        ghost: 'text-[var(--muted)] hover:bg-[var(--surface)] hover:text-[var(--foreground)]',
+        destructive: 'bg-[color-mix(in_srgb,var(--danger)_10%,transparent)] text-[var(--danger)] hover:bg-[color-mix(in_srgb,var(--danger)_15%,transparent)]',
       },
       size: {
         default: 'px-4 py-2',
