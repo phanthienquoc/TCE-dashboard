@@ -1,0 +1,270 @@
+name: 'WF-03 TCE Production Deploy'
+
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+  packages: write
+
+env:
+  TARGET_PLATFORM: linux/arm64
+
+jobs:
+  notify-telegram-start:
+    name: Notify Telegram — release started
+    runs-on: ubuntu-latest
+    env:
+      TELEGRAM_BOT_TOKEN: ${{ vars.TELEGRAM_BOT_TOKEN }}
+      TELEGRAM_CHAT_ID: ${{ vars.TELEGRAM_CHAT_ID }}
+    steps:
+      - name: Validate Telegram configuration
+        run: |
+          set -euo pipefail
+          test -n "$TELEGRAM_BOT_TOKEN" || { echo "Missing GitHub variable: TELEGRAM_BOT_TOKEN"; exit 1; }
+          test -n "$TELEGRAM_CHAT_ID" || { echo "Missing GitHub variable: TELEGRAM_CHAT_ID"; exit 1; }
+      - name: Send deployment started message
+        run: |
+          set -euo pipefail
+          MESSAGE="$(printf '%s\\n%s' \
+            "🚀 <b>TCE • PRODUCTION RELEASE</b>" \
+            "🌿 Branch    <code>${{ github.ref_name }}</code>\\n🔖 Commit    <code>${GITHUB_SHA::7}</code>")"
+          curl --fail-with-body -sS -X POST \
+            "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
+            -d "chat_id=${TELEGRAM_CHAT_ID}" \
+            --data-urlencode "text=${MESSAGE}" \
+            -d "parse_mode=HTML"
+
+  detect:
+    name: Resolve production image tag
+    needs: notify-telegram-start
+    runs-on: ubuntu-latest
+    outputs:
+      image_tag: ${{ steps.version.outputs.image_tag }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: version
+        run: |
+          set -euo pipefail
+          VERSION="$(node -p "require('./package.json').version")"
+          SHA="${GITHUB_SHA::7}"
+          IMAGE_TAG="prod-v${VERSION}-${SHA}"
+          echo "image_tag=$IMAGE_TAG" >> "$GITHUB_OUTPUT"
+          echo "$IMAGE_TAG" > /tmp/image-tag.txt
+          echo "Image tag: $IMAGE_TAG"
+      - name: Upload immutable release metadata
+        uses: actions/upload-artifact@v4
+        with:
+          name: tce-release-metadata
+          path: /tmp/image-tag.txt
+          retention-days: 1
+
+  build-frontend:
+    name: Build frontend (native ARM64)
+    needs: detect
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify native architecture
+        run: test "$(uname -m)" = "aarch64"
+      - name: Build frontend image
+        env:
+          IMAGE_TAG: ${{ needs.detect.outputs.image_tag }}
+        run: docker build --pull -t "tce-frontend:$IMAGE_TAG" -f Dockerfile .
+      - name: Verify image architecture
+        env:
+          IMAGE_TAG: ${{ needs.detect.outputs.image_tag }}
+        run: test "$(docker image inspect "tce-frontend:$IMAGE_TAG" --format '{{.Architecture}}')" = "arm64"
+      - name: Export and validate frontend image
+        env:
+          IMAGE_TAG: ${{ needs.detect.outputs.image_tag }}
+        run: |
+          set -euo pipefail
+          rm -f /tmp/tce-frontend.tar /tmp/tce-frontend.sha256
+          docker save "tce-frontend:$IMAGE_TAG" -o /tmp/tce-frontend.tar
+          test -s /tmp/tce-frontend.tar
+          (cd /tmp && sha256sum tce-frontend.tar > tce-frontend.sha256)
+          (cd /tmp && sha256sum -c tce-frontend.sha256)
+          tar -tf /tmp/tce-frontend.tar >/dev/null
+          ls -lh /tmp/tce-frontend.tar /tmp/tce-frontend.sha256
+      - uses: actions/upload-artifact@v4
+        with:
+          name: tce-frontend-image
+          path: |
+            /tmp/tce-frontend.tar
+            /tmp/tce-frontend.sha256
+          retention-days: 1
+
+  build-backend:
+    name: Build backend (native ARM64)
+    needs: detect
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify native architecture
+        run: test "$(uname -m)" = "aarch64"
+      - name: Validate backend
+        run: |
+          set -euo pipefail
+          test -f apps/service/Dockerfile
+          test -f tsconfig.base.json
+          test -f nx.json
+          test -d apps/service
+          test -d libs
+          test -d packages
+      - name: Build backend image
+        env:
+          IMAGE_TAG: ${{ needs.detect.outputs.image_tag }}
+        run: docker build --pull -t "tce-service:$IMAGE_TAG" -f apps/service/Dockerfile .
+      - name: Verify image architecture
+        env:
+          IMAGE_TAG: ${{ needs.detect.outputs.image_tag }}
+        run: test "$(docker image inspect "tce-service:$IMAGE_TAG" --format '{{.Architecture}}')" = "arm64"
+      - name: Export and validate backend image
+        env:
+          IMAGE_TAG: ${{ needs.detect.outputs.image_tag }}
+        run: |
+          set -euo pipefail
+          rm -f /tmp/tce-service.tar /tmp/tce-service.sha256
+          docker save "tce-service:$IMAGE_TAG" -o /tmp/tce-service.tar
+          test -s /tmp/tce-service.tar
+          (cd /tmp && sha256sum tce-service.tar > tce-service.sha256)
+          (cd /tmp && sha256sum -c tce-service.sha256)
+          tar -tf /tmp/tce-service.tar >/dev/null
+          ls -lh /tmp/tce-service.tar /tmp/tce-service.sha256
+      - uses: actions/upload-artifact@v4
+        with:
+          name: tce-service-image
+          path: |
+            /tmp/tce-service.tar
+            /tmp/tce-service.sha256
+          retention-days: 1
+
+  platform-infra-release:
+    name: Publish immutable images and promote platform-infra
+    needs: [detect, build-frontend, build-backend]
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 20
+    env:
+      TAG: ${{ needs.detect.outputs.image_tag }}
+      TOKEN: ${{ secrets.PLATFORM_INFRA_TOKEN }}
+    steps:
+      - name: Checkout release commit
+        uses: actions/checkout@v4
+
+      - name: Download exact WF-03 release artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: tce-*-image
+          merge-multiple: true
+          path: /tmp/images
+
+      - name: Load and validate exact release images
+        run: |
+          set -euo pipefail
+          for image in tce-frontend tce-service; do
+            test -s "/tmp/images/$image.tar"
+            test -s "/tmp/images/$image.sha256"
+            (cd /tmp/images && sha256sum -c "$image.sha256")
+            docker load -i "/tmp/images/$image.tar"
+            docker image inspect "$image:$TAG" >/dev/null
+            test "$(docker image inspect "$image:$TAG" --format '{{.Architecture}}')" = "arm64"
+          done
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Publish exact release images to GHCR
+        run: |
+          set -euo pipefail
+          docker tag "tce-frontend:$TAG" "ghcr.io/phanthienquoc/tce-dashboard/web:$TAG"
+          docker tag "tce-service:$TAG" "ghcr.io/phanthienquoc/tce-dashboard/service:$TAG"
+          docker push "ghcr.io/phanthienquoc/tce-dashboard/web:$TAG"
+          docker push "ghcr.io/phanthienquoc/tce-dashboard/service:$TAG"
+
+      - name: Notify platform-infra
+        id: dispatch
+        run: |
+          set -euo pipefail
+          test -n "$TOKEN" || {
+            echo "PLATFORM_INFRA_TOKEN is required for production GitOps promotion."
+            exit 1
+          }
+          DISPATCHED_AT="$(date -u +%s)"
+          echo "dispatched_at=$DISPATCHED_AT" >> "$GITHUB_OUTPUT"
+
+          curl --fail-with-body -sS -X POST \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer $TOKEN" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            https://api.github.com/repos/phanthienquoc/platform-infra/dispatches \
+            -d "{\"event_type\":\"tce-release-requested\",\"client_payload\":{\"app\":\"tce-dashboard\",\"release\":\"$TAG\"}}"
+
+      - name: Verify platform-infra release workflow
+        env:
+          RELEASE: ${{ needs.detect.outputs.image_tag }}
+          DISPATCHED_AT: ${{ steps.dispatch.outputs.dispatched_at }}
+        run: |
+          set -euo pipefail
+          REPO="phanthienquoc/platform-infra"
+          API="https://api.github.com/repos/$REPO/actions/runs"
+          echo "Waiting for platform-infra repository_dispatch for $RELEASE..."
+
+          for attempt in $(seq 1 12); do
+            RUNS_JSON="$(curl --fail-with-body -sS \
+              -H "Accept: application/vnd.github+json" \
+              -H "Authorization: Bearer $TOKEN" \
+              -H "X-GitHub-Api-Version: 2022-11-28" \
+              "$API?event=repository_dispatch&per_page=20")"
+
+            MATCH="$(printf '%s' "$RUNS_JSON" | python3 -c '
+import json, sys
+from datetime import datetime
+
+data = json.load(sys.stdin)
+cutoff = int(sys.argv[1])
+for run in data.get("workflow_runs", []):
+    created = run.get("created_at")
+    if not created:
+        continue
+    ts = int(datetime.fromisoformat(created.replace("Z", "+00:00")).timestamp())
+    if ts >= cutoff - 5:
+        print("{}|{}|{}|{}".format(
+            run.get("id"), run.get("name"), run.get("status"), run.get("html_url")
+        ))
+        break
+' "$DISPATCHED_AT")"
+
+            if [ -n "$MATCH" ]; then
+              echo "Platform-infra workflow scheduled: $MATCH"
+              exit 0
+            fi
+
+            echo "No platform-infra repository_dispatch workflow yet (attempt $attempt/12)."
+            sleep 5
+          done
+
+          echo "::error::GitHub accepted the dispatch request, but platform-infra did not schedule a repository_dispatch workflow within 60 seconds."
+          echo "::error::Check PLATFORM_INFRA_TOKEN permissions and the platform-infra Actions workflow state."
+          exit 1
+
+      - name: Write release summary
+        run: |
+          {
+            echo "### Platform Infra image release"
+            echo ""
+            echo "- Tag: $TAG"
+            echo "- Web: ghcr.io/phanthienquoc/tce-dashboard/web:$TAG"
+            echo "- Service: ghcr.io/phanthienquoc/tce-dashboard/service:$TAG"
+            echo "- Event: tce-release-requested"
+            echo "- Platform Infra: release request dispatched and workflow verified"
+          } >> "$GITHUB_STEP_SUMMARY"
