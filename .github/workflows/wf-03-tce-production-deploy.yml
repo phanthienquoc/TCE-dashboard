@@ -212,7 +212,14 @@ jobs:
           for image in tce-frontend tce-service; do
             test -s "/tmp/images/$image.tar"
             test -s "/tmp/images/$image.sha256"
-            (cd /tmp/images && sha256sum -c "$image.sha256")
+            expected="$(awk '{print $1}' "/tmp/images/$image.sha256")"
+            actual="$(sha256sum "/tmp/images/$image.tar" | awk '{print $1}')"
+            test "$actual" = "$expected" || {
+              echo "::error::Checksum mismatch for $image.tar"
+              echo "Expected: $expected"
+              echo "Actual:   $actual"
+              exit 1
+            }
             docker load -i "/tmp/images/$image.tar"
             docker image inspect "$image:$TAG" >/dev/null
             test "$(docker image inspect "$image:$TAG" --format '{{.Architecture}}')" = "arm64"
