@@ -34,7 +34,9 @@ export class DividendOhlcvService {
     const symbol = normalizeSymbol(symbolInput);
     await this.assertDividendSymbol(symbol);
     const rangeDays = clampDays(days);
-    const from = addDays(todayVietnam(), -(rangeDays - 1));
+    const from = rangeDays === DEFAULT_DAYS
+      ? oneYearWindowStart(todayVietnam())
+      : addDays(todayVietnam(), -(rangeDays - 1));
     const { data, error } = await this.db.db
       .from('tce_market_ohlcv_daily')
       .select('symbol,trading_date,open,high,low,close,volume')
@@ -54,7 +56,7 @@ export class DividendOhlcvService {
   ) {
     const symbols = await this.dividendSymbols();
     const endDate = toDate ?? todayVietnam();
-    const fallbackStart = fromDate ?? addDays(endDate, -(DEFAULT_DAYS - 1));
+    const fallbackStart = fromDate ?? oneYearWindowStart(endDate);
     const runId = await this.createSyncRun(userId, symbols);
     let syncedSymbols = 0;
     let syncedRows = 0;
@@ -406,6 +408,11 @@ function todayVietnam() {
     month: '2-digit',
     day: '2-digit',
   }).format(new Date());
+}
+
+function oneYearWindowStart(endDate: string) {
+  const end = new Date(`${endDate}T00:00:00Z`);
+  return `${end.getUTCFullYear() - 1}-01-01`;
 }
 
 function addDays(value: string, days: number) {
