@@ -34,9 +34,10 @@ export class DividendOhlcvService {
     const symbol = normalizeSymbol(symbolInput);
     await this.assertDividendSymbol(symbol);
     const rangeDays = clampDays(days);
-    const from = rangeDays === DEFAULT_DAYS
-      ? oneYearWindowStart(todayVietnam())
-      : addDays(todayVietnam(), -(rangeDays - 1));
+    const from =
+      rangeDays === DEFAULT_DAYS
+        ? oneYearWindowStart(todayVietnam())
+        : addDays(todayVietnam(), -(rangeDays - 1));
     const { data, error } = await this.db.db
       .from('tce_market_ohlcv_daily')
       .select('symbol,trading_date,open,high,low,close,volume')
