@@ -10,9 +10,6 @@ permissions:
   actions: read
   packages: write
 
-env:
-  TARGET_PLATFORM: linux/arm64
-
 jobs:
   notify-telegram-start:
     name: Notify Telegram — release started
@@ -29,9 +26,12 @@ jobs:
       - name: Send deployment started message
         run: |
           set -euo pipefail
-          MESSAGE="$(printf '%s\n%s' \
-            "🚀 <b>TCE • PRODUCTION RELEASE</b>" \
-            "🌿 Branch    <code>${{ github.ref_name }}</code>\n🔖 Commit    <code>${GITHUB_SHA::7}</code>")"
+          MESSAGE="$(cat <<EOF
+          🚀 <b>TCE • PRODUCTION RELEASE</b>
+          🌿 Branch    <code>${{ github.ref_name }}</code>
+          🔖 Commit    <code>${GITHUB_SHA::7}</code>
+          EOF
+          )"
 
           curl --fail-with-body -sS -X POST \
             "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
@@ -260,6 +260,7 @@ for run in data.get("workflow_runs", []):
 
       - name: Write release summary
         run: |
+          set -euo pipefail
           {
             echo "### Platform Infra image release"
             echo ""
