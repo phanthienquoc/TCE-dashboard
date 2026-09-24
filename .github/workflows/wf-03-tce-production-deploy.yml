@@ -302,7 +302,7 @@ jobs:
                           run.get("html_url"),
                       ))
                       break
-  ' "$DISPATCHED_AT")"
+            ' "$DISPATCHED_AT")"
 
             if [ -n "$MATCH" ]; then
               echo "Platform-infra workflow scheduled: $MATCH"
