@@ -107,8 +107,6 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
-      - name: Verify native architecture
-        run: test "$(uname -m)" = "aarch64"
       - name: Validate backend
         run: |
           set -euo pipefail
@@ -118,6 +116,8 @@ jobs:
           test -d apps/service
           test -d libs
           test -d packages
+      - name: Verify native architecture
+        run: test "$(uname -m)" = "aarch64"
       - name: Build backend image
         env:
           IMAGE_TAG: ${{ needs.detect.outputs.image_tag }}
@@ -200,8 +200,8 @@ jobs:
             echo "PLATFORM_INFRA_TOKEN is required for production GitOps promotion."
             exit 1
           }
-
-          echo "dispatched_at=$(date -u +%s)" >> "$GITHUB_OUTPUT"
+          DISPATCHED_AT="$(date -u +%s)"
+          echo "dispatched_at=$DISPATCHED_AT" >> "$GITHUB_OUTPUT"
 
           curl --fail-with-body -sS -X POST \
             -H "Accept: application/vnd.github+json" \
@@ -216,12 +216,9 @@ jobs:
           DISPATCHED_AT: ${{ steps.dispatch.outputs.dispatched_at }}
         run: |
           set -euo pipefail
-
           REPO="phanthienquoc/platform-infra"
           API="https://api.github.com/repos/$REPO/actions/runs"
-          DISPATCHED_AT="${{ steps.dispatch.outputs.dispatched_at }}"
-
-          echo "Waiting for platform-infra to schedule repository_dispatch for $RELEASE..."
+          echo "Waiting for platform-infra repository_dispatch for $RELEASE..."
 
           for attempt in $(seq 1 12); do
             RUNS_JSON="$(curl --fail-with-body -sS \
@@ -242,7 +239,9 @@ for run in data.get("workflow_runs", []):
         continue
     ts = int(datetime.fromisoformat(created.replace("Z", "+00:00")).timestamp())
     if ts >= cutoff - 5:
-        print("{}|{}|{}|{}".format(run.get("id"), run.get("name"), run.get("status"), run.get("html_url")))
+        print("{}|{}|{}|{}".format(
+            run.get("id"), run.get("name"), run.get("status"), run.get("html_url")
+        ))
         break
 ' "$DISPATCHED_AT")"
 
