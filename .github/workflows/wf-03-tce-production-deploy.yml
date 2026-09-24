@@ -287,12 +287,13 @@ jobs:
               -H "X-GitHub-Api-Version: 2022-11-28" \
               "$API?event=repository_dispatch&per_page=20")"
 
-            MATCH="$(printf '%s' "$RUNS_JSON" | python3 - "$DISPATCHED_AT" <<'PY'
+            MATCH="$(RUNS_JSON="$RUNS_JSON" python3 - "$DISPATCHED_AT" <<'PY'
 import json
+import os
 import sys
 from datetime import datetime
 
-data = json.load(sys.stdin)
+data = json.loads(os.environ["RUNS_JSON"])
 cutoff = int(sys.argv[1])
 
 matches = []
