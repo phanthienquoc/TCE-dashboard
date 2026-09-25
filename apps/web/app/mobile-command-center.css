@@ -580,16 +580,19 @@ body {
     inset: 0;
     z-index: 90;
     display: flex;
-    align-items: flex-start;
+    align-items: flex-end;
     justify-content: center;
-    padding: max(16px, env(safe-area-inset-top)) 0 max(16px, env(safe-area-inset-bottom));
-    background: rgba(0, 0, 0, 0.56);
+    padding: 0;
+    background: rgba(0, 0, 0, 0);
     overflow: hidden;
+    animation: tce-filter-backdrop-in 260ms ease-out forwards;
+    overscroll-behavior: contain;
   }
   .tce-filter-sheet {
     width: min(100%, 520px);
-    max-height: calc(100dvh - max(32px, env(safe-area-inset-top) + env(safe-area-inset-bottom)));
-    margin-top: clamp(8px, 5dvh, 42px);
+    height: min(84dvh, 760px);
+    max-height: calc(100dvh - env(safe-area-inset-top));
+    margin: 0;
     display: flex;
     flex-direction: column;
     overflow: hidden;
@@ -597,15 +600,38 @@ body {
     border-bottom: 0;
     border-radius: 22px 22px 0 0;
     background: linear-gradient(160deg, #102029, #09161d);
-    box-shadow: 0 -18px 45px rgba(0, 0, 0, 0.28);
+    box-shadow: 0 -18px 45px rgba(0, 0, 0, 0.32);
+    transform: translateY(100%);
+    animation: tce-filter-sheet-in 320ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+    padding-bottom: env(safe-area-inset-bottom);
   }
   .tce-filter-sheet-handle {
-    width: 38px;
+    width: 40px;
     height: 4px;
     flex: 0 0 auto;
     margin: 8px auto 2px;
     border-radius: 999px;
     background: rgba(255, 255, 255, 0.24);
+  }
+  @keyframes tce-filter-backdrop-in {
+    from { background: rgba(0, 0, 0, 0); }
+    to { background: rgba(0, 0, 0, 0.56); }
+  }
+  @keyframes tce-filter-sheet-in {
+    from { transform: translateY(100%); opacity: 0.98; }
+    to { transform: translateY(0); opacity: 1; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .tce-filter-sheet-backdrop,
+    .tce-filter-sheet {
+      animation: none;
+    }
+    .tce-filter-sheet-backdrop {
+      background: rgba(0, 0, 0, 0.56);
+    }
+    .tce-filter-sheet {
+      transform: none;
+    }
   }
   .tce-filter-sheet-header {
     display: flex;
@@ -637,6 +663,13 @@ body {
     border-radius: 10px;
     background: rgba(255, 255, 255, 0.035);
     color: var(--tce-muted);
+    transition:
+      background-color 160ms ease,
+      color 160ms ease,
+      transform 140ms ease;
+  }
+  .tce-filter-sheet-close:active {
+    transform: scale(0.96);
   }
   .tce-filter-sheet-content {
     min-height: 0;
@@ -647,21 +680,25 @@ body {
   }
   .tce-filter-sheet-body {
     display: grid;
-    gap: 10px;
+    gap: 8px;
     min-height: 0;
     flex: 1 1 auto;
     overflow-y: auto;
     overscroll-behavior: contain;
-    padding: 12px 16px 14px;
+    padding: 14px 16px 18px;
     -webkit-overflow-scrolling: touch;
   }
   .tce-filter-control {
     display: grid;
-    gap: 7px;
-    padding: 11px;
-    border: 1px solid var(--tce-border);
-    border-radius: 13px;
-    background: rgba(255, 255, 255, 0.025);
+    gap: 8px;
+    padding: 6px 0 14px;
+    border: 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+    border-radius: 0;
+    background: transparent;
+  }
+  .tce-filter-control:last-child {
+    border-bottom: 0;
   }
   .tce-filter-control > span {
     display: flex;
@@ -721,13 +758,21 @@ body {
     flex: 0 0 auto;
     padding: 0 10px;
     border: 1px solid var(--tce-border);
-    border-radius: 9px;
+    border-radius: 999px;
     background: rgba(255, 255, 255, 0.035);
     color: var(--tce-muted);
     font-size: 9px;
     font-weight: 700;
+    transition:
+      border-color 160ms ease,
+      background-color 160ms ease,
+      color 160ms ease,
+      transform 140ms ease;
   }
-  .tce-filter-quick-row button.active {
+  .tce-filter-quick-row button:active {
+    transform: scale(0.97);
+  }
+  .tce-filter-quick-row button[data-active='true'] {
     border-color: rgba(85, 191, 255, 0.45);
     background: rgba(85, 191, 255, 0.1);
     color: var(--tce-blue);
@@ -743,7 +788,8 @@ body {
     font-size: 9px;
   }
   .tce-filter-sheet-footer {
-    position: relative;
+    position: sticky;
+    bottom: 0;
     z-index: 1;
     display: grid;
     grid-template-columns: 1fr 1.45fr;
@@ -751,6 +797,7 @@ body {
     padding: 10px 16px calc(10px + env(safe-area-inset-bottom));
     border-top: 1px solid var(--tce-border);
     background: rgba(7, 16, 22, 0.94);
+    box-shadow: 0 -10px 22px rgba(0, 0, 0, 0.16);
   }
   .tce-filter-sheet-footer button {
     min-height: 44px;
