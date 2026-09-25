@@ -219,7 +219,9 @@ export function DividendPositionsFilter({ className = '' }: Props) {
                     Current price
                   </Label>
                   <div className="tce-filter-input-row">
-                    <span className="tce-filter-prefix" aria-hidden="true">≤</span>
+                    <span className="tce-filter-prefix" aria-hidden="true">
+                      ≤
+                    </span>
                     <Select
                       value={String(draft.priceFilter)}
                       onValueChange={value => setDraft(s => ({ ...s, priceFilter: Number(value) }))}

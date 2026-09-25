@@ -614,12 +614,22 @@ body {
     background: rgba(255, 255, 255, 0.24);
   }
   @keyframes tce-filter-backdrop-in {
-    from { background: rgba(0, 0, 0, 0); }
-    to { background: rgba(0, 0, 0, 0.56); }
+    from {
+      background: rgba(0, 0, 0, 0);
+    }
+    to {
+      background: rgba(0, 0, 0, 0.56);
+    }
   }
   @keyframes tce-filter-sheet-in {
-    from { transform: translateY(100%); opacity: 0.98; }
-    to { transform: translateY(0); opacity: 1; }
+    from {
+      transform: translateY(100%);
+      opacity: 0.98;
+    }
+    to {
+      transform: translateY(0);
+      opacity: 1;
+    }
   }
   @media (prefers-reduced-motion: reduce) {
     .tce-filter-sheet-backdrop,
