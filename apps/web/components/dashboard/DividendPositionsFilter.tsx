@@ -1,8 +1,9 @@
 'use client';
 
-import { CalendarDays, ChevronDown, Percent, SlidersHorizontal, Tag, X } from 'lucide-react';
+import { CalendarDays, ChevronDown, Percent, SlidersHorizontal, Tag } from 'lucide-react';
 import { useEffect, useMemo, useState, type Dispatch, type SetStateAction } from 'react';
 import { Button } from '../ui/button';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '../ui/dialog';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
@@ -155,40 +156,18 @@ export function DividendPositionsFilter({ className = '' }: Props) {
         </button>
       </div>
 
-      {open ? (
-        <div
-          className="tce-filter-sheet-backdrop"
-          role="presentation"
-          onMouseDown={event => {
-            if (event.target === event.currentTarget) setOpen(false);
-          }}
-        >
-          <section
-            className="tce-filter-sheet"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="dividend-filter-title"
-            aria-describedby="dividend-filter-description"
-            onMouseDown={event => event.stopPropagation()}
-          >
-            <div className="tce-filter-sheet-handle" aria-hidden="true" />
-            <header className="tce-filter-sheet-header">
-              <div className="min-w-0">
-                <strong id="dividend-filter-title">Filter Dividend</strong>
-                <span id="dividend-filter-description">
-                  Choose the dividend month and screening rules
-                </span>
-              </div>
-              <button
-                type="button"
-                className="tce-filter-sheet-close touch-target"
-                onClick={() => setOpen(false)}
-                aria-label="Close dividend filters"
-              >
-                <X className="size-4" aria-hidden="true" />
-              </button>
-            </header>
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent className="tce-filter-sheet">
+          <DialogHeader className="tce-filter-sheet-header">
+            <div className="min-w-0">
+              <DialogTitle>Filter Dividend</DialogTitle>
+              <DialogDescription>
+                Choose the dividend month and screening rules
+              </DialogDescription>
+            </div>
+          </DialogHeader>
 
+          <div className="tce-filter-sheet-content">
             <div className="tce-filter-sheet-content">
               <div className="tce-filter-sheet-body">
                 <div className="tce-filter-control">
@@ -339,9 +318,9 @@ export function DividendPositionsFilter({ className = '' }: Props) {
                 </Button>
               </footer>
             </div>
-          </section>
-        </div>
-      ) : null}
+          </div>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }
