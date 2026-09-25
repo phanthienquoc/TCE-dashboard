@@ -10,12 +10,18 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { useDashboardStore } from '../../lib/store';
 import {
   usePositionFilterStore,
-  DEFAULT_POSITION_PRICE_FILTER,
+  DEFAULT_POSITION_MIN_PRICE,
+  DEFAULT_POSITION_MAX_PRICE,
   type PositionDividendFilters,
 } from '../../lib/position-filter-store';
 import { useStockEventStore, type StockEvent } from '../../lib/stock-event-store';
 
-const PRICE_OPTIONS = Array.from({ length: 9 }, (_, i) => (i + 1) * 10_000);
+const PRICE_PRESETS = [
+  { label: '10–20K', min: 10_000, max: 20_000 },
+  { label: '10–30K', min: 10_000, max: 30_000 },
+  { label: '20–30K', min: 20_000, max: 30_000 },
+  { label: '10–50K', min: 10_000, max: 50_000 },
+];
 
 type Props = {
   className?: string;
@@ -24,12 +30,13 @@ type Props = {
 export function DividendPositionsFilter({ className = '' }: Props) {
   const events = useStockEventStore(s => s.events);
   const marketPrices = useDashboardStore(s => s.marketPrices);
-  const { selectedMonth, priceFilter, minYield, maxYield, setFilters } = usePositionFilterStore();
+  const { selectedMonth, minPrice, maxPrice, minYield, maxYield, setFilters } = usePositionFilterStore();
   const [hydrated, setHydrated] = useState(false);
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState<PositionDividendFilters>({
     selectedMonth,
-    priceFilter,
+    minPrice,
+    maxPrice,
     minYield,
     maxYield,
   });
@@ -52,10 +59,11 @@ export function DividendPositionsFilter({ className = '' }: Props) {
               typeof legacy.selectedMonth === 'string'
                 ? legacy.selectedMonth
                 : current.selectedMonth,
-            priceFilter:
+            minPrice: DEFAULT_POSITION_MIN_PRICE,
+            maxPrice:
               Number.isFinite(Number(legacy.priceFilter)) && Number(legacy.priceFilter) > 0
                 ? Number(legacy.priceFilter)
-                : current.priceFilter,
+                : current.maxPrice,
             minYield: parseYieldFilter(legacy.minYield),
             maxYield: parseYieldFilter(legacy.maxYield),
           }));
@@ -71,7 +79,8 @@ export function DividendPositionsFilter({ className = '' }: Props) {
       const next = usePositionFilterStore.getState();
       setDraft({
         selectedMonth: next.selectedMonth,
-        priceFilter: next.priceFilter,
+        minPrice: next.minPrice,
+        maxPrice: next.maxPrice,
         minYield: next.minYield,
         maxYield: next.maxYield,
       });
@@ -87,13 +96,14 @@ export function DividendPositionsFilter({ className = '' }: Props) {
   }, []);
 
   const effective = hydrated
-    ? { selectedMonth, priceFilter, minYield, maxYield }
+    ? { selectedMonth, minPrice, maxPrice, minYield, maxYield }
     : usePositionFilterStore.getState();
 
   const monthGroups = useMemo(
     () =>
       buildFutureMonthGroups(events, {
-        maxPrice: effective.priceFilter,
+        minPrice: effective.minPrice,
+        maxPrice: effective.maxPrice,
         minYield: effective.minYield,
         maxYield: effective.maxYield,
         marketPrices,
@@ -101,7 +111,8 @@ export function DividendPositionsFilter({ className = '' }: Props) {
     [
       events,
       effective.selectedMonth,
-      effective.priceFilter,
+      effective.minPrice,
+      effective.maxPrice,
       effective.minYield,
       effective.maxYield,
       marketPrices,
@@ -111,7 +122,7 @@ export function DividendPositionsFilter({ className = '' }: Props) {
   const monthOptions = useMemo(() => futureMonthKeys(), []);
 
   const openFilters = () => {
-    setDraft({ selectedMonth, priceFilter, minYield, maxYield });
+    setDraft({ selectedMonth, minPrice, maxPrice, minYield, maxYield });
     setOpen(true);
   };
   const applyFilters = () => {
@@ -121,7 +132,8 @@ export function DividendPositionsFilter({ className = '' }: Props) {
   const resetDraft = () => {
     const next = {
       selectedMonth: currentMonthKey(),
-      priceFilter: DEFAULT_POSITION_PRICE_FILTER,
+      minPrice: DEFAULT_POSITION_MIN_PRICE,
+      maxPrice: DEFAULT_POSITION_MAX_PRICE,
       minYield: null,
       maxYield: null,
     };
@@ -144,7 +156,7 @@ export function DividendPositionsFilter({ className = '' }: Props) {
             <span>
               <b>Ex-date {dividendMonthLabel(effective.selectedMonth)}</b>
               <i>•</i>
-              <b>Price ≤ {effective.priceFilter.toLocaleString('vi-VN')} ₫</b>
+              <b>Price {effective.minPrice / 1000}–{effective.maxPrice / 1000}K ₫</b>
               <i>•</i>
               <b>
                 Yield {effective.minYield ?? 0}–{effective.maxYield ?? '∞'}%
@@ -195,40 +207,54 @@ export function DividendPositionsFilter({ className = '' }: Props) {
                     <Tag className="size-4" />
                     Current price
                   </Label>
-                  <div className="tce-filter-input-row">
-                    <span className="tce-filter-prefix" aria-hidden="true">
-                      ≤
-                    </span>
-                    <Select
-                      value={String(draft.priceFilter)}
-                      onValueChange={value => setDraft(s => ({ ...s, priceFilter: Number(value) }))}
-                    >
-                      <SelectTrigger aria-label="Maximum current price">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {PRICE_OPTIONS.map(value => (
-                          <SelectItem key={value} value={String(value)}>
-                            {value.toLocaleString('vi-VN')} ₫
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                  <div className="tce-filter-range-row">
+                    <Input
+                      type="number"
+                      min="0"
+                      step="100"
+                      inputMode="numeric"
+                      value={draft.minPrice}
+                      onChange={e =>
+                        updatePrice(setDraft, 'minPrice', e.target.value, draft.maxPrice)
+                      }
+                      aria-label="Minimum current price"
+                    />
+                    <span>to</span>
+                    <Input
+                      type="number"
+                      min="0"
+                      step="100"
+                      inputMode="numeric"
+                      value={draft.maxPrice}
+                      onChange={e =>
+                        updatePrice(setDraft, 'maxPrice', e.target.value, draft.minPrice)
+                      }
+                      aria-label="Maximum current price"
+                    />
                   </div>
                   <div className="tce-filter-quick-row">
-                    {[10_000, 20_000, 30_000, 50_000].map(value => (
-                      <Button
-                        key={value}
-                        type="button"
-                        size="sm"
-                        variant="ghost"
-                        className="tce-filter-quick-chip"
-                        data-active={draft.priceFilter === value}
-                        onClick={() => setDraft(s => ({ ...s, priceFilter: value }))}
-                      >
-                        ≤ {value / 1000}k
-                      </Button>
-                    ))}
+                    {PRICE_PRESETS.map(item => {
+                      const active = draft.minPrice === item.min && draft.maxPrice === item.max;
+                      return (
+                        <Button
+                          key={item.label}
+                          type="button"
+                          size="sm"
+                          variant="ghost"
+                          className="tce-filter-quick-chip"
+                          data-active={active}
+                          onClick={() =>
+                            setDraft(s => ({
+                              ...s,
+                              minPrice: item.min,
+                              maxPrice: item.max,
+                            }))
+                          }
+                        >
+                          {item.label}
+                        </Button>
+                      );
+                    })}
                   </div>
                 </div>
 
@@ -303,7 +329,8 @@ export function DividendPositionsFilter({ className = '' }: Props) {
                   className="tce-filter-reset"
                   disabled={
                     draft.selectedMonth === currentMonthKey() &&
-                    draft.priceFilter === DEFAULT_POSITION_PRICE_FILTER &&
+                    draft.minPrice === DEFAULT_POSITION_MIN_PRICE &&
+                    draft.maxPrice === DEFAULT_POSITION_MAX_PRICE &&
                     draft.minYield == null &&
                     draft.maxYield == null
                   }
@@ -321,6 +348,21 @@ export function DividendPositionsFilter({ className = '' }: Props) {
       </Dialog>
     </>
   );
+}
+
+function updatePrice(
+  setDraft: Dispatch<SetStateAction<PositionDividendFilters>>,
+  field: 'minPrice' | 'maxPrice',
+  value: string,
+  other: number
+) {
+  const next = Math.max(0, Number(value) || 0);
+  setDraft(current => {
+    const state = { ...current, [field]: next };
+    if (field === 'minPrice' && next > other) state.maxPrice = next;
+    if (field === 'maxPrice' && next < other) state.minPrice = next;
+    return state;
+  });
 }
 
 function updateYield(
@@ -365,13 +407,14 @@ type MonthGroup = { monthKey: string; cards: Array<{ symbol: string; events: Sto
 function buildFutureMonthGroups(
   events: StockEvent[],
   filters: {
+    minPrice: number;
     maxPrice: number;
     minYield: number | null;
     maxYield: number | null;
     marketPrices: Record<string, { price?: number | null }>;
   }
 ): MonthGroup[] {
-  const { maxPrice, minYield, maxYield, marketPrices } = filters;
+  const { minPrice, maxPrice, minYield, maxYield, marketPrices } = filters;
   const now = new Date();
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
   const start = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -392,7 +435,7 @@ function buildFutureMonthGroups(
     if (!date || !symbol || date.getTime() < today) continue;
     const live = marketPrices[symbol]?.price;
     const price = Number(live) > 0 ? Number(live) : Number(event.currentPrice ?? event.price ?? 0);
-    if (price <= 0 || price > maxPrice) continue;
+    if (price < minPrice || price > maxPrice) continue;
     const yieldPct = Number(event.dividendYieldPct);
     if (minYield != null || maxYield != null) {
       if (!Number.isFinite(yieldPct)) continue;
