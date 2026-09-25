@@ -3,11 +3,13 @@
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 
-export const DEFAULT_POSITION_PRICE_FILTER = 30_000;
+export const DEFAULT_POSITION_MIN_PRICE = 10_000;
+export const DEFAULT_POSITION_MAX_PRICE = 30_000;
 
 export type PositionDividendFilters = {
   selectedMonth: string;
-  priceFilter: number;
+  minPrice: number;
+  maxPrice: number;
   minYield: number | null;
   maxYield: number | null;
 };
@@ -24,7 +26,8 @@ function currentMonthKey() {
 
 const defaults = (): PositionDividendFilters => ({
   selectedMonth: currentMonthKey(),
-  priceFilter: DEFAULT_POSITION_PRICE_FILTER,
+  minPrice: DEFAULT_POSITION_MIN_PRICE,
+  maxPrice: DEFAULT_POSITION_MAX_PRICE,
   minYield: null,
   maxYield: null,
 });
@@ -38,11 +41,29 @@ export const usePositionFilterStore = create<PositionFilterStore>()(
     }),
     {
       name: 'tce:positions:dividend-filters:v2',
-      version: 2,
+      version: 3,
+      migrate: (persisted: unknown) => {
+        const state = persisted as Partial<PositionDividendFilters> & { priceFilter?: number };
+        return {
+          selectedMonth:
+            typeof state.selectedMonth === 'string' ? state.selectedMonth : currentMonthKey(),
+          minPrice: Number.isFinite(Number(state.minPrice))
+            ? Number(state.minPrice)
+            : DEFAULT_POSITION_MIN_PRICE,
+          maxPrice: Number.isFinite(Number(state.maxPrice))
+            ? Number(state.maxPrice)
+            : Number.isFinite(Number(state.priceFilter))
+              ? Number(state.priceFilter)
+              : DEFAULT_POSITION_MAX_PRICE,
+          minYield: state.minYield == null ? null : Number(state.minYield),
+          maxYield: state.maxYield == null ? null : Number(state.maxYield),
+        };
+      },
       storage: createJSONStorage(() => localStorage),
       partialize: state => ({
         selectedMonth: state.selectedMonth,
-        priceFilter: state.priceFilter,
+        minPrice: state.minPrice,
+        maxPrice: state.maxPrice,
         minYield: state.minYield,
         maxYield: state.maxYield,
       }),
