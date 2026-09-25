@@ -157,7 +157,7 @@ export function DividendPositionsFilter({ className = '' }: Props) {
       </div>
 
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="tce-filter-sheet" showCloseButton>
+        <DialogContent className="tce-filter-sheet">
           <DialogHeader className="tce-filter-sheet-header">
             <div className="min-w-0">
               <DialogTitle>Filter Dividend</DialogTitle>
