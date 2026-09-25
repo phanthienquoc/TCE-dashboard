@@ -46,7 +46,9 @@ export function DividendPositionsFilter({ className = '' }: Props) {
     try {
       const legacyRaw = window.localStorage.getItem('tce:positions:dividend-filters:v1');
       if (legacyRaw) {
-        const legacy = JSON.parse(legacyRaw) as Partial<PositionDividendFilters>;
+        const legacy = JSON.parse(legacyRaw) as Partial<PositionDividendFilters> & {
+          priceFilter?: number;
+        };
         if (
           legacy.selectedMonth ||
           legacy.priceFilter ||
