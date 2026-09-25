@@ -47,16 +47,14 @@ export const usePositionFilterStore = create<PositionFilterStore>()(
         return {
           selectedMonth:
             typeof state.selectedMonth === 'string' ? state.selectedMonth : currentMonthKey(),
-          minPrice:
-            Number.isFinite(Number(state.minPrice))
-              ? Number(state.minPrice)
-              : DEFAULT_POSITION_MIN_PRICE,
-          maxPrice:
-            Number.isFinite(Number(state.maxPrice))
-              ? Number(state.maxPrice)
-              : Number.isFinite(Number(state.priceFilter))
-                ? Number(state.priceFilter)
-                : DEFAULT_POSITION_MAX_PRICE,
+          minPrice: Number.isFinite(Number(state.minPrice))
+            ? Number(state.minPrice)
+            : DEFAULT_POSITION_MIN_PRICE,
+          maxPrice: Number.isFinite(Number(state.maxPrice))
+            ? Number(state.maxPrice)
+            : Number.isFinite(Number(state.priceFilter))
+              ? Number(state.priceFilter)
+              : DEFAULT_POSITION_MAX_PRICE,
           minYield: state.minYield == null ? null : Number(state.minYield),
           maxYield: state.maxYield == null ? null : Number(state.maxYield),
         };

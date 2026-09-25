@@ -30,7 +30,8 @@ type Props = {
 export function DividendPositionsFilter({ className = '' }: Props) {
   const events = useStockEventStore(s => s.events);
   const marketPrices = useDashboardStore(s => s.marketPrices);
-  const { selectedMonth, minPrice, maxPrice, minYield, maxYield, setFilters } = usePositionFilterStore();
+  const { selectedMonth, minPrice, maxPrice, minYield, maxYield, setFilters } =
+    usePositionFilterStore();
   const [hydrated, setHydrated] = useState(false);
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState<PositionDividendFilters>({
@@ -158,7 +159,9 @@ export function DividendPositionsFilter({ className = '' }: Props) {
             <span>
               <b>Ex-date {dividendMonthLabel(effective.selectedMonth)}</b>
               <i>•</i>
-              <b>Price {effective.minPrice / 1000}–{effective.maxPrice / 1000}K ₫</b>
+              <b>
+                Price {effective.minPrice / 1000}–{effective.maxPrice / 1000}K ₫
+              </b>
               <i>•</i>
               <b>
                 Yield {effective.minYield ?? 0}–{effective.maxYield ?? '∞'}%
