@@ -161,9 +161,7 @@ export function DividendPositionsFilter({ className = '' }: Props) {
           <DialogHeader className="tce-filter-sheet-header">
             <div className="min-w-0">
               <DialogTitle>Filter Dividend</DialogTitle>
-              <DialogDescription>
-                Choose the dividend month and screening rules
-              </DialogDescription>
+              <DialogDescription>Choose the dividend month and screening rules</DialogDescription>
             </div>
           </DialogHeader>
 
