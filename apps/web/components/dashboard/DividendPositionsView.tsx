@@ -14,7 +14,8 @@ type MonthGroup = { monthKey: string; cards: Array<{ symbol: string; events: Sto
 export function DividendPositionsView({ data, actions }: ViewProps) {
   const [expanded, setExpanded] = useState<string | null>(null);
   const selectedMonth = usePositionFilterStore(s => s.selectedMonth);
-  const priceFilter = usePositionFilterStore(s => s.priceFilter);
+  const minPrice = usePositionFilterStore(s => s.minPrice);
+  const maxPrice = usePositionFilterStore(s => s.maxPrice);
   const minYield = usePositionFilterStore(s => s.minYield);
   const maxYield = usePositionFilterStore(s => s.maxYield);
   const events = useStockEventStore(s => s.events);
@@ -31,12 +32,13 @@ export function DividendPositionsView({ data, actions }: ViewProps) {
   const monthGroups = useMemo(
     () =>
       buildFutureMonthGroups(events, {
-        maxPrice: priceFilter,
+        minPrice,
+        maxPrice,
         minYield,
         maxYield,
         marketPrices,
       }).filter(g => g.monthKey === selectedMonth),
-    [events, selectedMonth, priceFilter, minYield, maxYield, marketPrices]
+    [events, selectedMonth, minPrice, maxPrice, minYield, maxYield, marketPrices]
   );
   const symbolsKey = useMemo(
     () => monthGroups.flatMap(g => g.cards.map(c => c.symbol)).join(','),
@@ -199,6 +201,7 @@ function futureMonthKeys(): string[] {
   });
 }
 type DividendFilterOptions = {
+  minPrice: number;
   maxPrice: number;
   minYield: number | null;
   maxYield: number | null;
@@ -209,7 +212,7 @@ function buildFutureMonthGroups(
   events: StockEvent[],
   filters: DividendFilterOptions
 ): MonthGroup[] {
-  const { maxPrice, minYield, maxYield, marketPrices } = filters;
+  const { minPrice, maxPrice, minYield, maxYield, marketPrices } = filters;
   const n = new Date();
   const today = new Date(n.getFullYear(), n.getMonth(), n.getDate()).getTime();
   const s = new Date(n.getFullYear(), n.getMonth(), 1);
@@ -231,7 +234,7 @@ function buildFutureMonthGroups(
 
     const live = marketPrices[symbol]?.price;
     const price = Number(live) > 0 ? Number(live) : Number(event.currentPrice ?? event.price ?? 0);
-    if (price <= 0 || price > maxPrice) continue;
+    if (price <= 0 || price < minPrice || price > maxPrice) continue;
 
     // Yield is part of the event being rendered, so apply the same value used by the card.
     // Keep missing/invalid yields out when a yield filter is explicitly active.
