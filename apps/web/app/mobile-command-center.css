@@ -937,7 +937,6 @@ body {
 
 /* Restored pre-705 mobile layout. */
 
-
 /* Positions HUD: use the available viewport in landscape/tablet widths while
    keeping the compact mobile card language on phones. */
 @media screen and (min-width: 768px) {
