@@ -937,7 +937,6 @@ body {
 
 /* Restored pre-705 mobile layout. */
 
-
 /* Landscape mobile: game-like command-center density.
    Preserve the TCE visual language; compress chrome, typography and cards
    so the workspace fills the viewport like a game HUD. */
@@ -1126,8 +1125,8 @@ body {
     gap: 4px !important;
   }
 
-  .tce-position-card [class*="text-"],
-  .tce-dividend-card [class*="text-"] {
+  .tce-position-card [class*='text-'],
+  .tce-dividend-card [class*='text-'] {
     line-height: 1.05;
   }
 
