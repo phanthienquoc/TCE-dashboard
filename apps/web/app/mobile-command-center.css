@@ -937,7 +937,6 @@ body {
 
 /* Restored pre-705 mobile layout. */
 
-
 /* Full mobile landscape command-center mode. Keep portrait unchanged. */
 @media screen and (max-width: 767px) and (orientation: landscape) {
   html,
