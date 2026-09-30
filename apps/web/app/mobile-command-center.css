@@ -936,3 +936,100 @@ body {
 }
 
 /* Restored pre-705 mobile layout. */
+
+
+/* Positions HUD: use the available viewport in landscape/tablet widths while
+   keeping the compact mobile card language on phones. */
+@media screen and (min-width: 768px) {
+  .tce-mobile-view.tce-position-hud {
+    width: 100%;
+    max-width: none;
+    padding: 14px 0 24px;
+  }
+
+  .tce-position-hud .tce-mobile-header {
+    margin-bottom: 14px;
+  }
+
+  .tce-position-hud .tce-positions-content {
+    width: 100%;
+  }
+
+  .tce-position-hud .tce-positions-list {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+    align-items: start;
+  }
+
+  .tce-position-hud .tce-dividend-month-group {
+    display: contents;
+  }
+
+  .tce-position-hud .tce-list-stack {
+    display: contents;
+  }
+
+  .tce-position-hud .tce-dividend-card {
+    min-width: 0;
+    padding: 12px;
+  }
+
+  .tce-position-hud .tce-pool-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 6px;
+  }
+
+  .tce-position-hud .tce-pool-grid > div {
+    padding: 8px;
+  }
+
+  .tce-position-hud .tce-card-actions {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+}
+
+@media screen and (min-width: 1180px) {
+  .tce-position-hud .tce-positions-list {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .tce-position-hud .tce-mobile-header {
+    min-height: 46px;
+  }
+
+  .tce-position-hud .tce-header-brand strong {
+    font-size: 17px;
+  }
+}
+
+@media screen and (orientation: landscape) and (max-height: 520px) {
+  .tce-position-hud {
+    padding-top: 6px !important;
+  }
+
+  .tce-position-hud .tce-mobile-header {
+    min-height: 40px;
+    margin-bottom: 8px;
+  }
+
+  .tce-position-hud .tce-header-brand strong {
+    font-size: 16px;
+  }
+
+  .tce-position-hud .tce-header-brand span {
+    font-size: 8px;
+  }
+
+  .tce-position-hud .tce-live-pill {
+    padding: 4px 7px;
+  }
+
+  .tce-position-hud .tce-dividend-card {
+    padding: 10px;
+  }
+
+  .tce-position-hud .tce-pool-grid {
+    margin-top: 7px;
+  }
+}
