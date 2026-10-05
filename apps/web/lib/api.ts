@@ -14,9 +14,15 @@ export const authClient: AxiosInstance = axios.create({
 
 authClient.interceptors.request.use(config => {
   if (typeof document === 'undefined') return config;
-  const csrf = document.cookie.split('; ').find(value => value.startsWith('__Secure-microfe_csrf='))?.split('=').slice(1).join('=');
+  const csrf = document.cookie
+    .split('; ')
+    .find(value => value.startsWith('__Secure-microfe_csrf='))
+    ?.split('=')
+    .slice(1)
+    .join('=');
   const method = String(config.method ?? 'get').toUpperCase();
-  if (csrf && ['POST', 'PUT', 'PATCH', 'DELETE'].includes(method)) config.headers['x-csrf-token'] = decodeURIComponent(csrf);
+  if (csrf && ['POST', 'PUT', 'PATCH', 'DELETE'].includes(method))
+    config.headers['x-csrf-token'] = decodeURIComponent(csrf);
   return config;
 });
 

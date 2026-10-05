@@ -100,14 +100,18 @@ class MicrofeWebSocket {
     const seen = this.seen.get(item.channel) ?? new Set<string>();
     if (seen.has(item.id)) return;
     seen.add(item.id);
-    if (seen.size > 512) { const oldest = seen.values().next().value; if (oldest) seen.delete(oldest); }
+    if (seen.size > 512) {
+      const oldest = seen.values().next().value;
+      if (oldest) seen.delete(oldest);
+    }
 
     if (typeof item.sequence === 'number') {
       const previous = this.sequence.get(item.channel);
       if (previous != null && item.sequence > previous + 1) {
         this.options.onGap?.(item.channel, previous + 1, item.sequence);
       }
-      if (previous == null || item.sequence > previous) this.sequence.set(item.channel, item.sequence);
+      if (previous == null || item.sequence > previous)
+        this.sequence.set(item.channel, item.sequence);
       if (item.sequence <= (previous ?? -1)) return;
     }
 
@@ -124,7 +128,10 @@ class MicrofeWebSocket {
     this.heartbeatTimer = setInterval(() => {
       this.send({ type: 'ping', timestamp: new Date().toISOString() });
       if (this.heartbeatTimeout) clearTimeout(this.heartbeatTimeout);
-      this.heartbeatTimeout = setTimeout(() => this.socket?.close(4000, 'heartbeat_timeout'), 10000);
+      this.heartbeatTimeout = setTimeout(
+        () => this.socket?.close(4000, 'heartbeat_timeout'),
+        10000
+      );
     }, 25000);
   }
 

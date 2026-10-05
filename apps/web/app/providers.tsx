@@ -17,7 +17,10 @@ import { useRouter } from 'next/navigation';
 function MicrofeWebSocketBridge() {
   const authStatus = useAuthStore(state => state.status);
   useEffect(() => {
-    if (authStatus !== 'authenticated') { microfeWs.stop(); return; }
+    if (authStatus !== 'authenticated') {
+      microfeWs.stop();
+      return;
+    }
     microfeWs.start({ onAuthRequired: () => void useAuthStore.getState().logout() });
     return () => microfeWs.stop();
   }, [authStatus]);
