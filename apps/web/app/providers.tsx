@@ -11,8 +11,18 @@ import {
 } from '../lib/system-updates';
 import { rememberSystemUpdate } from '../lib/system-updates';
 import { startAppDataWorker } from '../lib/app-data-worker';
+import { microfeWs } from '../lib/microfe-ws';
 import { useRouter } from 'next/navigation';
 
+function MicrofeWebSocketBridge() {
+  const authStatus = useAuthStore(state => state.status);
+  useEffect(() => {
+    if (authStatus !== 'authenticated') { microfeWs.stop(); return; }
+    microfeWs.start({ onAuthRequired: () => void useAuthStore.getState().logout() });
+    return () => microfeWs.stop();
+  }, [authStatus]);
+  return null;
+}
 function SystemUpdateBridge() {
   const authStatus = useAuthStore(state => state.status);
   const toast = useToast();
@@ -62,6 +72,7 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
   return (
     <ThemeProvider defaultTheme="tce">
       <ToastProvider>
+        <MicrofeWebSocketBridge />
         <SystemUpdateBridge />
         {children}
       </ToastProvider>
