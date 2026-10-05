@@ -1,7 +1,7 @@
 'use client';
 
 import { startAuthentication, startRegistration } from '@simplewebauthn/browser';
-import { api, authApi } from './api';
+import { authApi } from './api';
 
 export async function signInWithPasskey() {
   const options = (await authApi.passkeyLoginOptions()).data;
@@ -10,7 +10,7 @@ export async function signInWithPasskey() {
 }
 
 export async function registerPasskey() {
-  const options = (await api.post('/auth/passkey/register/options')).data;
+  const options = (await authApi.passkeyRegisterOptions()).data;
   const response = await startRegistration({ optionsJSON: options });
-  return (await api.post('/auth/passkey/register/verify', response)).data;
+  return (await authApi.passkeyRegisterVerify(response)).data;
 }
