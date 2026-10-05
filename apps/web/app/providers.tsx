@@ -16,12 +16,24 @@ import { useRouter } from 'next/navigation';
 
 function MicrofeWebSocketBridge() {
   const authStatus = useAuthStore(state => state.status);
+  const toast = useToast();
   useEffect(() => {
     if (authStatus !== 'authenticated') {
       microfeWs.stop();
       return;
     }
-    microfeWs.start({ onAuthRequired: () => void useAuthStore.getState().logout() });
+    microfeWs.start({
+      onAuthRequired: () => void useAuthStore.getState().logout(),
+      onEvent: event => {
+        if (event.channel !== 'platform.deployments' || event.data == null) return;
+        const data = event.data as { app?: string; version?: string; status?: string };
+        if (data.app !== 'tce-dashboard') return;
+        const version = data.version ? ` ${data.version}` : '';
+        if (event.event === 'deploying') toast(`🚀 TCE đang deploy${version}...`, 'info');
+        else if (event.event === 'deployed') toast(`✅ TCE đã deploy${version}.`, 'success');
+        else if (event.event === 'failed') toast(`❌ TCE deploy${version} thất bại.`, 'error');
+      },
+    });
     return () => microfeWs.stop();
   }, [authStatus]);
   return null;
