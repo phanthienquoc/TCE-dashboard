@@ -1,6 +1,6 @@
 'use client';
 import { create } from 'zustand';
-import { authApi, setAccessToken, dashboardApi } from './api';
+import { authApi, dashboardApi } from './api';
 import { useTCEDataStore } from './tce-data-store';
 import { useStockEventStore } from './stock-event-store';
 import { startAppDataWorker } from './app-data-worker';
@@ -39,16 +39,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       set({ user: r.data.user, status: 'authenticated', initialized: true });
       prefetchAfterAuth();
     } catch {
-      try {
-        const r = await authApi.refresh();
-        setAccessToken(r.data.accessToken);
-        const me = await authApi.me();
-        set({ user: me.data.user, status: 'authenticated', initialized: true });
-        prefetchAfterAuth();
-      } catch {
-        setAccessToken(null);
-        set({ user: null, status: 'anonymous', initialized: true });
-      }
+      set({ user: null, status: 'anonymous', initialized: true });
     } finally {
       set({ loading: false });
     }
@@ -61,7 +52,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         set({ status: 'anonymous' });
         return r.data;
       }
-      setAccessToken(r.data.accessToken);
       const me = await authApi.me();
       set({ user: me.data.user, status: 'authenticated', initialized: true });
       prefetchAfterAuth();
@@ -82,7 +72,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         set({ status: 'anonymous' });
         return result;
       }
-      setAccessToken(result.accessToken);
       const me = await authApi.me();
       set({ user: me.data.user, status: 'authenticated', initialized: true });
       prefetchAfterAuth();
@@ -101,7 +90,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     set({ status: 'loading', loading: true, error: null });
     try {
       const r = await authApi.mfaLogin(id, c);
-      setAccessToken(r.data.accessToken);
       const me = await authApi.me();
       set({ user: me.data.user, status: 'authenticated', initialized: true });
       prefetchAfterAuth();
@@ -116,7 +104,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     try {
       await authApi.logout();
     } finally {
-      setAccessToken(null);
       useTCEDataStore.getState().clear();
       useStockEventStore.getState().clear();
       useDashboardStore.getState().clear();

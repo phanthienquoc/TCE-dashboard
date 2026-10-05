@@ -1,67 +1,38 @@
-import axios, { AxiosError, type AxiosInstance, type InternalAxiosRequestConfig } from 'axios';
+import axios, { type AxiosInstance } from 'axios';
 import { encryptCredentialPayload } from './credential-transport';
 
 const baseURL = process.env.NEXT_PUBLIC_API_BASE_URL ?? '/api';
+const authBaseURL = process.env.NEXT_PUBLIC_AUTH_BASE_URL ?? 'https://auth.mrcute.space';
+
+/** Browser auth is session-cookie only. No access/refresh token is exposed to JS. */
 export const api: AxiosInstance = axios.create({ baseURL, withCredentials: true, timeout: 15000 });
-let accessToken: string | null = null;
-let refreshPromise: Promise<string | null> | null = null;
-export const setAccessToken = (token: string | null) => {
-  accessToken = token;
-};
-export const getAccessToken = () => accessToken;
-api.interceptors.request.use((config: InternalAxiosRequestConfig) => {
-  if (accessToken) config.headers.Authorization = `Bearer ${accessToken}`;
-  return config;
+export const authClient: AxiosInstance = axios.create({
+  baseURL: authBaseURL,
+  withCredentials: true,
+  timeout: 15000,
 });
-api.interceptors.response.use(
-  r => r,
-  async (error: AxiosError) => {
-    const config = error.config as (InternalAxiosRequestConfig & { _retry?: boolean }) | undefined;
-    if (
-      error.response?.status !== 401 ||
-      !config ||
-      config._retry ||
-      config.url?.includes('/auth/refresh') ||
-      config.url?.includes('/auth/login') ||
-      config.url?.includes('/auth/passkey/login')
-    )
-      throw error;
-    config._retry = true;
-    refreshPromise ??= api
-      .post<{ accessToken: string }>('/auth/refresh')
-      .then(r => {
-        setAccessToken(r.data.accessToken);
-        return r.data.accessToken;
-      })
-      .catch(() => {
-        setAccessToken(null);
-        return null;
-      })
-      .finally(() => {
-        refreshPromise = null;
-      });
-    const token = await refreshPromise;
-    if (!token) throw error;
-    config.headers.Authorization = `Bearer ${token}`;
-    return api.request(config);
-  }
-);
+
 export const authApi = {
-  status: () => api.get('/auth/status'),
-  login: (email: string, password: string) => api.post('/auth/login', { email, password }),
-  mfaLogin: (userId: string, code: string) => api.post('/auth/mfa/login', { userId, code }),
-  recovery: (userId: string, code: string) => api.post('/auth/mfa/recovery', { userId, code }),
-  me: () => api.get('/auth/me'),
-  refresh: () => api.post('/auth/refresh'),
-  logout: () => api.post('/auth/logout'),
-  passkeyLoginOptions: () => api.post('/auth/passkey/login/options'),
-  passkeyLoginVerify: (response: unknown) => api.post('/auth/passkey/login/verify', response),
+  status: () => authClient.get('/auth/status'),
+  login: (email: string, password: string) => authClient.post('/auth/login', { email, password }),
+  mfaLogin: (userId: string, code: string) => authClient.post('/auth/mfa/login', { userId, code }),
+  recovery: (userId: string, code: string) =>
+    authClient.post('/auth/mfa/recovery', { userId, code }),
+  me: () => authClient.get('/auth/me'),
+  refresh: () => authClient.post('/auth/refresh'),
+  logout: () => authClient.post('/auth/logout'),
+  passkeyLoginOptions: () => authClient.post('/auth/passkey/login/options'),
+  passkeyLoginVerify: (response: unknown) =>
+    authClient.post('/auth/passkey/login/verify', response),
+  passkeyRegisterOptions: () => authClient.post('/auth/passkey/register/options'),
+  passkeyRegisterVerify: (response: unknown) =>
+    authClient.post('/auth/passkey/register/verify', response),
 };
 export const passkeyApi = {
-  list: () => api.get('/auth/passkeys'),
+  list: () => authClient.get('/auth/passkeys'),
   rename: (id: string, friendlyName: string) =>
-    api.patch(`/auth/passkeys/${encodeURIComponent(id)}`, { friendlyName }),
-  remove: (id: string) => api.delete(`/auth/passkeys/${encodeURIComponent(id)}`),
+    authClient.patch(`/auth/passkeys/${encodeURIComponent(id)}`, { friendlyName }),
+  remove: (id: string) => authClient.delete(`/auth/passkeys/${encodeURIComponent(id)}`),
 };
 export const dashboardApi = {
   all: (status?: string) => api.get('/dashboard', { params: status ? { status } : undefined }),
