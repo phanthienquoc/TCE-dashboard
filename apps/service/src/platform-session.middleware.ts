@@ -14,7 +14,11 @@ function cookieHeader(headers: IncomingHttpHeaders): string | undefined {
  */
 export function createPlatformSessionMiddleware(jwt: JwtService): RequestHandler {
   return async (req, _res, next) => {
-    if (req.headers.authorization || req.path === '/api/health' || req.path.startsWith('/api/auth')) {
+    if (
+      req.headers.authorization ||
+      req.path === '/api/health' ||
+      req.path.startsWith('/api/auth')
+    ) {
       return next();
     }
     const cookie = cookieHeader(req.headers);
@@ -26,8 +30,10 @@ export function createPlatformSessionMiddleware(jwt: JwtService): RequestHandler
         headers: { cookie, 'x-request-id': String(req.headers['x-request-id'] ?? '') },
         signal: AbortSignal.timeout(Number(process.env.AUTH_INTROSPECTION_TIMEOUT_MS ?? 2000)),
       });
-      if (response.status === 401) return next(new UnauthorizedException('Authentication required'));
-      if (!response.ok) return next(new UnauthorizedException('Authentication service unavailable'));
+      if (response.status === 401)
+        return next(new UnauthorizedException('Authentication required'));
+      if (!response.ok)
+        return next(new UnauthorizedException('Authentication service unavailable'));
       const body = (await response.json()) as { user?: { id?: string; role?: string } };
       if (!body.user?.id) return next(new UnauthorizedException('Invalid authentication context'));
       req.headers.authorization = `Bearer ${jwt.issue(body.user.id, body.user.role ?? 'user')}`;

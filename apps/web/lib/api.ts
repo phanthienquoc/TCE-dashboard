@@ -16,14 +16,17 @@ export const authApi = {
   status: () => authClient.get('/auth/status'),
   login: (email: string, password: string) => authClient.post('/auth/login', { email, password }),
   mfaLogin: (userId: string, code: string) => authClient.post('/auth/mfa/login', { userId, code }),
-  recovery: (userId: string, code: string) => authClient.post('/auth/mfa/recovery', { userId, code }),
+  recovery: (userId: string, code: string) =>
+    authClient.post('/auth/mfa/recovery', { userId, code }),
   me: () => authClient.get('/auth/me'),
   refresh: () => authClient.post('/auth/refresh'),
   logout: () => authClient.post('/auth/logout'),
   passkeyLoginOptions: () => authClient.post('/auth/passkey/login/options'),
-  passkeyLoginVerify: (response: unknown) => authClient.post('/auth/passkey/login/verify', response),
+  passkeyLoginVerify: (response: unknown) =>
+    authClient.post('/auth/passkey/login/verify', response),
   passkeyRegisterOptions: () => authClient.post('/auth/passkey/register/options'),
-  passkeyRegisterVerify: (response: unknown) => authClient.post('/auth/passkey/register/verify', response),
+  passkeyRegisterVerify: (response: unknown) =>
+    authClient.post('/auth/passkey/register/verify', response),
 };
 export const passkeyApi = {
   list: () => authClient.get('/auth/passkeys'),
@@ -40,7 +43,8 @@ export const dashboardApi = {
   priceHistory: (symbol: string, days = 365) =>
     api.get('/dashboard/price-history', { params: { symbol, days } }),
   orders: () => api.get('/dashboard/orders'),
-  pools: (status?: string) => api.get('/dashboard/pools', { params: status ? { status } : undefined }),
+  pools: (status?: string) =>
+    api.get('/dashboard/pools', { params: status ? { status } : undefined }),
   nextPositions: () => api.get('/dashboard/next-positions'),
   dreCampaigns: () => api.get('/dre/dashboard/campaigns'),
   promotePool: (poolEntryId: string, body?: { entry?: number; quantity?: number }) =>
@@ -54,7 +58,8 @@ export const dashboardApi = {
   setEngineStatus: (engineId: string, status: 'ACTIVE' | 'INACTIVE') =>
     api.patch(`/dashboard/engines/${engineId}/status`, { status }),
   engineConfig: () => api.get('/dashboard/engine-config'),
-  setEngineConfig: (config: Record<string, unknown>) => api.patch('/dashboard/engine-config', { config }),
+  setEngineConfig: (config: Record<string, unknown>) =>
+    api.patch('/dashboard/engine-config', { config }),
 };
 export const platformApi = {
   credentials: () => api.get('/platform/credentials'),
@@ -62,19 +67,24 @@ export const platformApi = {
     api.post(`/platform/credentials/${provider}`, { environment, credentials }),
   remove: (provider: string, environment: string) =>
     api.delete(`/platform/credentials/${provider}`, { data: { environment } }),
-  binanceTest: (environment: string) => api.post('/platform/credentials/binance/test', { environment }),
-  binanceOrder: (body: Record<string, unknown>) => api.post('/platform/credentials/binance/order', body),
+  binanceTest: (environment: string) =>
+    api.post('/platform/credentials/binance/test', { environment }),
+  binanceOrder: (body: Record<string, unknown>) =>
+    api.post('/platform/credentials/binance/order', body),
   binanceTp: (body: Record<string, unknown>) => api.post('/platform/credentials/binance/tp', body),
   binanceSl: (body: Record<string, unknown>) => api.post('/platform/credentials/binance/sl', body),
-  binanceClose: (body: Record<string, unknown>) => api.post('/platform/credentials/binance/close', body),
+  binanceClose: (body: Record<string, unknown>) =>
+    api.post('/platform/credentials/binance/close', body),
   geminiTest: (body: { environment: string; credentials: { apiKey: string; text: string } }) =>
     api.post('/platform/credentials/gemini/test', body),
   telegramBots: () => api.get('/platform/telegram/bots'),
   telegramSave: (body: { token: string; chatId?: string; environment?: string; name?: string }) =>
     api.post('/platform/telegram/save', body),
   telegramTest: (token: string) => api.post('/platform/telegram/test', { token }),
-  telegramPause: (body: { environment?: string; name?: string }) => api.post('/platform/telegram/pause', body),
-  telegramResume: (body: { environment?: string; name?: string }) => api.post('/platform/telegram/resume', body),
+  telegramPause: (body: { environment?: string; name?: string }) =>
+    api.post('/platform/telegram/pause', body),
+  telegramResume: (body: { environment?: string; name?: string }) =>
+    api.post('/platform/telegram/resume', body),
   telegramRemove: (body: { environment?: string; name?: string }) =>
     api.delete('/platform/telegram', { data: body }),
   telegramDebugAssignments: () => api.get('/platform/telegram/debug/assignments'),
@@ -85,15 +95,19 @@ export const platformApi = {
     enabled?: boolean;
   }) => api.post('/platform/telegram/debug/assignments', body),
   telegramUnassignDebug: (id: string) => api.delete(`/platform/telegram/debug/assignments/${id}`),
-  ssiOtp: (body: Record<string, unknown>) => api.post('/platform/credentials/ssi/request-otp', body),
-  ssiApprove: (body: Record<string, unknown>) => api.post('/platform/credentials/ssi/approve', body),
+  ssiOtp: (body: Record<string, unknown>) =>
+    api.post('/platform/credentials/ssi/request-otp', body),
+  ssiApprove: (body: Record<string, unknown>) =>
+    api.post('/platform/credentials/ssi/approve', body),
   ssiTest: (body: Record<string, unknown>) => api.post('/platform/credentials/ssi/test', body),
-  ssiSaveTested: (body: Record<string, unknown>) => api.post('/platform/credentials/ssi/save-tested', body),
+  ssiSaveTested: (body: Record<string, unknown>) =>
+    api.post('/platform/credentials/ssi/save-tested', body),
   ssiSave: (environment: string, credentials: Record<string, unknown>) =>
     encryptCredentialPayload({ environment, credentials }).then(payload =>
       api.post('/platform/credentials/ssi/save', payload)
     ),
-  ssiCurrent: (body: Record<string, unknown>) => api.post('/platform/credentials/ssi/current', body),
+  ssiCurrent: (body: Record<string, unknown>) =>
+    api.post('/platform/credentials/ssi/current', body),
   ssiSync: (body: Record<string, unknown>) => api.post('/platform/credentials/ssi/sync', body),
   ssiMarketPriceSync: () => api.post('/platform/credentials/ssi/sync-market-price'),
   ssiOrder: (body: {
@@ -109,7 +123,8 @@ export const platformApi = {
   fastApiConfig: () => api.get('/platform/config/fastapi'),
   saveFastApi: (body: Record<string, string>) => api.post('/platform/config/fastapi', body),
   binanceXauConfig: () => api.get('/tce/engine/binance/config'),
-  saveBinanceXauConfig: (body: Record<string, unknown>) => api.patch('/tce/engine/binance/config', body),
+  saveBinanceXauConfig: (body: Record<string, unknown>) =>
+    api.patch('/tce/engine/binance/config', body),
   binanceXauPositions: (environment = 'production') =>
     api.get('/tce/engine/binance/positions', { headers: { 'x-environment': environment } }),
   binanceXauOrders: (environment = 'production') =>
@@ -123,6 +138,8 @@ export const stocksApi = {
 export const systemUpdatesApi = {
   config: () => api.get<{ ok: boolean; vapidPublicKey: string }>('/tce/system-updates/config'),
   latest: () => api.get('/tce/system-updates/latest'),
-  subscribe: (subscription: PushSubscriptionJSON) => api.post('/tce/system-updates/subscription', subscription),
-  unsubscribe: (endpoint: string) => api.delete('/tce/system-updates/subscription', { data: { endpoint } }),
+  subscribe: (subscription: PushSubscriptionJSON) =>
+    api.post('/tce/system-updates/subscription', subscription),
+  unsubscribe: (endpoint: string) =>
+    api.delete('/tce/system-updates/subscription', { data: { endpoint } }),
 };
