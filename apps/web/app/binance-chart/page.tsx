@@ -4,7 +4,8 @@ import dynamic from 'next/dynamic';
 import DashboardShell from '../../components/dashboard/DashboardShell';
 
 const BinanceRealtimeChart = dynamic(
-  () => import('../../components/dashboard/BinanceRealtimeChart').then(mod => mod.BinanceRealtimeChart),
+  () =>
+    import('../../components/dashboard/BinanceRealtimeChart').then(mod => mod.BinanceRealtimeChart),
   { ssr: false }
 );
 
