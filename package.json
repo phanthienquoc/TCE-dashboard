@@ -10,7 +10,7 @@
   "scripts": {
     "dev": "nx serve web",
     "build": "nx run-many -t build --projects=web,service",
-    "test": "tsx --tsconfig tsconfig.base.json --test $(find libs/binance/src libs/ssi/src libs/tce/src apps/service/src/platform -type f -name '*.spec.ts' ! -name 'assisted-approval.spec.ts' ! -name 'hunting-dividend.engine.spec.ts' ! -name 'trading-authorization.spec.ts') && npx --yes vitest@5.0.0 run --globals libs/tce/src/execution/assisted-approval.spec.ts libs/tce/src/decision/hunting-dividend.engine.spec.ts libs/tce/src/execution/trading-authorization.spec.ts",
+    "test": "set -e; TEST_FILES=$(find libs/binance/src libs/ssi/src libs/tce/src libs/db/src apps/service/src/platform apps/service/src/monitor apps/service/src/stock-events -type f \\( -name '*.spec.ts' -o -name '*.test.ts' \\) | sort); VITEST_FILES=$(printf '%s\\n' \"$TEST_FILES\" | while IFS= read -r file; do [ -z \"$file\" ] || grep -Eq 'vitest|jest\\.' \"$file\" && printf '%s\\n' \"$file\"; done); NODE_FILES=$(printf '%s\\n' \"$TEST_FILES\" | grep -Fvx -f <(printf '%s\\n' \"$VITEST_FILES\") || true); [ -z \"$NODE_FILES\" ] || tsx --tsconfig tsconfig.base.json --test $NODE_FILES; [ -z \"$VITEST_FILES\" ] || npx --yes vitest@5.0.0 run --globals $VITEST_FILES",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "lint": "eslint .",
