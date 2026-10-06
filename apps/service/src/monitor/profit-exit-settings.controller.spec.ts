@@ -1,3 +1,5 @@
+import { describe, expect, it, vi } from 'vitest';
+
 import { normalizeHoldSymbols, ProfitExitCronService } from './profit-exit-cron.service';
 import { ProfitExitSettingsController } from './profit-exit-settings.controller';
 
@@ -16,14 +18,14 @@ describe('ProfitExitSettingsController', () => {
         },
         error: null,
       });
-    const eq = jest.fn(() => ({ maybeSingle }));
-    const select = jest.fn(() => ({ eq }));
-    const from = jest.fn((table: string) => {
+    const eq = vi.fn(() => ({ maybeSingle }));
+    const select = vi.fn(() => ({ eq }));
+    const from = vi.fn((table: string) => {
       if (table === 'tce_accounts') return { select };
       return {
-        select: jest.fn(() => ({
-          eq: jest.fn(() => ({
-            neq: jest.fn(() => ({
+        select: vi.fn(() => ({
+          eq: vi.fn(() => ({
+            neq: vi.fn(() => ({
               then: undefined,
             })),
           })),
@@ -31,13 +33,13 @@ describe('ProfitExitSettingsController', () => {
       };
     });
     const db = {
-      from: jest.fn((table: string) => {
+      from: vi.fn((table: string) => {
         if (table === 'tce_accounts') return { select };
         if (table === 'tce_strategy_config') return { select };
         return {
-          select: jest.fn(() => ({
-            eq: jest.fn(() => ({
-              neq: jest.fn(() =>
+          select: vi.fn(() => ({
+            eq: vi.fn(() => ({
+              neq: vi.fn(() =>
                 Promise.resolve({ data: [{ symbol: 'vnm' }, { symbol: 'fpt' }], error: null })
               ),
             })),
@@ -45,8 +47,8 @@ describe('ProfitExitSettingsController', () => {
         };
       }),
     };
-    const jwt = { verify: jest.fn(() => ({ sub: 'user-1' })) };
-    const cron = { run: jest.fn() } as unknown as ProfitExitCronService;
+    const jwt = { verify: vi.fn(() => ({ sub: 'user-1' })) };
+    const cron = { run: vi.fn() } as unknown as ProfitExitCronService;
     const controller = new ProfitExitSettingsController({ db } as never, jwt as never, cron);
 
     await expect(controller.get('Bearer token')).resolves.toEqual({

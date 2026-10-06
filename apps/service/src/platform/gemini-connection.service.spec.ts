@@ -1,3 +1,5 @@
+import { afterEach, describe, expect, it, vi } from 'vitest';
+
 import { GeminiConnectionService } from './gemini-connection.service';
 
 describe('GeminiConnectionService', () => {
@@ -8,7 +10,7 @@ describe('GeminiConnectionService', () => {
   });
 
   it('constructs the fixed generateContent request and accepts a valid response', async () => {
-    const fetchMock = jest.fn().mockResolvedValue({
+    const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
       status: 200,
       json: async () => ({
@@ -49,7 +51,7 @@ describe('GeminiConnectionService', () => {
   });
 
   it('uses the default test text when none is provided', async () => {
-    const fetchMock = jest.fn().mockResolvedValue({
+    const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
       status: 200,
       json: async () => ({
@@ -81,7 +83,7 @@ describe('GeminiConnectionService', () => {
       [404, '', 'Gemini model was not found or is unavailable for this API key.'],
       [429, '', 'Gemini quota or rate limit reached.'],
     ] as const) {
-      global.fetch = jest.fn().mockResolvedValue({
+      global.fetch = vi.fn().mockResolvedValue({
         ok: false,
         status,
         json: async () => ({ error: { message: providerMessage } }),
