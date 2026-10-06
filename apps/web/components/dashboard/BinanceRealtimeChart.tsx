@@ -2,8 +2,9 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  createChart,
+  CandlestickSeries,
   ColorType,
+  createChart,
   type IChartApi,
   type ISeriesApi,
   type CandlestickData,
@@ -85,7 +86,7 @@ export function BinanceRealtimeChart({
       },
     });
 
-    const series = chart.addCandlestickSeries({
+    const series = chart.addSeries(CandlestickSeries, {
       upColor: '#34d399',
       downColor: '#fb7185',
       borderVisible: false,
