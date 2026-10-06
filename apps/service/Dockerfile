@@ -23,8 +23,7 @@ RUN rm -rf /app/.cache/puppeteer/chrome-headless-shell \
   && executable="$(find /app/.cache/puppeteer/chrome-headless-shell -type f -name chrome-headless-shell -perm -111 | head -n 1)" \
   && test -n "$executable" \
   && cp "$executable" /app/chrome-headless-shell \
-  && chmod +x /app/chrome-headless-shell \
-  && /app/chrome-headless-shell --version
+  && chmod +x /app/chrome-headless-shell
 
 FROM node:24-bookworm-slim AS build
 WORKDIR /app
