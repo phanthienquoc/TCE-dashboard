@@ -1,7 +1,13 @@
 'use client';
 
+import dynamic from 'next/dynamic';
 import DashboardShell from '../../components/dashboard/DashboardShell';
-import { BinanceRealtimeChart } from '../../components/dashboard/BinanceRealtimeChart';
+
+const BinanceRealtimeChart = dynamic(
+  () =>
+    import('../../components/dashboard/BinanceRealtimeChart').then(mod => mod.BinanceRealtimeChart),
+  { ssr: false }
+);
 
 export default function BinanceChartPage() {
   return (
