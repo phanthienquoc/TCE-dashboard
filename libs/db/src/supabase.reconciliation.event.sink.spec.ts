@@ -1,3 +1,5 @@
+import { describe, expect, it, vi } from 'vitest';
+
 import { SupabaseReconciliationLifecycleSink } from './supabase.reconciliation.event.sink';
 
 describe('SupabaseReconciliationLifecycleSink', () => {
@@ -25,8 +27,8 @@ describe('SupabaseReconciliationLifecycleSink', () => {
       .fn()
       .mockResolvedValue({ data: { event_id: event.eventId }, error: null });
     const db = {
-      from: jest.fn().mockReturnValue({
-        select: jest.fn().mockReturnValue({ eq: jest.fn().mockReturnValue({ maybeSingle }) }),
+      from: vi.fn().mockReturnValue({
+        select: vi.fn().mockReturnValue({ eq: vi.fn().mockReturnValue({ maybeSingle }) }),
       }),
     } as any;
     const sink = new SupabaseReconciliationLifecycleSink(db);
@@ -34,8 +36,8 @@ describe('SupabaseReconciliationLifecycleSink', () => {
   });
 
   it('publishes the full event payload', async () => {
-    const insert = jest.fn().mockResolvedValue({ error: null });
-    const db = { from: jest.fn().mockReturnValue({ insert }) } as any;
+    const insert = vi.fn().mockResolvedValue({ error: null });
+    const db = { from: vi.fn().mockReturnValue({ insert }) } as any;
     const sink = new SupabaseReconciliationLifecycleSink(db);
     await sink.publish(event);
     expect(insert).toHaveBeenCalledWith(
@@ -50,8 +52,8 @@ describe('SupabaseReconciliationLifecycleSink', () => {
   });
 
   it('treats the database unique constraint as idempotent', async () => {
-    const insert = jest.fn().mockResolvedValue({ error: { code: '23505' } });
-    const db = { from: jest.fn().mockReturnValue({ insert }) } as any;
+    const insert = vi.fn().mockResolvedValue({ error: { code: '23505' } });
+    const db = { from: vi.fn().mockReturnValue({ insert }) } as any;
     const sink = new SupabaseReconciliationLifecycleSink(db);
     await expect(sink.publish(event)).resolves.toBeUndefined();
   });
