@@ -30,6 +30,7 @@ WORKDIR /app
 ENV PUPPETEER_CACHE_DIR=/app/.cache/puppeteer
 COPY --from=deps /app/node_modules ./node_modules
 COPY --from=deps /app/.cache ./.cache
+COPY --from=deps /app/chrome-headless-shell ./chrome-headless-shell
 COPY package.json ./package.json
 COPY tsconfig.base.json nx.json ./
 COPY apps/service ./apps/service
