@@ -14,12 +14,17 @@ RUN apt-get update \
   && apt-get install -y --no-install-recommends unzip \
   && rm -rf /var/lib/apt/lists/*
 
-# Chrome for Testing added Linux arm64 assets in Chrome 153. Puppeteer 25.10
-# still pins 152, which has no Linux arm64 headless-shell asset. Install the
-# current arm64-compatible shell explicitly and point Puppeteer at it below.
+# Let Puppeteer select the browser build for the container's actual platform.
+# Do not hard-code the Linux x64/arm64 cache path: native ARM64 and emulated
+# builders use different cache layouts. Copy the resolved executable to a
+# stable path used by the runtime image.
 RUN rm -rf /app/.cache/puppeteer/chrome-headless-shell \
-  && npx puppeteer browsers install chrome-headless-shell@153.0.8010.36 \
-  && test -x /app/.cache/puppeteer/chrome-headless-shell/linux_arm-153.0.8010.36/chrome-headless-shell-linux-arm64/chrome-headless-shell
+  && npx puppeteer browsers install chrome-headless-shell \
+  && executable="$(find /app/.cache/puppeteer/chrome-headless-shell -type f -name chrome-headless-shell -perm -111 | head -n 1)" \
+  && test -n "$executable" \
+  && cp "$executable" /app/chrome-headless-shell \
+  && chmod +x /app/chrome-headless-shell \
+  && /app/chrome-headless-shell --version
 
 FROM node:24-bookworm-slim AS build
 WORKDIR /app
@@ -52,7 +57,7 @@ WORKDIR /app
 ENV NODE_ENV=production
 ENV PORT=8210
 ENV PUPPETEER_CACHE_DIR=/app/.cache/puppeteer
-ENV PUPPETEER_EXECUTABLE_PATH=/app/.cache/puppeteer/chrome-headless-shell/linux_arm-153.0.8010.36/chrome-headless-shell-linux-arm64/chrome-headless-shell
+ENV PUPPETEER_EXECUTABLE_PATH=/app/chrome-headless-shell
 
 # Chrome for Testing is dynamically linked and needs these runtime libraries
 # even though the headless shell binary itself is copied from the build stage.
@@ -92,6 +97,7 @@ RUN apt-get update \
 
 COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/.cache ./.cache
+COPY --from=build /app/chrome-headless-shell ./chrome-headless-shell
 COPY --from=build /app/package.json ./package.json
 COPY --from=build /app/dist ./dist
 
