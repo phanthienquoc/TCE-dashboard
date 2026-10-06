@@ -1,7 +1,14 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { createChart, ColorType, type IChartApi, type ISeriesApi, type CandlestickData, type UTCTimestamp } from 'lightweight-charts';
+import {
+  createChart,
+  ColorType,
+  type IChartApi,
+  type ISeriesApi,
+  type CandlestickData,
+  type UTCTimestamp,
+} from 'lightweight-charts';
 
 type Props = {
   symbol?: string;
@@ -93,12 +100,12 @@ export function BinanceRealtimeChart({
       try {
         const response = await fetch(
           `https://api.binance.com/api/v3/klines?symbol=${normalized.toUpperCase()}&interval=${encodeURIComponent(interval)}&limit=${Math.min(Math.max(limit, 50), 1000)}`,
-          { cache: 'no-store' },
+          { cache: 'no-store' }
         );
         if (!response.ok) throw new Error(`Binance HTTP ${response.status}`);
         const rows = (await response.json()) as string[][];
         if (disposed) return;
-        const candles = rows.map((row) => ({
+        const candles = rows.map(row => ({
           time: Math.floor(Number(row[0]) / 1000) as UTCTimestamp,
           open: Number(row[1]),
           high: Number(row[2]),
@@ -111,14 +118,15 @@ export function BinanceRealtimeChart({
         const last = candles.at(-1);
         if (last) setPrice(last.close);
       } catch (cause) {
-        if (!disposed) setError(cause instanceof Error ? cause.message : 'Unable to load Binance history');
+        if (!disposed)
+          setError(cause instanceof Error ? cause.message : 'Unable to load Binance history');
       }
     };
 
     const connect = () => {
       setError(null);
       const socket = new WebSocket(
-        `wss://stream.binance.com:9443/ws/${normalized}@kline_${interval}`,
+        `wss://stream.binance.com:9443/ws/${normalized}@kline_${interval}`
       );
       socketRef.current = socket;
 
@@ -126,7 +134,7 @@ export function BinanceRealtimeChart({
         if (!disposed) setConnected(true);
       };
 
-      socket.onmessage = (event) => {
+      socket.onmessage = event => {
         if (disposed) return;
         try {
           const message = JSON.parse(event.data) as BinanceKlineMessage;
@@ -194,7 +202,9 @@ export function BinanceRealtimeChart({
         <div className="tce-section-row">
           <div>
             <span className="tce-label">LAST PRICE</span>
-            <strong>{price == null ? '—' : price.toLocaleString('en-US', { maximumFractionDigits: 2 })}</strong>
+            <strong>
+              {price == null ? '—' : price.toLocaleString('en-US', { maximumFractionDigits: 2 })}
+            </strong>
           </div>
           <span className="tce-label">SOURCE: BINANCE WS</span>
         </div>
