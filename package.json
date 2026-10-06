@@ -59,7 +59,8 @@
     "tailwind-merge": "^3.3.1",
     "web-push": "3.6.7",
     "zustand": "^5.0.8",
-    "@xyflow/react": "^12.11.6"
+    "@xyflow/react": "^12.11.6",
+    "lightweight-charts": "^5.0.8"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
@@ -76,6 +77,7 @@
     "tailwindcss": "^4.1.0",
     "tsx": "^4.20.3",
     "typescript": "^5.9.2",
-    "typescript-eslint": "^8.68.0"
+    "typescript-eslint": "^8.68.0",
+    "@types/express": "^5.0.6"
   }
 }
