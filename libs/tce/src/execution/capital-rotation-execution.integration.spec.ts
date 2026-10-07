@@ -75,6 +75,7 @@ test('CRDE prepared PAPER command executes through provider-neutral orchestrator
     environment: 'production',
     clientRequestId: 'crde-dpm-client-2',
     riskAmount: 50_000,
+    quantity: 100,
     riskConfig,
     riskContext,
   });
