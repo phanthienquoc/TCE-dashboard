@@ -20,6 +20,7 @@ export type CapitalRotationExecutionRequest = Readonly<{
   environment: string;
   clientRequestId: string;
   riskAmount: number;
+  quantity: number;
   riskConfig: TceRiskGateConfig;
   riskContext: TceRiskGateContext;
 }>;
@@ -72,11 +73,11 @@ export function prepareCapitalRotationExecution(
     decisionId: decision.id,
     symbol: decision.symbol,
     side: decision.action,
-    quantity: 0,
+    quantity: request.quantity,
     entryPrice: decision.entry,
     targetPrice: decision.target > 0 ? decision.target : undefined,
     invalidationPrice: decision.invalidation,
-    notional: 0,
+    notional: request.quantity * decision.entry,
     pool: decision.pool,
     slotId: decision.slotId,
     createdAt: decision.decidedAt,

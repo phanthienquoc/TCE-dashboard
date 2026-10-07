@@ -6,6 +6,9 @@ test('maps active provider statuses to SUBMITTED', () => {
   assert.equal(mapProviderOrderStatus('NEW'), 'SUBMITTED');
   assert.equal(mapProviderOrderStatus('pending-new'), 'SUBMITTED');
   assert.equal(mapProviderOrderStatus('working'), 'SUBMITTED');
+  assert.equal(mapProviderOrderStatus('RS'), 'SUBMITTED');
+  assert.equal(mapProviderOrderStatus('SD'), 'SUBMITTED');
+  assert.equal(mapProviderOrderStatus('QU'), 'SUBMITTED');
 });
 
 test('maps partial and terminal provider statuses deterministically', () => {
@@ -14,6 +17,8 @@ test('maps partial and terminal provider statuses deterministically', () => {
   assert.equal(mapProviderOrderStatus('cancelled'), 'CANCELLED');
   assert.equal(mapProviderOrderStatus('REJECTED'), 'REJECTED');
   assert.equal(mapProviderOrderStatus('expired'), 'EXPIRED');
+  assert.equal(mapProviderOrderStatus('FF'), 'FILLED');
+  assert.equal(mapProviderOrderStatus('CL'), 'CANCELLED');
 });
 
 test('unknown provider status fails closed to UNKNOWN', () => {

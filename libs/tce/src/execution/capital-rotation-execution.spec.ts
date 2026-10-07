@@ -77,6 +77,7 @@ test('CRDE execution preparation creates a provider-neutral approved PAPER comma
     environment: 'production',
     clientRequestId: 'crde-dpm-client-1',
     riskAmount: 50_000,
+    quantity: 100,
     riskConfig,
     riskContext: riskContext(),
   });

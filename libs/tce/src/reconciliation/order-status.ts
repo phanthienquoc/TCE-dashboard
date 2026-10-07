@@ -2,6 +2,12 @@ import type { TceOrderState } from '@tce/contracts';
 
 const STATUS_MAP: Readonly<Record<string, TceOrderState>> = {
   NEW: 'SUBMITTED',
+  PD: 'SUBMITTED',
+  WA: 'SUBMITTED',
+  RS: 'SUBMITTED',
+  SD: 'SUBMITTED',
+  QU: 'SUBMITTED',
+  WM: 'SUBMITTED',
   PENDING_NEW: 'SUBMITTED',
   OPEN: 'SUBMITTED',
   WORKING: 'SUBMITTED',
@@ -9,12 +15,18 @@ const STATUS_MAP: Readonly<Record<string, TceOrderState>> = {
   PARTIALLY_FILLED: 'PARTIALLY_FILLED',
   PARTIAL_FILLED: 'PARTIALLY_FILLED',
   FILLED: 'FILLED',
+  FF: 'FILLED',
+  FFPC: 'FILLED',
   CANCEL_PENDING: 'CANCEL_PENDING',
+  WC: 'CANCEL_PENDING',
   PENDING_CANCEL: 'CANCEL_PENDING',
   CANCELED: 'CANCELLED',
+  CL: 'CANCELLED',
   CANCELLED: 'CANCELLED',
   REJECTED: 'REJECTED',
+  RJ: 'REJECTED',
   EXPIRED: 'EXPIRED',
+  EX: 'EXPIRED',
 };
 
 /**
