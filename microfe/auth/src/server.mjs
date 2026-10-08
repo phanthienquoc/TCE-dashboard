@@ -17,9 +17,15 @@ const csrfCookieName = process.env.AUTH_CSRF_COOKIE_NAME || "__Secure-microfe_cs
 const cookieDomain = process.env.AUTH_COOKIE_DOMAIN || ".mrcute.space";
 const sessionTtlSeconds = Number(process.env.AUTH_SESSION_TTL_SECONDS || 2592000);
 
-function reqId(req) { return req.get("x-request-id") || crypto.randomUUID(); }
-function hash(value) { return crypto.createHash("sha256").update(value, "utf8").digest("hex"); }
-function opaque(bytes = 48) { return crypto.randomBytes(bytes).toString("base64url"); }
+function reqId(req) {
+  return req.get("x-request-id") || crypto.randomUUID();
+}
+function hash(value) {
+  return crypto.createHash("sha256").update(value, "utf8").digest("hex");
+}
+function opaque(bytes = 48) {
+  return crypto.randomBytes(bytes).toString("base64url");
+}
 function parseCookie(header, name) {
   for (const part of String(header || "").split(";")) {
     const [key, ...rest] = part.trim().split("=");

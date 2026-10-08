@@ -8,7 +8,7 @@ export function createSessionMaterial() {
   return {
     sessionId: randomUUID(),
     refreshToken: randomBytes(48).toString("base64url"),
-    csrfToken: randomBytes(32).toString("base64url")
+    csrfToken: randomBytes(32).toString("base64url"),
   };
 }
 
@@ -18,6 +18,6 @@ export function rotateRefreshToken(existing, now = new Date()) {
   }
   return {
     ...createSessionMaterial(),
-    previousSessionId: existing.sessionId
+    previousSessionId: existing.sessionId,
   };
 }
