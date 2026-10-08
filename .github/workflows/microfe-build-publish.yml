@@ -1,0 +1,121 @@
+# yamllint disable rule:line-length
+name: MicroFE Build & Publish
+
+"on":
+  workflow_dispatch:
+  push:
+    branches: [master]
+    paths:
+      - microfe/**
+      - .github/workflows/microfe-build-publish.yml
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: microfe-build-publish
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: [self-hosted, linux, arm64, platform-infra, k3s, vps]
+    timeout-minutes: 30
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 1
+          clean: true
+          persist-credentials: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444
+        with:
+          node-version: "22"
+
+      - name: Test MicroFE services
+        run: |
+          set -euo pipefail
+          node --version
+          npm --version
+          (
+            cd microfe/auth
+            npm install
+            npm run check
+            npm test
+          )
+          (
+            cd microfe/ws-gateway
+            npm install
+            npm run check
+            npm test
+          )
+
+      - name: Login to GHCR
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          printf '%s' "$GITHUB_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+
+      - name: Build and publish MicroFE images
+        run: |
+          set -euo pipefail
+          docker buildx version
+          mkdir -p /tmp/microfe-build-meta
+          owner="${GITHUB_REPOSITORY_OWNER,,}"
+          tag="$GITHUB_SHA"
+
+          build_image() {
+            local image="$1"
+            local dockerfile="$2"
+            local context="$3"
+            local meta="$4"
+
+            docker buildx build --platform linux/arm64 --provenance=true --sbom=true --metadata-file "$meta" --push --tag "$image:$tag" --file "$dockerfile" "$context"
+
+            python3 - "$meta" "$image" "$tag" <<'PY'
+import json, pathlib, sys
+meta, image, tag = sys.argv[1:]
+data = json.loads(pathlib.Path(meta).read_text())
+digest = data.get("containerimage.digest")
+if not isinstance(digest, str) or not digest.startswith("sha256:"):
+    raise SystemExit(f"Missing image digest for {image}:{tag}")
+print(f"{image}={digest}")
+PY
+          }
+
+          build_image "ghcr.io/$owner/microfe-auth" "microfe/auth/Dockerfile" "." "/tmp/microfe-build-meta/auth.json" | tee /tmp/microfe-auth.txt
+          build_image "ghcr.io/$owner/microfe-shell" "microfe/shell/Dockerfile" "." "/tmp/microfe-build-meta/shell.json" | tee /tmp/microfe-shell.txt
+          build_image "ghcr.io/$owner/microfe-ws" "microfe/ws-gateway/Dockerfile" "." "/tmp/microfe-build-meta/ws.json" | tee /tmp/microfe-ws.txt
+
+      - name: Dispatch immutable image promotion
+        env:
+          PLATFORM_INFRA_TOKEN: ${{ secrets.PLATFORM_INFRA_TOKEN }}
+        run: |
+          set -euo pipefail
+          test -n "${PLATFORM_INFRA_TOKEN:-}"
+          auth_digest="$(cut -d= -f2 /tmp/microfe-auth.txt)"
+          shell_digest="$(cut -d= -f2 /tmp/microfe-shell.txt)"
+          ws_digest="$(cut -d= -f2 /tmp/microfe-ws.txt)"
+          for digest in "$auth_digest" "$shell_digest" "$ws_digest"; do
+            [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]] || exit 1
+          done
+
+          python3 - <<'PY' >/tmp/microfe-dispatch.json
+import json, os
+payload = {
+    "event_type": "microfe-images-published",
+    "client_payload": {
+        "commit": os.environ["GITHUB_SHA"],
+        "auth_digest": open("/tmp/microfe-auth.txt").read().strip().split("=", 1)[1],
+        "shell_digest": open("/tmp/microfe-shell.txt").read().strip().split("=", 1)[1],
+        "ws_digest": open("/tmp/microfe-ws.txt").read().strip().split("=", 1)[1],
+    },
+}
+print(json.dumps(payload))
+PY
+
+          curl --fail --silent --show-error             -X POST             -H "Accept: application/vnd.github+json"             -H "Authorization: Bearer $PLATFORM_INFRA_TOKEN"             -H "X-GitHub-Api-Version: 2022-11-28"             "https://api.github.com/repos/phanthienquoc/platform-infra/dispatches"             -d @/tmp/microfe-dispatch.json
+# yamllint enable rule:line-length
