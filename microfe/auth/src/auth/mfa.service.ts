@@ -5,7 +5,7 @@ import { createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
 export class MfaService {
   generateChallenge(userId: string): string {
     const secret = this.secret();
-    const payload = Buffer.from(JSON.stringify({ sub: userId, typ: 'mfa-challenge', exp: Math.floor(Date.now() / 1000) + 300 })).toString('base64url');
+    const payload = Buffer.from(JSON.stringify({ sub: userId, typ: 'mfa-challenge', exp: Math.floor(Date.now() / 1000) + 300, jti: randomBytes(16).toString('base64url') })).toString('base64url');
     return payload + '.' + createHmac('sha256', secret).update(payload).digest('base64url');
   }
   verifyChallenge(token: string): string | null {
