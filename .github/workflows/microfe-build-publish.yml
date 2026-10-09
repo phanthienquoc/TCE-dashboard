@@ -1,3 +1,4 @@
+# Recreated workflow file to restore GitHub Actions registration after manual disable.
 # yamllint disable rule:line-length
 name: WF-08 TCE MicroFE Build & Publish
 
