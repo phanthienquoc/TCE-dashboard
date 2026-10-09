@@ -59,11 +59,12 @@ export class PasskeyRepository {
     return rows[0];
   }
 
-  async updateCredential(id: string, counter: number, transports?: string[]): Promise<void> {
-    await this.db.query(
-      'UPDATE public.auth_passkey_credentials SET counter = $2, last_used_at = now(), transports = COALESCE($3::jsonb, transports) WHERE id = $1',
-      [id, counter, transports ? JSON.stringify(transports) : null],
+  async updateCredential(id: string, expectedCounter: number, counter: number, transports?: string[]): Promise<boolean> {
+    const { rowCount } = await this.db.query(
+      'UPDATE public.auth_passkey_credentials SET counter = $3, last_used_at = now(), transports = COALESCE($4::jsonb, transports) WHERE id = $1 AND counter = $2',
+      [id, expectedCounter, counter, transports ? JSON.stringify(transports) : null],
     );
+    return rowCount === 1;
   }
 
   async rename(userId: string, id: string, name: string): Promise<void> {
