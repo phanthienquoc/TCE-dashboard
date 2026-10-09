@@ -1,6 +1,6 @@
 name: 'WF-09 TCE VPS Safe Setup'
 
-on:
+'on':
   workflow_dispatch:
     inputs:
       host:
