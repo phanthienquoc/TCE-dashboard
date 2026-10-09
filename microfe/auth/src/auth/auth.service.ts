@@ -22,11 +22,17 @@ export class AuthService {
  async finishMfa(challenge:string,code:string,recovery=false,ip?:string,userAgent?:string):Promise<{user:UserRow;session:SessionMaterial}>{
   const userId=this.mfa.verifyChallenge(challenge);if(!userId)throw new UnauthorizedException({code:'MFA_CHALLENGE_INVALID',message:'Invalid or expired MFA challenge'});
   const user=await this.repo.findUserById(userId);if(!user?.mfa_enabled)throw new UnauthorizedException({code:'MFA_INVALID',message:'Invalid MFA configuration'});
-  let valid=false;
-  if(recovery)valid=await this.repo.consumeRecoveryCode(userId,this.hash(code));
-  else if(user.mfa_secret_encrypted){try{valid=this.mfa.verifyTotp(this.decryptMfaSecret(user.mfa_secret_encrypted),code);}catch{valid=false;}}
-  if(!valid)throw new UnauthorizedException({code:'MFA_INVALID',message:'Invalid MFA code'});
-  if(!(await this.repo.consumeMfaChallenge(this.hash(challenge),userId)))throw new UnauthorizedException({code:'MFA_CHALLENGE_INVALID',message:'Invalid, expired, or already-used MFA challenge'});
+  if(recovery) {
+   // Consume both one-time credentials in the same transaction so a failed/replayed
+   // challenge cannot burn a valid recovery code.
+   const accepted=await this.repo.consumeRecoveryCodeAndMfaChallenge(userId,this.hash(code),this.hash(challenge));
+   if(!accepted)throw new UnauthorizedException({code:'MFA_INVALID',message:'Invalid or already-used MFA credential'});
+  } else {
+   let valid=false;
+   if(user.mfa_secret_encrypted){try{valid=this.mfa.verifyTotp(this.decryptMfaSecret(user.mfa_secret_encrypted),code);}catch{valid=false;}}
+   if(!valid)throw new UnauthorizedException({code:'MFA_INVALID',message:'Invalid MFA code'});
+   if(!(await this.repo.consumeMfaChallenge(this.hash(challenge),userId)))throw new UnauthorizedException({code:'MFA_CHALLENGE_INVALID',message:'Invalid, expired, or already-used MFA challenge'});
+  }
   return {user,session:await this.createSession(user.id,ip,userAgent)};
  }
  private decryptMfaSecret(payload:string):string{
