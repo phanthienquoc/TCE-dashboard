@@ -8,7 +8,7 @@ export interface UserRow {
 }
 export interface SessionRow {
   id: string; user_id: string; token_hash: string; family_id: string;
-  expires_at: string; revoked_at: string | null; user?: UserRow;
+  expires_at: string | Date; revoked_at: string | null; user?: UserRow;
 }
 
 @Injectable()
@@ -83,7 +83,7 @@ export class AuthRepository {
       const session = rows[0];
       if (!session) throw new UnauthorizedException({ code: 'AUTH_REQUIRED', message: 'Invalid refresh token' });
 
-      if (session.revoked_at || session.expires_at <= new Date().toISOString() || session.replaced_by) {
+      if (session.revoked_at || new Date(session.expires_at).getTime() <= Date.now() || session.replaced_by) {
         if (session.revoked_at || session.replaced_by) {
           await client.query(
             'UPDATE public.refresh_sessions SET revoked_at = COALESCE(revoked_at, now()) WHERE family_id = $1 AND revoked_at IS NULL',
