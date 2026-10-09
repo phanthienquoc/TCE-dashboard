@@ -12,7 +12,6 @@
   },
   "dependencies": {
     "argon2": "^0.41.1",
-    "express": "^5.1.0",
-    "pg": "^8.16.3"
+    "express": "^5.1.0"
   }
 }
