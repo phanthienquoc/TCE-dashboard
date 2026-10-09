@@ -148,14 +148,16 @@ export class AuthRepository {
 
   async consumeRecoveryCode(userId: string, codeHash: string): Promise<boolean> {
     return this.db.transaction(async client => {
+      // Lock the matching candidate and atomically mark it consumed. Concurrent requests
+      // cannot both use one code; the application decides whether the provided code is valid.
       const { rows } = await client.query<{ id: string }>(
-        'SELECT id FROM public.mfa_recovery_codes WHERE user_id = $1 AND code_hash = $2 AND used_at IS NULL FOR UPDATE',
+        'SELECT id FROM public.mfa_recovery_codes WHERE user_id = $1 AND code_hash = $2 AND used_at IS NULL ORDER BY created_at ASC LIMIT 1 FOR UPDATE',
         [userId, codeHash],
       );
       if (!rows[0]) return false;
       const { rowCount } = await client.query(
-        'UPDATE public.mfa_recovery_codes SET used_at = now() WHERE id = $1 AND used_at IS NULL',
-        [rows[0].id],
+        'UPDATE public.mfa_recovery_codes SET used_at = now() WHERE id = $1 AND user_id = $2 AND used_at IS NULL',
+        [rows[0].id, userId],
       );
       return rowCount === 1;
     });
