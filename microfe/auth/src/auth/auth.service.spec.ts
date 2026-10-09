@@ -32,8 +32,9 @@ test('login creates a hashed opaque session for a non-MFA user',async()=>{
 });
 
 test('MFA-enabled login returns a time-limited challenge and creates no session',async()=>{
- const user={id:'user-mfa',email:'mfa@example.com',password_hash:'unused',role:'USER',mfa_enabled:true,mfa_secret_encrypted:null};
- const repo=fakeRepo(user);const auth=new AuthService(repo,new PasswordService(),new MfaService());
+ const passwords=new PasswordService();
+ const user={id:'user-mfa',email:'mfa@example.com',password_hash:await passwords.hash('anything'),role:'USER',mfa_enabled:true,mfa_secret_encrypted:null};
+ const repo=fakeRepo(user);const auth=new AuthService(repo,passwords,new MfaService());
  const result=await auth.login(user.email,'anything');
  assert.equal(result.mfaRequired,true);
  if(!result.mfaRequired) throw new Error('expected MFA challenge');
