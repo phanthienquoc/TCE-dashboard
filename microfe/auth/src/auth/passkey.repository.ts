@@ -30,8 +30,11 @@ export class PasskeyRepository {
       );
       const row = rows[0];
       if (!row) return null;
-      await client.query('DELETE FROM public.auth_passkey_challenges WHERE id = $1', [row.id]);
-      return row;
+      const { rowCount } = await client.query(
+        'DELETE FROM public.auth_passkey_challenges WHERE id = $1 AND purpose = $2',
+        [row.id, purpose],
+      );
+      return rowCount === 1 ? row : null;
     });
   }
 
