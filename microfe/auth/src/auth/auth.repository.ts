@@ -141,6 +141,31 @@ export class AuthRepository {
     });
   }
 
+  async consumeRecoveryCodeAndMfaChallenge(userId: string, codeHash: string, challengeHash: string): Promise<boolean> {
+    return this.db.transaction(async client => {
+      const challenge = await client.query<{ id: string }>(
+        "SELECT id FROM public.auth_passkey_challenges WHERE challenge = $1 AND user_id = $2 AND purpose = 'mfa' AND expires_at > now() ORDER BY created_at DESC LIMIT 1 FOR UPDATE",
+        [challengeHash, userId],
+      );
+      if (!challenge.rows[0]) return false;
+      const code = await client.query<{ id: string }>(
+        'SELECT id FROM public.mfa_recovery_codes WHERE user_id = $1 AND code_hash = $2 AND used_at IS NULL ORDER BY created_at ASC LIMIT 1 FOR UPDATE',
+        [userId, codeHash],
+      );
+      if (!code.rows[0]) return false;
+      const consumedCode = await client.query(
+        'UPDATE public.mfa_recovery_codes SET used_at = now() WHERE id = $1 AND user_id = $2 AND used_at IS NULL',
+        [code.rows[0].id, userId],
+      );
+      if (consumedCode.rowCount !== 1) return false;
+      const consumedChallenge = await client.query(
+        "DELETE FROM public.auth_passkey_challenges WHERE id = $1 AND user_id = $2 AND purpose = 'mfa'",
+        [challenge.rows[0].id, userId],
+      );
+      return consumedChallenge.rowCount === 1;
+    });
+  }
+
   async revokeSession(id: string): Promise<void> {
     await this.db.query('UPDATE public.refresh_sessions SET revoked_at = now(), last_used_at = now() WHERE id = $1 AND revoked_at IS NULL', [id]);
   }
