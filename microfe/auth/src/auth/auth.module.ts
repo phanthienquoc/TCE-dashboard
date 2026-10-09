@@ -6,11 +6,11 @@ import { MfaService } from './mfa.service';
 import { PasskeyRepository } from './passkey.repository';
 import { PasskeyService } from './passkey.service';
 import { PasswordService } from './password.service';
-import { SupabaseClientService } from './supabase-client.service';
+import { PostgresService } from './postgres.service';
 
 @Module({
   controllers: [AuthController],
-  providers: [SupabaseClientService, AuthRepository, AuthService, PasswordService, MfaService, PasskeyRepository, PasskeyService],
+  providers: [PostgresService, AuthRepository, AuthService, PasswordService, MfaService, PasskeyRepository, PasskeyService],
   exports: [AuthRepository, AuthService, PasswordService, MfaService, PasskeyService],
 })
 export class AuthModule {}
