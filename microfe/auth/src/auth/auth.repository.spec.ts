@@ -22,7 +22,7 @@ function fakePostgres(options: {
     },
   };
   const postgres = {
-    async transaction<T>(run: (client: typeof client) => Promise<T>): Promise<T> {
+    async transaction<T>(run: (client: any) => Promise<T>): Promise<T> {
       return run(client);
     },
     async query(sql: string, values: unknown[] = []) {
