@@ -19,7 +19,7 @@ concurrency:
 jobs:
   test-auth:
     name: Test MicroFE Auth
-    runs-on: [self-hosted, linux, arm64, platform-infra, k3s, vps]
+    runs-on: ubuntu-24.04-arm
     timeout-minutes: 15
     steps:
       - name: Checkout repository
@@ -44,7 +44,7 @@ jobs:
 
   test-ws:
     name: Test MicroFE WebSocket
-    runs-on: [self-hosted, linux, arm64, platform-infra, k3s, vps]
+    runs-on: ubuntu-24.04-arm
     timeout-minutes: 15
     steps:
       - name: Checkout repository
@@ -69,8 +69,10 @@ jobs:
 
   build-auth:
     name: Build and publish MicroFE Auth image
-    needs: test-auth
-    runs-on: [self-hosted, linux, arm64, platform-infra, k3s, vps]
+    needs:
+      - test-auth
+      - test-ws
+    runs-on: ubuntu-24.04-arm
     timeout-minutes: 20
     steps:
       - name: Checkout repository
@@ -118,7 +120,10 @@ jobs:
 
   build-shell:
     name: Build and publish MicroFE Shell image
-    runs-on: [self-hosted, linux, arm64, platform-infra, k3s, vps]
+    needs:
+      - test-auth
+      - test-ws
+    runs-on: ubuntu-24.04-arm
     timeout-minutes: 20
     steps:
       - name: Checkout repository
@@ -163,8 +168,10 @@ jobs:
 
   build-ws:
     name: Build and publish MicroFE WebSocket image
-    needs: test-ws
-    runs-on: [self-hosted, linux, arm64, platform-infra, k3s, vps]
+    needs:
+      - test-auth
+      - test-ws
+    runs-on: ubuntu-24.04-arm
     timeout-minutes: 20
     steps:
       - name: Checkout repository
@@ -213,7 +220,7 @@ jobs:
       - build-auth
       - build-shell
       - build-ws
-    runs-on: [self-hosted, linux, arm64, platform-infra, k3s, vps]
+    runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
       - name: Download all image metadata
