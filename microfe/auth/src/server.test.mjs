@@ -21,3 +21,13 @@ test("auth/me rejects missing session", async () => {
   assert.equal((await response.json()).code, "AUTH_REQUIRED");
   server.close();
 });
+
+test("ready endpoint fails closed when Supabase is not configured", async () => {
+  const server = app.listen(0);
+  await new Promise((resolve) => server.once("listening", resolve));
+  const { port } = server.address();
+  const response = await fetch("http://127.0.0.1:" + port + "/health/ready");
+  assert.equal(response.status, 503);
+  assert.deepEqual(await response.json(), { ok: false, service: "microfe-auth", database: "unavailable" });
+  server.close();
+});
