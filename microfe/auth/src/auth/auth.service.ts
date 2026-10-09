@@ -16,11 +16,12 @@ export class AuthService {
  async signUp(email:string,password:string){const current=await this.repo.findUserByEmail(email);if(current)return null;return this.repo.createUser(email,await this.passwords.hash(password));}
  async login(email:string,password:string,ip?:string,userAgent?:string):Promise<{mfaRequired:true;challenge:string;userId:string}|{mfaRequired:false;user:UserRow;session:SessionMaterial}>{
   const user=await this.repo.findUserByEmail(email);if(!user||!(await this.passwords.verify(password,user.password_hash)))throw new UnauthorizedException({code:'AUTH_INVALID',message:'Invalid credentials'});
-  if(user.mfa_enabled)return {mfaRequired:true,challenge:this.mfa.generateChallenge(user.id),userId:user.id};
+  if(user.mfa_enabled)return {mfaRequired:true,challenge:await this.issueMfaChallenge(user.id),userId:user.id};
   return {mfaRequired:false,user,session:await this.createSession(user.id,ip,userAgent)};
  }
  async finishMfa(challenge:string,code:string,recovery=false,ip?:string,userAgent?:string):Promise<{user:UserRow;session:SessionMaterial}>{
   const userId=this.mfa.verifyChallenge(challenge);if(!userId)throw new UnauthorizedException({code:'MFA_CHALLENGE_INVALID',message:'Invalid or expired MFA challenge'});
+  if(!(await this.repo.consumeMfaChallenge(challenge,userId)))throw new UnauthorizedException({code:'MFA_CHALLENGE_INVALID',message:'Invalid, expired, or already-used MFA challenge'});
   const user=await this.repo.findUserById(userId);if(!user?.mfa_enabled)throw new UnauthorizedException({code:'MFA_INVALID',message:'Invalid MFA configuration'});
   let valid=false;
   if(recovery)valid=await this.repo.consumeRecoveryCode(userId,this.hash(code));
@@ -34,6 +35,7 @@ export class AuthService {
   const decipher=createDecipheriv('aes-256-gcm',key,Buffer.from(iv,'base64url'));decipher.setAuthTag(Buffer.from(tag,'base64url'));
   return Buffer.concat([decipher.update(Buffer.from(data,'base64url')),decipher.final()]).toString('utf8');
  }
+ async issueMfaChallenge(userId:string):Promise<string>{const token=this.mfa.generateChallenge(userId);await this.repo.createMfaChallenge(userId,this.hash(token));return token;}
  async createSession(userId:string,ip?:string,userAgent?:string):Promise<SessionMaterial>{
   const token=randomBytes(48).toString('base64url');const ttl=this.sessionTtl();
   await this.repo.createSession(userId,this.hash(token),randomUUID(),new Date(Date.now()+ttl*1000),ip,userAgent);
