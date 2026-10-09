@@ -1,13 +1,13 @@
-# yamllint disable rule:line-length
-name: WF-08B TCE MicroFE Build & Publish (New Workflow)
+name: 'WF-08B TCE MicroFE Build and Publish'
 
-"on":
+on:
   workflow_dispatch:
   push:
-    branches: [master]
+    branches:
+      - master
     paths:
-      - microfe/**
-      - .github/workflows/microfe-publish-v2.yml
+      - 'microfe/**'
+      - '.github/workflows/microfe-publish-v2.yml'
 
 permissions:
   contents: read
@@ -19,7 +19,13 @@ concurrency:
 
 jobs:
   publish:
-    runs-on: [self-hosted, linux, arm64, platform-infra, k3s, vps]
+    runs-on:
+      - self-hosted
+      - linux
+      - arm64
+      - platform-infra
+      - k3s
+      - vps
     timeout-minutes: 30
     steps:
       - name: Checkout repository
@@ -188,4 +194,3 @@ PY
 
           echo "::error::platform-infra reconcile-microfe did not complete within 180 seconds."
           exit 1
-# yamllint enable rule:line-length
