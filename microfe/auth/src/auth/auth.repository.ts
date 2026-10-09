@@ -36,6 +36,8 @@ export class AuthRepository {
     await this.postgres.query('SELECT id FROM public.users LIMIT 1');
     await this.postgres.query('SELECT id FROM public.refresh_sessions LIMIT 1');
     await this.postgres.query('SELECT id FROM public.mfa_recovery_codes LIMIT 1');
+    await this.postgres.query('SELECT id FROM public.auth_passkey_challenges LIMIT 1');
+    await this.postgres.query('SELECT id FROM public.auth_passkey_credentials LIMIT 1');
   }
 
   async findUserByEmail(email: string): Promise<UserRow | null> {
