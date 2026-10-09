@@ -17,9 +17,10 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  publish:
+  test-auth:
+    name: Test MicroFE Auth
     runs-on: [self-hosted, linux, arm64, platform-infra, k3s, vps]
-    timeout-minutes: 30
+    timeout-minutes: 15
     steps:
       - name: Checkout repository
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
@@ -32,24 +33,56 @@ jobs:
         uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444
         with:
           node-version: "22"
+          cache: npm
+          cache-dependency-path: microfe/auth/package-lock.json
 
-      - name: Test MicroFE services
+      - name: Check and test Auth
+        working-directory: microfe/auth
         run: |
           set -euo pipefail
-          node --version
-          npm --version
-          (
-            cd microfe/auth
-            npm install
-            npm run check
-            npm test
-          )
-          (
-            cd microfe/ws-gateway
-            npm install
-            npm run check
-            npm test
-          )
+          npm ci
+          npm run check
+          npm test
+
+  test-ws:
+    name: Test MicroFE WebSocket
+    runs-on: [self-hosted, linux, arm64, platform-infra, k3s, vps]
+    timeout-minutes: 15
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 1
+          clean: true
+          persist-credentials: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: microfe/ws-gateway/package-lock.json
+
+      - name: Check and test WebSocket
+        working-directory: microfe/ws-gateway
+        run: |
+          set -euo pipefail
+          npm ci
+          npm run check
+          npm test
+
+  build-auth:
+    name: Build and publish MicroFE Auth image
+    needs: test-auth
+    runs-on: [self-hosted, linux, arm64, platform-infra, k3s, vps]
+    timeout-minutes: 20
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 1
+          clean: true
+          persist-credentials: false
 
       - name: Login to GHCR
         env:
@@ -58,50 +91,156 @@ jobs:
           set -euo pipefail
           printf '%s' "$GITHUB_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
 
-      - name: Build and publish MicroFE images
+      - name: Build and publish Auth image
+        id: image
+        env:
+          IMAGE: ghcr.io/${{ github.repository_owner }}/microfe-auth
+          TAG: ${{ github.sha }}
         run: |
           set -euo pipefail
-          docker buildx version
           mkdir -p /tmp/microfe-build-meta
-          owner="${GITHUB_REPOSITORY_OWNER,,}"
-          tag="$GITHUB_SHA"
+          docker buildx build \
+            --platform linux/arm64 \
+            --provenance=true \
+            --sbom=true \
+            --metadata-file /tmp/microfe-build-meta/auth.json \
+            --push \
+            --tag "$IMAGE:$TAG" \
+            --file microfe/auth/Dockerfile .
+          DIGEST="$(node -e "const d=require('/tmp/microfe-build-meta/auth.json')['containerimage.digest']; if(typeof d!=='string'||!d.startsWith('sha256:'))process.exit(1); process.stdout.write(d)")"
+          [[ "$DIGEST" =~ ^sha256:[0-9a-f]{64}$ ]]
+          echo "digest=$DIGEST" >> "$GITHUB_OUTPUT"
+          echo "$IMAGE=$DIGEST" > /tmp/microfe-auth.txt
 
-          build_image() {
-            local image="$1"
-            local dockerfile="$2"
-            local context="$3"
-            local meta="$4"
+      - name: Upload Auth image metadata
+        uses: actions/upload-artifact@v4
+        with:
+          name: microfe-auth-metadata
+          path: /tmp/microfe-auth.txt
+          if-no-files-found: error
+          retention-days: 1
 
-            docker buildx build --platform linux/arm64 --provenance=true --sbom=true --metadata-file "$meta" --push --tag "$image:$tag" --file "$dockerfile" "$context"
+  build-shell:
+    name: Build and publish MicroFE Shell image
+    runs-on: [self-hosted, linux, arm64, platform-infra, k3s, vps]
+    timeout-minutes: 20
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 1
+          clean: true
+          persist-credentials: false
 
-            node - "$meta" "$image" "$tag" <<'NODE'
-          const fs = require('node:fs');
-          const [meta, image, tag] = process.argv.slice(2);
-          const data = JSON.parse(fs.readFileSync(meta, 'utf8'));
-          const digest = data['containerimage.digest'];
-          if (typeof digest !== 'string' || !digest.startsWith('sha256:')) {
-            console.error(`Missing image digest for ${image}:${tag}`);
-            process.exit(1);
-          }
-          process.stdout.write(`${image}=${digest}\n`);
-          NODE
-          }
+      - name: Login to GHCR
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          printf '%s' "$GITHUB_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
 
-          build_image "ghcr.io/$owner/microfe-auth" "microfe/auth/Dockerfile" "." "/tmp/microfe-build-meta/auth.json" | tee /tmp/microfe-auth.txt
-          build_image "ghcr.io/$owner/microfe-shell" "microfe/shell/Dockerfile" "." "/tmp/microfe-build-meta/shell.json" | tee /tmp/microfe-shell.txt
-          build_image "ghcr.io/$owner/microfe-ws" "microfe/ws-gateway/Dockerfile" "." "/tmp/microfe-build-meta/ws.json" | tee /tmp/microfe-ws.txt
+      - name: Build and publish Shell image
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/microfe-build-meta
+          IMAGE="ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/microfe-shell"
+          TAG="$GITHUB_SHA"
+          docker buildx build \
+            --platform linux/arm64 \
+            --provenance=true \
+            --sbom=true \
+            --metadata-file /tmp/microfe-build-meta/shell.json \
+            --push \
+            --tag "$IMAGE:$TAG" \
+            --file microfe/shell/Dockerfile .
+          DIGEST="$(node -e "const d=require('/tmp/microfe-build-meta/shell.json')['containerimage.digest']; if(typeof d!=='string'||!d.startsWith('sha256:'))process.exit(1); process.stdout.write(d)")"
+          [[ "$DIGEST" =~ ^sha256:[0-9a-f]{64}$ ]]
+          echo "$IMAGE=$DIGEST" > /tmp/microfe-shell.txt
 
-      - name: Dispatch immutable image promotion
+      - name: Upload Shell image metadata
+        uses: actions/upload-artifact@v4
+        with:
+          name: microfe-shell-metadata
+          path: /tmp/microfe-shell.txt
+          if-no-files-found: error
+          retention-days: 1
+
+  build-ws:
+    name: Build and publish MicroFE WebSocket image
+    needs: test-ws
+    runs-on: [self-hosted, linux, arm64, platform-infra, k3s, vps]
+    timeout-minutes: 20
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 1
+          clean: true
+          persist-credentials: false
+
+      - name: Login to GHCR
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          printf '%s' "$GITHUB_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+
+      - name: Build and publish WebSocket image
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/microfe-build-meta
+          IMAGE="ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/microfe-ws"
+          TAG="$GITHUB_SHA"
+          docker buildx build \
+            --platform linux/arm64 \
+            --provenance=true \
+            --sbom=true \
+            --metadata-file /tmp/microfe-build-meta/ws.json \
+            --push \
+            --tag "$IMAGE:$TAG" \
+            --file microfe/ws-gateway/Dockerfile .
+          DIGEST="$(node -e "const d=require('/tmp/microfe-build-meta/ws.json')['containerimage.digest']; if(typeof d!=='string'||!d.startsWith('sha256:'))process.exit(1); process.stdout.write(d)")"
+          [[ "$DIGEST" =~ ^sha256:[0-9a-f]{64}$ ]]
+          echo "$IMAGE=$DIGEST" > /tmp/microfe-ws.txt
+
+      - name: Upload WebSocket image metadata
+        uses: actions/upload-artifact@v4
+        with:
+          name: microfe-ws-metadata
+          path: /tmp/microfe-ws.txt
+          if-no-files-found: error
+          retention-days: 1
+
+  dispatch-and-verify:
+    name: Dispatch immutable image promotion and verify production
+    needs:
+      - build-auth
+      - build-shell
+      - build-ws
+    runs-on: [self-hosted, linux, arm64, platform-infra, k3s, vps]
+    timeout-minutes: 5
+    steps:
+      - name: Download all image metadata
+        uses: actions/download-artifact@v4
+        with:
+          pattern: microfe-*-metadata
+          merge-multiple: true
+          path: /tmp/microfe-build-meta
+
+      - name: Validate image digests and dispatch promotion
         env:
           PLATFORM_INFRA_TOKEN: ${{ secrets.PLATFORM_INFRA_TOKEN }}
         run: |
           set -euo pipefail
           test -n "${PLATFORM_INFRA_TOKEN:-}"
-          auth_digest="$(cut -d= -f2 /tmp/microfe-auth.txt)"
-          shell_digest="$(cut -d= -f2 /tmp/microfe-shell.txt)"
-          ws_digest="$(cut -d= -f2 /tmp/microfe-ws.txt)"
+          test -s /tmp/microfe-build-meta/microfe-auth.txt
+          test -s /tmp/microfe-build-meta/microfe-shell.txt
+          test -s /tmp/microfe-build-meta/microfe-ws.txt
+          auth_digest="$(cut -d= -f2 /tmp/microfe-build-meta/microfe-auth.txt)"
+          shell_digest="$(cut -d= -f2 /tmp/microfe-build-meta/microfe-shell.txt)"
+          ws_digest="$(cut -d= -f2 /tmp/microfe-build-meta/microfe-ws.txt)"
           for digest in "$auth_digest" "$shell_digest" "$ws_digest"; do
-            [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]] || exit 1
+            [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]] || { echo "::error::Invalid image digest: $digest"; exit 1; }
           done
 
           node <<'NODE' > /tmp/microfe-dispatch.json
@@ -111,12 +250,12 @@ jobs:
             event_type: 'microfe-images-published',
             client_payload: {
               commit: process.env.GITHUB_SHA,
-              auth_digest: digestFrom('/tmp/microfe-auth.txt'),
-              shell_digest: digestFrom('/tmp/microfe-shell.txt'),
-              ws_digest: digestFrom('/tmp/microfe-ws.txt'),
+              auth_digest: digestFrom('/tmp/microfe-build-meta/microfe-auth.txt'),
+              shell_digest: digestFrom('/tmp/microfe-build-meta/microfe-shell.txt'),
+              ws_digest: digestFrom('/tmp/microfe-build-meta/microfe-ws.txt'),
             },
           };
-          process.stdout.write(JSON.stringify(payload) + '\n');
+          process.stdout.write(JSON.stringify(payload) + '\\n');
           NODE
 
           DISPATCHED_AT="$(date -u +%s)"
