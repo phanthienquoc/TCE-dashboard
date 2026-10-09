@@ -1,6 +1,5 @@
 import { ConflictException, Injectable, UnauthorizedException } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
-import { PoolClient } from 'pg';
 import { PostgresService } from './postgres.service';
 
 export interface UserRow {
@@ -90,7 +89,7 @@ export class AuthRepository {
             'UPDATE public.refresh_sessions SET revoked_at = COALESCE(revoked_at, now()) WHERE family_id = $1 AND revoked_at IS NULL',
             [session.family_id],
           );
-          throw new UnauthorizedException({ code: 'REFRESH_TOKEN_REUSE', message: 'Refresh token reuse detected' });
+          return { reuse_detected: true, user_id: session.user_id, role: '', new_session_id: '' };
         }
         throw new UnauthorizedException({ code: 'AUTH_REQUIRED', message: 'Expired refresh token' });
       }
@@ -107,7 +106,13 @@ export class AuthRepository {
         'UPDATE public.refresh_sessions SET revoked_at = now(), replaced_by = $2, last_used_at = now() WHERE id = $1 AND revoked_at IS NULL',
         [session.id, newId],
       );
-      if (updated.rowCount !== 1) throw new UnauthorizedException({ code: 'REFRESH_TOKEN_REUSE', message: 'Refresh token already used' });
+      if (updated.rowCount !== 1) {
+        await client.query(
+          'UPDATE public.refresh_sessions SET revoked_at = COALESCE(revoked_at, now()) WHERE family_id = $1 AND revoked_at IS NULL',
+          [session.family_id],
+        );
+        return { reuse_detected: true, user_id: session.user_id, role: user.rows[0].role, new_session_id: '' };
+      }
       return { user_id: session.user_id, role: user.rows[0].role, new_session_id: newId, reuse_detected: false };
     });
   }
