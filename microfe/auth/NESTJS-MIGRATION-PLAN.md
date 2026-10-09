@@ -1,44 +1,39 @@
 # MicroFE Auth — NestJS + TypeScript migration
 
 ## Decision
-NestJS + TypeScript is the MicroFE backend standard. Do not ship the legacy Express `server.mjs` implementation.
+NestJS owns all authentication and authorization business logic. The service accesses the existing PostgreSQL database through the standard `pg` driver; no Supabase SDK, Data API, Auth product or service-role key is part of the runtime.
 
 ## Implementation baseline
-Reuse the existing NestJS auth patterns in `apps/service/src/auth`:
 - AuthController / AuthService / AuthRepository
-- RefreshService and atomic `rotate_refresh_token` RPC
-- PasswordService (existing compatible password-hash format)
-- MFA services and TOTP/recovery flows
-- Passkey registration/authentication where supported by the product contract
-- SupabaseClientService with server-side service-role access only
+- PostgresService with bounded connection pool and transaction helper
+- PasswordService compatible with the existing `salt:hex` scrypt format
+- MFA/TOTP/recovery flows and signed short-lived MFA challenges
+- Passkey registration/authentication, one-time challenge consumption and credential-counter handling
 
-Keep the MicroFE service separately deployable at port 3000. Preserve current public endpoint compatibility unless the API contract is versioned deliberately:
+Keep the MicroFE service separately deployable at port 3000. Preserve current public endpoint and cookie compatibility:
 - `GET /health/live`, `GET /health/ready`, `GET /health`
 - `GET /auth/status`
 - `POST /auth/signup`, `POST /auth/login`, `GET /auth/me`
 - `POST /auth/refresh`, `POST /auth/logout`, `POST /auth/logout-all`
+- existing MFA and passkey endpoints
 
-## Supabase contract checks before implementation
-The existing production schema has `public.users`, `public.refresh_sessions`, MFA recovery, and passkey tables. Reuse these tables. Do not create a parallel `microfe_users` or `microfe_sessions` store.
+## Database contract
+Reuse the existing `public.users`, `public.refresh_sessions`, `public.mfa_recovery_codes`, `public.auth_passkey_credentials`, and `public.auth_passkey_challenges` tables. No parallel user/session store and no production schema mutation for this migration.
 
-Before wiring refresh rotation, verify the exact `public.rotate_refresh_token` signature, return columns, reuse-detection behavior, grants, and transaction semantics against the live database. Do not infer the RPC contract from a client call alone.
+Use parameterized SQL for every input. Refresh rotation and recovery/challenge consumption must be transactional and tested under concurrent requests. Do not call `rotate_refresh_token` or `consume_recovery_code` RPCs from application code; their business decisions move into NestJS + PostgreSQL transactions.
 
 ## Security and compatibility requirements
-- Never expose `SUPABASE_SERVICE_ROLE_KEY` to a browser/client bundle.
-- Keep session tokens opaque and store hashes only.
-- Preserve secure HttpOnly cookies and validate CSRF for cookie-authenticated mutating endpoints.
-- Do not bypass MFA for accounts where `mfa_enabled=true`; implement a complete MFA challenge, TOTP/recovery verification, and session issuance flow.
-- Preserve passkey flows if they are part of the existing shared-auth contract.
-- Validate input with DTOs and `class-validator`; use strict TypeScript and centralized exception handling.
-- Keep secrets out of logs and Git.
-- Do not run schema mutations against production as part of this migration unless a reviewed migration proves they are required.
+- Keep session tokens opaque and store only hashes.
+- Preserve secure HttpOnly session cookies and validate CSRF for cookie-authenticated mutations.
+- Do not bypass MFA for accounts where `mfa_enabled=true`.
+- Preserve passkey flows and existing password hash compatibility.
+- Validate input with DTOs and `class-validator`; keep secrets and authentication material out of logs/Git.
+- Use `DATABASE_URL`, bounded `DB_POOL_MAX`, `JWT_SECRET`, and `MFA_ENCRYPTION_KEY`. Do not put Supabase service-role credentials into the Auth workload.
 
-## CI gates
-1. NestJS TypeScript build and lint.
-2. Unit tests for password verification, MFA/TOTP, session lookup, token rotation/reuse detection, CSRF and cookie behavior.
-3. E2E tests for signup/login/MFA/refresh/logout/logout-all and readiness fail-closed behavior.
-4. Build the ARM64 container and publish only from trusted non-PR events.
-5. Promote immutable image digests via platform-infra; verify rollout and public health endpoints before reporting production healthy.
-
-## Infrastructure follow-up
-The platform-infra PR must be based on this NestJS implementation. Confirm the source namespace and presence of required secret keys by key names only before copying credentials to `microfe-platform/microfe-auth-secrets`. Never print secret values in logs.
+## CI/release gates
+1. NestJS TypeScript build/check and unit tests pass.
+2. Verify password hashes, MFA encryption format, table columns/indexes and passkey API compatibility.
+3. Test refresh rotation/reuse, recovery-code single use and passkey challenge single use under concurrent requests.
+4. Verify DB connection secret exists by key name only; never print its value.
+5. Build an ARM64 image and publish immutable commit SHA/digest only from trusted branches.
+6. Promote via platform-infra only after all checks; verify rollouts and public health endpoints.
