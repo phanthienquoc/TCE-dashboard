@@ -1,6 +1,6 @@
 name: 'WF-08C TCE MicroFE Build Publish'
 
-on:
+'on':
   workflow_dispatch:
   push:
     branches:
