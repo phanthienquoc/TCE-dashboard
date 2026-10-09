@@ -74,8 +74,8 @@ export class AuthRepository {
     await this.db.query('UPDATE public.refresh_sessions SET last_used_at = now() WHERE id = $1 AND revoked_at IS NULL', [id]);
   }
 
-  async rotateRefreshToken(tokenHash: string, newTokenHash: string, expiresAt: Date, ip?: string, userAgent?: string) {
-    return this.db.transaction(async client => {
+  async rotateRefreshToken(tokenHash: string, newTokenHash: string, expiresAt: Date, ip?: string, userAgent?: string): Promise<{ user_id: string; role: string; new_session_id: string; reuse_detected: boolean }> {
+    const result = await this.db.transaction(async client => {
       const { rows } = await client.query<SessionRow & { replaced_by: string | null }>(
         'SELECT id, user_id, token_hash, family_id, expires_at, revoked_at, replaced_by FROM public.refresh_sessions WHERE token_hash = $1 FOR UPDATE',
         [tokenHash],
@@ -115,6 +115,10 @@ export class AuthRepository {
       }
       return { user_id: session.user_id, role: user.rows[0].role, new_session_id: newId, reuse_detected: false };
     });
+    if (result.reuse_detected) {
+      throw new UnauthorizedException({ code: 'REFRESH_TOKEN_REUSE', message: 'Refresh token reuse detected' });
+    }
+    return result;
   }
 
   async revokeSession(id: string): Promise<void> {
