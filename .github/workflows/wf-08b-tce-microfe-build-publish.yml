@@ -255,7 +255,7 @@ jobs:
               ws_digest: digestFrom('/tmp/microfe-build-meta/microfe-ws.txt'),
             },
           };
-          process.stdout.write(JSON.stringify(payload) + '\\n');
+          process.stdout.write(JSON.stringify(payload) + '\n');
           NODE
 
           DISPATCHED_AT="$(date -u +%s)"
