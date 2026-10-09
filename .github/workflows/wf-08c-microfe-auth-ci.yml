@@ -1,0 +1,60 @@
+name: WF-08C MicroFE Auth CI
+
+on:
+  pull_request:
+    paths:
+      - microfe/auth/**
+      - .github/workflows/wf-08c-microfe-auth-ci.yml
+  push:
+    branches: [master]
+    paths:
+      - microfe/auth/**
+      - .github/workflows/wf-08c-microfe-auth-ci.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: microfe-auth-ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test-auth:
+    name: Typecheck and test NestJS Auth
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+
+      - name: Setup Node.js 24
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: microfe/auth/package.json
+
+      - name: Install dependencies
+        working-directory: microfe/auth
+        run: npm install --no-audit --no-fund
+
+      - name: Typecheck
+        working-directory: microfe/auth
+        run: npm run check
+
+      - name: Unit tests
+        working-directory: microfe/auth
+        run: npm test
+
+      - name: Validate architecture boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          if grep -RInE '\.rpc\(|@supabase/supabase-js|SupabaseClientService' microfe/auth/src; then
+            echo "::error::Auth code must use direct PostgreSQL and must not depend on Supabase Data API/RPC."
+            exit 1
+          fi
+          grep -q 'new Pool' microfe/auth/src/auth/postgres.service.ts
