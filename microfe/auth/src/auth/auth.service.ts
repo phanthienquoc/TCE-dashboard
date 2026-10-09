@@ -21,12 +21,12 @@ export class AuthService {
  }
  async finishMfa(challenge:string,code:string,recovery=false,ip?:string,userAgent?:string):Promise<{user:UserRow;session:SessionMaterial}>{
   const userId=this.mfa.verifyChallenge(challenge);if(!userId)throw new UnauthorizedException({code:'MFA_CHALLENGE_INVALID',message:'Invalid or expired MFA challenge'});
-  if(!(await this.repo.consumeMfaChallenge(challenge,userId)))throw new UnauthorizedException({code:'MFA_CHALLENGE_INVALID',message:'Invalid, expired, or already-used MFA challenge'});
   const user=await this.repo.findUserById(userId);if(!user?.mfa_enabled)throw new UnauthorizedException({code:'MFA_INVALID',message:'Invalid MFA configuration'});
   let valid=false;
   if(recovery)valid=await this.repo.consumeRecoveryCode(userId,this.hash(code));
   else if(user.mfa_secret_encrypted){try{valid=this.mfa.verifyTotp(this.decryptMfaSecret(user.mfa_secret_encrypted),code);}catch{valid=false;}}
   if(!valid)throw new UnauthorizedException({code:'MFA_INVALID',message:'Invalid MFA code'});
+  if(!(await this.repo.consumeMfaChallenge(this.hash(challenge),userId)))throw new UnauthorizedException({code:'MFA_CHALLENGE_INVALID',message:'Invalid, expired, or already-used MFA challenge'});
   return {user,session:await this.createSession(user.id,ip,userAgent)};
  }
  private decryptMfaSecret(payload:string):string{
