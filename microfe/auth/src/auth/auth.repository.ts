@@ -78,50 +78,45 @@ export class AuthRepository {
   }
 
   async rotateRefreshToken(tokenHash: string, newTokenHash: string, expiresAt: Date, ip?: string, userAgent?: string): Promise<{ user_id: string; role: string; new_session_id: string; reuse_detected: boolean }> {
-    const result = await this.db.transaction(async client => {
-      const { rows } = await client.query<SessionRow & { replaced_by: string | null }>(
-        'SELECT id, user_id, token_hash, family_id, expires_at, revoked_at, replaced_by FROM public.refresh_sessions WHERE token_hash = $1 FOR UPDATE',
+    return this.db.transaction(async client => {
+      const { rows } = await client.query<SessionRow & { replaced_by: string | null; role: string }>(
+        'SELECT s.id, s.user_id, s.token_hash, s.family_id, s.expires_at, s.revoked_at, s.replaced_by, u.role FROM public.refresh_sessions s JOIN public.users u ON u.id = s.user_id WHERE s.token_hash = $1 FOR UPDATE OF s',
         [tokenHash],
       );
       const session = rows[0];
       if (!session) throw new UnauthorizedException({ code: 'AUTH_REQUIRED', message: 'Invalid refresh token' });
 
-      if (session.revoked_at || new Date(session.expires_at).getTime() <= Date.now() || session.replaced_by) {
-        if (session.revoked_at || session.replaced_by) {
-          await client.query(
-            'UPDATE public.refresh_sessions SET revoked_at = COALESCE(revoked_at, now()) WHERE family_id = $1 AND revoked_at IS NULL',
-            [session.family_id],
-          );
-          return { reuse_detected: true, user_id: session.user_id, role: '', new_session_id: '' };
-        }
-        throw new UnauthorizedException({ code: 'AUTH_REQUIRED', message: 'Expired refresh token' });
-      }
-
-      const user = await client.query<{ role: string }>('SELECT role FROM public.users WHERE id = $1 LIMIT 1', [session.user_id]);
-      if (!user.rows[0]) throw new UnauthorizedException({ code: 'AUTH_REQUIRED', message: 'User no longer exists' });
-      const newId = randomUUID();
-      const created = await client.query(
-        'INSERT INTO public.refresh_sessions (id, user_id, token_hash, family_id, expires_at, ip, user_agent) VALUES ($1, $2, $3, $4, $5, $6::inet, $7)',
-        [newId, session.user_id, newTokenHash, session.family_id, expiresAt.toISOString(), ip ?? null, userAgent ?? null],
-      );
-      if (created.rowCount !== 1) throw new Error('REFRESH_ROTATION_FAILED');
-      const updated = await client.query(
-        'UPDATE public.refresh_sessions SET revoked_at = now(), replaced_by = $2, last_used_at = now() WHERE id = $1 AND revoked_at IS NULL',
-        [session.id, newId],
-      );
-      if (updated.rowCount !== 1) {
+      // An expired token is not proof of replay. Revoke the family only when an already
+      // consumed/revoked token is presented, which is the reuse-detection signal.
+      if (session.revoked_at || session.replaced_by) {
         await client.query(
           'UPDATE public.refresh_sessions SET revoked_at = COALESCE(revoked_at, now()) WHERE family_id = $1 AND revoked_at IS NULL',
           [session.family_id],
         );
-        return { reuse_detected: true, user_id: session.user_id, role: user.rows[0].role, new_session_id: '' };
+        return { reuse_detected: true, user_id: session.user_id, role: session.role, new_session_id: '' };
       }
-      return { user_id: session.user_id, role: user.rows[0].role, new_session_id: newId, reuse_detected: false };
+      if (new Date(session.expires_at).getTime() <= Date.now()) {
+        throw new UnauthorizedException({ code: 'AUTH_REQUIRED', message: 'Expired refresh token' });
+      }
+
+      const newId = randomUUID();
+      const { rowCount: updatedCount } = await client.query(
+        'UPDATE public.refresh_sessions SET revoked_at = now(), replaced_by = $2, last_used_at = now() WHERE id = $1 AND revoked_at IS NULL AND expires_at > now()',
+        [session.id, newId],
+      );
+      if (updatedCount !== 1) {
+        await client.query(
+          'UPDATE public.refresh_sessions SET revoked_at = COALESCE(revoked_at, now()) WHERE family_id = $1 AND revoked_at IS NULL',
+          [session.family_id],
+        );
+        return { reuse_detected: true, user_id: session.user_id, role: session.role, new_session_id: '' };
+      }
+      await client.query(
+        'INSERT INTO public.refresh_sessions (id, user_id, token_hash, family_id, expires_at, ip, user_agent) VALUES ($1, $2, $3, $4, $5, $6::inet, $7)',
+        [newId, session.user_id, newTokenHash, session.family_id, expiresAt.toISOString(), ip ?? null, userAgent ?? null],
+      );
+      return { user_id: session.user_id, role: session.role, new_session_id: newId, reuse_detected: false };
     });
-    if (result.reuse_detected) {
-      throw new UnauthorizedException({ code: 'REFRESH_TOKEN_REUSE', message: 'Refresh token reuse detected' });
-    }
-    return result;
   }
 
   async createMfaChallenge(userId: string, challengeHash: string): Promise<void> {
