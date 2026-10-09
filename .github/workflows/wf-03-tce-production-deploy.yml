@@ -32,12 +32,9 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          MESSAGE="🔄 <b>PRODUCTION • PROCESSING</b>
-          📦 App          <code>tce-dashboard</code>
-          🏷️ Release      <code>pending</code>
-          ✓ GitOps synced
-          ✓ VPS reconciliation
-          ⏳ Rollout in progress"
+          MESSAGE="🚀 <b>PRODUCTION • RELEASE</b>
+          🌿 Branch    <code>${{ github.ref_name }}</code>
+          🔖 Commit    <code>${GITHUB_SHA::7}</code>"
 
           curl --fail-with-body -sS -X POST \
             "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
