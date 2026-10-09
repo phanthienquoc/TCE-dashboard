@@ -18,6 +18,9 @@ export class AuthRepository {
   async checkDatabase(): Promise<void> {
     await this.db.query('SELECT 1 FROM public.users LIMIT 1');
     await this.db.query('SELECT 1 FROM public.refresh_sessions LIMIT 1');
+    await this.db.query('SELECT 1 FROM public.mfa_recovery_codes LIMIT 1');
+    await this.db.query('SELECT 1 FROM public.auth_passkey_challenges LIMIT 1');
+    await this.db.query('SELECT 1 FROM public.auth_passkey_credentials LIMIT 1');
   }
 
   async findUserByEmail(email: string): Promise<UserRow | null> {
