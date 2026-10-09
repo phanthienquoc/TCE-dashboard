@@ -1,9 +1,17 @@
-name: 'WF-08B TCE MicroFE Build Publish'
+
+    if: ${{ github.event_name != 'pull_request' }}
+    if: ${{ github.event_name != 'pull_request' }}
+    if: ${{ github.event_name != 'pull_request' }}
+    if: ${{ github.event_name != 'pull_request' }}name: 'WF-08B TCE MicroFE Build Publish'
 
 'on':
   workflow_dispatch:
   push:
     branches: [master]
+    paths:
+      - microfe/**
+      - .github/workflows/wf-08b-tce-microfe-build-publish.yml
+  pull_request:
     paths:
       - microfe/**
       - .github/workflows/wf-08b-tce-microfe-build-publish.yml
