@@ -1,19 +1,239 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
-import { SupabaseClientService } from './supabase-client.service';
-export interface UserRow { id:string; email:string; password_hash:string; role:string; mfa_enabled:boolean; mfa_secret_encrypted:string|null; }
-export interface SessionRow { id:string; user_id:string; token_hash:string; family_id:string; expires_at:string; revoked_at:string|null; user?:UserRow; }
+import { PoolClient } from 'pg';
+import { PostgresService } from './postgres.service';
+
+export interface UserRow {
+  id: string;
+  email: string;
+  password_hash: string;
+  role: string;
+  mfa_enabled: boolean;
+  mfa_secret_encrypted: string | null;
+}
+
+export interface SessionRow {
+  id: string;
+  user_id: string;
+  token_hash: string;
+  family_id: string;
+  expires_at: string;
+  revoked_at: string | null;
+  user?: UserRow;
+}
+
+export interface RotatedSession {
+  user_id: string;
+  role: string;
+  new_session_id: string;
+  reuse_detected: boolean;
+}
+
 @Injectable()
 export class AuthRepository {
- constructor(private readonly supabase:SupabaseClientService){}
- async checkDatabase():Promise<void>{const a=await this.supabase.db.from('users').select('id',{head:true}).limit(1);if(a.error)throw a.error;const b=await this.supabase.db.from('refresh_sessions').select('id',{head:true}).limit(1);if(b.error)throw b.error;}
- async findUserByEmail(email:string):Promise<UserRow|null>{const {data,error}=await this.supabase.db.from('users').select('id,email,password_hash,role,mfa_enabled,mfa_secret_encrypted').eq('email',email.toLowerCase()).maybeSingle();if(error)throw error;return data as UserRow|null;}
- async findUserById(id:string):Promise<UserRow|null>{const {data,error}=await this.supabase.db.from('users').select('id,email,password_hash,role,mfa_enabled,mfa_secret_encrypted').eq('id',id).maybeSingle();if(error)throw error;return data as UserRow|null;}
- async createUser(email:string,passwordHash:string){const {data,error}=await this.supabase.db.from('users').insert({email:email.toLowerCase(),password_hash:passwordHash,role:'USER',mfa_enabled:false}).select('id,email,role,mfa_enabled').single();if(error)throw error;return data as {id:string;email:string;role:string;mfa_enabled:boolean};}
- async createSession(userId:string,tokenHash:string,familyId:string,expiresAt:Date,ip?:string,userAgent?:string):Promise<void>{const {error}=await this.supabase.db.from('refresh_sessions').insert({user_id:userId,token_hash:tokenHash,family_id:familyId,expires_at:expiresAt.toISOString(),ip:ip??null,user_agent:userAgent??null});if(error)throw error;}
- async findSession(tokenHash:string):Promise<SessionRow|null>{const {data,error}=await this.supabase.db.from('refresh_sessions').select('id,user_id,token_hash,family_id,expires_at,revoked_at').eq('token_hash',tokenHash).is('revoked_at',null).gt('expires_at',new Date().toISOString()).maybeSingle();if(error)throw error;if(!data)return null;const user=await this.findUserById(data.user_id);if(!user)return null;return {...data,user} as SessionRow;}
- async touchSession(id:string):Promise<void>{const {error}=await this.supabase.db.from('refresh_sessions').update({last_used_at:new Date().toISOString()}).eq('id',id).is('revoked_at',null);if(error)throw error;}
- async rotateRefreshToken(tokenHash:string,newTokenHash:string,expiresAt:Date,ip?:string,userAgent?:string){const {data,error}=await this.supabase.db.rpc('rotate_refresh_token',{p_token_hash:tokenHash,p_new_token_hash:newTokenHash,p_new_expires_at:expiresAt.toISOString(),p_ip:ip??null,p_user_agent:userAgent??null});if(error)throw error;const row=Array.isArray(data)?data[0]:data;if(!row)throw new UnauthorizedException({code:'AUTH_REQUIRED',message:'Invalid refresh token'});if(row.reuse_detected)throw new UnauthorizedException({code:'REFRESH_TOKEN_REUSE',message:'Refresh token reuse detected'});return row as {user_id:string;role:string;new_session_id:string;reuse_detected:boolean};}
- async revokeSession(id:string):Promise<void>{const {error}=await this.supabase.db.from('refresh_sessions').update({revoked_at:new Date().toISOString(),last_used_at:new Date().toISOString()}).eq('id',id).is('revoked_at',null);if(error)throw error;}
- async revokeAllSessions(userId:string):Promise<void>{const {error}=await this.supabase.db.from('refresh_sessions').update({revoked_at:new Date().toISOString()}).eq('user_id',userId).is('revoked_at',null);if(error)throw error;}
- async consumeRecoveryCode(userId:string,codeHash:string):Promise<boolean>{const {data,error}=await this.supabase.db.rpc('consume_recovery_code',{p_user_id:userId,p_code_hash:codeHash});if(error)throw error;return data===true;}
+  constructor(private readonly postgres: PostgresService) {}
+
+  async checkDatabase(): Promise<void> {
+    await this.postgres.query('SELECT id FROM public.users LIMIT 1');
+    await this.postgres.query('SELECT id FROM public.refresh_sessions LIMIT 1');
+    await this.postgres.query('SELECT id FROM public.mfa_recovery_codes LIMIT 1');
+  }
+
+  async findUserByEmail(email: string): Promise<UserRow | null> {
+    const result = await this.postgres.query<UserRow>(
+      `SELECT id, email, password_hash, role, mfa_enabled, mfa_secret_encrypted
+       FROM public.users WHERE email = $1 LIMIT 1`,
+      [email.toLowerCase()],
+    );
+    return result.rows[0] ?? null;
+  }
+
+  async findUserById(id: string): Promise<UserRow | null> {
+    const result = await this.postgres.query<UserRow>(
+      `SELECT id, email, password_hash, role, mfa_enabled, mfa_secret_encrypted
+       FROM public.users WHERE id = $1 LIMIT 1`,
+      [id],
+    );
+    return result.rows[0] ?? null;
+  }
+
+  async createUser(email: string, passwordHash: string): Promise<{
+    id: string; email: string; role: string; mfa_enabled: boolean;
+  }> {
+    const result = await this.postgres.query<{
+      id: string; email: string; role: string; mfa_enabled: boolean;
+    }>(
+      `INSERT INTO public.users (email, password_hash, role, mfa_enabled)
+       VALUES ($1, $2, 'USER', false)
+       RETURNING id, email, role, mfa_enabled`,
+      [email.toLowerCase(), passwordHash],
+    );
+    const user = result.rows[0];
+    if (!user) throw new Error('USER_INSERT_RETURNED_NO_ROW');
+    return user;
+  }
+
+  async createSession(
+    userId: string,
+    tokenHash: string,
+    familyId: string,
+    expiresAt: Date,
+    ip?: string,
+    userAgent?: string,
+  ): Promise<void> {
+    await this.postgres.query(
+      `INSERT INTO public.refresh_sessions
+         (user_id, token_hash, family_id, expires_at, ip, user_agent)
+       VALUES ($1, $2, $3, $4, $5::inet, $6)`,
+      [userId, tokenHash, familyId, expiresAt, ip ?? null, userAgent ?? null],
+    );
+  }
+
+  async findSession(tokenHash: string): Promise<SessionRow | null> {
+    const result = await this.postgres.query<SessionRow & {
+      email: string;
+      password_hash: string;
+      role: string;
+      mfa_enabled: boolean;
+      mfa_secret_encrypted: string | null;
+    }>(
+      `SELECT s.id, s.user_id, s.token_hash, s.family_id, s.expires_at,
+              s.revoked_at, u.email, u.password_hash, u.role,
+              u.mfa_enabled, u.mfa_secret_encrypted
+       FROM public.refresh_sessions s
+       JOIN public.users u ON u.id = s.user_id
+       WHERE s.token_hash = $1
+         AND s.revoked_at IS NULL
+         AND s.expires_at > now()
+       LIMIT 1`,
+      [tokenHash],
+    );
+    const row = result.rows[0];
+    if (!row) return null;
+    const { email, password_hash, role, mfa_enabled, mfa_secret_encrypted, ...session } = row;
+    return {
+      ...session,
+      user: { id: session.user_id, email, password_hash, role, mfa_enabled, mfa_secret_encrypted },
+    };
+  }
+
+  async touchSession(id: string): Promise<void> {
+    await this.postgres.query(
+      `UPDATE public.refresh_sessions
+       SET last_used_at = now()
+       WHERE id = $1 AND revoked_at IS NULL AND expires_at > now()`,
+      [id],
+    );
+  }
+
+  async rotateRefreshToken(
+    tokenHash: string,
+    newTokenHash: string,
+    expiresAt: Date,
+    ip?: string,
+    userAgent?: string,
+  ): Promise<RotatedSession> {
+    const outcome = await this.postgres.transaction(async (client: PoolClient) => {
+      const result = await client.query<{
+        id: string;
+        user_id: string;
+        family_id: string;
+        expires_at: Date;
+        revoked_at: Date | null;
+        role: string;
+      }>(
+        `SELECT s.id, s.user_id, s.family_id, s.expires_at, s.revoked_at, u.role
+         FROM public.refresh_sessions s
+         JOIN public.users u ON u.id = s.user_id
+         WHERE s.token_hash = $1
+         FOR UPDATE OF s`,
+        [tokenHash],
+      );
+      const old = result.rows[0];
+      if (!old) return { kind: 'invalid' as const };
+
+      if (old.revoked_at) {
+        // Match existing rotation behavior: replay revokes the whole active family.
+        await client.query(
+          `UPDATE public.refresh_sessions
+           SET revoked_at = COALESCE(revoked_at, now())
+           WHERE family_id = $1 AND revoked_at IS NULL`,
+          [old.family_id],
+        );
+        return { kind: 'reuse' as const, user_id: old.user_id, role: old.role };
+      }
+
+      if (new Date(old.expires_at).getTime() <= Date.now()) {
+        return { kind: 'invalid' as const };
+      }
+
+      const inserted = await client.query<{ id: string }>(
+        `INSERT INTO public.refresh_sessions
+           (user_id, token_hash, family_id, expires_at, ip, user_agent)
+         VALUES ($1, $2, $3, $4, $5::inet, $6)
+         RETURNING id`,
+        [old.user_id, newTokenHash, old.family_id, expiresAt, ip ?? null, userAgent ?? null],
+      );
+      const next = inserted.rows[0];
+      if (!next) throw new Error('SESSION_ROTATION_INSERT_RETURNED_NO_ROW');
+
+      await client.query(
+        `UPDATE public.refresh_sessions
+         SET replaced_by = $2, last_used_at = now(), revoked_at = now()
+         WHERE id = $1 AND revoked_at IS NULL`,
+        [old.id, next.id],
+      );
+
+      return {
+        kind: 'rotated' as const,
+        user_id: old.user_id,
+        role: old.role,
+        new_session_id: next.id,
+      };
+    });
+
+    if (outcome.kind === 'invalid') {
+      throw new UnauthorizedException({ code: 'AUTH_REQUIRED', message: 'Invalid refresh token' });
+    }
+    if (outcome.kind === 'reuse') {
+      throw new UnauthorizedException({ code: 'REFRESH_TOKEN_REUSE', message: 'Refresh token reuse detected' });
+    }
+    return { ...outcome, reuse_detected: false };
+  }
+
+  async revokeSession(id: string): Promise<void> {
+    await this.postgres.query(
+      `UPDATE public.refresh_sessions
+       SET revoked_at = now(), last_used_at = now()
+       WHERE id = $1 AND revoked_at IS NULL`,
+      [id],
+    );
+  }
+
+  async revokeAllSessions(userId: string): Promise<void> {
+    await this.postgres.query(
+      `UPDATE public.refresh_sessions SET revoked_at = now()
+       WHERE user_id = $1 AND revoked_at IS NULL`,
+      [userId],
+    );
+  }
+
+  async consumeRecoveryCode(userId: string, codeHash: string): Promise<boolean> {
+    const result = await this.postgres.query<{ id: string }>(
+      `WITH candidate AS (
+         SELECT id
+         FROM public.mfa_recovery_codes
+         WHERE user_id = $1 AND code_hash = $2 AND used_at IS NULL
+         ORDER BY created_at ASC
+         LIMIT 1
+         FOR UPDATE SKIP LOCKED
+       )
+       UPDATE public.mfa_recovery_codes AS codes
+       SET used_at = now()
+       FROM candidate
+       WHERE codes.id = candidate.id
+       RETURNING codes.id`,
+      [userId, codeHash],
+    );
+    return result.rowCount === 1;
+  }
 }
