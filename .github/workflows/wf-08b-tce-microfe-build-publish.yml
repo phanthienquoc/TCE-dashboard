@@ -75,16 +75,16 @@ jobs:
             docker buildx build --platform linux/arm64 --provenance=true --sbom=true --metadata-file "$meta" --push --tag "$image:$tag" --file "$dockerfile" "$context"
 
             node - "$meta" "$image" "$tag" <<'NODE'
-const fs = require('node:fs');
-const [meta, image, tag] = process.argv.slice(2);
-const data = JSON.parse(fs.readFileSync(meta, 'utf8'));
-const digest = data['containerimage.digest'];
-if (typeof digest !== 'string' || !digest.startsWith('sha256:')) {
-  console.error(`Missing image digest for ${image}:${tag}`);
-  process.exit(1);
-}
-process.stdout.write(`${image}=${digest}\n`);
-NODE
+          const fs = require('node:fs');
+          const [meta, image, tag] = process.argv.slice(2);
+          const data = JSON.parse(fs.readFileSync(meta, 'utf8'));
+          const digest = data['containerimage.digest'];
+          if (typeof digest !== 'string' || !digest.startsWith('sha256:')) {
+            console.error(`Missing image digest for ${image}:${tag}`);
+            process.exit(1);
+          }
+          process.stdout.write(`${image}=${digest}\n`);
+          NODE
           }
 
           build_image "ghcr.io/$owner/microfe-auth" "microfe/auth/Dockerfile" "." "/tmp/microfe-build-meta/auth.json" | tee /tmp/microfe-auth.txt
@@ -105,19 +105,19 @@ NODE
           done
 
           node <<'NODE' > /tmp/microfe-dispatch.json
-const fs = require('node:fs');
-const digestFrom = (path) => fs.readFileSync(path, 'utf8').trim().split('=', 2)[1];
-const payload = {
-  event_type: 'microfe-images-published',
-  client_payload: {
-    commit: process.env.GITHUB_SHA,
-    auth_digest: digestFrom('/tmp/microfe-auth.txt'),
-    shell_digest: digestFrom('/tmp/microfe-shell.txt'),
-    ws_digest: digestFrom('/tmp/microfe-ws.txt'),
-  },
-};
-process.stdout.write(JSON.stringify(payload) + '\n');
-NODE
+          const fs = require('node:fs');
+          const digestFrom = (path) => fs.readFileSync(path, 'utf8').trim().split('=', 2)[1];
+          const payload = {
+            event_type: 'microfe-images-published',
+            client_payload: {
+              commit: process.env.GITHUB_SHA,
+              auth_digest: digestFrom('/tmp/microfe-auth.txt'),
+              shell_digest: digestFrom('/tmp/microfe-shell.txt'),
+              ws_digest: digestFrom('/tmp/microfe-ws.txt'),
+            },
+          };
+          process.stdout.write(JSON.stringify(payload) + '\n');
+          NODE
 
           DISPATCHED_AT="$(date -u +%s)"
           echo "DISPATCHED_AT=$DISPATCHED_AT" >> "$GITHUB_ENV"
