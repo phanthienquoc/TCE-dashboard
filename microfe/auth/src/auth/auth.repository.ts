@@ -124,6 +124,25 @@ export class AuthRepository {
     return result;
   }
 
+  async createMfaChallenge(userId: string, challengeHash: string): Promise<void> {
+    await this.db.query(
+      "INSERT INTO public.auth_passkey_challenges (user_id, challenge, purpose, expires_at) VALUES ($1, $2, 'mfa', now() + interval '5 minutes')",
+      [userId, challengeHash],
+    );
+  }
+
+  async consumeMfaChallenge(challengeHash: string, userId: string): Promise<boolean> {
+    return this.db.transaction(async client => {
+      const { rows } = await client.query<{ id: string }>(
+        "SELECT id FROM public.auth_passkey_challenges WHERE challenge = $1 AND user_id = $2 AND purpose = 'mfa' AND expires_at > now() ORDER BY created_at DESC LIMIT 1 FOR UPDATE",
+        [challengeHash, userId],
+      );
+      if (!rows[0]) return false;
+      const { rowCount } = await client.query('DELETE FROM public.auth_passkey_challenges WHERE id = $1', [rows[0].id]);
+      return rowCount === 1;
+    });
+  }
+
   async revokeSession(id: string): Promise<void> {
     await this.db.query('UPDATE public.refresh_sessions SET revoked_at = now(), last_used_at = now() WHERE id = $1 AND revoked_at IS NULL', [id]);
   }
