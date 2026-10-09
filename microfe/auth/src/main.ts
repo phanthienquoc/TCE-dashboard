@@ -16,7 +16,7 @@ async function bootstrap(): Promise<void> {
   const app = await NestFactory.create(AppModule, { bodyParser: false });
   app.use(express.json({ limit: '32kb' }));
   app.enableCors({
-    origin: (origin, callback) => {
+    origin: (origin: string | undefined, callback: (error: Error | null, allow?: boolean) => void) => {
       if (!origin || allowedOrigins.has(origin)) return callback(null, true);
       return callback(new Error('CORS origin denied'), false);
     },
