@@ -24,7 +24,7 @@ export class MfaService {
   }
   generateSecret(): string { return randomBytes(20).toString('base64url'); }
   verifyTotp(secret: string, code: string, step = Math.floor(Date.now() / 30000)): boolean {
-    if (!/^\\d{6}$/.test(code)) return false;
+    if (!/^\d{6}$/.test(code)) return false;
     const key = Buffer.from(secret, 'base64url');
     for (const offset of [-1, 0, 1]) {
       const counter = Buffer.alloc(8);
