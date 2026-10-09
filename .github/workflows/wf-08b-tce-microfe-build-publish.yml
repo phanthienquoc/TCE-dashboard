@@ -1,8 +1,4 @@
-
-    if: ${{ github.event_name != 'pull_request' }}
-    if: ${{ github.event_name != 'pull_request' }}
-    if: ${{ github.event_name != 'pull_request' }}
-    if: ${{ github.event_name != 'pull_request' }}name: 'WF-08B TCE MicroFE Build Publish'
+name: 'WF-08B TCE MicroFE Build Publish'
 
 'on':
   workflow_dispatch:
