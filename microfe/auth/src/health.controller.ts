@@ -21,11 +21,7 @@ export class HealthController {
       await this.repo.checkDatabase();
       return { ok: true, service: 'microfe-auth', database: 'connected' };
     } catch {
-      throw new ServiceUnavailableException({
-        ok: false,
-        service: 'microfe-auth',
-        database: 'unavailable',
-      });
+      throw new ServiceUnavailableException({ ok: false, service: 'microfe-auth', database: 'unavailable' });
     }
   }
 }
