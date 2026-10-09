@@ -33,14 +33,12 @@ jobs:
         uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444
         with:
           node-version: "22"
-          cache: npm
-          cache-dependency-path: microfe/auth/package-lock.json
 
       - name: Check and test Auth
         working-directory: microfe/auth
         run: |
           set -euo pipefail
-          npm ci
+          npm install
           npm run check
           npm test
 
@@ -60,8 +58,6 @@ jobs:
         uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444
         with:
           node-version: "22"
-          cache: npm
-          cache-dependency-path: microfe/ws-gateway/package-lock.json
 
       - name: Check and test WebSocket
         working-directory: microfe/ws-gateway
