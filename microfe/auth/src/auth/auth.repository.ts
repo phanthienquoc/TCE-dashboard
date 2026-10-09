@@ -133,7 +133,10 @@ export class AuthRepository {
         [challengeHash, userId],
       );
       if (!rows[0]) return false;
-      const { rowCount } = await client.query('DELETE FROM public.auth_passkey_challenges WHERE id = $1', [rows[0].id]);
+      const { rowCount } = await client.query(
+        "DELETE FROM public.auth_passkey_challenges WHERE id = $1 AND purpose = 'mfa'",
+        [rows[0].id],
+      );
       return rowCount === 1;
     });
   }
