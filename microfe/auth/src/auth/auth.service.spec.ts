@@ -7,8 +7,8 @@ import { PasswordService } from './password.service';
 process.env.JWT_SECRET = 'test-secret-for-microfe-auth-unit-tests-at-least-32-chars';
 
 function fakeRepo(user: any) {
- const calls: { sessions: any[]; mfaChallenges: any[]; consumedMfaChallenges: any[] } = {
-  sessions: [], mfaChallenges: [], consumedMfaChallenges: [],
+ const calls: { sessions: any[]; mfaChallenges: any[]; consumedMfaChallenges: any[]; recoveryTransactions: any[] } = {
+  sessions: [], mfaChallenges: [], consumedMfaChallenges: [], recoveryTransactions: [],
  };
  return { calls,
   async findUserByEmail(){return user;},
@@ -18,6 +18,7 @@ function fakeRepo(user: any) {
   async createMfaChallenge(...args:any[]){calls.mfaChallenges.push(args);},
   async consumeMfaChallenge(...args:any[]){calls.consumedMfaChallenges.push(args);return true;},
   async consumeRecoveryCode(){return true;},
+  async consumeRecoveryCodeAndMfaChallenge(...args:any[]){calls.recoveryTransactions.push(args);return true;},
  } as any;
 }
 
@@ -55,9 +56,11 @@ test('MFA completion consumes the challenge hash before issuing a session',async
  const repo=fakeRepo(user);const mfa=new MfaService();const auth=new AuthService(repo,passwords,mfa);
  const challenge=await auth.issueMfaChallenge(user.id);
  const result=await auth.finishMfa(challenge,'000000',true,'127.0.0.1','unit-test');
- assert.equal(repo.calls.consumedMfaChallenges.length,1);
- assert.equal(repo.calls.consumedMfaChallenges[0][0],auth.hash(challenge));
- assert.equal(repo.calls.consumedMfaChallenges[0][1],user.id);
+ assert.equal(repo.calls.recoveryTransactions.length,1);
+ assert.equal(repo.calls.recoveryTransactions[0][0],user.id);
+ assert.equal(repo.calls.recoveryTransactions[0][1],auth.hash('000000'));
+ assert.equal(repo.calls.recoveryTransactions[0][2],auth.hash(challenge));
+ assert.equal(repo.calls.consumedMfaChallenges.length,0);
  assert.equal(repo.calls.sessions.length,1);
  assert.equal(result.user.id,user.id);
 });
