@@ -1,3 +1,4 @@
+# yamllint disable rule:line-length
 name: WF-08B TCE MicroFE Build & Publish (New Workflow)
 
 "on":
@@ -187,3 +188,4 @@ PY
 
           echo "::error::platform-infra reconcile-microfe did not complete within 180 seconds."
           exit 1
+# yamllint enable rule:line-length
