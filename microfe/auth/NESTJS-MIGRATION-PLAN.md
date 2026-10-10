@@ -15,7 +15,7 @@ Keep MicroFE Auth separately deployable at port 3000. Preserve existing health/a
 ## Database contract
 Reuse existing `public.users`, `public.refresh_sessions`, `public.mfa_recovery_codes`, `public.auth_passkey_credentials`, and `public.auth_passkey_challenges`. Do not create duplicate user/session stores.
 
-Use parameterized SQL for every request. Refresh rotation, recovery-code consumption, MFA challenge consumption, and passkey challenge consumption are implemented in NestJS with PostgreSQL transactions; the service must not invoke `rotate_refresh_token` or `consume_recovery_code` RPCs. Migration `microfe/auth/migrations/0001_allow_mfa_challenges.sql` extends the existing challenge-purpose check constraint to include `mfa`; apply it through the reviewed database migration process before deployment.
+Use parameterized SQL for every request. Refresh rotation, recovery-code consumption, MFA challenge consumption, and passkey challenge consumption are implemented in NestJS with PostgreSQL transactions; the service must not invoke `rotate_refresh_token` or `consume_recovery_code` RPCs. Migration `supabase/migrations/20261010070000_allow_mfa_challenges.sql` extends the existing challenge-purpose check constraint to include `mfa`; apply it through the reviewed database migration process before deployment. This is the single canonical migration path; do not apply duplicate ad-hoc schema changes.
 
 ## Security/release gates
 - Keep only opaque session-token hashes in the database.
