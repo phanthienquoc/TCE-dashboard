@@ -37,8 +37,7 @@ export class AuthController {
   ) {}
   @Get('status') async status() {
     const configured =
-      !!process.env.SUPABASE_URL &&
-      !!process.env.SUPABASE_SERVICE_ROLE_KEY &&
+      !!process.env.DATABASE_URL &&
       !!process.env.JWT_SECRET &&
       !!process.env.MFA_ENCRYPTION_KEY;
     const passkeyConfigured = !!process.env.PASSKEY_RP_ID && !!process.env.PASSKEY_ORIGIN;
