@@ -1,5 +1,7 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { randomUUID } from 'node:crypto';
 import { SupabaseClientService } from '../db/supabase.client';
+import { PostgresService } from '../db/postgres.client';
 
 export interface UserRow {
   id: string;
@@ -12,7 +14,10 @@ export interface UserRow {
 
 @Injectable()
 export class AuthRepository {
-  constructor(private readonly supabase: SupabaseClientService) {}
+  constructor(
+    private readonly supabase: SupabaseClientService,
+    private readonly postgres: PostgresService
+  ) {}
   async checkDatabase(): Promise<void> {
     const requiredTables = [
       'users',
@@ -30,6 +35,9 @@ export class AuthRepository {
     );
     const failed = checks.find(result => result.error);
     if (failed?.error) throw failed.error;
+    // Auth rotation and recovery-code consumption use direct PostgreSQL transactions.
+    await this.postgres.query('SELECT 1 FROM public.refresh_sessions LIMIT 1');
+    await this.postgres.query('SELECT 1 FROM public.mfa_recovery_codes LIMIT 1');
   }
   async findUserByEmail(email: string): Promise<UserRow | null> {
     const { data, error } = await this.supabase.db
@@ -96,30 +104,98 @@ export class AuthRepository {
     ip?: string,
     userAgent?: string
   ) {
-    const { data, error } = await this.supabase.db.rpc('rotate_refresh_token', {
-      p_token_hash: tokenHash,
-      p_new_token_hash: newTokenHash,
-      p_new_expires_at: expiresAt.toISOString(),
-      p_ip: ip ?? null,
-      p_user_agent: userAgent ?? null,
+    const result = await this.postgres.transaction(async client => {
+      const { rows } = await client.query<{
+        id: string;
+        user_id: string;
+        family_id: string;
+        expires_at: string | Date;
+        revoked_at: string | null;
+        replaced_by: string | null;
+        role: 'USER' | 'ADMIN';
+      }>(
+        'SELECT s.id, s.user_id, s.family_id, s.expires_at, s.revoked_at, s.replaced_by, u.role FROM public.refresh_sessions s JOIN public.users u ON u.id = s.user_id WHERE s.token_hash = $1 FOR UPDATE OF s',
+        [tokenHash]
+      );
+      const session = rows[0];
+      if (!session) throw new UnauthorizedException('Invalid refresh token');
+
+      // Replay revocation must commit. Return a result from the transaction and
+      // throw only after the transaction wrapper commits.
+      if (session.revoked_at || session.replaced_by) {
+        await client.query(
+          'UPDATE public.refresh_sessions SET revoked_at = COALESCE(revoked_at, now()) WHERE family_id = $1 AND revoked_at IS NULL',
+          [session.family_id]
+        );
+        return {
+          user_id: session.user_id,
+          role: session.role,
+          new_session_id: '',
+          reuse_detected: true
+        };
+      }
+      if (new Date(session.expires_at).getTime() <= Date.now()) {
+        throw new UnauthorizedException('Expired refresh token');
+      }
+
+      const newSessionId = randomUUID();
+      const { rowCount } = await client.query(
+        'UPDATE public.refresh_sessions SET replaced_by = $2, revoked_at = now(), last_used_at = now() WHERE id = $1 AND revoked_at IS NULL AND expires_at > now()',
+        [session.id, newSessionId]
+      );
+      if (rowCount !== 1) {
+        await client.query(
+          'UPDATE public.refresh_sessions SET revoked_at = COALESCE(revoked_at, now()) WHERE family_id = $1 AND revoked_at IS NULL',
+          [session.family_id]
+        );
+        return {
+          user_id: session.user_id,
+          role: session.role,
+          new_session_id: '',
+          reuse_detected: true
+        };
+      }
+
+      await client.query(
+        'INSERT INTO public.refresh_sessions (id, user_id, token_hash, family_id, expires_at, ip, user_agent) VALUES ($1, $2, $3, $4, $5, $6::inet, $7)',
+        [
+          newSessionId,
+          session.user_id,
+          newTokenHash,
+          session.family_id,
+          expiresAt.toISOString(),
+          ip ?? null,
+          userAgent ?? null
+        ]
+      );
+      return {
+        user_id: session.user_id,
+        role: session.role,
+        new_session_id: newSessionId,
+        reuse_detected: false
+      };
     });
-    if (error) throw error;
-    const row = Array.isArray(data) ? data[0] : data;
-    if (!row) throw new UnauthorizedException('Invalid refresh token');
-    if (row.reuse_detected) throw new UnauthorizedException('Refresh token reuse detected');
-    return row as {
-      user_id: string;
-      role: 'USER' | 'ADMIN';
-      new_session_id: string;
-      reuse_detected: boolean;
-    };
+
+    if (result.reuse_detected) {
+      throw new UnauthorizedException('Refresh token reuse detected');
+    }
+    return result;
   }
+
   async consumeRecoveryCode(userId: string, codeHash: string): Promise<boolean> {
-    const { data, error } = await this.supabase.db.rpc('consume_recovery_code', {
-      p_user_id: userId,
-      p_code_hash: codeHash,
+    return this.postgres.transaction(async client => {
+      const { rows } = await client.query<{ id: string }>(
+        'SELECT id FROM public.mfa_recovery_codes WHERE user_id = $1 AND code_hash = $2 AND used_at IS NULL ORDER BY created_at, id LIMIT 1 FOR UPDATE SKIP LOCKED',
+        [userId, codeHash]
+      );
+      const recoveryCode = rows[0];
+      if (!recoveryCode) return false;
+
+      const { rowCount } = await client.query(
+        'UPDATE public.mfa_recovery_codes SET used_at = now() WHERE id = $1 AND used_at IS NULL',
+        [recoveryCode.id]
+      );
+      return rowCount === 1;
     });
-    if (error) throw error;
-    return data === true;
   }
 }
