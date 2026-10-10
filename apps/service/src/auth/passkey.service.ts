@@ -62,9 +62,6 @@ export class PasskeyService {
     const clientData = JSON.parse(
       Buffer.from(response.response.clientDataJSON, 'base64url').toString('utf8')
     ) as { challenge: string };
-    const record = await this.passkeys.consumeChallenge(clientData.challenge, 'registration');
-    if (!record || record.user_id !== userId)
-      throw new UnauthorizedException('Invalid or expired passkey challenge');
     const verification = await verifyRegistrationResponse({
       response,
       expectedChallenge: clientData.challenge,
@@ -74,6 +71,9 @@ export class PasskeyService {
     });
     if (!verification.verified || !verification.registrationInfo)
       throw new UnauthorizedException('Passkey registration failed');
+    const record = await this.passkeys.consumeChallenge(clientData.challenge, 'registration');
+    if (!record || record.user_id !== userId)
+      throw new UnauthorizedException('Invalid, expired, or already-used passkey challenge');
     const credential = verification.registrationInfo.credential;
     return this.passkeys.createCredential({
       user_id: userId,
@@ -102,8 +102,6 @@ export class PasskeyService {
     const clientData = JSON.parse(
       Buffer.from(response.response.clientDataJSON, 'base64url').toString('utf8')
     ) as { challenge: string };
-    const challenge = await this.passkeys.consumeChallenge(clientData.challenge, 'authentication');
-    if (!challenge) throw new UnauthorizedException('Invalid or expired passkey challenge');
     const verification = await verifyAuthenticationResponse({
       response,
       expectedChallenge: clientData.challenge,
@@ -118,11 +116,16 @@ export class PasskeyService {
       requireUserVerification: true,
     });
     if (!verification.verified) throw new UnauthorizedException('Passkey authentication failed');
-    await this.passkeys.updateCredential(
+    const challenge = await this.passkeys.consumeChallenge(clientData.challenge, 'authentication');
+    if (!challenge) throw new UnauthorizedException('Invalid, expired, or already-used passkey challenge');
+    const counterUpdated = await this.passkeys.updateCredential(
       credential.id,
+      Number(credential.counter),
       verification.authenticationInfo.newCounter,
       response.response.transports
     );
+    if (!counterUpdated)
+      throw new UnauthorizedException('Passkey credential changed during authentication');
     const user = await this.users.findUserById(credential.user_id);
     if (!user) throw new UnauthorizedException();
     if (user.mfa_enabled) return { mfaRequired: true, userId: user.id };
