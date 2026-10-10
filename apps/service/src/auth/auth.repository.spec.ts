@@ -2,7 +2,6 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import type { PoolClient } from 'pg';
 import { AuthRepository } from './auth.repository';
-import type { SupabaseClientService } from '../db/supabase.client';
 import type { PostgresService } from '../db/postgres.client';
 
 type QueryCall = { sql: string; values: unknown[] };
@@ -35,7 +34,7 @@ function makeHarness(selectRows: unknown[], updateCounts: number[] = []) {
       return result;
     },
   } as unknown as PostgresService;
-  const repo = new AuthRepository({} as SupabaseClientService, postgres);
+  const repo = new AuthRepository(postgres);
   return { repo, calls, committed: () => committed };
 }
 
