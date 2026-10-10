@@ -110,7 +110,7 @@ export class PasskeyService {
       credential: {
         id: credential.credential_id,
         publicKey: Buffer.from(credential.public_key, 'base64url'),
-        counter: credential.counter,
+        counter: Number(credential.counter),
         transports: credential.transports as any,
       },
       requireUserVerification: true,
