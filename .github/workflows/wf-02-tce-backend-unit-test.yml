@@ -34,8 +34,8 @@ jobs:
       - name: Install dependencies
         run: npm install --include=dev --no-audit --no-fund
 
-      - name: Run backend unit tests
-        run: npm test
-
       - name: Build backend
         run: npm run build:service
+
+      - name: Run backend unit tests
+        run: npm test
