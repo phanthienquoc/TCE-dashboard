@@ -1,5 +1,7 @@
-import { Injectable, OnModuleDestroy } from '@nestjs/common';
-import { Pool, PoolClient, QueryResult, QueryResultRow } from 'pg';
+import { Injectable } from '@nestjs/common';
+import type { OnModuleDestroy } from '@nestjs/common';
+import { Pool } from 'pg';
+import type { PoolClient, QueryResult, QueryResultRow } from 'pg';
 
 @Injectable()
 export class PostgresService implements OnModuleDestroy {
