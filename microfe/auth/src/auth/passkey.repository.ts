@@ -8,21 +8,21 @@ export interface PasskeyCredential {
 }
 export interface PasskeyChallenge {
   id: string; user_id: string | null; challenge: string;
-  purpose: 'registration' | 'authentication'; expires_at: string;
+  purpose: 'registration' | 'authentication' | 'mfa'; expires_at: string;
 }
 
 @Injectable()
 export class PasskeyRepository {
   constructor(private readonly db: PostgresService) {}
 
-  async createChallenge(userId: string | null, challenge: string, purpose: 'registration' | 'authentication'): Promise<void> {
+  async createChallenge(userId: string | null, challenge: string, purpose: 'registration' | 'authentication' | 'mfa'): Promise<void> {
     await this.db.query(
       'INSERT INTO public.auth_passkey_challenges (user_id, challenge, purpose, expires_at) VALUES ($1, $2, $3, now() + interval \'5 minutes\')',
       [userId, challenge, purpose],
     );
   }
 
-  async consumeChallenge(challenge: string, purpose: 'registration' | 'authentication'): Promise<PasskeyChallenge | null> {
+  async consumeChallenge(challenge: string, purpose: 'registration' | 'authentication' | 'mfa'): Promise<PasskeyChallenge | null> {
     return this.db.transaction(async client => {
       const { rows } = await client.query<PasskeyChallenge>(
         'SELECT id, user_id, challenge, purpose, expires_at FROM public.auth_passkey_challenges WHERE challenge = $1 AND purpose = $2 AND expires_at > now() ORDER BY created_at DESC LIMIT 1 FOR UPDATE',
