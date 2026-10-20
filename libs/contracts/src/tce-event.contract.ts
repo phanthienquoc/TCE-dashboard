@@ -13,7 +13,7 @@ export type TceEventEnvelope<TType extends string = string, TData = unknown> = R
   eventType: TType;
   /** Explicit version of the envelope/payload contract. */
   schemaVersion: typeof TCE_EVENT_SCHEMA_VERSION;
-  /** ISO-8601 UTC timestamp. Runtime adapters must validate it. */
+  /** ISO-8601 timestamp with an explicit UTC marker or offset. */
   occurredAt: string;
   /** Service/module producing this event. */
   producer: string;
@@ -107,7 +107,9 @@ export function isTceEventEnvelope(value: unknown): value is TceEventEnvelope<st
   if (candidate.schemaVersion !== TCE_EVENT_SCHEMA_VERSION) return false;
 
   const occurredAt = candidate.occurredAt as string;
-  if (!Number.isFinite(Date.parse(occurredAt))) return false;
+  // Timezone-less dates are ambiguous across systems, even if Date.parse accepts them.
+  if (!/(?:Z|[+-]\d{2}:\d{2})$/i.test(occurredAt) || !Number.isFinite(Date.parse(occurredAt)))
+    return false;
 
   if (candidate.accountId !== undefined &&
       (typeof candidate.accountId !== 'string' || candidate.accountId.trim().length === 0)) return false;
