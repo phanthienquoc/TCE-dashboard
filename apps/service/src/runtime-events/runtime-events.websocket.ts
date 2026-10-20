@@ -131,8 +131,12 @@ export function attachRuntimeEventsWebSocket(
             if (client.readyState === WebSocket.OPEN) {
               client.send(
                 JSON.stringify({
-                  eventType: 'transport.error',
-                  data: { code: 'RUNTIME_EVENT_STORE_UNAVAILABLE', retryable: true },
+                  type: 'transport.error',
+                  error: {
+                    code: 'RUNTIME_EVENT_STORE_UNAVAILABLE',
+                    message: 'Runtime event store is temporarily unavailable',
+                    retryable: true,
+                  },
                 })
               );
             }
