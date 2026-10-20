@@ -5,10 +5,7 @@ import {
   isTceRuntimeEventType,
   type TceEventPublisherPort,
 } from '@tce/contracts';
-import {
-  createMonitorSnapshotEvent,
-  publishMonitorSnapshotBestEffort,
-} from './monitor-event.js';
+import { createMonitorSnapshotEvent, publishMonitorSnapshotBestEffort } from './monitor-event.js';
 
 const input = {
   snapshotId: 'snapshot-123',
@@ -48,13 +45,9 @@ test('best-effort publish does not propagate publisher failures to Monitor', asy
     },
   };
   await assert.doesNotReject(
-    publishMonitorSnapshotBestEffort(
-      publisher,
-      createMonitorSnapshotEvent(input),
-      error => {
-        failure = error;
-      }
-    )
+    publishMonitorSnapshotBestEffort(publisher, createMonitorSnapshotEvent(input), error => {
+      failure = error;
+    })
   );
   assert.equal(calls, 1);
   assert.equal(failure instanceof Error ? failure.message : '', 'event store unavailable');

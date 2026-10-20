@@ -17,11 +17,6 @@ import { PostgresService } from './postgres.client';
       useFactory: (db: SupabaseClientService) => new SupabaseRuntimeEventPublisher(db.db),
     },
   ],
-  exports: [
-    SupabaseClientService,
-    MongoDbClient,
-    PostgresService,
-    CONTRACT_TOKENS.eventPublisher,
-  ],
+  exports: [SupabaseClientService, MongoDbClient, PostgresService, CONTRACT_TOKENS.eventPublisher],
 })
 export class DbModule {}

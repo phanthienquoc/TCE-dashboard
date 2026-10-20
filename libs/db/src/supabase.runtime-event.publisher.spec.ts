@@ -28,17 +28,19 @@ describe('SupabaseRuntimeEventPublisher', () => {
     await publisher.publish(event);
 
     expect(db.from).toHaveBeenCalledWith('tce_runtime_events');
-    expect(insert).toHaveBeenCalledWith(expect.objectContaining({
-      event_id: event.eventId,
-      event_type: event.eventType,
-      schema_version: event.schemaVersion,
-      occurred_at: event.occurredAt,
-      producer: event.producer,
-      correlation_id: event.correlationId,
-      account_id: event.accountId,
-      aggregate_id: event.aggregateId,
-      data: event.data,
-    }));
+    expect(insert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        event_id: event.eventId,
+        event_type: event.eventType,
+        schema_version: event.schemaVersion,
+        occurred_at: event.occurredAt,
+        producer: event.producer,
+        correlation_id: event.correlationId,
+        account_id: event.accountId,
+        aggregate_id: event.aggregateId,
+        data: event.data,
+      })
+    );
   });
 
   it('treats duplicate event IDs as idempotent delivery', async () => {
