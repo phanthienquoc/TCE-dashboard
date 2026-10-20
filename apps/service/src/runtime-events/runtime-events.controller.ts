@@ -93,6 +93,7 @@ export class RuntimeEventsController {
           })
         ).pipe(
           map(events => {
+            const fresh = events.filter(event => !sent.has(event.eventId));
             for (const event of events) {
               sent.add(event.eventId);
               cursor = event.occurredAt;
@@ -100,7 +101,7 @@ export class RuntimeEventsController {
             while (sent.size > 1000) {
               sent.delete(sent.values().next().value as string);
             }
-            return events.filter(event => !sent.has(event.eventId) || event.eventId === cursor);
+            return fresh;
           }),
           catchError(() =>
             of([
