@@ -20,6 +20,7 @@ Standardize runtime ownership and provider/domain/event contracts incrementally.
 - [x] Add `TceEventEnvelope` schema version 1, typed event names/data, structural runtime validation, known-event-name guard and provider-neutral `TceEventPublisherPort`.
 - [x] Export event contract without removing existing barrel exports.
 - [x] Add focused tests for event identity, version, timestamps, scope, sequence and required data.
+- [x] Validate event-specific payloads at runtime for every registered event type, including nested account snapshot and execution error fields.
 - [x] Add automated import-boundary tests for pure engine, TCE decision/scanner, Monitor and DRE provider dependencies.
 - [x] Squash-merge foundation PR #846 into `master` at `36e7304b6c5c40b1c6352357e59474649a9799f9`.
 - [x] Verify backend build/unit tests and Prettier passed on the foundation head (runs #1898 and #1401).
@@ -39,6 +40,7 @@ Standardize runtime ownership and provider/domain/event contracts incrementally.
 - [x] Derive account scope from the verified bearer identity or the existing auth-service session introspection; ignore caller-supplied account IDs.
 - [x] Add composite timestamp/event-ID replay cursors to avoid losing events with tied timestamps.
 - [x] Validate event names, envelope structure, cursor, limit and transport filter inputs at runtime.
+- [x] Reject persisted events with malformed event-specific payloads before REST/SSE/WebSocket delivery.
 - [x] Apply WebSocket origin checks for cookie-authenticated sessions; optionally configure TCE_EVENT_WS_ALLOWED_ORIGINS.
 - [x] Add focused contract, query, REST/SSE and cursor tests; include apps/service/src/runtime-events in backend test discovery.
 - [x] Backend build/unit tests passed on final head (run #1909); Prettier passed (#1412); squash-merged PR #853 at `1040823b4281b21f6057ce4015b6a80ca3bced74`.
@@ -66,7 +68,15 @@ Standardize runtime ownership and provider/domain/event contracts incrementally.
 - [ ] Open a separate PR per task, with required CI green before squash merge into `master`.
 - [ ] Verify deployments separately after code is merged; this implementation does not deploy or enable LIVE trading.
 
-## Current task: DRE live execution safety gate
+## Current task: Runtime event payload validation
+
+- [x] Add per-event runtime guards for all 10 registered event types without introducing a new schema dependency.
+- [x] Validate nested account balance/position/order payloads and execution error codes.
+- [x] Enforce validation in the Supabase publisher before persistence and in the query service before transport delivery.
+- [x] Add positive/negative contract tests for all event types and tests proving malformed events are not persisted or streamed.
+- [ ] Run backend build/unit tests and Prettier on the latest PR head, fix failures, then squash-merge.
+
+## Previous task: DRE live execution safety gate
 
 - [x] Enforce DRE_ENABLED and DRE_LIVE_EXECUTION directly at the safe execution boundary, not only in a helper service.
 - [x] Reject LIVE before index, database, or provider work unless DRE_LIVE_EXECUTION=true; keep DRY_RUN available while DRE is enabled.
@@ -131,6 +141,6 @@ Standardize runtime ownership and provider/domain/event contracts incrementally.
 - Monitor scheduling stays off unless `TCE_MONITOR_SCHEDULER_ENABLED=true`; manual invocation remains protected by `TCE_MONITOR_RUN_SECRET`.
 - No live order submission, LIVE-mode enablement, production DB migration, or deployment is authorized by this refactor.
 - An adapter implementation or Nest provider is not proof of runtime durability until the actual dispatch path injects and uses it.
-- Envelope validation does not replace event-specific payload validation.
+- Event envelopes and event-specific payloads are both validated at the publisher and read boundary.
 - DRE lifecycle event publication is best-effort across MongoDB and Supabase; it is not an atomic outbox until durable replay/reconciliation is implemented.
 - DRE campaign events currently have no accountId because campaigns are global; account-scoped REST/SSE/WebSocket streams intentionally do not expose them until an explicit global/admin visibility policy is defined.
