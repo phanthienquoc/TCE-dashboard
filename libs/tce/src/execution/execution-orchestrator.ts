@@ -17,10 +17,6 @@ type ExecutionOrchestratorResult = Readonly<{
 }>;
 
 export type TceExecutionOrchestratorOptions = Readonly<{
-  /**
-   * Supply a durable store in deployed runtime. Leaving this unset preserves
-   * backwards-compatible in-memory mode for local/tests only.
-   */
   idempotencyStore?: TceExecutionIdempotencyStore;
   now?: () => Date;
 }>;
@@ -140,13 +136,12 @@ export class TceExecutionOrchestrator {
     if (record.status === 'COMPLETED' && record.result) {
       return { ok: record.result.ok, result: record.result };
     }
-    // PENDING may mean another replica is dispatching. UNKNOWN explicitly
-    // requires reconciliation. Neither state is safe to dispatch again.
     const unknown = record.status === 'UNKNOWN';
+    const status = unknown ? 'UNKNOWN' : 'PENDING';
     const result: TceExecutionResult = record.result ?? {
       ok: false,
       operation: command.operation,
-      status: unknown ? 'UNKNOWN' : 'PENDING',
+      status,
       executionIntentId:
         command.operation === 'SUBMIT' ? command.intent.id : command.executionIntentId,
       correlationId: command.authorization.correlationId,
@@ -155,7 +150,7 @@ export class TceExecutionOrchestrator {
       error: {
         code: unknown ? 'TIMEOUT_UNKNOWN' : 'DUPLICATE_REQUEST',
         message: unknown
-          ? 'A previous attempt has an unknown outcome; reconciliation is required'
+          ? 'Previous attempt has an unknown outcome; reconciliation is required'
           : 'An execution with this idempotency key is already pending',
         retryable: false,
         reconciliationRequired: unknown,
@@ -179,48 +174,27 @@ export class TceExecutionOrchestrator {
   private validate(command: TceExecutionCommand): ExecutionOrchestratorResult | null {
     const auth = command.authorization;
     if (!auth?.approvalId || !auth.correlationId || !auth.idempotencyKey || !auth.approvedAt) {
-      return invalidResult(
-        command,
-        'AUTHORIZATION_REQUIRED',
-        'Execution approval identity is required'
-      );
+      return invalidResult(command, 'AUTHORIZATION_REQUIRED', 'Execution approval identity is required');
     }
-
-    if (
-      !command.accountId?.trim() ||
-      !command.environment?.trim() ||
-      !command.clientRequestId?.trim()
-    ) {
-      return invalidResult(
-        command,
-        'INVALID_COMMAND',
-        'Execution account, environment and client request identity are required'
-      );
+    if (!command.accountId?.trim() || !command.environment?.trim() || !command.clientRequestId?.trim()) {
+      return invalidResult(command, 'INVALID_COMMAND', 'Execution account, environment and client request identity are required');
     }
-
     if (command.operation === 'SUBMIT') {
       if (
         command.intent.correlationId !== auth.correlationId ||
         command.intent.idempotencyKey !== auth.idempotencyKey ||
         command.intent.mode !== command.mode
       ) {
-        return invalidResult(
-          command,
-          'INVALID_COMMAND',
-          'Execution authorization does not match intent'
-        );
+        return invalidResult(command, 'INVALID_COMMAND', 'Execution authorization does not match intent');
       }
       return null;
     }
-
     if (!command.executionIntentId) {
       return invalidResult(command, 'INVALID_COMMAND', 'Execution command identity is incomplete');
     }
-
     if (command.operation === 'REPLACE' && !command.providerOrderId) {
       return invalidResult(command, 'INVALID_COMMAND', 'REPLACE requires providerOrderId');
     }
-
     return null;
   }
 
