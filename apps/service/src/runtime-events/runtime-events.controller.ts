@@ -108,7 +108,7 @@ export class RuntimeEventsController {
         error: { code: 'INVALID_CURSOR', message: 'after must be an ISO-8601 timestamp' },
       });
     }
-    if (afterEventId !== undefined && (!after || !afterEventId.trim())) {
+    if (afterEventId !== undefined && (!after || !/^[A-Za-z0-9._:-]{1,256}$/.test(afterEventId))) {
       throw new BadRequestException({
         ok: false,
         error: { code: 'INVALID_CURSOR', message: 'afterEventId requires a valid after timestamp' },
