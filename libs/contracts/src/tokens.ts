@@ -4,4 +4,5 @@ export const CONTRACT_TOKENS = {
   orderRepository: Symbol.for('tce.contracts.orderRepository'),
   marketData: Symbol.for('tce.contracts.marketData'),
   broker: Symbol.for('tce.contracts.broker'),
+  eventPublisher: Symbol.for('tce.contracts.eventPublisher'),
 } as const;
