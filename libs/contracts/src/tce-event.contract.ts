@@ -199,6 +199,25 @@ const isPlatformKind = (value: unknown): boolean =>
 const isStringArray = (value: unknown): value is string[] =>
   Array.isArray(value) && value.every(isNonEmptyString);
 
+const optionalFiniteFields = (value: UnknownRecord, keys: readonly string[]): boolean =>
+  keys.every(key => value[key] === undefined || isFiniteNumber(value[key]));
+
+const EXECUTION_ERROR_CODES = [
+  'AUTHORIZATION_REQUIRED',
+  'AUTHORIZATION_EXPIRED',
+  'APPROVAL_REQUIRED',
+  'INVALID_COMMAND',
+  'INVALID_ACCOUNT',
+  'INVALID_ORDER',
+  'UNSUPPORTED_OPERATION',
+  'RATE_LIMITED',
+  'PROVIDER_UNAVAILABLE',
+  'PROVIDER_REJECTED',
+  'TIMEOUT_UNKNOWN',
+  'DUPLICATE_REQUEST',
+  'UNKNOWN',
+] as const;
+
 function isMarketQuote(value: unknown): boolean {
   return (
     isRecord(value) &&
@@ -267,7 +286,7 @@ function isExecutionResult(value: unknown): boolean {
   if (value.error !== undefined) {
     if (
       !isRecord(value.error) ||
-      !isNonEmptyString(value.error.code) ||
+      !EXECUTION_ERROR_CODES.includes(value.error.code as (typeof EXECUTION_ERROR_CODES)[number]) ||
       !isNonEmptyString(value.error.message) ||
       typeof value.error.retryable !== 'boolean' ||
       typeof value.error.reconciliationRequired !== 'boolean'
@@ -286,6 +305,31 @@ function isAccountBalance(value: unknown): boolean {
     isFiniteNumber(value.equity) &&
     isFiniteNumber(value.withdrawable) &&
     isPlatformKind(value.source) &&
+    optionalFiniteFields(value, [
+      'availableCash',
+      'totalDebt',
+      'interestLoan',
+      'overdueFeeLoan',
+      'onHoldCash',
+      'sellUnmatched',
+      'sellT0',
+      'sellT1',
+      'sellT2',
+      'buyUnmatched',
+      'buyT0',
+      'buyT1',
+      'buyT2',
+      'advanceCashT0',
+      'advanceCashT1',
+      'holdSubscription',
+      'bankBalance',
+      'dividend',
+      'dividendMargin',
+      'blockCash',
+      'interestCash',
+      'limitT0',
+      'termDeposit',
+    ]) &&
     (value.accountNo === undefined || isNonEmptyString(value.accountNo))
   );
 }
@@ -297,8 +341,22 @@ function isAccountPosition(value: unknown): boolean {
     isFiniteNumber(value.quantity) &&
     isFiniteNumber(value.averagePrice) &&
     isPlatformKind(value.source) &&
-    (value.marketPrice === undefined || isFiniteNumber(value.marketPrice)) &&
-    (value.marketValue === undefined || isFiniteNumber(value.marketValue)) &&
+    optionalFiniteFields(value, [
+      'marketPrice',
+      'marketValue',
+      'unrealizedPnl',
+      'sellableQuantity',
+      'blockQuantity',
+      'dividendQuantity',
+      'buyingQuantity',
+      'boughtQuantity',
+      'sellingQuantity',
+      'soldQuantity',
+      't1SellQuantity',
+      't2SellQuantity',
+      'mortgageQuantity',
+      'restrictedQuantity',
+    ]) &&
     (value.accountId === undefined || isNonEmptyString(value.accountId)) &&
     (value.accountNo === undefined || isNonEmptyString(value.accountNo))
   );
@@ -314,6 +372,11 @@ function isAccountOrder(value: unknown): boolean {
     isNonEmptyString(value.status) &&
     isPlatformKind(value.source) &&
     (value.filledQuantity === undefined || isNonNegativeNumber(value.filledQuantity)) &&
+    optionalFiniteFields(value, ['osQuantity', 'cancelQuantity', 'price', 'avgPrice']) &&
+    (value.orderType === undefined || isNonEmptyString(value.orderType)) &&
+    (value.createdAt === undefined || isTimestamp(value.createdAt)) &&
+    (value.modifyTime === undefined || isTimestamp(value.modifyTime)) &&
+    (value.message === undefined || typeof value.message === 'string') &&
     (value.clientRequestId === undefined || isNonEmptyString(value.clientRequestId))
   );
 }
