@@ -84,9 +84,8 @@ export type TceRuntimeEvent<TType extends TceRuntimeEventType> = TceEventEnvelop
 >;
 
 /**
- * Small runtime guard for transport adapters when no schema library is used.
- * This validates envelope structure only; callers must validate event-specific
- * data with its corresponding DTO/schema before casting to a typed event.
+ * This validates envelope structure only. Callers must validate event-specific
+ * data with its corresponding DTO/schema before treating data as trusted.
  */
 export function isTceEventEnvelope(value: unknown): value is TceEventEnvelope<string, unknown> {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) return false;
@@ -100,24 +99,40 @@ export function isTceEventEnvelope(value: unknown): value is TceEventEnvelope<st
     'correlationId',
   ] as const;
 
-  if (!requiredStrings.every(key =>
-    typeof candidate[key] === 'string' && (candidate[key] as string).trim().length > 0
-  )) return false;
+  if (
+    !requiredStrings.every(
+      key => typeof candidate[key] === 'string' && (candidate[key] as string).trim().length > 0
+    )
+  ) {
+    return false;
+  }
 
   if (candidate.schemaVersion !== TCE_EVENT_SCHEMA_VERSION) return false;
 
   const occurredAt = candidate.occurredAt as string;
-  // Timezone-less dates are ambiguous across systems, even if Date.parse accepts them.
-  if (!/(?:Z|[+-]\d{2}:\d{2})$/i.test(occurredAt) || !Number.isFinite(Date.parse(occurredAt)))
+  if (!/(?:Z|[+-]\d{2}:\d{2})$/i.test(occurredAt) || !Number.isFinite(Date.parse(occurredAt))) {
     return false;
+  }
 
-  if (candidate.accountId !== undefined &&
-      (typeof candidate.accountId !== 'string' || candidate.accountId.trim().length === 0)) return false;
-  if (candidate.aggregateId !== undefined &&
-      (typeof candidate.aggregateId !== 'string' || candidate.aggregateId.trim().length === 0)) return false;
-  if (candidate.sequence !== undefined &&
-      (typeof candidate.sequence !== 'number' || !Number.isSafeInteger(candidate.sequence) || candidate.sequence < 0)) return false;
-  if (!Object.prototype.hasOwnProperty.call(candidate, 'data')) return false;
-
-  return true;
+  if (
+    candidate.accountId !== undefined &&
+    (typeof candidate.accountId !== 'string' || candidate.accountId.trim().length === 0)
+  ) {
+    return false;
+  }
+  if (
+    candidate.aggregateId !== undefined &&
+    (typeof candidate.aggregateId !== 'string' || candidate.aggregateId.trim().length === 0)
+  ) {
+    return false;
+  }
+  if (
+    candidate.sequence !== undefined &&
+    (typeof candidate.sequence !== 'number' ||
+      !Number.isSafeInteger(candidate.sequence) ||
+      candidate.sequence < 0)
+  ) {
+    return false;
+  }
+  return Object.prototype.hasOwnProperty.call(candidate, 'data');
 }
