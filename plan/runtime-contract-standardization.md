@@ -22,14 +22,16 @@ Standardize runtime ownership and provider/domain/event contracts incrementally 
 - [x] Preserve all existing contract barrel exports and add only `tce-event.contract`.
 - [x] Add focused envelope tests for identity, version, timezone-aware timestamps, scope, sequence and required data.
 - [x] Latest CI backend build passed.
-- [ ] Isolated contract test execution is not confirmed; the global CI unit-test step remains red.
+- [x] CI run #1870 discovered and executed `TceEventEnvelope`; the contract spec passed. The overall backend suite remains red on unrelated existing assertions.
 
 ## Latest CI findings
 
-- **Build:** passed on run #1866 after repairing the contract barrel. The earlier TS2305 flood happened on an intermediate merge snapshot with missing previous exports.
-- **Tests:** global run #1866 reported 15 of 147 failures. The logs still show `ReferenceError: describe is not defined` for some existing Vitest/Jest-style tests being invoked through Node's test runner, plus assertion failures in existing execution/reconciliation suites. The new contract spec now explicitly imports `describe` and `it` from `node:test`, but the CI harness still does not appear to include this spec in its discovered test set; run it in isolation or add it to the test configuration so coverage is confirmed.
-- **Prettier workflow:** formatting passed; auto-push failed because the GitHub App lacks `workflows` permission for `.github/workflows/wf-08b-tce-microfe-build-publish.yml`. No unrelated formatter commit was pushed. Handle that CI permission issue separately; do not add workflow edits into this contract-only PR.
-- PR #846 remains draft; no merge or deploy is claimed.
+- **Build:** passed on backend test run #1870.
+- **Contract test:** `libs/contracts/src/tce-event.contract.spec.ts` was discovered and passed in run #1870.
+- **Test runner:** fixed `package.json` so specs importing `node:test` run under Node's test runner and global `describe/expect` specs run under Vitest. Added `libs/contracts/src` to test discovery. This removed the `ReferenceError: describe is not defined` failures.
+- **Remaining backend test failures:** run #1870 still fails on 12 existing assertions in SSI reconciliation/adapters, capital allocation, CRDE decision/execution, and dividend lifecycle tests. These are not caused by the event-envelope code; inspect and fix the underlying contract/fixture drift without weakening assertions or changing trading behavior blindly.
+- **Prettier workflow:** run #1373 passed after changing the workflow to format only changed non-workflow files and stage only tracked formatting edits. This avoids the previous token rejection caused by trying to push unrelated `.github/workflows/wf-08b-tce-microfe-build-publish.yml` formatting changes.
+- **Merge gate:** PR #846 remains draft and must not merge while any required check is red or missing. No deployment or LIVE trading is enabled.
 
 ## Phase 2 — Runtime ownership boundaries
 
