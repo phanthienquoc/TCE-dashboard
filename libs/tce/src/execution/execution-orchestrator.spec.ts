@@ -253,3 +253,114 @@ test('durable store rejection due to conflicting fingerprint never reaches provi
   );
   assert.equal(conflicting.result.error?.code, 'DUPLICATE_REQUEST');
 });
+
+test('does not dispatch when durable reservation fails and returns a retryable pre-dispatch result', async () => {
+  let calls = 0;
+  const store: TceExecutionIdempotencyStore = {
+    reserve: async () => {
+      throw new Error('table missing');
+    },
+    complete: async () => {
+      throw new Error('must not be called');
+    },
+  };
+  const port: TceExecutionPort = {
+    submit: async command => {
+      calls += 1;
+      return okResult(command);
+    },
+    cancel: async () => {
+      throw new Error('not used');
+    },
+    replace: async () => {
+      throw new Error('not used');
+    },
+  };
+
+  const result = await new TceExecutionOrchestrator(port, { idempotencyStore: store }).execute(
+    submit()
+  );
+  assert.equal(calls, 0);
+  assert.equal(result.result.status, 'REJECTED');
+  assert.equal(result.result.error?.code, 'PROVIDER_UNAVAILABLE');
+  assert.equal(result.result.error?.retryable, true);
+  assert.equal(result.result.error?.reconciliationRequired, false);
+});
+
+test('returns UNKNOWN when dispatch succeeded but durable result persistence fails', async () => {
+  let calls = 0;
+  const store: TceExecutionIdempotencyStore = {
+    reserve: async reservation => ({
+      kind: 'RESERVED',
+      record: { reservation, status: 'PENDING', updatedAt: reservation.createdAt },
+    }),
+    complete: async () => {
+      throw new Error('database unavailable');
+    },
+  };
+  const port: TceExecutionPort = {
+    submit: async command => {
+      calls += 1;
+      return okResult(command);
+    },
+    cancel: async () => {
+      throw new Error('not used');
+    },
+    replace: async () => {
+      throw new Error('not used');
+    },
+  };
+
+  const result = await new TceExecutionOrchestrator(port, { idempotencyStore: store }).execute(
+    submit()
+  );
+  assert.equal(calls, 1);
+  assert.equal(result.ok, false);
+  assert.equal(result.result.status, 'UNKNOWN');
+  assert.equal(result.result.error?.reconciliationRequired, true);
+});
+
+test('existing PENDING reservation requires reconciliation and never redispatches', async () => {
+  let calls = 0;
+  const command = submit();
+  const reservation: TceExecutionIdempotencyReservation = {
+    scope: {
+      accountId: command.accountId,
+      environment: command.environment,
+      idempotencyKey: command.authorization.idempotencyKey,
+    },
+    fingerprint: 'same-fingerprint',
+    executionIntentId: command.intent.id,
+    correlationId: command.authorization.correlationId,
+    clientRequestId: command.clientRequestId,
+    createdAt: '2026-10-21T12:00:00.000Z',
+  };
+  const store: TceExecutionIdempotencyStore = {
+    reserve: async () => ({
+      kind: 'EXISTING',
+      record: { reservation, status: 'PENDING', updatedAt: reservation.createdAt },
+    }),
+    complete: async () => {
+      throw new Error('must not be called');
+    },
+  };
+  const port: TceExecutionPort = {
+    submit: async providerCommand => {
+      calls += 1;
+      return okResult(providerCommand);
+    },
+    cancel: async () => {
+      throw new Error('not used');
+    },
+    replace: async () => {
+      throw new Error('not used');
+    },
+  };
+
+  const result = await new TceExecutionOrchestrator(port, { idempotencyStore: store }).execute(
+    command
+  );
+  assert.equal(calls, 0);
+  assert.equal(result.result.status, 'PENDING');
+  assert.equal(result.result.error?.reconciliationRequired, true);
+});

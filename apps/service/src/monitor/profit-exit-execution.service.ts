@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import type { TceExecutionIntent } from '@tce/contracts';
 import { SupabaseClientService } from '../db/supabase.client';
-import { TceSsiExecutionAdapter } from '../platform/tce-ssi-execution.adapter';
+import { TceExecutionOrchestrator } from '@tce/tce';
 
 const READY_AUTO_SELL_PREFIX = 'TCE_AUTO_SELL:';
 
@@ -11,7 +11,7 @@ export class ProfitExitExecutionService {
 
   constructor(
     private readonly supabase: SupabaseClientService,
-    private readonly execution: TceSsiExecutionAdapter
+    private readonly execution: TceExecutionOrchestrator
   ) {}
 
   async executeReady(accountId: string) {
@@ -70,7 +70,7 @@ export class ProfitExitExecutionService {
       };
 
       try {
-        const result = await this.execution.submit({
+        const { result } = await this.execution.execute({
           operation: 'SUBMIT',
           accountId,
           environment: 'production',
@@ -98,7 +98,23 @@ export class ProfitExitExecutionService {
           continue;
         }
 
-        const status = result.status === 'UNKNOWN' ? 'UNKNOWN' : 'REJECTED';
+        if (result.error?.retryable && !result.error.reconciliationRequired) {
+          this.logger.warn(
+            `Auto-sell order ${orderId} was not dispatched because a required dependency is unavailable; it remains READY for a later retry`
+          );
+          results.push({
+            orderId,
+            symbol,
+            status: 'RETRYABLE',
+            error: result.error.message,
+          });
+          continue;
+        }
+
+        const status =
+          result.status === 'UNKNOWN' || result.error?.reconciliationRequired
+            ? 'UNKNOWN'
+            : 'REJECTED';
         const { error: updateError } = await this.supabase.db
           .from('tce_orders')
           .update({ status, updated_at: new Date().toISOString() })
@@ -109,12 +125,25 @@ export class ProfitExitExecutionService {
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         this.logger.error(`Auto-sell execution failed for order ${orderId}: ${message}`);
-        await this.markRejected(orderId, message);
-        results.push({ orderId, symbol, status: 'REJECTED', error: message });
+        await this.markUnknown(orderId, message);
+        results.push({ orderId, symbol, status: 'UNKNOWN', error: message });
       }
     }
 
     return { submitted, evaluated: orders?.length ?? 0, results };
+  }
+
+  private async markUnknown(orderId: string, message: string) {
+    const { error } = await this.supabase.db
+      .from('tce_orders')
+      .update({
+        status: 'UNKNOWN',
+        updated_at: new Date().toISOString(),
+        note: `${READY_AUTO_SELL_PREFIX}UNKNOWN:${message}`,
+      })
+      .eq('id', orderId);
+    if (error)
+      this.logger.warn(`Unable to mark auto-sell order ${orderId} unknown: ${error.message}`);
   }
 
   private async markRejected(orderId: string, message: string) {

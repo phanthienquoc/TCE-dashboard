@@ -65,24 +65,46 @@ export class TceExecutionOrchestrator {
     const fingerprint = fingerprintExecutionCommand(command);
 
     if (this.options.idempotencyStore) {
-      const reservation = await this.options.idempotencyStore.reserve({
-        scope,
-        fingerprint,
-        executionIntentId:
-          command.operation === 'SUBMIT' ? command.intent.id : command.executionIntentId,
-        correlationId: command.authorization.correlationId,
-        clientRequestId: command.clientRequestId,
-        createdAt: now,
-      });
-      if (reservation.kind === 'FINGERPRINT_CONFLICT') {
-        return invalidResult(
-          command,
-          'DUPLICATE_REQUEST',
-          'Idempotency key was already reserved for a different command'
-        );
-      }
-      if (reservation.kind === 'EXISTING') {
-        return this.resultForExisting(command, reservation.record);
+      try {
+        const reservation = await this.options.idempotencyStore.reserve({
+          scope,
+          fingerprint,
+          executionIntentId:
+            command.operation === 'SUBMIT' ? command.intent.id : command.executionIntentId,
+          correlationId: command.authorization.correlationId,
+          clientRequestId: command.clientRequestId,
+          createdAt: now,
+        });
+        if (reservation.kind === 'FINGERPRINT_CONFLICT') {
+          return invalidResult(
+            command,
+            'DUPLICATE_REQUEST',
+            'Idempotency key was already reserved for a different command'
+          );
+        }
+        if (reservation.kind === 'EXISTING') {
+          return this.resultForExisting(command, reservation.record);
+        }
+      } catch {
+        return {
+          ok: false,
+          result: {
+            ok: false,
+            operation: command.operation,
+            status: 'REJECTED',
+            executionIntentId:
+              command.operation === 'SUBMIT' ? command.intent.id : command.executionIntentId,
+            correlationId: command.authorization.correlationId,
+            idempotencyKey: command.authorization.idempotencyKey,
+            clientRequestId: command.clientRequestId,
+            error: {
+              code: 'PROVIDER_UNAVAILABLE',
+              message: 'Durable idempotency store unavailable; provider dispatch was not attempted',
+              retryable: true,
+              reconciliationRequired: false,
+            },
+          },
+        };
       }
     } else {
       const localKey = this.scopeKey(scope);
@@ -122,7 +144,22 @@ export class TceExecutionOrchestrator {
     }
 
     if (this.options.idempotencyStore) {
-      await this.options.idempotencyStore.complete(scope, fingerprint, result, now);
+      try {
+        await this.options.idempotencyStore.complete(scope, fingerprint, result, now);
+      } catch {
+        const unknownResult: TceExecutionResult = {
+          ...result,
+          ok: false,
+          status: 'UNKNOWN',
+          error: {
+            code: 'UNKNOWN',
+            message: 'Execution outcome could not be durably recorded; reconciliation is required',
+            retryable: false,
+            reconciliationRequired: true,
+          },
+        };
+        return { ok: false, result: unknownResult };
+      }
     } else {
       this.completed.set(this.scopeKey(scope), { fingerprint, result });
     }
@@ -151,9 +188,9 @@ export class TceExecutionOrchestrator {
         code: unknown ? 'TIMEOUT_UNKNOWN' : 'DUPLICATE_REQUEST',
         message: unknown
           ? 'Previous attempt has an unknown outcome; reconciliation is required'
-          : 'An execution with this idempotency key is already pending',
+          : 'An execution with this idempotency key is pending; reconcile provider truth before retrying',
         retryable: false,
-        reconciliationRequired: unknown,
+        reconciliationRequired: true,
       },
     };
     return { ok: false, result };
