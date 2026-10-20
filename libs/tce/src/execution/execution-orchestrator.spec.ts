@@ -364,3 +364,35 @@ test('existing PENDING reservation requires reconciliation and never redispatche
   assert.equal(result.result.status, 'PENDING');
   assert.equal(result.result.error?.reconciliationRequired, true);
 });
+
+test('durable timeout outcome is persisted as UNKNOWN and duplicate request never redispatches', async () => {
+  let calls = 0;
+  const store = memoryStore();
+  const port: TceExecutionPort = {
+    submit: async () => {
+      calls += 1;
+      throw new Error('provider timed out after dispatch');
+    },
+    cancel: async () => {
+      throw new Error('not used');
+    },
+    replace: async () => {
+      throw new Error('not used');
+    },
+  };
+  const orchestrator = new TceExecutionOrchestrator(port, {
+    idempotencyStore: store,
+    now: () => new Date('2026-10-21T12:00:00.000Z'),
+  });
+
+  const first = await orchestrator.execute(submit());
+  assert.equal(first.ok, false);
+  assert.equal(first.result.status, 'UNKNOWN');
+  assert.equal(first.result.error?.reconciliationRequired, true);
+
+  const second = await orchestrator.execute(submit());
+  assert.equal(second.ok, false);
+  assert.equal(second.result.status, 'UNKNOWN');
+  assert.equal(second.result.error?.reconciliationRequired, true);
+  assert.equal(calls, 1);
+});
