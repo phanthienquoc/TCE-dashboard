@@ -7,18 +7,6 @@ import { RuntimeEventsQueryService } from './runtime-events.query.service';
 
 type UpgradeRequest = import('node:http').IncomingMessage;
 
-function cookieValue(header: string | undefined, name: string): string | undefined {
-  if (!header) return undefined;
-  for (const part of header.split(';')) {
-    const separator = part.indexOf('=');
-    if (separator < 0) continue;
-    if (part.slice(0, separator).trim() === name) {
-      return part.slice(separator + 1).trim();
-    }
-  }
-  return undefined;
-}
-
 function originAllowed(request: UpgradeRequest, hasCookie: boolean): boolean {
   const origin = request.headers.origin;
   if (!origin) return !hasCookie;
@@ -82,7 +70,7 @@ export function attachRuntimeEventsWebSocket(
     if (url.pathname !== '/api/runtime/events/ws') return;
 
     void (async () => {
-      const hasCookie = Boolean(cookieValue(request.headers.cookie, 'microfe_session'));
+      const hasCookie = Boolean(request.headers.cookie);
       if (!originAllowed(request, hasCookie)) {
         rejectUpgrade(socket, 403, 'WebSocket origin not allowed');
         return;
