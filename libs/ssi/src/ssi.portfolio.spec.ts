@@ -58,8 +58,9 @@ test('SsiBrokerAdapter filters out derivative accounts from equity account snaps
     },
   });
 
-  (adapter as unknown as { orders: (acc: string) => Promise<{ ok: boolean; data: unknown[] }> })
-    .orders = async () => ({ ok: true, data: [] });
+  (
+    adapter as unknown as { orders: (acc: string) => Promise<{ ok: boolean; data: unknown[] }> }
+  ).orders = async () => ({ ok: true, data: [] });
 
   const result = await adapter.current('1234561', {});
   assert.equal(result.ok, true);
@@ -121,8 +122,9 @@ test('SsiBrokerAdapter falls back to marginBalance (PPMMR) when balance fails fo
     },
   });
 
-  (adapter as unknown as { orders: (acc: string) => Promise<{ ok: boolean; data: unknown[] }> })
-    .orders = async () => ({ ok: true, data: [] });
+  (
+    adapter as unknown as { orders: (acc: string) => Promise<{ ok: boolean; data: unknown[] }> }
+  ).orders = async () => ({ ok: true, data: [] });
 
   const result = await adapter.accountSnapshots({});
   assert.equal(result.ok, true);

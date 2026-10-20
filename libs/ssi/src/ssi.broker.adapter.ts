@@ -519,23 +519,23 @@ export class SsiBrokerAdapter implements BrokerPort, SsiConnectionPort {
           return Number.isFinite(quantity) && quantity !== 0;
         })
         .map(position => ({
-        accountNo: String(position.accountNo ?? normalizedAccountNo),
-        symbol: String(position.symbol).toUpperCase(),
-        quantity: Number(position.quantity ?? 0),
-        averagePrice: Number(position.costPrice ?? 0),
-        sellableQuantity: Number(position.sellableQuantity ?? 0),
-        blockQuantity: Number(position.blockQuantity ?? 0),
-        dividendQuantity: Number(position.dividendQuantity ?? 0),
-        buyingQuantity: Number(position.buyingQuantity ?? 0),
-        boughtQuantity: Number(position.boughtQuantity ?? 0),
-        sellingQuantity: Number(position.sellingQuantity ?? 0),
-        soldQuantity: Number(position.soldQuantity ?? 0),
-        t1SellQuantity: Number(position.t1SellQuantity ?? 0),
-        t2SellQuantity: Number(position.t2SellQuantity ?? 0),
-        mortgageQuantity: Number(position.mortgageQuantity ?? 0),
-        restrictedQuantity: Number(position.restrictedQuantity ?? 0),
-        source: 'ssi' as const,
-        raw: position,
+          accountNo: String(position.accountNo ?? normalizedAccountNo),
+          symbol: String(position.symbol).toUpperCase(),
+          quantity: Number(position.quantity ?? 0),
+          averagePrice: Number(position.costPrice ?? 0),
+          sellableQuantity: Number(position.sellableQuantity ?? 0),
+          blockQuantity: Number(position.blockQuantity ?? 0),
+          dividendQuantity: Number(position.dividendQuantity ?? 0),
+          buyingQuantity: Number(position.buyingQuantity ?? 0),
+          boughtQuantity: Number(position.boughtQuantity ?? 0),
+          sellingQuantity: Number(position.sellingQuantity ?? 0),
+          soldQuantity: Number(position.soldQuantity ?? 0),
+          t1SellQuantity: Number(position.t1SellQuantity ?? 0),
+          t2SellQuantity: Number(position.t2SellQuantity ?? 0),
+          mortgageQuantity: Number(position.mortgageQuantity ?? 0),
+          restrictedQuantity: Number(position.restrictedQuantity ?? 0),
+          source: 'ssi' as const,
+          raw: position,
         })) as AccountPosition[];
     });
   }
@@ -779,8 +779,9 @@ function toNumberOrNull(value: unknown): number | null {
   return Number.isFinite(number) ? number : null;
 }
 
-
 function isDerivativeAccount(accountType: unknown): boolean {
-  const normalized = String(accountType ?? '').trim().toLowerCase();
+  const normalized = String(accountType ?? '')
+    .trim()
+    .toLowerCase();
   return normalized.includes('derivative') || normalized === 'future' || normalized === 'futures';
 }
