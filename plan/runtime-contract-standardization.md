@@ -1,14 +1,13 @@
 # Runtime Boundary Standardization — implementation plan
 
 **Repository:** `phanthienquoc/TCE-dashboard`  
-**Tracking issue:** #845  
-**PR:** #846 (draft)  
-**Branch:** `feat/runtime-contract-standardization`  
-**Base:** `master`
+**Tracking issues:** #845, #849  
+**Base branch:** `master`  
+**Workflow:** each task has a dedicated branch and PR; validate latest head, fix failures, squash-merge only when green.
 
 ## Goal
 
-Standardize runtime ownership and provider/domain/event contracts incrementally without changing current strategy decisions or enabling live trading.
+Standardize runtime ownership and provider/domain/event contracts incrementally. Preserve existing behavior and public API compatibility. Do not enable live order submission, run production migrations, or deploy as part of this refactor.
 
 ## Phase 0 — Baseline and architecture
 
@@ -18,58 +17,65 @@ Standardize runtime ownership and provider/domain/event contracts incrementally 
 
 ## Phase 1 — Canonical event contract
 
-- [x] Add `TceEventEnvelope` schema version 1, typed event names/data, structural runtime validation, a known-event-name guard and a provider-neutral `TceEventPublisherPort`.
-- [x] Preserve all existing contract barrel exports and add only `tce-event.contract`.
-- [x] Add focused envelope tests for identity, version, timezone-aware timestamps, scope, sequence and required data.
-- [x] Latest CI backend build passed.
-- [x] CI run #1870 discovered and executed `TceEventEnvelope`; the contract spec passed. The overall backend suite remains red on unrelated existing assertions.
-
-## Latest CI validation — 2026-10-20 (run #1897 / #1400)
-
-- **Backend build:** passed on run #1897.
-- **Node test group:** passed on run #1897, including contracts, SSI adapters, execution, reconciliation, the architecture boundary spec and event type guard.
-- **Vitest group:** passed after fixing runner configuration and test fixture/import issues; run #1897 completed successfully.
-- **Prettier workflow:** run #1400 passed. The formatter is limited to changed non-workflow files, and its auto-commit no longer tries to modify unrelated workflow YAML.
-- **Test runner fixes:** `package.json` now routes `node:test` specs to Node and global-style Vitest specs to Vitest; `libs/contracts/src` is included. `vitest.config.ts` is dependency-free and maps `@tce/contracts` and `@tce/ssi` to source entry points for the npx runner.
-- **Regression fixes:** SSI `RS` order status maps to `SUBMITTED`; CRDE execution computes BUY quantity/notional and requires explicit SELL quantity; SSI consolidated snapshots use margin fallback and exclude zero-quantity positions/orders; Telegram entry-zone parsing accepts double underscores; tests now use deterministic payment dates and valid strategy fixtures without changing the production dividend scoring/exit policy.
-- **Event publishing groundwork:** added `TceEventPublisherPort` and `isTceRuntimeEventType` so future REST/WS/SSE adapters can share one provider-neutral publication contract and validate known event names.
-- **Merge gate:** PR #846 remains unmerged and draft. REST/WS/SSE adapter parity, durable idempotency and production rollout remain incomplete. No deployment or LIVE trading is enabled.
+- [x] Add `TceEventEnvelope` schema version 1, typed event names/data, structural runtime validation, known-event-name guard and provider-neutral `TceEventPublisherPort`.
+- [x] Export event contract without removing existing barrel exports.
+- [x] Add focused tests for event identity, version, timestamps, scope, sequence and required data.
+- [x] Add automated import-boundary tests for pure engine, TCE decision/scanner, Monitor and DRE provider dependencies.
+- [x] Squash-merge foundation PR #846 into `master` at `36e7304b6c5c40b1c6352357e59474649a9799f9`.
+- [x] Verify backend build/unit tests and Prettier passed on the foundation head (runs #1898 and #1401).
 
 ## Phase 2 — Runtime ownership boundaries
 
-- Monitor: observation, snapshots, freshness/health and alerts only.
-- DRE: dividend campaign, rolling sequence, settlement/T+2, continuity and GAP.
-- TCE Core/`libs/tce-engine`: pure entry/risk/TP/quantity decisions; no DB/network/provider SDK or DRE import.
-- Execution Orchestrator: command validation, account/environment scope, idempotency, authorization, dispatch and normalized result.
-- Reconciliation: provider truth and drift/unknown-outcome classification.
-- [x] Add static import-boundary tests for pure engine, TCE decision/scanner, Monitor and DRE provider dependencies.
-- [ ] Migrate Monitor event emission safely behind the shared event contract.
+- [x] Document ownership boundaries: service composition/transport, contracts, pure TCE Core, platform providers, Monitor, DRE, Execution Orchestrator and reconciliation.
+- [ ] Migrate Monitor event emission behind the shared event contract; preserve snapshot, audit and cashout behavior and never convert Monitor signals to order commands.
+- [ ] Verify DRE owns campaign/sequence/T+2/continuity/GAP; TCE Core owns strategy decisions; only the authorized execution path dispatches broker commands.
 
 ## Phase 3 — Unified transports
 
-- [ ] REST uses canonical request/response/error DTOs.
-- [ ] Implement REST/WebSocket/SSE adapters over `TceEventPublisherPort` and prove identical typed/versioned event semantics; only framing differs.
-- [ ] Add transport parity/compatibility tests.
+- [ ] Define canonical REST result/error DTO semantics with compatibility mapping to existing API responses.
+- [ ] Implement REST/WebSocket/SSE adapters around the same event envelope and publisher contract, using supported/current transport infrastructure rather than inventing a second bus.
+- [ ] Add transport parity/compatibility tests for event ID/type/version, account scope, correlation ID and error classification.
+- [ ] Validate external payloads at runtime; TypeScript typing alone is not validation.
 
 ## Phase 4 — Execution reliability
 
-- [ ] Add durable idempotency persistence. The current process-local cache is not sufficient across restarts/replicas.
-- [ ] Require account/environment scope, command fingerprint and authorization before non-PAPER dispatch.
-- [ ] Unknown provider outcome -> reconciliation required, never blind retry.
-- [ ] Test duplicates, conflicting fingerprints, timeout-after-dispatch, partial fill and provider outage.
-- [ ] Keep live order submission out of this refactor.
+- [x] Define provider-neutral durable idempotency store port scoped by account/environment/key/fingerprint.
+- [x] Add an additive SQL migration for reservations and persisted results; table RLS is enabled and direct client-role access is revoked.
+- [x] Add a Supabase adapter with unique composite reservation keys, fingerprint conflict detection, guarded `PENDING` completion and durable `UNKNOWN` status.
+- [x] Extend Execution Orchestrator with deterministic command fingerprints, optional durable-store injection, conflicting-key rejection and no replay of existing `PENDING`/`UNKNOWN` reservations.
+- [x] Add focused tests for duplicate keys, conflicting fingerprints, separate account scopes, persisted results and unknown outcomes.
+- [ ] Wire the durable store into the actual production execution entry point. The current repository has no production construction site for `TceExecutionOrchestrator` outside tests; merely registering a DI provider is not proof of production use.
+- [ ] Enforce account/environment scope, current authorization validation and risk/safety gate before any non-PAPER dispatch.
+- [ ] Complete failure-path tests for timeout-after-dispatch, partial fills, provider outage, persistence failure, and reconciliation from provider truth.
+- [ ] Ensure unknown outcomes require reconciliation and can never be blindly resubmitted.
 
 ## Phase 5 — Rollout
 
-- [ ] Migrate behind compatibility adapters and preserve current API/DB compatibility.
-- [ ] Run isolated contract test, main tests, typecheck/build/lint and diff review.
-- [ ] Keep a clean squash-merge PR and verify deployment only after checks.
+- [ ] Keep schema change additive and backward compatible; do not apply the migration automatically to production.
+- [ ] Run event/contract tests, Node and Vitest suites, service/web typecheck, backend build, lint and diff review on each latest PR head.
+- [ ] Open a separate PR per task, with required CI green before squash merge into `master`.
+- [ ] Verify deployments separately after code is merged; this implementation does not deploy or enable LIVE trading.
+
+## Current task: durable idempotency store
+
+- [x] Contract, adapter, migration, module provider, and tests implemented on `feat/runtime-idempotency-master`.
+- [ ] CI required on this clean `master)-based branch and its PR.
+- [ ] Merge this task by squash only after CI is green.
+- [ ] Production runtime injection remains a separate incomplete acceptance item until a real dispatch call site is identified and tested.
 
 ## Acceptance criteria
 
-- One canonical versioned event envelope and typed event map in `libs/contracts`.
-- Existing contract exports remain unchanged.
-- External DTO payloads are validated at runtime; envelope validation does not replace event-specific schema validation.
-- Strategy/DRE/monitor cannot bypass risk and execution authorization.
-- REST/WS/SSE share event semantics and correlation IDs.
-- Unknown outcomes require reconciliation, not blind retry.
+- [x] One canonical versioned event envelope and typed event map in `libs/contracts`.
+- [x] Boundary ownership is documented and import-boundary tests exist.
+- [x] Durable idempotency port, SQL schema and adapter exist.
+- [ ] Monitor emits through the shared event contract without gaining order-dispatch authority.
+- [ ] REST/WS/SSE share event semantics and correlation IDs.
+- [ ] Production dispatch uses durable idempotency and verified authorization/scope checks.
+- [ ] Unknown outcomes require reconciliation, not blind retry.
+- [ ] Compatibility and rollout gates pass before production migration/deployment.
+
+## Safety notes
+
+- No live order submission, LIVE-mode enablement, production DB migration, or deployment is authorized by this refactor.
+- An adapter implementation or Nest provider is not proof of runtime durability until the actual dispatch path injects and uses it.
+- Envelope validation does not replace event-specific payload validation.
