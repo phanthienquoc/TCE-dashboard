@@ -548,7 +548,7 @@ export class SsiBrokerAdapter implements BrokerPort, SsiConnectionPort {
     return this.result(async () => {
       const orders = await this.tradingRead(trading => trading.portfolio.getTodayOrders(accountNo));
       return (orders ?? [])
-        .filter(order => order.orderId && order.symbol)
+        .filter(order => order.orderId && order.symbol && Number(order.quantity ?? 0) > 0)
         .map(order => ({
           accountNo: String(order.accountNo ?? accountNo),
           externalId: String(order.orderId),
