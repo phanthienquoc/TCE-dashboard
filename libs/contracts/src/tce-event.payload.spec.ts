@@ -150,4 +150,24 @@ test('rejects malformed event-specific payloads even when the envelope is valid'
     false
   );
   assert.equal(isTceRuntimeEvent(envelope('unknown.event', { ok: true })), false);
+  assert.equal(
+    isTceRuntimeEvent(
+      envelope('execution.result', {
+        ok: false,
+        operation: 'SUBMIT',
+        status: 'REJECTED',
+        executionIntentId: 'intent-1',
+        correlationId: 'corr-1',
+        idempotencyKey: 'idem-1',
+        clientRequestId: 'client-1',
+        error: {
+          code: 'NOT_A_REAL_CODE',
+          message: 'invalid code',
+          retryable: false,
+          reconciliationRequired: false,
+        },
+      })
+    ),
+    false
+  );
 });
