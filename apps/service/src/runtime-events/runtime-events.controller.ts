@@ -48,12 +48,6 @@ export class RuntimeEventsController {
         message: 'afterEventId requires a valid after timestamp',
       });
     }
-    if (afterEventId !== undefined && (!after || !afterEventId.trim())) {
-      throw new BadRequestException({
-        code: 'INVALID_CURSOR',
-        message: 'afterEventId requires a valid after timestamp',
-      });
-    }
     if (eventType && !isTceRuntimeEventType(eventType)) {
       throw new BadRequestException({
         code: 'INVALID_EVENT_TYPE',
@@ -102,6 +96,12 @@ export class RuntimeEventsController {
       throw new BadRequestException({
         code: 'INVALID_CURSOR',
         message: 'after must be an ISO-8601 timestamp',
+      });
+    }
+    if (afterEventId !== undefined && (!after || !afterEventId.trim())) {
+      throw new BadRequestException({
+        code: 'INVALID_CURSOR',
+        message: 'afterEventId requires a valid after timestamp',
       });
     }
 
