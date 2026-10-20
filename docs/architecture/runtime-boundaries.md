@@ -14,16 +14,16 @@ Standardize ownership and contracts across `apps/service`, `libs/tce-engine`, `l
 
 ## Target responsibility matrix
 
-| Component              | Owns                                                                                           | Does not own                                                      |
-| ---------------------- | ---------------------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
-| `apps/service`         | NestJS composition root, transport adapters, auth boundary and dependency wiring               | Strategy rules, direct broker command submission                  |
-| `libs/contracts`       | Provider-neutral DTOs, ports, result/error contracts and event envelopes                       | Runtime adapters or side effects                                  |
-| `libs/tce-engine`      | Deterministic strategy evaluation                                                              | Database, scheduler, network, provider SDK or live execution      |
-| `libs/platform`        | Provider adapters for market, account and execution capabilities                               | Strategy ownership or DRE campaign state                          |
-| Monitor                | Scheduled observation, health/freshness, snapshots and alert/event emission                    | Campaign authority or order dispatch                              |
-| DRE                    | Dividend campaign state, sequence/rolling continuity, settlement/T+2 policy and GAP tracking   | Changing TCE decision/risk/TP/quantity or calling broker directly |
-| Execution Orchestrator | Command validation, scoped authorization, idempotency, provider dispatch and normalized result | Strategy evaluation or campaign lifecycle                         |
-| Reconciliation         | Compare local intents/orders/positions with provider truth and classify drift                  | Blind resubmission of unknown outcomes                            |
+| Component              | Owns                                                                                                                   | Does not own                                                      |
+| ---------------------- | ---------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
+| `apps/service`         | NestJS composition root, transport adapters, auth boundary and dependency wiring                                       | Strategy rules, direct broker command submission                  |
+| `libs/contracts`       | Provider-neutral DTOs, ports, result/error contracts and event envelopes                                               | Runtime adapters or side effects                                  |
+| `libs/tce-engine`      | Deterministic strategy evaluation                                                                                      | Database, scheduler, network, provider SDK or live execution      |
+| `libs/platform`        | Provider adapters for market, account and execution capabilities                                                       | Strategy ownership or DRE campaign state                          |
+| Monitor                | Scheduled observation, health/freshness, snapshots and alert/event emission                                            | Campaign authority or order dispatch                              |
+| DRE                    | Dividend campaign state, sequence/rolling continuity, settlement/T+2 policy, GAP tracking and lifecycle event emission | Changing TCE decision/risk/TP/quantity or calling broker directly |
+| Execution Orchestrator | Command validation, scoped authorization, idempotency, provider dispatch and normalized result                         | Strategy evaluation or campaign lifecycle                         |
+| Reconciliation         | Compare local intents/orders/positions with provider truth and classify drift                                          | Blind resubmission of unknown outcomes                            |
 
 ## Shared event contract
 
@@ -51,6 +51,7 @@ Rules:
 - `occurredAt` is ISO-8601 UTC. Reject malformed timestamps at runtime boundaries.
 - `schemaVersion` is a positive explicit contract version. Changes that break readers require a new version and a compatibility window.
 - Event payloads reuse existing contract types: platform market/account shapes and TCE decision/risk/execution/reconciliation types. Do not redefine those shapes in each transport adapter.
+- DRE campaign and position lifecycle transitions emit `dre.campaign.updated` with stable transition IDs, aggregate/sequence context and correlation ID. Publisher failures are best-effort; Mongo remains authoritative until a durable cross-database outbox/replay exists.
 - REST replay, SSE and read-only WebSocket use the same persisted envelope. Account scope is derived from verified bearer identity or auth-service session introspection; transport control errors are distinct from domain events.
 - REST response DTOs, WebSocket frames and SSE `data` messages share semantic envelope and error classification; transport framing may differ, domain semantics must not.
 
@@ -93,6 +94,7 @@ Rules:
 ### Phase 2 — Runtime ownership boundaries
 
 - [x] Monitor remains observe/snapshot/alert only; its events do not dispatch orders.
+- [x] DRE campaign status, rolling-position sequence/state, T+2 and capital recycling emit canonical lifecycle events without broker authority.
 - [x] Document DRE ownership of campaign/sequence/T+2/continuity/GAP lifecycle and TCE Core strategy ownership.
 - [x] Execution Orchestrator remains the command dispatch boundary for the Profit Exit slice.
 - [x] Add import-boundary tests preventing TCE Core↔DRE cycles and broker SDK imports in core/DRE/monitor.

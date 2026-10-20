@@ -6,10 +6,14 @@ import {
   type DividendCampaignInput,
 } from './dividend-campaign';
 import { DividendCampaignRepository } from './dividend-campaign.repository';
+import { DreLifecycleEventService } from './dre-lifecycle-event.service';
 
 @Injectable()
 export class DividendCampaignService {
-  constructor(private readonly repository: DividendCampaignRepository) {}
+  constructor(
+    private readonly repository: DividendCampaignRepository,
+    private readonly lifecycleEvents: DreLifecycleEventService
+  ) {}
 
   async create(input: DividendCampaignInput): Promise<DividendCampaign> {
     await this.repository.ensureIndexes();
@@ -18,6 +22,14 @@ export class DividendCampaignService {
 
     const campaign = createDividendCampaign(input);
     await this.repository.saveCampaign(campaign);
+    await this.lifecycleEvents.publish({
+      campaignId: campaign.id,
+      lifecycleState: campaign.status,
+      aggregateId: campaign.id,
+      occurredAt: campaign.updatedAt,
+      eventKey: `campaign:${campaign.status}:${campaign.updatedAt}`,
+      reason: 'campaign_created',
+    });
     return campaign;
   }
 
@@ -36,10 +48,21 @@ export class DividendCampaignService {
   }
 
   async updateStatus(id: string, status: DreCampaignStatus): Promise<DividendCampaign | null> {
-    return (await this.repository.updateCampaignStatus(
+    const updated = (await this.repository.updateCampaignStatus(
       id,
       status,
       new Date().toISOString()
     )) as DividendCampaign | null;
+    if (updated) {
+      await this.lifecycleEvents.publish({
+        campaignId: updated.id,
+        lifecycleState: updated.status,
+        aggregateId: updated.id,
+        occurredAt: updated.updatedAt,
+        eventKey: `campaign:${updated.status}:${updated.updatedAt}`,
+        reason: 'campaign_status_updated',
+      });
+    }
+    return updated;
   }
 }

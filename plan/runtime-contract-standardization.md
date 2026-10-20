@@ -28,6 +28,7 @@ Standardize runtime ownership and provider/domain/event contracts incrementally.
 
 - [x] Document ownership boundaries: service composition/transport, contracts, pure TCE Core, platform providers, Monitor, DRE, Execution Orchestrator and reconciliation.
 - [x] Migrate Monitor snapshot emission through `TceEventPublisherPort`; events carry stable event IDs, schema version, account/aggregate scope and correlation IDs. Publisher failure is logged and does not interrupt snapshot/audit/cashout behavior.
+- [x] Emit DRE campaign status, rolling sequence/position, T+2 settlement and capital-recycling transitions through the shared event contract; event publishing has no order-dispatch authority.
 - [ ] Verify DRE owns campaign/sequence/T+2/continuity/GAP; TCE Core owns strategy decisions; only the authorized execution path dispatches broker commands.
 
 ## Phase 3 — Unified transports
@@ -64,7 +65,17 @@ Standardize runtime ownership and provider/domain/event contracts incrementally.
 - [ ] Open a separate PR per task, with required CI green before squash merge into `master`.
 - [ ] Verify deployments separately after code is merged; this implementation does not deploy or enable LIVE trading.
 
-## Current task: Durable execution wiring
+## Current task: DRE lifecycle event emission
+
+- [x] Add a shared DRE lifecycle event service using the canonical versioned event envelope and stable transition event IDs.
+- [x] Emit after campaign creation/status changes, rolling-position transitions, T+2 availability and confirmed capital recycling.
+- [x] Keep Mongo lifecycle state authoritative; publisher/metadata failures are logged and do not interrupt valid state transitions.
+- [x] Add lifecycle-event and campaign-service tests; include DRE specs in backend test discovery.
+- [x] Backend build/unit tests passed on the pre-format head (run #1915); Prettier passed and applied formatting (#1418).
+- [ ] Re-run required checks on the final formatted/documentation head before squash-merge.
+- [ ] Add durable retry/replay for failed cross-database event publication; Mongo and Supabase do not share a transaction.
+
+## Previous task: Durable execution wiring
 
 - [x] Route production auto-sell dispatch through `TceExecutionOrchestrator` rather than calling the SSI adapter directly.
 - [x] Inject the Supabase idempotency store only when `TCE_DURABLE_EXECUTION_IDEMPOTENCY_ENABLED=true`; default-off preserves safe rollout until the DB migration is applied.
@@ -97,6 +108,7 @@ Standardize runtime ownership and provider/domain/event contracts incrementally.
 - [x] Boundary ownership is documented and import-boundary tests exist.
 - [x] Durable idempotency port, SQL schema and adapter exist.
 - [x] Monitor emits through the shared event contract without gaining order-dispatch authority.
+- [x] DRE lifecycle transitions publish canonical events without gaining broker-dispatch authority.
 - [x] REST/WS/SSE share the canonical event envelope, event IDs and correlation IDs.
 - [x] Production auto-sell code path is wired to the durable orchestrator behind a rollout flag.
 - [ ] Durable idempotency is enabled in production only after migration and staging validation.
@@ -110,3 +122,5 @@ Standardize runtime ownership and provider/domain/event contracts incrementally.
 - No live order submission, LIVE-mode enablement, production DB migration, or deployment is authorized by this refactor.
 - An adapter implementation or Nest provider is not proof of runtime durability until the actual dispatch path injects and uses it.
 - Envelope validation does not replace event-specific payload validation.
+- DRE lifecycle event publication is best-effort across MongoDB and Supabase; it is not an atomic outbox until durable replay/reconciliation is implemented.
+- DRE campaign events currently have no accountId because campaigns are global; account-scoped REST/SSE/WebSocket streams intentionally do not expose them until an explicit global/admin visibility policy is defined.
