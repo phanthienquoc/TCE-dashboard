@@ -44,9 +44,13 @@ export class SupabaseExecutionIdempotencyAdapter implements TceExecutionIdempote
       updated_at: reservation.createdAt,
     };
 
-    // A single insert guarded by the composite primary key is the reservation
-    // linearization point across replicas. On conflict, fetch the winning row.
-    const inserted = await this.db.from('tce_execution_idempotency').insert(row).select('*').maybeSingle();
+    // The composite primary key makes the insert the atomic reservation point
+    // across workers/replicas. A uniqueness error means another row won.
+    const inserted = await this.db
+      .from('tce_execution_idempotency')
+      .insert(row)
+      .select('*')
+      .maybeSingle();
     if (!inserted.error) {
       if (!inserted.data) throw new Error('Idempotency reservation returned no row');
       return { kind: 'RESERVED', record: fromRow(inserted.data as IdempotencyRow) };
@@ -56,9 +60,10 @@ export class SupabaseExecutionIdempotencyAdapter implements TceExecutionIdempote
     const existing = await this.find(scope);
     if (!existing) throw new Error('Idempotency key conflicted but no record was found');
     return {
-      kind: existing.reservation.fingerprint === reservation.fingerprint
-        ? 'EXISTING'
-        : 'FINGERPRINT_CONFLICT',
+      kind:
+        existing.reservation.fingerprint === reservation.fingerprint
+          ? 'EXISTING'
+          : 'FINGERPRINT_CONFLICT',
       record: existing,
     };
   }
@@ -74,9 +79,10 @@ export class SupabaseExecutionIdempotencyAdapter implements TceExecutionIdempote
     if (result.idempotencyKey !== scope.idempotencyKey) {
       throw new Error('execution result idempotency key does not match scope');
     }
-    const status = result.status === 'UNKNOWN' || result.error?.reconciliationRequired
-      ? 'UNKNOWN'
-      : 'COMPLETED';
+    const status =
+      result.status === 'UNKNOWN' || result.error?.reconciliationRequired
+        ? 'UNKNOWN'
+        : 'COMPLETED';
     const { data, error } = await this.db
       .from('tce_execution_idempotency')
       .update({ status, result, updated_at: updatedAt })
@@ -84,14 +90,17 @@ export class SupabaseExecutionIdempotencyAdapter implements TceExecutionIdempote
       .eq('environment', scope.environment)
       .eq('idempotency_key', scope.idempotencyKey)
       .eq('command_fingerprint', fingerprint)
+      .eq('status', 'PENDING')
       .select('*')
       .maybeSingle();
     if (error) throw error;
-    if (!data) throw new Error('Idempotency completion did not match a reserved key/fingerprint');
+    if (!data) throw new Error('Idempotency completion did not match a pending reservation');
     return fromRow(data as IdempotencyRow);
   }
 
-  private async find(scope: TceExecutionIdempotencyScope): Promise<TceExecutionIdempotencyRecord | null> {
+  private async find(
+    scope: TceExecutionIdempotencyScope
+  ): Promise<TceExecutionIdempotencyRecord | null> {
     const { data, error } = await this.db
       .from('tce_execution_idempotency')
       .select('*')
@@ -131,7 +140,9 @@ function validateReservation(reservation: TceExecutionIdempotencyReservation): v
   if (!reservation.executionIntentId.trim()) throw new Error('executionIntentId is required');
   if (!reservation.correlationId.trim()) throw new Error('correlationId is required');
   if (!reservation.clientRequestId.trim()) throw new Error('clientRequestId is required');
-  if (!Number.isFinite(Date.parse(reservation.createdAt))) throw new Error('createdAt must be a valid timestamp');
+  if (!Number.isFinite(Date.parse(reservation.createdAt))) {
+    throw new Error('createdAt must be a valid timestamp');
+  }
 }
 
 function validateScope(scope: TceExecutionIdempotencyScope): void {
