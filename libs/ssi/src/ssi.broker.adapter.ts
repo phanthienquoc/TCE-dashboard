@@ -359,7 +359,9 @@ export class SsiBrokerAdapter implements BrokerPort, SsiConnectionPort {
       if (!positions.ok) throw new Error(positions.error.message);
       if (!orders.ok) throw new Error(orders.error.message);
       return {
-        accounts,
+        // This read model is for equity portfolio workflows; derivative accounts
+        // must not be mixed into the equity account selector/snapshot.
+        accounts: accounts.filter(account => !isDerivativeAccount(account.accountType)),
         balance: balance.data,
         positions: positions.data,
         orders: orders.data,
@@ -373,11 +375,16 @@ export class SsiBrokerAdapter implements BrokerPort, SsiConnectionPort {
       const accountNo = String(this.config.accountNo ?? '').trim();
       if (!accountNo) throw new Error('SSI account number is required for portfolio sync');
       await this.authenticate(input);
-      const [balance, positions, orders] = await Promise.all([
+      const [balanceResult, positions, orders] = await Promise.all([
         this.balance(accountNo),
         this.positions(accountNo),
         this.orders(accountNo),
       ]);
+      let balance = balanceResult;
+      if (!balance.ok) {
+        const fallback = await this.marginBalance(accountNo);
+        if (fallback.ok) balance = fallback;
+      }
       if (!balance.ok) throw new Error(balance.error.message);
       if (!positions.ok) throw new Error(positions.error.message);
       if (!orders.ok) throw new Error(orders.error.message);
@@ -506,7 +513,12 @@ export class SsiBrokerAdapter implements BrokerPort, SsiConnectionPort {
       const positions = await this.tradingRead(trading =>
         trading.portfolio.getEquityPositions(normalizedAccountNo)
       );
-      return (positions ?? []).map(position => ({
+      return (positions ?? [])
+        .filter(position => {
+          const quantity = Number(position.quantity ?? 0);
+          return Number.isFinite(quantity) && quantity !== 0;
+        })
+        .map(position => ({
         accountNo: String(position.accountNo ?? normalizedAccountNo),
         symbol: String(position.symbol).toUpperCase(),
         quantity: Number(position.quantity ?? 0),
@@ -524,7 +536,7 @@ export class SsiBrokerAdapter implements BrokerPort, SsiConnectionPort {
         restrictedQuantity: Number(position.restrictedQuantity ?? 0),
         source: 'ssi' as const,
         raw: position,
-      })) as AccountPosition[];
+        })) as AccountPosition[];
     });
   }
 
@@ -765,4 +777,10 @@ function toNumberOrNull(value: unknown): number | null {
   if (value === null || value === undefined || value === '') return null;
   const number = Number(value);
   return Number.isFinite(number) ? number : null;
+}
+
+
+function isDerivativeAccount(accountType: unknown): boolean {
+  const normalized = String(accountType ?? '').trim().toLowerCase();
+  return normalized.includes('derivative') || normalized === 'future' || normalized === 'futures';
 }
