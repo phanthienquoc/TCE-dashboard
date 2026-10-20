@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import type { DrePositionState, RollingPosition } from './dre.types';
 import { DividendCampaignRepository } from './dividend-campaign.repository';
+import { DreLifecycleEventService } from './dre-lifecycle-event.service';
 import {
   assertPositionTransition,
   getCurrentPosition,
@@ -12,7 +13,10 @@ import {
 
 @Injectable()
 export class RollingPositionService {
-  constructor(private readonly repository: DividendCampaignRepository) {}
+  constructor(
+    private readonly repository: DividendCampaignRepository,
+    private readonly lifecycleEvents: DreLifecycleEventService
+  ) {}
 
   async list(campaignId: string): Promise<RollingPosition[]> {
     return this.repository.listPositions(campaignId);
@@ -37,7 +41,17 @@ export class RollingPositionService {
       .sort((a, b) => a.sequence - b.sequence)[0];
     if (planned) {
       assertPositionTransition(planned.state, 'NEXT');
-      return (await this.repository.updatePositionState(planned.id, 'NEXT'))!;
+      const updated = await this.repository.updatePositionState(planned.id, 'NEXT');
+      if (!updated) throw new Error(`DRE position ${planned.id} disappeared during transition`);
+      await this.lifecycleEvents.publish({
+        campaignId: updated.campaignId,
+        lifecycleState: updated.state,
+        aggregateId: updated.id,
+        sequence: updated.sequence,
+        eventKey: `${updated.id}:${updated.state}`,
+        reason: 'next_position_promoted',
+      });
+      return updated;
     }
 
     const sequence = nextSequence(positions);
@@ -49,6 +63,14 @@ export class RollingPositionService {
       state: 'NEXT',
     };
     await this.repository.savePosition(position);
+    await this.lifecycleEvents.publish({
+      campaignId: position.campaignId,
+      lifecycleState: position.state,
+      aggregateId: position.id,
+      sequence: position.sequence,
+      eventKey: `${position.id}:${position.state}`,
+      reason: 'next_position_created',
+    });
     return position;
   }
 
@@ -56,7 +78,18 @@ export class RollingPositionService {
     const position = await this.repository.findPositionById(id);
     if (!position) return null;
     assertPositionTransition(position.state, to);
-    return this.repository.updatePositionState(id, to);
+    const updated = await this.repository.updatePositionState(id, to);
+    if (updated) {
+      await this.lifecycleEvents.publish({
+        campaignId: updated.campaignId,
+        lifecycleState: updated.state,
+        aggregateId: updated.id,
+        sequence: updated.sequence,
+        eventKey: `${updated.id}:${updated.state}`,
+        reason: 'position_transition',
+      });
+    }
+    return updated;
   }
 
   async completeCurrent(
@@ -66,6 +99,14 @@ export class RollingPositionService {
     if (!current) throw new Error(`No current DRE position for campaign ${campaignId}`);
     assertPositionTransition(current.state, 'COMPLETED');
     const completed = (await this.repository.updatePositionState(current.id, 'COMPLETED'))!;
+    await this.lifecycleEvents.publish({
+      campaignId: completed.campaignId,
+      lifecycleState: completed.state,
+      aggregateId: completed.id,
+      sequence: completed.sequence,
+      eventKey: `${completed.id}:${completed.state}`,
+      reason: 'current_position_completed',
+    });
     const next = getNextPosition(await this.list(campaignId));
     return { completed, next };
   }
@@ -75,6 +116,17 @@ export class RollingPositionService {
     if (!position) return null;
     if (TERMINAL_POSITION_STATES.has(position.state)) return position;
     assertPositionTransition(position.state, 'MISSED');
-    return this.repository.updatePositionState(id, 'MISSED');
+    const updated = await this.repository.updatePositionState(id, 'MISSED');
+    if (updated) {
+      await this.lifecycleEvents.publish({
+        campaignId: updated.campaignId,
+        lifecycleState: updated.state,
+        aggregateId: updated.id,
+        sequence: updated.sequence,
+        eventKey: `${updated.id}:${updated.state}`,
+        reason: 'position_marked_missed',
+      });
+    }
+    return updated;
   }
 }
