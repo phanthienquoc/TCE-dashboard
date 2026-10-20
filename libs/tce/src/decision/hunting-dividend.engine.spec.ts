@@ -46,6 +46,7 @@ const candidate = (overrides = {}) => ({
   price: 30000,
   dividendValue: 1500,
   dividendRatio: '5%',
+  realPnl: 40,
   gdkhqTimestamp: '2026-09-05T00:00:00.000Z',
   id: 'cand-1',
   ...overrides,
@@ -127,9 +128,9 @@ describe('HuntingDividendDecisionEngine', () => {
     const decisions = new HuntingDividendDecisionEngine({ slotsPerPool: 1 }).decide({
       ...base,
       candidates: [
-        candidate({ id: '1', symbol: 'AAA', dividendRatio: 6 }),
-        candidate({ id: '2', symbol: 'BBB', dividendRatio: 5 }),
-        candidate({ id: '3', symbol: 'CCC', dividendRatio: 4 }),
+        candidate({ id: '1', symbol: 'AAA', dividendRatio: 6, realPnl: 40 }),
+        candidate({ id: '2', symbol: 'BBB', dividendRatio: 5, realPnl: 40 }),
+        candidate({ id: '3', symbol: 'CCC', dividendRatio: 4, realPnl: 40 }),
       ],
     });
     expect(decisions.map(d => `${d.pool}:${d.slot}:${d.symbol}`)).toEqual([
@@ -193,7 +194,7 @@ describe('HuntingDividendDecisionEngine', () => {
           slot: 'A1',
           quantity: 100,
           entryPrice: 100,
-          currentPrice: 110,
+          currentPrice: 104,
           dividendNet: 2000,
           entitlementStatus: 'PROTECTED',
         },
@@ -221,6 +222,7 @@ describe('HuntingDividendDecisionEngine', () => {
           quantity: 100,
           entryPrice: 100,
           currentPrice: 130,
+          targetPrice: 200,
           entitlementStatus: 'PROTECTED',
         },
       ],
