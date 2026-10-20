@@ -90,7 +90,7 @@ export function attachRuntimeEventsWebSocket(
         return;
       }
       const afterEventId = url.searchParams.get('afterEventId') ?? undefined;
-      if (afterEventId && !afterParam) {
+      if (afterEventId && (!afterParam || !/^[A-Za-z0-9._:-]{1,256}$/.test(afterEventId))) {
         rejectUpgrade(socket, 400, 'afterEventId requires an after timestamp');
         return;
       }
