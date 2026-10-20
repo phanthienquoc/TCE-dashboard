@@ -19,6 +19,9 @@ export class RuntimeEventsQueryService {
     if (query.after !== undefined && !Number.isFinite(Date.parse(query.after))) {
       throw new Error('The after cursor must be an ISO-8601 timestamp');
     }
+    if (query.afterEventId !== undefined && !/^[A-Za-z0-9._:-]{1,256}$/.test(query.afterEventId)) {
+      throw new Error('The afterEventId cursor is invalid');
+    }
     if (query.eventType !== undefined && !isTceRuntimeEventType(query.eventType)) {
       throw new Error('Unsupported runtime event type');
     }
