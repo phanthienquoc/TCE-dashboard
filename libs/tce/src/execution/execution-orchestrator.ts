@@ -1,20 +1,33 @@
 import type {
   TceExecutionCancelCommand,
   TceExecutionCommand,
+  TceExecutionIdempotencyRecord,
+  TceExecutionIdempotencyScope,
+  TceExecutionIdempotencyStore,
   TceExecutionPort,
   TceExecutionReplaceCommand,
   TceExecutionResult,
   TceExecutionSubmitCommand,
 } from '@tce/contracts';
+import { fingerprintExecutionCommand } from './execution-command-fingerprint.js';
 
 type ExecutionOrchestratorResult = Readonly<{
   ok: boolean;
   result: TceExecutionResult;
 }>;
 
+export type TceExecutionOrchestratorOptions = Readonly<{
+  /**
+   * Supply a durable store in deployed runtime. Leaving this unset preserves
+   * backwards-compatible in-memory mode for local/tests only.
+   */
+  idempotencyStore?: TceExecutionIdempotencyStore;
+  now?: () => Date;
+}>;
+
 const invalidResult = (
   command: TceExecutionCommand,
-  code: 'AUTHORIZATION_REQUIRED' | 'INVALID_COMMAND',
+  code: 'AUTHORIZATION_REQUIRED' | 'INVALID_COMMAND' | 'DUPLICATE_REQUEST',
   message: string
 ): ExecutionOrchestratorResult => ({
   ok: false,
@@ -37,24 +50,64 @@ const invalidResult = (
 });
 
 export class TceExecutionOrchestrator {
-  private readonly completed = new Map<string, TceExecutionResult>();
+  private readonly completed = new Map<
+    string,
+    { fingerprint: string; result: TceExecutionResult }
+  >();
 
-  constructor(private readonly port: TceExecutionPort) {}
+  constructor(
+    private readonly port: TceExecutionPort,
+    private readonly options: TceExecutionOrchestratorOptions = {}
+  ) {}
 
   async execute(command: TceExecutionCommand): Promise<ExecutionOrchestratorResult> {
     const validation = this.validate(command);
     if (validation) return validation;
 
-    const key = command.authorization.idempotencyKey;
-    const existing = this.completed.get(key);
-    if (existing) return { ok: existing.ok, result: existing };
+    const now = (this.options.now ?? (() => new Date()))().toISOString();
+    const scope = this.scope(command);
+    const fingerprint = fingerprintExecutionCommand(command);
 
+    if (this.options.idempotencyStore) {
+      const reservation = await this.options.idempotencyStore.reserve({
+        scope,
+        fingerprint,
+        executionIntentId:
+          command.operation === 'SUBMIT' ? command.intent.id : command.executionIntentId,
+        correlationId: command.authorization.correlationId,
+        clientRequestId: command.clientRequestId,
+        createdAt: now,
+      });
+      if (reservation.kind === 'FINGERPRINT_CONFLICT') {
+        return invalidResult(
+          command,
+          'DUPLICATE_REQUEST',
+          'Idempotency key was already reserved for a different command'
+        );
+      }
+      if (reservation.kind === 'EXISTING') {
+        return this.resultForExisting(command, reservation.record);
+      }
+    } else {
+      const localKey = this.scopeKey(scope);
+      const existing = this.completed.get(localKey);
+      if (existing) {
+        if (existing.fingerprint !== fingerprint) {
+          return invalidResult(
+            command,
+            'DUPLICATE_REQUEST',
+            'Idempotency key was already used for a different command'
+          );
+        }
+        return { ok: existing.result.ok, result: existing.result };
+      }
+    }
+
+    let result: TceExecutionResult;
     try {
-      const result = await this.dispatch(command);
-      this.completed.set(key, result);
-      return { ok: result.ok, result };
+      result = await this.dispatch(command);
     } catch (error) {
-      const result: TceExecutionResult = {
+      result = {
         ok: false,
         operation: command.operation,
         status: 'UNKNOWN',
@@ -70,9 +123,57 @@ export class TceExecutionOrchestrator {
           reconciliationRequired: true,
         },
       };
-      this.completed.set(key, result);
-      return { ok: false, result };
     }
+
+    if (this.options.idempotencyStore) {
+      await this.options.idempotencyStore.complete(scope, fingerprint, result, now);
+    } else {
+      this.completed.set(this.scopeKey(scope), { fingerprint, result });
+    }
+    return { ok: result.ok, result };
+  }
+
+  private resultForExisting(
+    command: TceExecutionCommand,
+    record: TceExecutionIdempotencyRecord
+  ): ExecutionOrchestratorResult {
+    if (record.status === 'COMPLETED' && record.result) {
+      return { ok: record.result.ok, result: record.result };
+    }
+    // PENDING may mean another replica is dispatching. UNKNOWN explicitly
+    // requires reconciliation. Neither state is safe to dispatch again.
+    const unknown = record.status === 'UNKNOWN';
+    const result: TceExecutionResult = record.result ?? {
+      ok: false,
+      operation: command.operation,
+      status: unknown ? 'UNKNOWN' : 'PENDING',
+      executionIntentId:
+        command.operation === 'SUBMIT' ? command.intent.id : command.executionIntentId,
+      correlationId: command.authorization.correlationId,
+      idempotencyKey: command.authorization.idempotencyKey,
+      clientRequestId: command.clientRequestId,
+      error: {
+        code: unknown ? 'TIMEOUT_UNKNOWN' : 'DUPLICATE_REQUEST',
+        message: unknown
+          ? 'A previous attempt has an unknown outcome; reconciliation is required'
+          : 'An execution with this idempotency key is already pending',
+        retryable: false,
+        reconciliationRequired: unknown,
+      },
+    };
+    return { ok: false, result };
+  }
+
+  private scope(command: TceExecutionCommand): TceExecutionIdempotencyScope {
+    return {
+      accountId: command.accountId,
+      environment: command.environment,
+      idempotencyKey: command.authorization.idempotencyKey,
+    };
+  }
+
+  private scopeKey(scope: TceExecutionIdempotencyScope): string {
+    return [scope.accountId, scope.environment, scope.idempotencyKey].join('|');
   }
 
   private validate(command: TceExecutionCommand): ExecutionOrchestratorResult | null {
@@ -82,6 +183,18 @@ export class TceExecutionOrchestrator {
         command,
         'AUTHORIZATION_REQUIRED',
         'Execution approval identity is required'
+      );
+    }
+
+    if (
+      !command.accountId?.trim() ||
+      !command.environment?.trim() ||
+      !command.clientRequestId?.trim()
+    ) {
+      return invalidResult(
+        command,
+        'INVALID_COMMAND',
+        'Execution account, environment and client request identity are required'
       );
     }
 
@@ -100,12 +213,7 @@ export class TceExecutionOrchestrator {
       return null;
     }
 
-    if (
-      !command.executionIntentId ||
-      !command.clientRequestId ||
-      !command.accountId ||
-      !command.environment
-    ) {
+    if (!command.executionIntentId) {
       return invalidResult(command, 'INVALID_COMMAND', 'Execution command identity is incomplete');
     }
 
