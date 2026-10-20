@@ -107,19 +107,17 @@ describe('SupabaseExecutionIdempotencyAdapter', () => {
         reconciliationRequired: true,
       },
     };
-    const maybeSingle = vi.fn().mockResolvedValue({
-      data: row({ status: 'UNKNOWN', result, updated_at: '2026-10-21T12:01:00.000Z' }),
-      error: null,
+    const savedRow = row({
+      status: 'UNKNOWN',
+      result,
+      updated_at: '2026-10-21T12:01:00.000Z',
     });
-    const maybeSingle = vi.fn().mockResolvedValue({
-      data: row({ status: 'UNKNOWN', result, updated_at: '2026-10-21T12:01:00.000Z' }),
-      error: null,
-    });
+    const maybeSingle = vi.fn().mockResolvedValue({ data: savedRow, error: null });
     const select = vi.fn().mockReturnValue({ maybeSingle });
     const eqStatus = vi.fn().mockReturnValue({ select });
     const eqFingerprint = vi.fn().mockReturnValue({ eq: eqStatus });
-    const eqKey = vi.fn().mockReturnValue({ eq: eqFingerprint });
-    const eqEnvironment = vi.fn().mockReturnValue({ eq: eqKey });
+    const eqIdempotencyKey = vi.fn().mockReturnValue({ eq: eqFingerprint });
+    const eqEnvironment = vi.fn().mockReturnValue({ eq: eqIdempotencyKey });
     const eqAccount = vi.fn().mockReturnValue({ eq: eqEnvironment });
     const update = vi.fn().mockReturnValue({ eq: eqAccount });
     const db = { from: vi.fn().mockReturnValue({ update }) } as any;
