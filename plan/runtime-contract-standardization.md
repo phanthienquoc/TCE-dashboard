@@ -39,7 +39,7 @@ Standardize runtime ownership and provider/domain/event contracts incrementally.
 - [x] Validate event names, envelope structure, cursor, limit and transport filter inputs at runtime.
 - [x] Apply WebSocket origin checks for cookie-authenticated sessions; optionally configure TCE_EVENT_WS_ALLOWED_ORIGINS.
 - [x] Add focused contract, query, REST/SSE and cursor tests; include apps/service/src/runtime-events in backend test discovery.
-- [ ] Run backend build/tests and Prettier on the latest PR head, resolve failures, then squash-merge.
+- [x] Backend build/unit tests passed on final head (run #1909); Prettier passed (#1412); squash-merged PR #853 at `1040823b4281b21f6057ce4015b6a80ca3bced74`.
 - [ ] Verify the runtime event migration has been applied in the target environment before enabling event routes in production.
 
 ## Phase 4 — Execution reliability
@@ -50,9 +50,11 @@ Standardize runtime ownership and provider/domain/event contracts incrementally.
 - [x] Add a Supabase adapter with unique composite reservation keys, fingerprint conflict detection, guarded `PENDING` completion and durable `UNKNOWN` status.
 - [x] Extend Execution Orchestrator with deterministic command fingerprints, optional durable-store injection, conflicting-key rejection and no replay of existing `PENDING`/`UNKNOWN` reservations.
 - [x] Add focused tests for duplicate keys, conflicting fingerprints, separate account scopes, persisted results and unknown outcomes.
-- [ ] Wire the durable store into the actual production execution entry point. The current repository has no production construction site for `TceExecutionOrchestrator` outside tests; merely registering a DI provider is not proof of production use.
+- [x] Wire `TceExecutionOrchestrator` into the production auto-sell entry point (`ProfitExitExecutionService`) and inject the Supabase durable store behind `TCE_DURABLE_EXECUTION_IDEMPOTENCY_ENABLED=true`.
+- [ ] Enable the durable-store flag only after migration `202610210001_tce_execution_idempotency.sql` is applied and staging verification passes.
 - [ ] Enforce account/environment scope, current authorization validation and risk/safety gate before any non-PAPER dispatch.
-- [ ] Complete failure-path tests for timeout-after-dispatch, partial fills, provider outage, persistence failure, and reconciliation from provider truth.
+- [x] Cover store-reservation failure (no provider dispatch, retryable READY order), persistence failure after dispatch (UNKNOWN), and existing PENDING reservation (reconciliation required).
+- [ ] Complete remaining failure-path tests for timeout-after-dispatch, partial fills, provider outage and reconciliation from provider truth.
 - [ ] Ensure unknown outcomes require reconciliation and can never be blindly resubmitted.
 
 ## Phase 5 — Rollout
@@ -62,15 +64,16 @@ Standardize runtime ownership and provider/domain/event contracts incrementally.
 - [ ] Open a separate PR per task, with required CI green before squash merge into `master`.
 - [ ] Verify deployments separately after code is merged; this implementation does not deploy or enable LIVE trading.
 
-## Current task: Unified runtime event transports
+## Current task: Durable execution wiring
 
-- [x] Add authenticated GET /api/runtime/events with bounded replay, event-type filtering and a composite replay cursor.
-- [x] Add GET /api/runtime/events/stream (SSE) with canonical envelopes and retryable transport-control errors.
-- [x] Add read-only /api/runtime/events/ws over the same event stream; no client-to-server command path is exposed.
-- [x] Keep all reads scoped to the authenticated account identity; WebSocket cookie sessions use auth-service introspection and origin validation.
-- [x] Define shared REST success/error DTOs and transport-control frame contract.
-- [x] Add query/controller/contract tests and include runtime-events specs in the backend test script.
-- [ ] Validate latest-head CI and squash-merge this transport task.
+- [x] Route production auto-sell dispatch through `TceExecutionOrchestrator` rather than calling the SSI adapter directly.
+- [x] Inject the Supabase idempotency store only when `TCE_DURABLE_EXECUTION_IDEMPOTENCY_ENABLED=true`; default-off preserves safe rollout until the DB migration is applied.
+- [x] If reservation storage is unavailable, do not call the provider and leave the order READY for retry.
+- [x] If dispatch outcome cannot be durably recorded, return UNKNOWN and require reconciliation; never turn an ambiguous outcome into REJECTED.
+- [x] Treat existing PENDING reservations as reconciliation-required and never redispatch.
+- [x] Add orchestrator failure-boundary and Profit Exit service tests.
+- [ ] Run backend build/tests and Prettier on the latest PR head, fix failures, and squash-merge this task.
+- [ ] Apply the additive migration in a controlled environment, verify staging, then explicitly enable the feature flag.
 
 ## Previous task: Monitor event emission
 
@@ -80,11 +83,12 @@ Standardize runtime ownership and provider/domain/event contracts incrementally.
 - [x] Register the Monitor module with explicit scheduler opt-in (TCE_MONITOR_SCHEDULER_ENABLED=true) so module registration alone cannot start the legacy scheduler.
 - [x] Backend build/unit tests and Prettier passed on the formatted head before PR #852 merge (runs #1906 and #1409).
 
-## Previous task: durable idempotency store
+## Previous task: Unified runtime event transports
 
-- [x] Contract, adapter, RLS migration, Nest provider and duplicate/conflict/unknown tests implemented.
-- [x] Squash-merged as PR #851 into `master` after backend build/tests and Prettier passed.
-- [ ] Production runtime injection remains incomplete until a real dispatch call site is identified and tested.
+- [x] REST/SSE/WebSocket share canonical event envelopes and authenticated account scope.
+- [x] Backend build/unit tests and Prettier passed on final head (runs #1909 and #1412).
+- [x] Squash-merged as PR #853 into `master` at `1040823b4281b21f6057ce4015b6a80ca3bced74`.
+- [ ] Apply the additive runtime-event migration before enabling routes in production.
 
 ## Acceptance criteria
 
@@ -93,7 +97,8 @@ Standardize runtime ownership and provider/domain/event contracts incrementally.
 - [x] Durable idempotency port, SQL schema and adapter exist.
 - [x] Monitor emits through the shared event contract without gaining order-dispatch authority.
 - [x] REST/WS/SSE share the canonical event envelope, event IDs and correlation IDs.
-- [ ] Production dispatch uses durable idempotency and verified authorization/scope checks.
+- [x] Production auto-sell code path is wired to the durable orchestrator behind a rollout flag.
+- [ ] Durable idempotency is enabled in production only after migration and staging validation.
 - [ ] Unknown outcomes require reconciliation, not blind retry.
 - [ ] Compatibility and rollout gates pass before production migration/deployment.
 
