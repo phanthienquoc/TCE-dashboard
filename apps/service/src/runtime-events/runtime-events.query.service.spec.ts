@@ -7,8 +7,7 @@ function makeDb(result: { data: unknown[] | null; error: unknown | null }) {
   for (const method of ['select', 'eq', 'order', 'limit', 'gt', 'or']) {
     query[method] = vi.fn(() => query);
   }
-  query.then = (resolve: (value: unknown) => unknown) =>
-    Promise.resolve(result).then(resolve);
+  query.then = (resolve: (value: unknown) => unknown) => Promise.resolve(result).then(resolve);
   return { db: { from: vi.fn(() => query) }, query };
 }
 

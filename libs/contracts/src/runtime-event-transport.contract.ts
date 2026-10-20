@@ -32,6 +32,10 @@ export function isTceApiError(value: unknown): value is TceApiError {
     return false;
   }
   const error = candidate.error as Record<string, unknown>;
-  return typeof error.code === 'string' && error.code.length > 0 &&
-    typeof error.message === 'string' && error.message.length > 0;
+  return (
+    typeof error.code === 'string' &&
+    error.code.length > 0 &&
+    typeof error.message === 'string' &&
+    error.message.length > 0
+  );
 }

@@ -48,9 +48,9 @@ describe('RuntimeEventsController', () => {
     await expect(controller.list('Bearer token', 'not-a-date')).rejects.toBeInstanceOf(
       BadRequestException
     );
-    await expect(controller.list('Bearer token', undefined, undefined, 'unknown.event')).rejects.toBeInstanceOf(
-      BadRequestException
-    );
+    await expect(
+      controller.list('Bearer token', undefined, undefined, 'unknown.event')
+    ).rejects.toBeInstanceOf(BadRequestException);
   });
 
   it('exposes SSE as the same versioned envelope rather than a transport-specific payload', () => {

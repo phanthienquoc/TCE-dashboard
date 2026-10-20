@@ -28,7 +28,9 @@ export class RuntimeEventsQueryService {
 
     let request = this.supabase.db
       .from('tce_runtime_events')
-      .select('event_id,event_type,schema_version,occurred_at,producer,correlation_id,account_id,aggregate_id,sequence,data')
+      .select(
+        'event_id,event_type,schema_version,occurred_at,producer,correlation_id,account_id,aggregate_id,sequence,data'
+      )
       .eq('account_id', accountId)
       .order('occurred_at', { ascending: true })
       .order('event_id', { ascending: true })
