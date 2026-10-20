@@ -1,6 +1,11 @@
 import { Module } from '@nestjs/common';
 import { CONTRACT_TOKENS } from '@tce/contracts';
-import { SupabaseCredentialAdapter, SupabaseOrderAdapter, SupabasePositionAdapter } from '@tce/db';
+import {
+  SupabaseCredentialAdapter,
+  SupabaseExecutionIdempotencyAdapter,
+  SupabaseOrderAdapter,
+  SupabasePositionAdapter,
+} from '@tce/db';
 import { SsiApplicationService } from './ssi.application.service';
 import { SsiAssetSyncService } from './ssi-asset-sync.service';
 import { SsiMarketPriceService } from './ssi-market-price.service';
@@ -40,6 +45,11 @@ import { SupabaseClientService } from '../db/supabase.client';
       inject: [SupabaseClientService],
       useFactory: (db: SupabaseClientService) => new SupabaseOrderAdapter(db.db),
     },
+    {
+      provide: 'TCE_EXECUTION_IDEMPOTENCY_STORE',
+      inject: [SupabaseClientService],
+      useFactory: (db: SupabaseClientService) => new SupabaseExecutionIdempotencyAdapter(db.db),
+    },
     SsiApplicationService,
     TceSsiTradingAuthorizationAdapter,
     TceSsiOrderReconciliationAdapter,
@@ -56,6 +66,7 @@ import { SupabaseClientService } from '../db/supabase.client';
     CONTRACT_TOKENS.credentials,
     CONTRACT_TOKENS.positionRepository,
     CONTRACT_TOKENS.orderRepository,
+    'TCE_EXECUTION_IDEMPOTENCY_STORE',
     SsiApplicationService,
     TceSsiTradingAuthorizationAdapter,
     TceSsiOrderReconciliationAdapter,
