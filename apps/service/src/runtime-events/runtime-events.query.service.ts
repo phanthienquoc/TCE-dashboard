@@ -1,5 +1,5 @@
 import { Injectable, ServiceUnavailableException } from '@nestjs/common';
-import { isTceEventEnvelope, isTceRuntimeEventType, type TceEventEnvelope } from '@tce/contracts';
+import { isTceRuntimeEvent, isTceRuntimeEventType, type TceEventEnvelope } from '@tce/contracts';
 import { SupabaseClientService } from '../db/supabase.client';
 
 export type RuntimeEventQuery = Readonly<{
@@ -70,7 +70,7 @@ export class RuntimeEventsQueryService {
         ...(row.sequence !== null ? { sequence: Number(row.sequence) } : {}),
         data: row.data,
       };
-      if (!isTceEventEnvelope(event) || !isTceRuntimeEventType(event.eventType)) continue;
+      if (!isTceRuntimeEvent(event)) continue;
       events.push(event);
     }
     return events;
