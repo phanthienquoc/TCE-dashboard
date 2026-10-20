@@ -46,7 +46,7 @@ describe('ProfitExitExecutionService durable idempotency handling', () => {
   it('leaves a READY order retryable when reservation fails before dispatch', async () => {
     const { db, query } = makeSupabase();
     const execution = { execute: vi.fn().mockResolvedValue(executionResult()) };
-    const service = new ProfitExitExecutionService(db as any, execution as any);
+    const service = new ProfitExitExecutionService({ db } as any, execution as any);
 
     const result = await service.executeReady('account-1');
 
@@ -72,7 +72,7 @@ describe('ProfitExitExecutionService durable idempotency handling', () => {
         })
       ),
     };
-    const service = new ProfitExitExecutionService(db as any, execution as any);
+    const service = new ProfitExitExecutionService({ db } as any, execution as any);
 
     const result = await service.executeReady('account-1');
 
@@ -85,7 +85,7 @@ describe('ProfitExitExecutionService durable idempotency handling', () => {
   it('marks thrown orchestrator failures UNKNOWN rather than rejected', async () => {
     const { db, query } = makeSupabase();
     const execution = { execute: vi.fn().mockRejectedValue(new Error('unexpected failure')) };
-    const service = new ProfitExitExecutionService(db as any, execution as any);
+    const service = new ProfitExitExecutionService({ db } as any, execution as any);
 
     const result = await service.executeReady('account-1');
 
