@@ -26,7 +26,11 @@ describe('RuntimeEventsQueryService', () => {
       data: { symbol: 'DPM', observedAt: '2026-10-21T01:00:00.000Z' },
     };
     const { db, query } = makeDb({
-      data: [event, { ...event, event_id: 'bad', event_type: 'unknown.event' }],
+      data: [
+        event,
+        { ...event, event_id: 'bad-payload', data: { symbol: 'DPM', observedAt: 'not-a-date' } },
+        { ...event, event_id: 'bad-type', event_type: 'unknown.event' },
+      ],
       error: null,
     });
     const service = new RuntimeEventsQueryService({ db } as any);
