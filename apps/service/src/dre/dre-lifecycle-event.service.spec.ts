@@ -1,8 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import {
-  createDreLifecycleEvent,
-  DreLifecycleEventService,
-} from './dre-lifecycle-event.service';
+import { createDreLifecycleEvent, DreLifecycleEventService } from './dre-lifecycle-event.service';
 
 const input = {
   campaignId: 'campaign-1',

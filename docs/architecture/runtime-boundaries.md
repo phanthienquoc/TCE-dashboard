@@ -14,16 +14,16 @@ Standardize ownership and contracts across `apps/service`, `libs/tce-engine`, `l
 
 ## Target responsibility matrix
 
-| Component              | Owns                                                                                           | Does not own                                                      |
-| ---------------------- | ---------------------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
-| `apps/service`         | NestJS composition root, transport adapters, auth boundary and dependency wiring               | Strategy rules, direct broker command submission                  |
-| `libs/contracts`       | Provider-neutral DTOs, ports, result/error contracts and event envelopes                       | Runtime adapters or side effects                                  |
-| `libs/tce-engine`      | Deterministic strategy evaluation                                                              | Database, scheduler, network, provider SDK or live execution      |
-| `libs/platform`        | Provider adapters for market, account and execution capabilities                               | Strategy ownership or DRE campaign state                          |
-| Monitor                | Scheduled observation, health/freshness, snapshots and alert/event emission                    | Campaign authority or order dispatch                              |
+| Component              | Owns                                                                                                                   | Does not own                                                      |
+| ---------------------- | ---------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
+| `apps/service`         | NestJS composition root, transport adapters, auth boundary and dependency wiring                                       | Strategy rules, direct broker command submission                  |
+| `libs/contracts`       | Provider-neutral DTOs, ports, result/error contracts and event envelopes                                               | Runtime adapters or side effects                                  |
+| `libs/tce-engine`      | Deterministic strategy evaluation                                                                                      | Database, scheduler, network, provider SDK or live execution      |
+| `libs/platform`        | Provider adapters for market, account and execution capabilities                                                       | Strategy ownership or DRE campaign state                          |
+| Monitor                | Scheduled observation, health/freshness, snapshots and alert/event emission                                            | Campaign authority or order dispatch                              |
 | DRE                    | Dividend campaign state, sequence/rolling continuity, settlement/T+2 policy, GAP tracking and lifecycle event emission | Changing TCE decision/risk/TP/quantity or calling broker directly |
-| Execution Orchestrator | Command validation, scoped authorization, idempotency, provider dispatch and normalized result | Strategy evaluation or campaign lifecycle                         |
-| Reconciliation         | Compare local intents/orders/positions with provider truth and classify drift                  | Blind resubmission of unknown outcomes                            |
+| Execution Orchestrator | Command validation, scoped authorization, idempotency, provider dispatch and normalized result                         | Strategy evaluation or campaign lifecycle                         |
+| Reconciliation         | Compare local intents/orders/positions with provider truth and classify drift                                          | Blind resubmission of unknown outcomes                            |
 
 ## Shared event contract
 
