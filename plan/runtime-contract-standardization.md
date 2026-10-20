@@ -58,7 +58,8 @@ Standardize runtime ownership and provider/domain/event contracts incrementally.
 - [ ] Enable the durable-store flag only after migration `202610210001_tce_execution_idempotency.sql` is applied and staging verification passes.
 - [ ] Enforce account/environment scope, current authorization validation and risk/safety gate before any non-PAPER dispatch.
 - [x] Cover store-reservation failure (no provider dispatch, retryable READY order), persistence failure after dispatch (UNKNOWN), and existing PENDING reservation (reconciliation required).
-- [ ] Complete remaining failure-path tests for timeout-after-dispatch, partial fills, provider outage and reconciliation from provider truth.
+- [ ] Complete remaining failure-path tests for partial fills, provider outage and reconciliation from provider truth.
+- [x] Add a durable timeout-after-dispatch test proving the result stays UNKNOWN, reconciliation is required, and a duplicate request does not call the provider again (commit `a50c30891a38707efd0e7f80dae7595918e0cca4`; CI verification pending).
 - [ ] Ensure unknown outcomes require reconciliation and can never be blindly resubmitted.
 
 ## Phase 5 — Rollout
