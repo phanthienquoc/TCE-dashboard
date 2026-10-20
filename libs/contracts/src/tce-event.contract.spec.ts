@@ -3,6 +3,7 @@ import { describe, it } from 'node:test';
 import {
   TCE_EVENT_SCHEMA_VERSION,
   isTceEventEnvelope,
+  isTceRuntimeEventType,
   type TceEventEnvelope,
 } from './tce-event.contract';
 
@@ -20,6 +21,13 @@ const validEvent = (): TceEventEnvelope<'monitor.snapshot.created', { symbol: st
 });
 
 describe('TceEventEnvelope', () => {
+  it('accepts known runtime event names and rejects unknown names', () => {
+    assert.equal(isTceRuntimeEventType('execution.result'), true);
+    assert.equal(isTceRuntimeEventType('monitor.snapshot.created'), true);
+    assert.equal(isTceRuntimeEventType('unknown.event'), false);
+    assert.equal(isTceRuntimeEventType(null), false);
+  });
+
   it('accepts a structurally valid versioned event envelope', () => {
     assert.equal(isTceEventEnvelope(validEvent()), true);
   });
