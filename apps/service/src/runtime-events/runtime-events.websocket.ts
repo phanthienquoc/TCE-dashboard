@@ -89,6 +89,11 @@ export function attachRuntimeEventsWebSocket(
         rejectUpgrade(socket, 400, 'Invalid after cursor');
         return;
       }
+      const afterEventId = url.searchParams.get('afterEventId') ?? undefined;
+      if (afterEventId && !afterParam) {
+        rejectUpgrade(socket, 400, 'afterEventId requires an after timestamp');
+        return;
+      }
       const eventType = url.searchParams.get('eventType') ?? undefined;
       if (eventType && !isTceRuntimeEventType(eventType)) {
         rejectUpgrade(socket, 400, 'Unsupported event type');
@@ -98,6 +103,7 @@ export function attachRuntimeEventsWebSocket(
       wss.handleUpgrade(request, socket, head, client => {
         wss.emit('connection', client, request);
         let cursor = afterParam ?? new Date(Date.now() - 2000).toISOString();
+        let cursorEventId = afterEventId;
         let polling = false;
         const sent = new Set<string>();
 
@@ -107,11 +113,13 @@ export function attachRuntimeEventsWebSocket(
           try {
             const batch = await events.listForAccount(accountId, {
               after: cursor,
+              ...(cursorEventId ? { afterEventId: cursorEventId } : {}),
               limit: 200,
               ...(eventType ? { eventType } : {}),
             });
             for (const event of batch) {
               cursor = event.occurredAt;
+              cursorEventId = event.eventId;
               if (sent.has(event.eventId)) continue;
               sent.add(event.eventId);
               while (sent.size > 1000) {
