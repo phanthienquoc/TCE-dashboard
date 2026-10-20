@@ -71,7 +71,8 @@ Standardize runtime ownership and provider/domain/event contracts incrementally.
 - [x] Emit after campaign creation/status changes, rolling-position transitions, T+2 availability and confirmed capital recycling.
 - [x] Keep Mongo lifecycle state authoritative; publisher/metadata failures are logged and do not interrupt valid state transitions.
 - [x] Add lifecycle-event and campaign-service tests; include DRE specs in backend test discovery.
-- [ ] Run backend build/unit tests and Prettier on the latest PR head, fix failures, then squash-merge.
+- [x] Backend build/unit tests passed on the pre-format head (run #1915); Prettier passed and applied formatting (#1418).
+- [ ] Re-run required checks on the final formatted/documentation head before squash-merge.
 - [ ] Add durable retry/replay for failed cross-database event publication; Mongo and Supabase do not share a transaction.
 
 ## Previous task: Durable execution wiring
@@ -122,3 +123,4 @@ Standardize runtime ownership and provider/domain/event contracts incrementally.
 - An adapter implementation or Nest provider is not proof of runtime durability until the actual dispatch path injects and uses it.
 - Envelope validation does not replace event-specific payload validation.
 - DRE lifecycle event publication is best-effort across MongoDB and Supabase; it is not an atomic outbox until durable replay/reconciliation is implemented.
+- DRE campaign events currently have no accountId because campaigns are global; account-scoped REST/SSE/WebSocket streams intentionally do not expose them until an explicit global/admin visibility policy is defined.
