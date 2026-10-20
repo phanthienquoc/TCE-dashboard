@@ -11,11 +11,13 @@ import { DividendCampaignRepository } from './dividend-campaign.repository';
 import { DividendCampaignService } from './dividend-campaign.service';
 import { RollingPositionService } from './rolling-position.service';
 import { SettlementService } from './settlement.service';
+import { DreLifecycleEventService } from './dre-lifecycle-event.service';
 
 @Module({
   imports: [DbModule],
   controllers: [DreDashboardController, DreHealthController],
   providers: [
+    DreLifecycleEventService,
     DividendCampaignRepository,
     DividendCampaignService,
     RollingPositionService,
