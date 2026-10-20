@@ -29,7 +29,7 @@ describe('RuntimeEventsQueryService', () => {
       data: [event, { ...event, event_id: 'bad', event_type: 'unknown.event' }],
       error: null,
     });
-    const service = new RuntimeEventsQueryService(db as any);
+    const service = new RuntimeEventsQueryService({ db } as any);
 
     const result = await service.listForAccount('account-1', { limit: 25 });
 
@@ -53,7 +53,7 @@ describe('RuntimeEventsQueryService', () => {
 
   it('uses a composite timestamp and event ID cursor to avoid dropping tied events', async () => {
     const { db, query } = makeDb({ data: [], error: null });
-    const service = new RuntimeEventsQueryService(db as any);
+    const service = new RuntimeEventsQueryService({ db } as any);
     await service.listForAccount('account-1', {
       after: '2026-10-21T01:00:00.000Z',
       afterEventId: 'evt-1',
@@ -65,7 +65,7 @@ describe('RuntimeEventsQueryService', () => {
 
   it('rejects malformed cursors before querying the database', async () => {
     const { db } = makeDb({ data: [], error: null });
-    const service = new RuntimeEventsQueryService(db as any);
+    const service = new RuntimeEventsQueryService({ db } as any);
     await expect(service.listForAccount('account-1', { after: 'not-a-date' })).rejects.toThrow(
       'The after cursor must be an ISO-8601 timestamp'
     );
@@ -74,7 +74,7 @@ describe('RuntimeEventsQueryService', () => {
 
   it('fails closed with a stable service-unavailable error when the store is unavailable', async () => {
     const { db } = makeDb({ data: null, error: { message: 'relation missing' } });
-    const service = new RuntimeEventsQueryService(db as any);
+    const service = new RuntimeEventsQueryService({ db } as any);
     await expect(service.listForAccount('account-1')).rejects.toBeInstanceOf(
       ServiceUnavailableException
     );
