@@ -4,6 +4,7 @@ import { SupabaseClientService } from '../db/supabase.client';
 
 export type RuntimeEventQuery = Readonly<{
   after?: string;
+  afterEventId?: string;
   limit?: number;
   eventType?: string;
 }>;
@@ -29,7 +30,13 @@ export class RuntimeEventsQueryService {
       .order('occurred_at', { ascending: true })
       .order('event_id', { ascending: true })
       .limit(limit);
-    if (query.after) request = request.gt('occurred_at', query.after);
+    if (query.after && query.afterEventId) {
+      request = request.or(
+        `occurred_at.gt.${query.after},and(occurred_at.eq.${query.after},event_id.gt.${query.afterEventId})`
+      );
+    } else if (query.after) {
+      request = request.gt('occurred_at', query.after);
+    }
     if (query.eventType) request = request.eq('event_type', query.eventType);
 
     const { data, error } = await request;
