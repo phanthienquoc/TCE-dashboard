@@ -64,7 +64,7 @@ Standardize runtime ownership and provider/domain/event contracts incrementally.
 - [x] Emit `monitor.snapshot.created` after snapshot persistence with a deterministic event ID and account/correlation metadata.
 - [x] Register the Monitor module with explicit scheduler opt-in (`TCE_MONITOR_SCHEDULER_ENABLED=true`) so module registration alone cannot start the legacy scheduler.
 - [x] Add contract/publisher/failure-isolation unit tests.
-- [ ] Verify CI and squash-merge this task.
+- [x] Backend build/unit tests passed on the pre-format head (run #1905); Prettier passed and applied its formatting commit (run #1408). Re-run the required checks on the resulting formatted head before merge.
 
 ## Previous task: durable idempotency store
 
