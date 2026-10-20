@@ -89,7 +89,7 @@ Rules:
 - [x] Add the generic versioned envelope and event metadata contract under `libs/contracts`.
 - [x] Export it from the existing contract barrel without redefining existing DTOs.
 - [x] Add tests for required IDs, schema version, timestamps, account/correlation propagation and malformed input.
-- [x] Validate the shared envelope and known event names at runtime; event-specific payload schemas remain a follow-up.
+- [x] Validate the shared envelope, known event names and event-specific payload schemas at runtime, including nested account snapshots and execution error fields.
 
 ### Phase 2 — Runtime ownership boundaries
 
@@ -104,7 +104,7 @@ Rules:
 
 - [x] Map REST success/error DTOs to canonical contracts.
 - [x] Publish the same versioned envelope over REST replay, WebSocket and SSE.
-- [x] Add query/controller/contract tests for account scope, replay cursors, event envelopes and stable error codes.
+- [x] Add query/controller/contract tests for account scope, replay cursors, event envelopes, payload validation and stable error codes.
 
 ### Phase 4 — Execution reliability
 
