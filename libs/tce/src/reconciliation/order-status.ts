@@ -1,6 +1,8 @@
 import type { TceOrderState } from '@tce/contracts';
 
 const STATUS_MAP: Readonly<Record<string, TceOrderState>> = {
+  // SSI's RS status means the order was registered successfully and is still open.
+  RS: 'SUBMITTED',
   NEW: 'SUBMITTED',
   PENDING_NEW: 'SUBMITTED',
   OPEN: 'SUBMITTED',

@@ -59,7 +59,12 @@ test('CRDE lifecycle follows HOLDING → EX_DIVIDEND → T2_PENDING → DIVIDEND
 test('CRDE lifecycle blocks dividend confirmation before payment is due', () => {
   const lifecycle = new CapitalRotationDividendLifecycle();
   const result = lifecycle.transition(
-    { ...base, state: 'T2_PENDING', dividendLifecycle: 'T2_PENDING' },
+    {
+      ...base,
+      paymentAt: '2099-09-22T00:00:00.000Z',
+      state: 'T2_PENDING',
+      dividendLifecycle: 'T2_PENDING',
+    },
     'DIVIDEND_CONFIRMED',
     { correlationId: 'corr-2', idempotencyKey: 'life-4' },
     'premature-confirmation'

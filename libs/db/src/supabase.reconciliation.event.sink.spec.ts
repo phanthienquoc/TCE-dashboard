@@ -23,7 +23,7 @@ describe('SupabaseReconciliationLifecycleSink', () => {
   };
 
   it('reads durable event identity from Supabase', async () => {
-    const maybeSingle = jest
+    const maybeSingle = vi
       .fn()
       .mockResolvedValue({ data: { event_id: event.eventId }, error: null });
     const db = {

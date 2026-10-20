@@ -31,7 +31,8 @@ test('reserves capital without exceeding available pool capacity', () => {
       amount: 40_000,
       timestamp: reservedSlot.updatedAt,
     },
-    reservedSlot
+    // Capital reservation updates pool accounting; slot state is transitioned separately.
+    slot
   );
 
   assert.equal(outcome.ok, true);

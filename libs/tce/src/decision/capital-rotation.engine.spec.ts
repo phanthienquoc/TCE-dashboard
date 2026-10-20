@@ -95,6 +95,8 @@ test('CRDE never opens a second position for an occupied symbol or slot', () => 
           quantity: 100,
           entryPrice: 95,
           currentPrice: 100,
+          targetPrice: 100,
+          entitlementStatus: 'PROTECTED',
         },
       ],
     })
@@ -118,6 +120,7 @@ test('CRDE sells when target is reached and marks capital for recycling', () => 
           entryPrice: 100,
           currentPrice: 105,
           targetPrice: 105,
+          entitlementStatus: 'PROTECTED',
         },
       ],
     })

@@ -76,10 +76,12 @@ describe('GeminiSignalParserService', () => {
       'fetch',
       vi
         .fn()
-        .mockResolvedValue(
-          new Response(
-            JSON.stringify({ candidates: [{ content: { parts: [{ text: 'INVALID' }] } }] }),
-            { status: 200, headers: { 'content-type': 'application/json' } }
+        .mockImplementation(() =>
+          Promise.resolve(
+            new Response(
+              JSON.stringify({ candidates: [{ content: { parts: [{ text: 'INVALID' }] } }] }),
+              { status: 200, headers: { 'content-type': 'application/json' } }
+            )
           )
         )
     );

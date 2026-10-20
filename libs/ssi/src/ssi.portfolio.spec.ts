@@ -12,7 +12,7 @@ test('SsiBrokerAdapter initializes with config', () => {
   assert.equal(adapter.provider, 'ssi');
 });
 
-test('SsiBrokerAdapter filters out derivative accounts during snapshot', async () => {
+test('SsiBrokerAdapter filters out derivative accounts from equity account snapshots', async () => {
   const adapter = new SsiBrokerAdapter({
     apiKey: 'test-api-key',
     apiSecret: 'test-api-secret',
@@ -58,16 +58,20 @@ test('SsiBrokerAdapter filters out derivative accounts during snapshot', async (
     },
   });
 
-  const result = await adapter.accountSnapshots({});
+  (
+    adapter as unknown as { orders: (acc: string) => Promise<{ ok: boolean; data: unknown[] }> }
+  ).orders = async () => ({ ok: true, data: [] });
+
+  const result = await adapter.current('1234561', {});
   assert.equal(result.ok, true);
   if (result.ok) {
-    assert.equal(result.data.length, 2);
-    assert.equal(result.data[0].account.accountNo, '1234561');
-    assert.equal(result.data[0].account.accountType, 'Cash');
-    assert.equal(result.data[1].account.accountNo, '1234566');
-    assert.equal(result.data[1].account.accountType, 'Margin');
+    assert.equal(result.data.accounts.length, 2);
+    assert.equal(result.data.accounts[0].accountNo, '1234561');
+    assert.equal(result.data.accounts[0].accountType, 'Cash');
+    assert.equal(result.data.accounts[1].accountNo, '1234566');
+    assert.equal(result.data.accounts[1].accountType, 'Margin');
     assert.equal(
-      result.data.some(s => s.account.accountNo === '1234568'),
+      result.data.accounts.some(account => account.accountNo === '1234568'),
       false
     );
   }
@@ -78,6 +82,7 @@ test('SsiBrokerAdapter falls back to marginBalance (PPMMR) when balance fails fo
     apiKey: 'test-api-key',
     apiSecret: 'test-api-secret',
     clientId: 'test-client',
+    accountNo: '1234566',
     token: {
       accessToken: 'valid-token',
       tokenType: 'Bearer',
@@ -86,10 +91,6 @@ test('SsiBrokerAdapter falls back to marginBalance (PPMMR) when balance fails fo
       refreshTokenExpiresAt: Date.now() + 86400000,
     },
   });
-
-  (adapter as unknown as { accountInfo: () => Promise<unknown[]> }).accountInfo = async () => [
-    { accountNo: '1234566', accountType: 'Margin' },
-  ];
 
   (
     adapter as unknown as { positions: (acc: string) => Promise<{ ok: boolean; data: unknown[] }> }
@@ -121,12 +122,15 @@ test('SsiBrokerAdapter falls back to marginBalance (PPMMR) when balance fails fo
     },
   });
 
+  (
+    adapter as unknown as { orders: (acc: string) => Promise<{ ok: boolean; data: unknown[] }> }
+  ).orders = async () => ({ ok: true, data: [] });
+
   const result = await adapter.accountSnapshots({});
   assert.equal(result.ok, true);
   if (result.ok) {
-    assert.equal(result.data.length, 1);
-    assert.equal(result.data[0].balance.cash, 20000000);
-    assert.equal(result.data[0].balance.totalDebt, 10000000);
+    assert.equal(result.data.balance.cash, 20000000);
+    assert.equal(result.data.balance.totalDebt, 10000000);
   }
 });
 

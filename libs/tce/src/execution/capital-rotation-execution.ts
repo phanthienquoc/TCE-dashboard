@@ -22,6 +22,10 @@ export type CapitalRotationExecutionRequest = Readonly<{
   riskAmount: number;
   riskConfig: TceRiskGateConfig;
   riskContext: TceRiskGateContext;
+  /** Board lot size for BUY preparation; defaults to 100 shares for VN equities. */
+  lotSize?: number;
+  /** Required for SELL preparation because the position size must come from account truth. */
+  quantity?: number;
 }>;
 
 export type CapitalRotationExecutionPreparation =
@@ -67,16 +71,55 @@ export function prepareCapitalRotationExecution(
     };
   }
 
+  const entryPrice = Number(decision.entry);
+  const lotSize = request.lotSize ?? 100;
+  if (!Number.isInteger(lotSize) || lotSize <= 0) {
+    return {
+      ok: false,
+      code: 'INVALID_LOT_SIZE',
+      message: 'lotSize must be a positive integer',
+    };
+  }
+  let quantity: number;
+  if (decision.action === 'BUY') {
+    const budget = Math.min(
+      Number(request.decision.capital),
+      Number(request.riskContext.availableCapital)
+    );
+    if (
+      !Number.isFinite(budget) ||
+      budget <= 0 ||
+      !Number.isFinite(entryPrice) ||
+      entryPrice <= 0
+    ) {
+      return {
+        ok: false,
+        code: 'INVALID_ORDER_PLAN',
+        message: 'BUY preparation requires positive capital and entry price',
+      };
+    }
+    quantity = Math.floor(Math.floor(budget / entryPrice) / lotSize) * lotSize;
+  } else {
+    quantity = Number(request.quantity);
+    if (!Number.isInteger(quantity) || quantity <= 0) {
+      return {
+        ok: false,
+        code: 'INVALID_ORDER_PLAN',
+        message: 'SELL preparation requires a positive integer quantity from the account position',
+      };
+    }
+  }
+
   const orderPlan = {
     id: request.orderPlanId,
     decisionId: decision.id,
     symbol: decision.symbol,
     side: decision.action,
-    quantity: 0,
-    entryPrice: decision.entry,
+    quantity,
+    entryPrice,
     targetPrice: decision.target > 0 ? decision.target : undefined,
     invalidationPrice: decision.invalidation,
-    notional: 0,
+    notional: quantity * entryPrice,
     pool: decision.pool,
     slotId: decision.slotId,
     createdAt: decision.decidedAt,
