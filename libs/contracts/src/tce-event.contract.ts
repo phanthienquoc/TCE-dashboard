@@ -47,6 +47,23 @@ export type TceRuntimeEventType =
   | 'monitor.snapshot.created'
   | 'dre.campaign.updated';
 
+const TCE_RUNTIME_EVENT_TYPES: readonly TceRuntimeEventType[] = [
+  'market.quote.updated',
+  'strategy.decision.created',
+  'risk.gate.approved',
+  'risk.gate.blocked',
+  'execution.intent.created',
+  'execution.result',
+  'execution.reconciliation.required',
+  'account.snapshot.updated',
+  'monitor.snapshot.created',
+  'dre.campaign.updated',
+];
+
+export function isTceRuntimeEventType(value: unknown): value is TceRuntimeEventType {
+  return typeof value === 'string' && TCE_RUNTIME_EVENT_TYPES.includes(value as TceRuntimeEventType);
+}
+
 export type TceEventDataByType = {
   'market.quote.updated': import('./platform.contract').MarketQuote;
   'strategy.decision.created': import('./tce-auto-trade.contract').TceDecision;
@@ -87,6 +104,11 @@ export type TceRuntimeEvent<TType extends TceRuntimeEventType> = TceEventEnvelop
   TType,
   TceEventDataByType[TType]
 >;
+
+/** Provider-neutral publisher port shared by REST/WS/SSE adapters. */
+export interface TceEventPublisherPort {
+  publish<TType extends TceRuntimeEventType>(event: TceRuntimeEvent<TType>): Promise<void>;
+}
 
 /**
  * This validates envelope structure only. Callers must validate event-specific
