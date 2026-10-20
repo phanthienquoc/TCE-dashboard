@@ -42,8 +42,12 @@ export class RuntimeEventsQueryService {
     const { data, error } = await request;
     if (error) {
       throw new ServiceUnavailableException({
-        code: 'RUNTIME_EVENT_STORE_UNAVAILABLE',
-        message: 'Runtime event store is unavailable',
+        ok: false,
+        error: {
+          code: 'RUNTIME_EVENT_STORE_UNAVAILABLE',
+          message: 'Runtime event store is unavailable',
+          retryable: true,
+        },
       });
     }
 
