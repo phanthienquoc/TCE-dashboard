@@ -17,12 +17,13 @@ import { ProfitExitExecutionService } from './profit-exit-execution.service';
       useFactory: (
         execution: TceSsiExecutionAdapter,
         idempotencyStore: TceExecutionIdempotencyStore
-      ) => new TceExecutionOrchestrator(
-        execution,
-        process.env['TCE_DURABLE_EXECUTION_IDEMPOTENCY_ENABLED'] === 'true'
-          ? { idempotencyStore }
-          : {}
-      ),
+      ) =>
+        new TceExecutionOrchestrator(
+          execution,
+          process.env['TCE_DURABLE_EXECUTION_IDEMPOTENCY_ENABLED'] === 'true'
+            ? { idempotencyStore }
+            : {}
+        ),
     },
     ProfitExitCronService,
     ProfitExitExecutionService,

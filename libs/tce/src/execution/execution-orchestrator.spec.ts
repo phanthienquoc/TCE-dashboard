@@ -254,7 +254,6 @@ test('durable store rejection due to conflicting fingerprint never reaches provi
   assert.equal(conflicting.result.error?.code, 'DUPLICATE_REQUEST');
 });
 
-
 test('does not dispatch when durable reservation fails and returns a retryable pre-dispatch result', async () => {
   let calls = 0;
   const store: TceExecutionIdempotencyStore = {
@@ -320,7 +319,6 @@ test('returns UNKNOWN when dispatch succeeded but durable result persistence fai
   assert.equal(result.result.status, 'UNKNOWN');
   assert.equal(result.result.error?.reconciliationRequired, true);
 });
-
 
 test('existing PENDING reservation requires reconciliation and never redispatches', async () => {
   let calls = 0;

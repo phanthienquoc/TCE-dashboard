@@ -22,9 +22,7 @@ function makeSupabase() {
   return { db: { from: vi.fn(() => query) }, query };
 }
 
-const executionResult = (
-  overrides: Record<string, unknown> = {}
-) => ({
+const executionResult = (overrides: Record<string, unknown> = {}) => ({
   ok: false,
   result: {
     ok: false,
@@ -78,9 +76,7 @@ describe('ProfitExitExecutionService durable idempotency handling', () => {
 
     const result = await service.executeReady('account-1');
 
-    expect(query.update).toHaveBeenCalledWith(
-      expect.objectContaining({ status: 'UNKNOWN' })
-    );
+    expect(query.update).toHaveBeenCalledWith(expect.objectContaining({ status: 'UNKNOWN' }));
     expect(result.results).toEqual([
       expect.objectContaining({ orderId: 'order-1', status: 'UNKNOWN' }),
     ]);
@@ -93,9 +89,7 @@ describe('ProfitExitExecutionService durable idempotency handling', () => {
 
     const result = await service.executeReady('account-1');
 
-    expect(query.update).toHaveBeenCalledWith(
-      expect.objectContaining({ status: 'UNKNOWN' })
-    );
+    expect(query.update).toHaveBeenCalledWith(expect.objectContaining({ status: 'UNKNOWN' }));
     expect(result.results).toEqual([
       expect.objectContaining({ orderId: 'order-1', status: 'UNKNOWN' }),
     ]);
