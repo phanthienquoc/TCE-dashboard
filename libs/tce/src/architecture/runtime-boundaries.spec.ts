@@ -30,10 +30,7 @@ describe('TCE runtime dependency boundaries', () => {
   });
 
   it('keeps TCE decision/scanner code free of provider SDK and DRE imports', () => {
-    const files = [
-      ...sourceFiles('libs/tce/src/decision'),
-      ...sourceFiles('libs/tce/src/scanner'),
-    ];
+    const files = [...sourceFiles('libs/tce/src/decision'), ...sourceFiles('libs/tce/src/scanner')];
     const forbidden =
       /(?:from\s*|import\s*\()\s*['"][^'"]*(?:@tce\/(?:ssi|dre|platform)|@ssi\/developer\/ssi-sdk|binance-api-node|\/dre\/)[^'"]*['"]/;
     assert.deepEqual(importsMatching(files, forbidden), []);
