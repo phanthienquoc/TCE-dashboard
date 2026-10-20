@@ -54,9 +54,20 @@ describe('SupabaseExecutionIdempotencyAdapter', () => {
     const maybeSingleInsert = vi.fn().mockResolvedValue({ data: null, error: { code: '23505' } });
     const selectInsert = vi.fn().mockReturnValue({ maybeSingle: maybeSingleInsert });
     const insert = vi.fn().mockReturnValue({ select: selectInsert });
-    const maybeSingleRead = vi
-      .fn()
-      .mockResolvedValue({ data: row({ status: 'COMPLETED' }), error: null });
+    const completedResult = {
+      ok: true,
+      operation: 'SUBMIT',
+      status: 'SUBMITTED',
+      executionIntentId: 'intent-1',
+      correlationId: 'corr-1',
+      idempotencyKey: 'idem-1',
+      clientRequestId: 'client-1',
+      providerOrderId: 'provider-order-1',
+    };
+    const maybeSingleRead = vi.fn().mockResolvedValue({
+      data: row({ status: 'COMPLETED', result: completedResult }),
+      error: null,
+    });
     const eq3 = vi.fn().mockReturnValue({ maybeSingle: maybeSingleRead });
     const eq2 = vi.fn().mockReturnValue({ eq: eq3 });
     const eq1 = vi.fn().mockReturnValue({ eq: eq2 });
@@ -69,6 +80,7 @@ describe('SupabaseExecutionIdempotencyAdapter', () => {
     const result = await store.reserve(reservation);
     expect(result.kind).toBe('EXISTING');
     expect(result.record.status).toBe('COMPLETED');
+    expect(result.record.result).toEqual(completedResult);
   });
 
   it('rejects reusing a scoped key for a different fingerprint', async () => {
