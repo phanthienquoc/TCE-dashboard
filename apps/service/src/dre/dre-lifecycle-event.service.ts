@@ -69,12 +69,12 @@ export class DreLifecycleEventService {
   ) {}
 
   async publish(input: DreLifecycleEventInput): Promise<void> {
-    const event = createDreLifecycleEvent(input);
     try {
+      const event = createDreLifecycleEvent(input);
       await this.publisher.publish(event);
     } catch (error) {
       this.logger.warn(
-        `Unable to publish DRE lifecycle event ${event.eventId}; Mongo state remains authoritative: ${error instanceof Error ? error.message : String(error)}`
+        `Unable to publish DRE lifecycle event for campaign ${input.campaignId}; Mongo state remains authoritative: ${error instanceof Error ? error.message : String(error)}`
       );
     }
   }
