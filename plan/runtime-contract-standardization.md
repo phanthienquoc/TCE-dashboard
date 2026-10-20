@@ -19,13 +19,13 @@ Standardize runtime ownership and provider/domain/event contracts incrementally 
 - [x] Preserve all existing contract barrel exports and add only `tce-event.contract`.
 - [x] Add focused envelope tests for identity, version, timezone-aware timestamps, scope, sequence and required data.
 - [x] Latest CI backend build passed.
-- [ ] Contract test file is present but the global CI test step is red; isolated test execution still needs verification.
+- [ ] Isolated contract test execution is not confirmed; the global CI unit-test step remains red.
 
 ## Latest CI findings
-- **Build:** passed on run #1863 after repairing the contract barrel. The earlier TS2305 flood happened on an intermediate merge snapshot with missing previous exports.
-- **Tests:** failed with 15 of 147 tests red; the runner reported `ReferenceError: describe is not defined` for Vitest/Jest-style specs being run via Node's test runner, plus assertion failures in existing execution/reconciliation suites. This is repository test-runner/existing-suite debt, but the PR must still isolate and verify the new event contract test.
-- **Prettier workflow:** format step passed; auto-push failed because the GitHub App lacks `workflows` permission for `.github/workflows/wf-08b-tce-microfe-build-publish.yml`. No unrelated formatter commit was pushed. Do not fix or reformat that workflow inside this contract-only change without separate permission/configuration handling.
-- PR #846 remains draft; no merge/deploy is claimed.
+- **Build:** passed on run #1866 after repairing the contract barrel. The earlier TS2305 flood happened on an intermediate merge snapshot with missing previous exports.
+- **Tests:** global run #1866 reported 15 of 147 failures. The logs still show `ReferenceError: describe is not defined` for some existing Vitest/Jest-style tests being invoked through Node's test runner, plus assertion failures in existing execution/reconciliation suites. The new contract spec now explicitly imports `describe` and `it` from `node:test`, but the CI harness still does not appear to include this spec in its discovered test set; run it in isolation or add it to the test configuration so coverage is confirmed.
+- **Prettier workflow:** formatting passed; auto-push failed because the GitHub App lacks `workflows` permission for `.github/workflows/wf-08b-tce-microfe-build-publish.yml`. No unrelated formatter commit was pushed. Handle that CI permission issue separately; do not add workflow edits into this contract-only PR.
+- PR #846 remains draft; no merge or deploy is claimed.
 
 ## Phase 2 — Runtime ownership boundaries
 - Monitor: observation, snapshots, freshness/health and alerts only.
