@@ -28,7 +28,7 @@ export class SupabaseRuntimeEventPublisher implements TceEventPublisherPort {
 
   async publish<TType extends TceRuntimeEventType>(event: TceRuntimeEvent<TType>): Promise<void> {
     if (!isTceRuntimeEvent(event)) {
-      throw new Error('Invalid TCE runtime event envelope');
+      throw new Error('Invalid TCE runtime event');
     }
 
     const row: RuntimeEventRow = {
