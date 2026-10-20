@@ -95,6 +95,7 @@ Rules:
 
 - [x] Monitor remains observe/snapshot/alert only; its events do not dispatch orders.
 - [x] DRE campaign status, rolling-position sequence/state, T+2 and capital recycling emit canonical lifecycle events without broker authority.
+- [x] SafeOrderExecutionService rejects LIVE before persistence/provider work unless DRE_LIVE_EXECUTION=true; DRE_ENABLED=false blocks all modes.
 - [x] Document DRE ownership of campaign/sequence/T+2/continuity/GAP lifecycle and TCE Core strategy ownership.
 - [x] Execution Orchestrator remains the command dispatch boundary for the Profit Exit slice.
 - [x] Add import-boundary tests preventing TCE Core↔DRE cycles and broker SDK imports in core/DRE/monitor.
@@ -113,6 +114,7 @@ Rules:
 - [x] Existing PENDING/UNKNOWN reservations cannot redispatch and require reconciliation.
 - [ ] Complete remaining failure matrix for rate limits, partial fills and provider-truth reconciliation.
 - [ ] Enable the durable-store flag only after the migration is applied and staging is verified.
+- [x] DRE LIVE execution is independently guarded at the execution service boundary; the default DRE_LIVE_EXECUTION=false remains effective even if a caller bypasses DreProductionService.
 - [x] No live execution is enabled by this refactor.
 
 ### Phase 5 — Incremental migration

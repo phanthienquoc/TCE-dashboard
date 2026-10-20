@@ -29,6 +29,7 @@ Standardize runtime ownership and provider/domain/event contracts incrementally.
 - [x] Document ownership boundaries: service composition/transport, contracts, pure TCE Core, platform providers, Monitor, DRE, Execution Orchestrator and reconciliation.
 - [x] Migrate Monitor snapshot emission through `TceEventPublisherPort`; events carry stable event IDs, schema version, account/aggregate scope and correlation IDs. Publisher failure is logged and does not interrupt snapshot/audit/cashout behavior.
 - [x] Emit DRE campaign status, rolling sequence/position, T+2 settlement and capital-recycling transitions through the shared event contract; event publishing has no order-dispatch authority.
+- [x] Enforce DRE_ENABLED and DRE_LIVE_EXECUTION at SafeOrderExecutionService.submit before database or provider work.
 - [ ] Verify DRE owns campaign/sequence/T+2/continuity/GAP; TCE Core owns strategy decisions; only the authorized execution path dispatches broker commands.
 
 ## Phase 3 — Unified transports
@@ -65,14 +66,22 @@ Standardize runtime ownership and provider/domain/event contracts incrementally.
 - [ ] Open a separate PR per task, with required CI green before squash merge into `master`.
 - [ ] Verify deployments separately after code is merged; this implementation does not deploy or enable LIVE trading.
 
-## Current task: DRE lifecycle event emission
+## Current task: DRE live execution safety gate
+
+- [x] Enforce DRE_ENABLED and DRE_LIVE_EXECUTION directly at the safe execution boundary, not only in a helper service.
+- [x] Reject LIVE before index, database, or provider work unless DRE_LIVE_EXECUTION=true; keep DRY_RUN available while DRE is enabled.
+- [x] Add tests proving disabled LIVE execution never reaches the provider and DRE_ENABLED=false blocks all execution modes.
+- [x] Backend build/unit tests passed on head `a239794e386e836576abdcdcec71055e1269f288` (run #1918); Prettier passed (#1421).
+- [ ] Squash-merge after checks pass again on the final documentation head.
+
+## Previous task: DRE lifecycle event emission
 
 - [x] Add a shared DRE lifecycle event service using the canonical versioned event envelope and stable transition event IDs.
 - [x] Emit after campaign creation/status changes, rolling-position transitions, T+2 availability and confirmed capital recycling.
 - [x] Keep Mongo lifecycle state authoritative; publisher/metadata failures are logged and do not interrupt valid state transitions.
 - [x] Add lifecycle-event and campaign-service tests; include DRE specs in backend test discovery.
 - [x] Backend build/unit tests passed on the pre-format head (run #1915); Prettier passed and applied formatting (#1418).
-- [ ] Re-run required checks on the final formatted/documentation head before squash-merge.
+- [x] Backend build/unit tests passed on final head (run #1916); Prettier passed (#1419); squash-merged PR #855 at `67d90aa3462166224361a2d74402af82f7528e1b`.
 - [ ] Add durable retry/replay for failed cross-database event publication; Mongo and Supabase do not share a transaction.
 
 ## Previous task: Durable execution wiring
@@ -109,6 +118,7 @@ Standardize runtime ownership and provider/domain/event contracts incrementally.
 - [x] Durable idempotency port, SQL schema and adapter exist.
 - [x] Monitor emits through the shared event contract without gaining order-dispatch authority.
 - [x] DRE lifecycle transitions publish canonical events without gaining broker-dispatch authority.
+- [x] DRE LIVE execution is rejected at the dispatch boundary unless explicitly enabled by configuration.
 - [x] REST/WS/SSE share the canonical event envelope, event IDs and correlation IDs.
 - [x] Production auto-sell code path is wired to the durable orchestrator behind a rollout flag.
 - [ ] Durable idempotency is enabled in production only after migration and staging validation.
