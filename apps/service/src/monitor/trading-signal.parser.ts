@@ -25,7 +25,34 @@ const TELEGRAM_HEAD_RE = new RegExp(
   `^\\s*#?([A-Z0-9._-]+)\\s+(BUY|SELL)(?:\\s+(?:NOW|MARKET))?(?:\\s+(${PRICE})\\s*[-_]{1,2}\\s*(${PRICE}))?\\s*$`,
   'i'
 );
-const ENTRY_ZONE_RE = new RegExp(`^\\s*(${PRICE})\\s*[-_]\\s*(${PRICE})\\s*$`, 'i');
+const ENTRY_ZONE_RE = new RegExp(`^\\s*(${PRICE})\\s*[-_]{1,2}\\s*(${PRICE})\\s*export type TradingSignal = {
+  symbol: string;
+  side: 'BUY' | 'SELL';
+  entry: number;
+  takeProfit: number;
+  stopLoss: number;
+  entryMin?: number;
+  entryMax?: number;
+  takeProfits?: number[];
+  /** Binance Futures-compatible entry order fields. Quantity is supplied by engine risk/config. */
+  orderType: 'LIMIT';
+  price: number;
+  positionSide: 'BOTH';
+  timeInForce: 'GTC';
+  reduceOnly: false;
+  agentNote?: string;
+};
+
+const PRICE = '[0-9]+(?:\\.[0-9]+)?';
+const CANONICAL_RE = new RegExp(
+  `^\\s*([A-Z0-9._-]+)\\s+(BUY|SELL)\\s+ENTRY\\s+(${PRICE})\\s+TP\\s+(${PRICE})\\s+SL\\s+(${PRICE})\\s*$`,
+  'i'
+);
+const TELEGRAM_HEAD_RE = new RegExp(
+  `^\\s*#?([A-Z0-9._-]+)\\s+(BUY|SELL)(?:\\s+(?:NOW|MARKET))?(?:\\s+(${PRICE})\\s*[-_]{1,2}\\s*(${PRICE}))?\\s*$`,
+  'i'
+);
+, 'i');
 const TP_RE = new RegExp(`^\\s*TP(?:\\s*\\d+)?\\s+(${PRICE})\\s*$`, 'i');
 const SL_RE = new RegExp(`^\\s*SL(?:\\s*\\d+)?\\s+(${PRICE})\\s*$`, 'i');
 
