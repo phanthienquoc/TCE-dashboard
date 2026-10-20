@@ -4,3 +4,4 @@ export * from './supabase.position.adapter';
 export * from './supabase.order.adapter';
 export * from './supabase.reconciliation.event.sink';
 export * from './supabase.execution-idempotency.adapter';
+export * from './supabase.runtime-event.publisher';
