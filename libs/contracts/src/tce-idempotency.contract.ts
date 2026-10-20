@@ -1,12 +1,5 @@
 import type { TceExecutionResult } from './tce-execution.contract';
 
-/**
- * Durable store port for execution deduplication.
- *
- * Implementations must atomically reserve a scoped key before dispatch and
- * persist terminal/unknown outcomes. A process-local map is only a cache, never
- * the source of truth across restarts or replicas.
- */
 export type TceExecutionIdempotencyScope = Readonly<{
   accountId: string;
   environment: string;
@@ -35,15 +28,12 @@ export type TceExecutionIdempotencyReserveResult =
   | Readonly<{ kind: 'FINGERPRINT_CONFLICT'; record: TceExecutionIdempotencyRecord }>;
 
 export interface TceExecutionIdempotencyStore {
-  /**
-   * Must be atomic under concurrent callers. A repeated scoped key with a
-   * different fingerprint is always a conflict.
-   */
+  /** Must atomically reserve a key and reject conflicting fingerprints. */
   reserve(
     reservation: TceExecutionIdempotencyReservation
   ): Promise<TceExecutionIdempotencyReserveResult>;
 
-  /** Persist a definitive result or UNKNOWN/reconciliation-required outcome. */
+  /** Persist the outcome. Unknown outcomes must never be blindly replayed. */
   complete(
     scope: TceExecutionIdempotencyScope,
     fingerprint: string,
