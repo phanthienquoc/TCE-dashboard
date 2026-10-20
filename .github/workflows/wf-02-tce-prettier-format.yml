@@ -51,9 +51,8 @@ jobs:
           fi
           mapfile -t files < <(
             git diff --name-only --diff-filter=ACMR "${diff_range}" |
-              grep -E '\\.(cjs|cts|css|html|js|jsx|json|jsonc|md|mdx|mjs|mts|scss|ts|tsx|yaml|yml)
- |
-              grep -v '^\\.github/workflows/' || true
+              grep -E '[.](cjs|cts|css|html|js|jsx|json|jsonc|md|mdx|mjs|mts|scss|ts|tsx|yaml|yml)$' |
+              grep -v '^[.]github/workflows/' || true
           )
           if ((${#files[@]})); then
             npx prettier --write "${files[@]}"
