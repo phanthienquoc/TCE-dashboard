@@ -111,8 +111,13 @@ describe('SupabaseExecutionIdempotencyAdapter', () => {
       data: row({ status: 'UNKNOWN', result, updated_at: '2026-10-21T12:01:00.000Z' }),
       error: null,
     });
+    const maybeSingle = vi.fn().mockResolvedValue({
+      data: row({ status: 'UNKNOWN', result, updated_at: '2026-10-21T12:01:00.000Z' }),
+      error: null,
+    });
     const select = vi.fn().mockReturnValue({ maybeSingle });
-    const eqFingerprint = vi.fn().mockReturnValue({ select });
+    const eqStatus = vi.fn().mockReturnValue({ select });
+    const eqFingerprint = vi.fn().mockReturnValue({ eq: eqStatus });
     const eqKey = vi.fn().mockReturnValue({ eq: eqFingerprint });
     const eqEnvironment = vi.fn().mockReturnValue({ eq: eqKey });
     const eqAccount = vi.fn().mockReturnValue({ eq: eqEnvironment });
