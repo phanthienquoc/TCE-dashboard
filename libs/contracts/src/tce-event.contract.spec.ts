@@ -33,6 +33,7 @@ test('rejects unsupported schema versions and malformed timestamps', () => {
   const event = validEvent();
   assert.equal(isTceEventEnvelope({ ...event, schemaVersion: 2 }), false);
   assert.equal(isTceEventEnvelope({ ...event, occurredAt: 'not-a-date' }), false);
+  assert.equal(isTceEventEnvelope({ ...event, occurredAt: '2026-10-20T12:00:00' }), false);
 });
 
 test('rejects invalid account/aggregate scope and sequence metadata', () => {
