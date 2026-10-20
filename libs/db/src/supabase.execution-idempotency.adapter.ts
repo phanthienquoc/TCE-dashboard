@@ -80,9 +80,7 @@ export class SupabaseExecutionIdempotencyAdapter implements TceExecutionIdempote
       throw new Error('execution result idempotency key does not match scope');
     }
     const status =
-      result.status === 'UNKNOWN' || result.error?.reconciliationRequired
-        ? 'UNKNOWN'
-        : 'COMPLETED';
+      result.status === 'UNKNOWN' || result.error?.reconciliationRequired ? 'UNKNOWN' : 'COMPLETED';
     const { data, error } = await this.db
       .from('tce_execution_idempotency')
       .update({ status, result, updated_at: updatedAt })

@@ -38,21 +38,25 @@ describe('SupabaseExecutionIdempotencyAdapter', () => {
     const result = await store.reserve(reservation);
 
     expect(result.kind).toBe('RESERVED');
-    expect(insert).toHaveBeenCalledWith(expect.objectContaining({
-      account_id: 'account-1',
-      environment: 'PAPER',
-      idempotency_key: 'idem-1',
-      command_fingerprint: 'fingerprint-1',
-      status: 'PENDING',
-      result: null,
-    }));
+    expect(insert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        account_id: 'account-1',
+        environment: 'PAPER',
+        idempotency_key: 'idem-1',
+        command_fingerprint: 'fingerprint-1',
+        status: 'PENDING',
+        result: null,
+      })
+    );
   });
 
   it('returns the existing record for the same fingerprint', async () => {
     const maybeSingleInsert = vi.fn().mockResolvedValue({ data: null, error: { code: '23505' } });
     const selectInsert = vi.fn().mockReturnValue({ maybeSingle: maybeSingleInsert });
     const insert = vi.fn().mockReturnValue({ select: selectInsert });
-    const maybeSingleRead = vi.fn().mockResolvedValue({ data: row({ status: 'COMPLETED' }), error: null });
+    const maybeSingleRead = vi
+      .fn()
+      .mockResolvedValue({ data: row({ status: 'COMPLETED' }), error: null });
     const eq3 = vi.fn().mockReturnValue({ maybeSingle: maybeSingleRead });
     const eq2 = vi.fn().mockReturnValue({ eq: eq3 });
     const eq1 = vi.fn().mockReturnValue({ eq: eq2 });
@@ -71,7 +75,9 @@ describe('SupabaseExecutionIdempotencyAdapter', () => {
     const maybeSingleInsert = vi.fn().mockResolvedValue({ data: null, error: { code: '23505' } });
     const selectInsert = vi.fn().mockReturnValue({ maybeSingle: maybeSingleInsert });
     const insert = vi.fn().mockReturnValue({ select: selectInsert });
-    const maybeSingleRead = vi.fn().mockResolvedValue({ data: row({ command_fingerprint: 'other' }), error: null });
+    const maybeSingleRead = vi
+      .fn()
+      .mockResolvedValue({ data: row({ command_fingerprint: 'other' }), error: null });
     const eq3 = vi.fn().mockReturnValue({ maybeSingle: maybeSingleRead });
     const eq2 = vi.fn().mockReturnValue({ eq: eq3 });
     const eq1 = vi.fn().mockReturnValue({ eq: eq2 });
@@ -94,7 +100,12 @@ describe('SupabaseExecutionIdempotencyAdapter', () => {
       correlationId: 'corr-1',
       idempotencyKey: 'idem-1',
       clientRequestId: 'client-1',
-      error: { code: 'TIMEOUT_UNKNOWN', message: 'timeout', retryable: false, reconciliationRequired: true },
+      error: {
+        code: 'TIMEOUT_UNKNOWN',
+        message: 'timeout',
+        retryable: false,
+        reconciliationRequired: true,
+      },
     };
     const maybeSingle = vi.fn().mockResolvedValue({
       data: row({ status: 'UNKNOWN', result, updated_at: '2026-10-21T12:01:00.000Z' }),

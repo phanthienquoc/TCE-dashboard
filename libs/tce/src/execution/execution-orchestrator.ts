@@ -174,10 +174,22 @@ export class TceExecutionOrchestrator {
   private validate(command: TceExecutionCommand): ExecutionOrchestratorResult | null {
     const auth = command.authorization;
     if (!auth?.approvalId || !auth.correlationId || !auth.idempotencyKey || !auth.approvedAt) {
-      return invalidResult(command, 'AUTHORIZATION_REQUIRED', 'Execution approval identity is required');
+      return invalidResult(
+        command,
+        'AUTHORIZATION_REQUIRED',
+        'Execution approval identity is required'
+      );
     }
-    if (!command.accountId?.trim() || !command.environment?.trim() || !command.clientRequestId?.trim()) {
-      return invalidResult(command, 'INVALID_COMMAND', 'Execution account, environment and client request identity are required');
+    if (
+      !command.accountId?.trim() ||
+      !command.environment?.trim() ||
+      !command.clientRequestId?.trim()
+    ) {
+      return invalidResult(
+        command,
+        'INVALID_COMMAND',
+        'Execution account, environment and client request identity are required'
+      );
     }
     if (command.operation === 'SUBMIT') {
       if (
@@ -185,7 +197,11 @@ export class TceExecutionOrchestrator {
         command.intent.idempotencyKey !== auth.idempotencyKey ||
         command.intent.mode !== command.mode
       ) {
-        return invalidResult(command, 'INVALID_COMMAND', 'Execution authorization does not match intent');
+        return invalidResult(
+          command,
+          'INVALID_COMMAND',
+          'Execution authorization does not match intent'
+        );
       }
       return null;
     }

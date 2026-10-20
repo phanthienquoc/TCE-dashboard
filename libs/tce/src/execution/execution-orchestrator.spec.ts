@@ -59,9 +59,10 @@ function memoryStore(): TceExecutionIdempotencyStore {
       const existing = rows.get(k);
       if (existing) {
         return {
-          kind: existing.reservation.fingerprint === reservation.fingerprint
-            ? 'EXISTING'
-            : 'FINGERPRINT_CONFLICT',
+          kind:
+            existing.reservation.fingerprint === reservation.fingerprint
+              ? 'EXISTING'
+              : 'FINGERPRINT_CONFLICT',
           record: existing,
         };
       }
@@ -81,9 +82,10 @@ function memoryStore(): TceExecutionIdempotencyStore {
       }
       const record = {
         ...existing,
-        status: result.status === 'UNKNOWN' || result.error?.reconciliationRequired
-          ? 'UNKNOWN' as const
-          : 'COMPLETED' as const,
+        status:
+          result.status === 'UNKNOWN' || result.error?.reconciliationRequired
+            ? ('UNKNOWN' as const)
+            : ('COMPLETED' as const),
         result,
         updatedAt,
       };
@@ -100,8 +102,12 @@ test('dispatches approved submit and preserves provider-neutral result', async (
       calls += 1;
       return okResult(command);
     },
-    cancel: async () => { throw new Error('not used'); },
-    replace: async () => { throw new Error('not used'); },
+    cancel: async () => {
+      throw new Error('not used');
+    },
+    replace: async () => {
+      throw new Error('not used');
+    },
   };
 
   const result = await new TceExecutionOrchestrator(port).execute(submit());
@@ -117,8 +123,12 @@ test('deduplicates repeated idempotency keys without calling provider twice', as
       calls += 1;
       return okResult(command);
     },
-    cancel: async () => { throw new Error('not used'); },
-    replace: async () => { throw new Error('not used'); },
+    cancel: async () => {
+      throw new Error('not used');
+    },
+    replace: async () => {
+      throw new Error('not used');
+    },
   };
   const orchestrator = new TceExecutionOrchestrator(port);
   const first = await orchestrator.execute(submit());
@@ -134,8 +144,12 @@ test('rejects reuse of the same idempotency key for a different command fingerpr
       calls += 1;
       return okResult(command);
     },
-    cancel: async () => { throw new Error('not used'); },
-    replace: async () => { throw new Error('not used'); },
+    cancel: async () => {
+      throw new Error('not used');
+    },
+    replace: async () => {
+      throw new Error('not used');
+    },
   };
   const orchestrator = new TceExecutionOrchestrator(port);
   await orchestrator.execute(submit());
@@ -156,8 +170,12 @@ test('uses durable store scope and never redispatches an existing pending key', 
       calls += 1;
       return okResult(command);
     },
-    cancel: async () => { throw new Error('not used'); },
-    replace: async () => { throw new Error('not used'); },
+    cancel: async () => {
+      throw new Error('not used');
+    },
+    replace: async () => {
+      throw new Error('not used');
+    },
   };
   const orchestrator = new TceExecutionOrchestrator(port, {
     idempotencyStore: store,
@@ -180,9 +198,15 @@ test('uses durable store scope and never redispatches an existing pending key', 
 
 test('fails closed when authorization does not match the intent', async () => {
   const port: TceExecutionPort = {
-    submit: async () => { throw new Error('must not be called'); },
-    cancel: async () => { throw new Error('must not be called'); },
-    replace: async () => { throw new Error('must not be called'); },
+    submit: async () => {
+      throw new Error('must not be called');
+    },
+    cancel: async () => {
+      throw new Error('must not be called');
+    },
+    replace: async () => {
+      throw new Error('must not be called');
+    },
   };
   const result = await new TceExecutionOrchestrator(port).execute(
     submit({ authorization: { ...submit().authorization, correlationId: 'other-correlation' } })
@@ -193,9 +217,15 @@ test('fails closed when authorization does not match the intent', async () => {
 
 test('normalizes adapter exceptions as unknown and requires reconciliation', async () => {
   const port: TceExecutionPort = {
-    submit: async () => { throw new Error('network timeout'); },
-    cancel: async () => { throw new Error('not used'); },
-    replace: async () => { throw new Error('not used'); },
+    submit: async () => {
+      throw new Error('network timeout');
+    },
+    cancel: async () => {
+      throw new Error('not used');
+    },
+    replace: async () => {
+      throw new Error('not used');
+    },
   };
   const result = await new TceExecutionOrchestrator(port).execute(submit());
   assert.equal(result.result.status, 'UNKNOWN');
@@ -207,13 +237,19 @@ test('durable store rejection due to conflicting fingerprint never reaches provi
   const store = memoryStore();
   const port: TceExecutionPort = {
     submit: async command => okResult(command),
-    cancel: async () => { throw new Error('not used'); },
-    replace: async () => { throw new Error('not used'); },
+    cancel: async () => {
+      throw new Error('not used');
+    },
+    replace: async () => {
+      throw new Error('not used');
+    },
   };
   const orchestrator = new TceExecutionOrchestrator(port, { idempotencyStore: store });
   await orchestrator.execute(submit());
-  const conflicting = await orchestrator.execute(submit({
-    intent: { ...submit().intent, limitPrice: 29_000 },
-  }));
+  const conflicting = await orchestrator.execute(
+    submit({
+      intent: { ...submit().intent, limitPrice: 29_000 },
+    })
+  );
   assert.equal(conflicting.result.error?.code, 'DUPLICATE_REQUEST');
 });
