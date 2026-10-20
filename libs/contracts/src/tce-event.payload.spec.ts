@@ -18,10 +18,7 @@ function envelope(eventType: string, data: unknown) {
 }
 
 const samples: Array<[string, unknown]> = [
-  [
-    'market.quote.updated',
-    { symbol: 'DPM', price: 30000, timestamp: occurredAt, source: 'ssi' },
-  ],
+  ['market.quote.updated', { symbol: 'DPM', price: 30000, timestamp: occurredAt, source: 'ssi' }],
   [
     'strategy.decision.created',
     {
@@ -39,10 +36,7 @@ const samples: Array<[string, unknown]> = [
       decidedAt: occurredAt,
     },
   ],
-  [
-    'risk.gate.approved',
-    { intentId: 'intent-1', riskAmount: 100, overrideApplied: false },
-  ],
+  ['risk.gate.approved', { intentId: 'intent-1', riskAmount: 100, overrideApplied: false }],
   ['risk.gate.blocked', { intentId: 'intent-1', code: 'RISK_LIMIT', message: 'blocked' }],
   [
     'execution.intent.created',
@@ -82,9 +76,7 @@ const samples: Array<[string, unknown]> = [
     {
       observedAt: occurredAt,
       balance: { cash: 1000, equity: 1000, withdrawable: 900, source: 'ssi' },
-      positions: [
-        { symbol: 'DPM', quantity: 100, averagePrice: 30000, source: 'ssi' },
-      ],
+      positions: [{ symbol: 'DPM', quantity: 100, averagePrice: 30000, source: 'ssi' }],
       orders: [
         {
           externalId: 'provider-1',

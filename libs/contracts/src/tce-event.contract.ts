@@ -166,7 +166,6 @@ export function isTceEventEnvelope(value: unknown): value is TceEventEnvelope<st
   return Object.prototype.hasOwnProperty.call(candidate, 'data');
 }
 
-
 type UnknownRecord = Record<string, unknown>;
 
 const isRecord = (value: unknown): value is UnknownRecord =>
@@ -178,8 +177,7 @@ const isNonEmptyString = (value: unknown): value is string =>
 const isFiniteNumber = (value: unknown): value is number =>
   typeof value === 'number' && Number.isFinite(value);
 
-const isPositiveNumber = (value: unknown): value is number =>
-  isFiniteNumber(value) && value > 0;
+const isPositiveNumber = (value: unknown): value is number => isFiniteNumber(value) && value > 0;
 
 const isNonNegativeNumber = (value: unknown): value is number =>
   isFiniteNumber(value) && value >= 0;
@@ -278,10 +276,12 @@ function isExecutionResult(value: unknown): boolean {
     !isNonEmptyString(value.correlationId) ||
     !isNonEmptyString(value.idempotencyKey) ||
     !isNonEmptyString(value.clientRequestId)
-  ) return false;
+  )
+    return false;
 
   if (value.providerOrderId !== undefined && !isNonEmptyString(value.providerOrderId)) return false;
-  if (value.filledQuantity !== undefined && !isNonNegativeNumber(value.filledQuantity)) return false;
+  if (value.filledQuantity !== undefined && !isNonNegativeNumber(value.filledQuantity))
+    return false;
   if (value.providerStatus !== undefined && !isNonEmptyString(value.providerStatus)) return false;
   if (value.error !== undefined) {
     if (
@@ -290,7 +290,8 @@ function isExecutionResult(value: unknown): boolean {
       !isNonEmptyString(value.error.message) ||
       typeof value.error.retryable !== 'boolean' ||
       typeof value.error.reconciliationRequired !== 'boolean'
-    ) return false;
+    )
+      return false;
     if (value.error.providerCode !== undefined && !isNonEmptyString(value.error.providerCode)) {
       return false;
     }
