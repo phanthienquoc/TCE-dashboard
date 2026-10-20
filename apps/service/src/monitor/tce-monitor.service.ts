@@ -1,5 +1,7 @@
-import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
+import { Inject, Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
+import { CONTRACT_TOKENS, type TceEventPublisherPort } from '@tce/contracts';
 import { SupabaseClientService } from '../db/supabase.client';
+import { createMonitorSnapshotEvent, publishMonitorSnapshotBestEffort } from './monitor-event';
 
 const DEFAULT_TZ = 'Asia/Ho_Chi_Minh';
 const INTERVAL_MS = 60 * 60 * 1000;
@@ -24,9 +26,20 @@ export class TceMonitorService implements OnModuleInit, OnModuleDestroy {
   private timer?: NodeJS.Timeout;
   private running = false;
 
-  constructor(private readonly supabase: SupabaseClientService) {}
+  constructor(
+    private readonly supabase: SupabaseClientService,
+    @Inject(CONTRACT_TOKENS.eventPublisher) private readonly eventPublisher: TceEventPublisherPort
+  ) {}
 
   onModuleInit() {
+    // Avoid activating a legacy scheduler merely because its module is wired.
+    // Enable it explicitly after deployment/config review.
+    if (process.env.TCE_MONITOR_SCHEDULER_ENABLED !== 'true') {
+      this.logger.log(
+        'TCE monitor scheduler disabled; set TCE_MONITOR_SCHEDULER_ENABLED=true to opt in'
+      );
+      return;
+    }
     const delay = this.msToNextHour();
     this.timer = setTimeout(() => {
       void this.run();
@@ -102,6 +115,24 @@ export class TceMonitorService implements OnModuleInit, OnModuleDestroy {
             .select('id')
             .single();
           if (snapshotError) throw snapshotError;
+
+          if (inserted?.id) {
+            const occurredAt = new Date().toISOString();
+            const event = createMonitorSnapshotEvent({
+              snapshotId: String(inserted.id),
+              positionId: position.id,
+              accountId: config.account_id,
+              symbol: position.symbol,
+              signal: snapshot.signal,
+              occurredAt,
+              correlationId: `monitor-run:${config.account_id}:${started}`,
+            });
+            await publishMonitorSnapshotBestEffort(this.eventPublisher, event, error => {
+              this.logger.warn(
+                `Unable to publish monitor snapshot event for ${position.symbol}; persisted snapshot remains authoritative: ${error instanceof Error ? error.message : String(error)}`
+              );
+            });
+          }
 
           accountMonitored += 1;
           result.monitored += 1;
