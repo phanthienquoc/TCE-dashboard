@@ -32,7 +32,8 @@ export type TceEventEnvelope<TType extends string = string, TData = unknown> = R
 export type TceEventMetadata = Pick<
   TceEventEnvelope<string, unknown>,
   'eventId' | 'eventType' | 'schemaVersion' | 'occurredAt' | 'producer' | 'correlationId'
-> & Pick<TceEventEnvelope<string, unknown>, 'accountId' | 'aggregateId' | 'sequence'>;
+> &
+  Pick<TceEventEnvelope<string, unknown>, 'accountId' | 'aggregateId' | 'sequence'>;
 
 export type TceRuntimeEventType =
   | 'market.quote.updated'
@@ -49,7 +50,11 @@ export type TceRuntimeEventType =
 export type TceEventDataByType = {
   'market.quote.updated': import('./platform.contract').MarketQuote;
   'strategy.decision.created': import('./tce-auto-trade.contract').TceDecision;
-  'risk.gate.approved': Readonly<{ intentId: string; riskAmount: number; overrideApplied: boolean }>;
+  'risk.gate.approved': Readonly<{
+    intentId: string;
+    riskAmount: number;
+    overrideApplied: boolean;
+  }>;
   'risk.gate.blocked': Readonly<{ intentId: string; code: string; message: string }>;
   'execution.intent.created': import('./tce-auto-trade.contract').TceExecutionIntent;
   'execution.result': import('./tce-execution.contract').TceExecutionResult;
