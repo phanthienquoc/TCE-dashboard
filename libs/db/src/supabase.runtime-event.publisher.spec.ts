@@ -54,7 +54,7 @@ describe('SupabaseRuntimeEventPublisher', () => {
     const publisher = new SupabaseRuntimeEventPublisher({ from } as any);
     await expect(
       publisher.publish({ ...event, eventType: 'custom.unknown' } as any)
-    ).rejects.toThrow('Invalid TCE runtime event envelope');
+    ).rejects.toThrow('Invalid TCE runtime event');
     expect(from).not.toHaveBeenCalled();
   });
 
@@ -66,7 +66,7 @@ describe('SupabaseRuntimeEventPublisher', () => {
         ...event,
         data: { symbol: 'DPM', observedAt: 'not-a-date' },
       } as any)
-    ).rejects.toThrow('Invalid TCE runtime event envelope');
+    ).rejects.toThrow('Invalid TCE runtime event');
     expect(from).not.toHaveBeenCalled();
   });
 
