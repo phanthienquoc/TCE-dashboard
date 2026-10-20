@@ -188,9 +188,9 @@ export class TceExecutionOrchestrator {
         code: unknown ? 'TIMEOUT_UNKNOWN' : 'DUPLICATE_REQUEST',
         message: unknown
           ? 'Previous attempt has an unknown outcome; reconciliation is required'
-          : 'An execution with this idempotency key is already pending',
+          : 'An execution with this idempotency key is pending; reconcile provider truth before retrying',
         retryable: false,
-        reconciliationRequired: unknown,
+        reconciliationRequired: true,
       },
     };
     return { ok: false, result };
