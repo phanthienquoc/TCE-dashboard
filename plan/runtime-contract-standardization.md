@@ -74,7 +74,8 @@ Standardize runtime ownership and provider/domain/event contracts incrementally.
 - [x] Validate nested account balance/position/order payloads and execution error codes.
 - [x] Enforce validation in the Supabase publisher before persistence and in the query service before transport delivery.
 - [x] Add positive/negative contract tests for all event types and tests proving malformed events are not persisted or streamed.
-- [ ] Run backend build/unit tests and Prettier on the latest PR head, fix failures, then squash-merge.
+- [x] Backend build/unit tests passed on head `efd72f798e5e83db418686e0a4df4896bde217c5` (run #1922); Prettier passed (#1425).
+- [ ] Squash-merge after final checks pass on the documentation head.
 
 ## Previous task: DRE live execution safety gate
 
