@@ -52,4 +52,12 @@ describe('DreLifecycleEventService', () => {
     await expect(service.publish(input)).resolves.toBeUndefined();
     expect(publisher.publish).toHaveBeenCalledWith(createDreLifecycleEvent(input));
   });
+
+  it('swallows malformed event metadata after a state transition so event telemetry cannot break DRE', async () => {
+    const publisher = { publish: vi.fn() };
+    const service = new DreLifecycleEventService(publisher as any);
+
+    await expect(service.publish({ ...input, occurredAt: 'invalid' })).resolves.toBeUndefined();
+    expect(publisher.publish).not.toHaveBeenCalled();
+  });
 });
