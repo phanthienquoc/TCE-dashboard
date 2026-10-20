@@ -16,3 +16,4 @@ export * from './tce-risk.contract';
 export * from './tce-execution.contract';
 export * from './tce-trading-authorization.contract';
 export * from './tce-reconciliation.contract';
+export * from './tce-event.contract';
