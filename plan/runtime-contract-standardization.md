@@ -59,7 +59,7 @@ Standardize runtime ownership and provider/domain/event contracts incrementally.
 - [ ] Enforce account/environment scope, current authorization validation and risk/safety gate before any non-PAPER dispatch.
 - [x] Cover store-reservation failure (no provider dispatch, retryable READY order), persistence failure after dispatch (UNKNOWN), and existing PENDING reservation (reconciliation required).
 - [ ] Complete remaining failure-path tests for partial fills, provider outage and reconciliation from provider truth.
-- [x] Add a durable timeout-after-dispatch test proving the result stays UNKNOWN, reconciliation is required, and a duplicate request does not call the provider again (commit `a50c30891a38707efd0e7f80dae7595918e0cca4`; CI verification pending).
+- [x] Add a timeout-after-dispatch regression test proving the result stays UNKNOWN, reconciliation is required, and a duplicate request does not call the provider again (test-store contract; commit `a50c30891a38707efd0e7f80dae7595918e0cca4`). Backend build/unit tests and Prettier passed on PR head `6f63b025336d2158ea9d38f26f88816cc222c963` (runs #1925 and #1428). This test uses an in-memory implementation of the durable-store interface; production Supabase adapter integration/reconciliation remains a separate verification item.
 - [ ] Ensure unknown outcomes require reconciliation and can never be blindly resubmitted.
 
 ## Phase 5 — Rollout
