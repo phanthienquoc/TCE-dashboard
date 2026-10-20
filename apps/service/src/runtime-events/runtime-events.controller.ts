@@ -32,13 +32,26 @@ export class RuntimeEventsController {
     @Headers('authorization') authorization?: string,
     @Query('after') after?: string,
     @Query('limit') rawLimit?: string,
-    @Query('eventType') eventType?: string
+    @Query('eventType') eventType?: string,
+    @Query('afterEventId') afterEventId?: string
   ) {
     const accountId = this.accountId(authorization);
     if (after !== undefined && !Number.isFinite(Date.parse(after))) {
       throw new BadRequestException({
         code: 'INVALID_CURSOR',
         message: 'after must be an ISO-8601 timestamp',
+      });
+    }
+    if (afterEventId !== undefined && (!after || !afterEventId.trim())) {
+      throw new BadRequestException({
+        code: 'INVALID_CURSOR',
+        message: 'afterEventId requires a valid after timestamp',
+      });
+    }
+    if (afterEventId !== undefined && (!after || !afterEventId.trim())) {
+      throw new BadRequestException({
+        code: 'INVALID_CURSOR',
+        message: 'afterEventId requires a valid after timestamp',
       });
     }
     if (eventType && !isTceRuntimeEventType(eventType)) {
@@ -56,13 +69,18 @@ export class RuntimeEventsController {
     }
     const data = await this.events.listForAccount(accountId, {
       ...(after ? { after } : {}),
+      ...(afterEventId ? { afterEventId } : {}),
       limit,
       ...(eventType ? { eventType } : {}),
     });
     return {
       ok: true,
       data,
-      meta: { limit, nextCursor: data.at(-1)?.occurredAt ?? after ?? null },
+      meta: {
+        limit,
+        nextCursor: data.at(-1)?.occurredAt ?? after ?? null,
+        nextEventId: data.at(-1)?.eventId ?? afterEventId ?? null,
+      },
     };
   }
 
@@ -70,7 +88,8 @@ export class RuntimeEventsController {
   stream(
     @Headers('authorization') authorization?: string,
     @Query('after') after?: string,
-    @Query('eventType') eventType?: string
+    @Query('eventType') eventType?: string,
+    @Query('afterEventId') afterEventId?: string
   ) {
     const accountId = this.accountId(authorization);
     if (eventType && !isTceRuntimeEventType(eventType)) {
@@ -87,6 +106,7 @@ export class RuntimeEventsController {
     }
 
     let cursor = after;
+    let cursorEventId = afterEventId;
     const sent = new Set<string>();
     return interval(2000).pipe(
       startWith(0),
@@ -94,6 +114,7 @@ export class RuntimeEventsController {
         from(
           this.events.listForAccount(accountId, {
             ...(cursor ? { after: cursor } : {}),
+            ...(cursorEventId ? { afterEventId: cursorEventId } : {}),
             limit: 200,
             ...(eventType ? { eventType } : {}),
           })
@@ -103,6 +124,7 @@ export class RuntimeEventsController {
             for (const event of events) {
               sent.add(event.eventId);
               cursor = event.occurredAt;
+              cursorEventId = event.eventId;
             }
             while (sent.size > 1000) {
               sent.delete(sent.values().next().value as string);
