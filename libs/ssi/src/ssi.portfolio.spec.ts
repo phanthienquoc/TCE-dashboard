@@ -81,6 +81,7 @@ test('SsiBrokerAdapter falls back to marginBalance (PPMMR) when balance fails fo
     apiKey: 'test-api-key',
     apiSecret: 'test-api-secret',
     clientId: 'test-client',
+    accountNo: '1234566',
     token: {
       accessToken: 'valid-token',
       tokenType: 'Bearer',
@@ -89,10 +90,6 @@ test('SsiBrokerAdapter falls back to marginBalance (PPMMR) when balance fails fo
       refreshTokenExpiresAt: Date.now() + 86400000,
     },
   });
-
-  (adapter as unknown as { accountInfo: () => Promise<unknown[]> }).accountInfo = async () => [
-    { accountNo: '1234566', accountType: 'Margin' },
-  ];
 
   (
     adapter as unknown as { positions: (acc: string) => Promise<{ ok: boolean; data: unknown[] }> }
@@ -127,7 +124,7 @@ test('SsiBrokerAdapter falls back to marginBalance (PPMMR) when balance fails fo
   (adapter as unknown as { orders: (acc: string) => Promise<{ ok: boolean; data: unknown[] }> })
     .orders = async () => ({ ok: true, data: [] });
 
-  const result = await adapter.current('1234566', {});
+  const result = await adapter.accountSnapshots({});
   assert.equal(result.ok, true);
   if (result.ok) {
     assert.equal(result.data.balance.cash, 20000000);
