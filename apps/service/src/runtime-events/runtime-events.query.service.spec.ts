@@ -4,7 +4,7 @@ import { RuntimeEventsQueryService } from './runtime-events.query.service';
 
 function makeDb(result: { data: unknown[] | null; error: unknown | null }) {
   const query: Record<string, any> = {};
-  for (const method of ['select', 'eq', 'order', 'limit', 'gt']) {
+  for (const method of ['select', 'eq', 'order', 'limit', 'gt', 'or']) {
     query[method] = vi.fn(() => query);
   }
   query.then = (resolve: (value: unknown) => unknown) =>
@@ -50,6 +50,18 @@ describe('RuntimeEventsQueryService', () => {
         data: event.data,
       },
     ]);
+  });
+
+  it('uses a composite timestamp and event ID cursor to avoid dropping tied events', async () => {
+    const { db, query } = makeDb({ data: [], error: null });
+    const service = new RuntimeEventsQueryService(db as any);
+    await service.listForAccount('account-1', {
+      after: '2026-10-21T01:00:00.000Z',
+      afterEventId: 'evt-1',
+    });
+    expect(query.or).toHaveBeenCalledWith(
+      'occurred_at.gt.2026-10-21T01:00:00.000Z,and(occurred_at.eq.2026-10-21T01:00:00.000Z,event_id.gt.evt-1)'
+    );
   });
 
   it('rejects malformed cursors before querying the database', async () => {
