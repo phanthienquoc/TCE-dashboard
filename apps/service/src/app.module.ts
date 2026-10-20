@@ -5,6 +5,7 @@ import { DashboardModule } from './dashboard/dashboard.module';
 import { PlatformCredentialsModule } from './platform/platform-credentials.module';
 import { PlatformConfigModule } from './platform/platform-config.module';
 import { TceEngineModule } from './monitor/tce-engine.module';
+import { TceMonitorModule } from './monitor/tce-monitor.module';
 import { TelegramBotModule } from './telegram/telegram-bot.module';
 import { TelegramDebugModule } from './telegram/telegram-debug.module';
 import { StockEventsModule } from './stock-events/stock-events.module';
@@ -28,6 +29,7 @@ class HealthController {
     PlatformCredentialsModule,
     PlatformConfigModule,
     TceEngineModule,
+    TceMonitorModule,
     TelegramDebugModule,
     TelegramBotModule,
     StockEventsModule,
