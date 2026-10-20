@@ -17,6 +17,13 @@ export class SafeOrderExecutionService {
     mode: 'DRY_RUN' | 'LIVE',
     executor?: DreExecutionPort
   ): Promise<{ status: DreOrderStatus; externalId?: string }> {
+    if (process.env.DRE_ENABLED === 'false') {
+      throw new Error('DRE is disabled by configuration');
+    }
+    if (mode === 'LIVE' && process.env.DRE_LIVE_EXECUTION !== 'true') {
+      throw new Error('DRE live execution is disabled by configuration');
+    }
+
     await this.repository.ensureIndexes();
     const existing = await this.repository.getAction(action.idempotencyKey);
     if (existing) {
