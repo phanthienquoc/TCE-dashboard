@@ -18,7 +18,7 @@ Standardize runtime ownership and provider/domain/event contracts incrementally 
 
 ## Phase 1 — Canonical event contract
 
-- [x] Add `TceEventEnvelope` schema version 1, typed event names/data, and structural runtime validation.
+- [x] Add `TceEventEnvelope` schema version 1, typed event names/data, structural runtime validation, a known-event-name guard and a provider-neutral `TceEventPublisherPort`.
 - [x] Preserve all existing contract barrel exports and add only `tce-event.contract`.
 - [x] Add focused envelope tests for identity, version, timezone-aware timestamps, scope, sequence and required data.
 - [x] Latest CI backend build passed.
@@ -47,7 +47,7 @@ Standardize runtime ownership and provider/domain/event contracts incrementally 
 ## Phase 3 — Unified transports
 
 - [ ] REST uses canonical request/response/error DTOs.
-- [ ] WebSocket and SSE publish identical typed/versioned event envelopes; only framing differs.
+- [ ] Implement REST/WebSocket/SSE adapters over `TceEventPublisherPort` and prove identical typed/versioned event semantics; only framing differs.
 - [ ] Add transport parity/compatibility tests.
 
 ## Phase 4 — Execution reliability
