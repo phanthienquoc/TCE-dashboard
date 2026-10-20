@@ -24,14 +24,15 @@ Standardize runtime ownership and provider/domain/event contracts incrementally 
 - [x] Latest CI backend build passed.
 - [x] CI run #1870 discovered and executed `TceEventEnvelope`; the contract spec passed. The overall backend suite remains red on unrelated existing assertions.
 
-## Latest CI findings
+## Latest CI validation — 2026-10-20 (run #1891 / #1394)
 
-- **Build:** passed on backend test run #1870.
-- **Contract test:** `libs/contracts/src/tce-event.contract.spec.ts` was discovered and passed in run #1870.
-- **Test runner:** fixed `package.json` so specs importing `node:test` run under Node's test runner and global `describe/expect` specs run under Vitest. Added `libs/contracts/src` to test discovery. This removed the `ReferenceError: describe is not defined` failures.
-- **Remaining backend test failures:** run #1870 still fails on 12 existing assertions in SSI reconciliation/adapters, capital allocation, CRDE decision/execution, and dividend lifecycle tests. These are not caused by the event-envelope code; inspect and fix the underlying contract/fixture drift without weakening assertions or changing trading behavior blindly.
-- **Prettier workflow:** run #1373 passed after changing the workflow to format only changed non-workflow files and stage only tracked formatting edits. This avoids the previous token rejection caused by trying to push unrelated `.github/workflows/wf-08b-tce-microfe-build-publish.yml` formatting changes.
-- **Merge gate:** PR #846 remains draft and must not merge while any required check is red or missing. No deployment or LIVE trading is enabled.
+- **Backend build:** passed.
+- **Node test group:** passed, including contracts, SSI adapters, execution and reconciliation specs.
+- **Vitest group:** passed after fixing runner configuration and test fixture/import issues; run #1891 completed successfully.
+- **Prettier workflow:** run #1394 passed. The formatter is limited to changed non-workflow files, and its auto-commit no longer tries to modify unrelated workflow YAML.
+- **Test runner fixes:** `package.json` now routes `node:test` specs to Node and global-style Vitest specs to Vitest; `libs/contracts/src` is included. `vitest.config.ts` is dependency-free and maps `@tce/contracts` and `@tce/ssi` to source entry points for the npx runner.
+- **Regression fixes:** SSI `RS` order status maps to `SUBMITTED`; CRDE execution computes BUY quantity/notional and requires explicit SELL quantity; SSI consolidated snapshots use margin fallback and exclude zero-quantity positions/orders; Telegram entry-zone parsing accepts double underscores; tests now use deterministic payment dates and valid strategy fixtures without changing the production dividend scoring/exit policy.
+- **Merge gate:** PR #846 remains unmerged. Keep it draft while Phase 2–5 remain incomplete. No deployment or LIVE trading is enabled.
 
 ## Phase 2 — Runtime ownership boundaries
 
