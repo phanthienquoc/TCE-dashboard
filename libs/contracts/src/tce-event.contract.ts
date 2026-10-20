@@ -186,7 +186,7 @@ const isNonNegativeNumber = (value: unknown): value is number =>
 
 const isTimestamp = (value: unknown): value is string =>
   typeof value === 'string' &&
-  /(?:Z|[+-]\\d{2}:\\d{2})$/i.test(value) &&
+  /(?:Z|[+-]\d{2}:\d{2})$/i.test(value) &&
   Number.isFinite(Date.parse(value));
 
 const isPlatformKind = (value: unknown): boolean =>
