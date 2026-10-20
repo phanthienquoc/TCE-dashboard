@@ -71,7 +71,8 @@ Standardize runtime ownership and provider/domain/event contracts incrementally.
 - [x] Enforce DRE_ENABLED and DRE_LIVE_EXECUTION directly at the safe execution boundary, not only in a helper service.
 - [x] Reject LIVE before index, database, or provider work unless DRE_LIVE_EXECUTION=true; keep DRY_RUN available while DRE is enabled.
 - [x] Add tests proving disabled LIVE execution never reaches the provider and DRE_ENABLED=false blocks all execution modes.
-- [ ] Run backend build/unit tests and Prettier on the latest PR head, fix failures, then squash-merge.
+- [x] Backend build/unit tests passed on head `a239794e386e836576abdcdcec71055e1269f288` (run #1918); Prettier passed (#1421).
+- [ ] Squash-merge after checks pass again on the final documentation head.
 
 ## Previous task: DRE lifecycle event emission
 
