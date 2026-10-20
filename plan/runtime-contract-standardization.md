@@ -26,10 +26,10 @@ Standardize runtime ownership and provider/domain/event contracts incrementally 
 
 ## Latest CI validation — 2026-10-20 (run #1891 / #1394)
 
-- **Backend build:** passed.
-- **Node test group:** passed, including contracts, SSI adapters, execution and reconciliation specs.
-- **Vitest group:** passed after fixing runner configuration and test fixture/import issues; run #1891 completed successfully.
-- **Prettier workflow:** run #1394 passed. The formatter is limited to changed non-workflow files, and its auto-commit no longer tries to modify unrelated workflow YAML.
+- **Backend build:** passed on run #1893.
+- **Node test group:** passed on run #1893, including contracts, SSI adapters, execution, reconciliation and the new architecture boundary spec.
+- **Vitest group:** passed after fixing runner configuration and test fixture/import issues; run #1893 completed successfully.
+- **Prettier workflow:** run #1396 passed. The formatter is limited to changed non-workflow files, and its auto-commit no longer tries to modify unrelated workflow YAML.
 - **Test runner fixes:** `package.json` now routes `node:test` specs to Node and global-style Vitest specs to Vitest; `libs/contracts/src` is included. `vitest.config.ts` is dependency-free and maps `@tce/contracts` and `@tce/ssi` to source entry points for the npx runner.
 - **Regression fixes:** SSI `RS` order status maps to `SUBMITTED`; CRDE execution computes BUY quantity/notional and requires explicit SELL quantity; SSI consolidated snapshots use margin fallback and exclude zero-quantity positions/orders; Telegram entry-zone parsing accepts double underscores; tests now use deterministic payment dates and valid strategy fixtures without changing the production dividend scoring/exit policy.
 - **Merge gate:** PR #846 remains unmerged. Keep it draft while Phase 2–5 remain incomplete. No deployment or LIVE trading is enabled.
@@ -41,7 +41,8 @@ Standardize runtime ownership and provider/domain/event contracts incrementally 
 - TCE Core/`libs/tce-engine`: pure entry/risk/TP/quantity decisions; no DB/network/provider SDK or DRE import.
 - Execution Orchestrator: command validation, account/environment scope, idempotency, authorization, dispatch and normalized result.
 - Reconciliation: provider truth and drift/unknown-outcome classification.
-- [ ] Add import-boundary tests and migrate monitor event emission safely.
+- [x] Add static import-boundary tests for pure engine, TCE decision/scanner, Monitor and DRE provider dependencies.
+- [ ] Migrate Monitor event emission safely behind the shared event contract.
 
 ## Phase 3 — Unified transports
 
