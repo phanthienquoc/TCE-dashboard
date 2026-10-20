@@ -18,3 +18,4 @@ export * from './tce-trading-authorization.contract';
 export * from './tce-reconciliation.contract';
 export * from './tce-event.contract';
 export * from './tce-idempotency.contract';
+export * from './runtime-event-transport.contract';
