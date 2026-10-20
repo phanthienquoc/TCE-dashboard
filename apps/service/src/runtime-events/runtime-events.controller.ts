@@ -22,9 +22,19 @@ export class RuntimeEventsController {
 
   private accountId(authorization?: string): string {
     if (!authorization?.startsWith('Bearer ')) {
-      throw new UnauthorizedException('Bearer token required');
+      throw new UnauthorizedException({
+        ok: false,
+        error: { code: 'UNAUTHORIZED', message: 'Bearer token required' },
+      });
     }
-    return this.jwt.verify(authorization.slice(7)).sub;
+    try {
+      return this.jwt.verify(authorization.slice(7)).sub;
+    } catch {
+      throw new UnauthorizedException({
+        ok: false,
+        error: { code: 'UNAUTHORIZED', message: 'Invalid or expired bearer token' },
+      });
+    }
   }
 
   @Get()
@@ -38,27 +48,27 @@ export class RuntimeEventsController {
     const accountId = this.accountId(authorization);
     if (after !== undefined && !Number.isFinite(Date.parse(after))) {
       throw new BadRequestException({
-        code: 'INVALID_CURSOR',
-        message: 'after must be an ISO-8601 timestamp',
+        ok: false,
+        error: { code: 'INVALID_CURSOR', message: 'after must be an ISO-8601 timestamp' },
       });
     }
     if (afterEventId !== undefined && (!after || !afterEventId.trim())) {
       throw new BadRequestException({
-        code: 'INVALID_CURSOR',
-        message: 'afterEventId requires a valid after timestamp',
+        ok: false,
+        error: { code: 'INVALID_CURSOR', message: 'afterEventId requires a valid after timestamp' },
       });
     }
     if (eventType && !isTceRuntimeEventType(eventType)) {
       throw new BadRequestException({
-        code: 'INVALID_EVENT_TYPE',
-        message: 'Unsupported runtime event type',
+        ok: false,
+        error: { code: 'INVALID_EVENT_TYPE', message: 'Unsupported runtime event type' },
       });
     }
     const limit = rawLimit === undefined ? 100 : Number(rawLimit);
     if (!Number.isInteger(limit) || limit < 1 || limit > 200) {
       throw new BadRequestException({
-        code: 'INVALID_LIMIT',
-        message: 'limit must be an integer between 1 and 200',
+        ok: false,
+        error: { code: 'INVALID_LIMIT', message: 'limit must be an integer between 1 and 200' },
       });
     }
     const data = await this.events.listForAccount(accountId, {
@@ -88,20 +98,20 @@ export class RuntimeEventsController {
     const accountId = this.accountId(authorization);
     if (eventType && !isTceRuntimeEventType(eventType)) {
       throw new BadRequestException({
-        code: 'INVALID_EVENT_TYPE',
-        message: 'Unsupported runtime event type',
+        ok: false,
+        error: { code: 'INVALID_EVENT_TYPE', message: 'Unsupported runtime event type' },
       });
     }
     if (after !== undefined && !Number.isFinite(Date.parse(after))) {
       throw new BadRequestException({
-        code: 'INVALID_CURSOR',
-        message: 'after must be an ISO-8601 timestamp',
+        ok: false,
+        error: { code: 'INVALID_CURSOR', message: 'after must be an ISO-8601 timestamp' },
       });
     }
     if (afterEventId !== undefined && (!after || !afterEventId.trim())) {
       throw new BadRequestException({
-        code: 'INVALID_CURSOR',
-        message: 'afterEventId requires a valid after timestamp',
+        ok: false,
+        error: { code: 'INVALID_CURSOR', message: 'afterEventId requires a valid after timestamp' },
       });
     }
 
@@ -129,28 +139,33 @@ export class RuntimeEventsController {
             while (sent.size > 1000) {
               sent.delete(sent.values().next().value as string);
             }
-            return fresh;
+            return fresh.map(
+              event =>
+                ({
+                  id: event.eventId,
+                  type: event.eventType,
+                  data: event,
+                }) satisfies MessageEvent
+            );
           }),
           catchError(() =>
             of([
               {
-                eventId: 'transport-error',
-                eventType: 'transport.error',
+                type: 'transport.error',
                 data: {
-                  code: 'RUNTIME_EVENT_STORE_UNAVAILABLE',
-                  retryable: true,
+                  type: 'transport.error',
+                  error: {
+                    code: 'RUNTIME_EVENT_STORE_UNAVAILABLE',
+                    message: 'Runtime event store is temporarily unavailable',
+                    retryable: true,
+                  },
                 },
-              } as const,
+              } satisfies MessageEvent,
             ])
           )
         )
       ),
-      exhaustMap(events => from(events)),
-      map(event => ({
-        id: event.eventId,
-        type: event.eventType,
-        data: event,
-      }) satisfies MessageEvent)
+      exhaustMap(messages => from(messages))
     );
   }
 }
