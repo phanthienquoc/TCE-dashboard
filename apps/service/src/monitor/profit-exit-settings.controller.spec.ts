@@ -5,7 +5,7 @@ import { ProfitExitSettingsController } from './profit-exit-settings.controller'
 
 describe('ProfitExitSettingsController', () => {
   it('reads settings and available symbols for the current TCE account', async () => {
-    const maybeSingle = jest
+    const maybeSingle = vi
       .fn()
       .mockResolvedValueOnce({ data: { id: 'account-1' }, error: null })
       .mockResolvedValueOnce({
