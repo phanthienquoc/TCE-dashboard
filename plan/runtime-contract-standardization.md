@@ -72,7 +72,8 @@ Standardize runtime ownership and provider/domain/event contracts incrementally.
 - [x] If dispatch outcome cannot be durably recorded, return UNKNOWN and require reconciliation; never turn an ambiguous outcome into REJECTED.
 - [x] Treat existing PENDING reservations as reconciliation-required and never redispatch.
 - [x] Add orchestrator failure-boundary and Profit Exit service tests.
-- [ ] Run backend build/tests and Prettier on the latest PR head, fix failures, and squash-merge this task.
+- [x] Backend build/unit tests passed on head `ce377a988ae525fe15e2dd92e4d628a2d8be972d` (run #1912); Prettier passed (#1415).
+- [ ] Squash-merge this task only after checks pass again on the final documentation head.
 - [ ] Apply the additive migration in a controlled environment, verify staging, then explicitly enable the feature flag.
 
 ## Previous task: Monitor event emission
