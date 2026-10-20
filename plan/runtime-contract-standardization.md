@@ -10,14 +10,15 @@ Remove ambiguous runtime ownership and standardize provider/domain/event contrac
 
 ## Phase 0 — Baseline and architecture
 - [x] Inspect current contracts, execution authorization/orchestration and DRE architecture.
-- [ ] Add `docs/architecture/runtime-boundaries.md` ownership and dependency matrix.
-- [ ] Capture current safety assumptions and test strategy.
+- [x] Add `docs/architecture/runtime-boundaries.md` ownership and dependency matrix.
+- [x] Record safety assumptions and migration plan.
 
-## Phase 1 — Canonical event contract (initial implementation slice)
-- [ ] Add `TceEventEnvelope` with explicit schema version, unique event identity, producer, correlation, occurrence time, optional account/aggregate/sequence context, and typed data.
-- [ ] Add contract tests for identity, timestamp/version validation, account scope, and stable serialization.
-- [ ] Reuse existing `ContractResult`, `MarketQuote`, `AccountBalance`, `AccountPosition`, `AccountOrder`, execution, risk, authorization and reconciliation types.
-- [ ] Do not duplicate interfaces that already exist.
+## Phase 1 — Canonical event contract
+- [x] Add `TceEventEnvelope` with schema version, event identity, producer, correlation, occurrence time, optional account/aggregate/sequence context and typed event map.
+- [x] Add a structural runtime guard for envelope metadata and explicit timezone.
+- [x] Export the event contract from the existing `libs/contracts` barrel.
+- [x] Add tests for identity, schema version, timestamps, account scope, sequence metadata, required data and stable serialization.
+- [ ] Run repository test/typecheck/build/lint; execution environment has not run them yet.
 
 ## Phase 2 — Single responsibility by runtime
 - Monitor: collect/record observations, snapshots, freshness, health and alerts only.
@@ -25,6 +26,7 @@ Remove ambiguous runtime ownership and standardize provider/domain/event contrac
 - TCE Core: strategy entry, risk/TP/quantity decisions; no DRE dependency.
 - Execution Orchestrator: validate command identity, enforce idempotency, authorize and dispatch provider operation.
 - Reconciliation: query provider truth and classify drift/unknown outcomes.
+- [ ] Add import-boundary tests and migrate monitor event emission safely.
 
 ## Phase 3 — Unified transports
 - [ ] REST APIs use canonical request/response/error DTOs.
@@ -44,4 +46,4 @@ Remove ambiguous runtime ownership and standardize provider/domain/event contrac
 - [ ] One clean commit via squash merge into `master`, then verify CI/deploy.
 
 ## Acceptance criteria
-See `docs/architecture/runtime-boundaries.md`. All new shared contracts are runtime-validated at external boundaries; strategy/DRE/monitor cannot bypass risk and execution authorization; endpoint/event consumers remain compatible; unknown outcomes require reconciliation.
+See `docs/architecture/runtime-boundaries.md`. External boundaries validate event envelope and event-specific DTOs at runtime; strategy/DRE/monitor cannot bypass risk and execution authorization; endpoint/event consumers remain compatible; unknown outcomes require reconciliation.
