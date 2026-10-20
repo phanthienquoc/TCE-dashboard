@@ -58,6 +58,18 @@ describe('SupabaseRuntimeEventPublisher', () => {
     expect(from).not.toHaveBeenCalled();
   });
 
+  it('rejects malformed event-specific payloads before database access', async () => {
+    const from = vi.fn();
+    const publisher = new SupabaseRuntimeEventPublisher({ from } as any);
+    await expect(
+      publisher.publish({
+        ...event,
+        data: { symbol: 'DPM', observedAt: 'not-a-date' },
+      } as any)
+    ).rejects.toThrow('Invalid TCE runtime event envelope');
+    expect(from).not.toHaveBeenCalled();
+  });
+
   it('propagates persistence errors so callers can apply their failure policy', async () => {
     const insert = vi.fn().mockResolvedValue({ error: { code: '08006', message: 'offline' } });
     const db = { from: vi.fn().mockReturnValue({ insert }) } as any;
