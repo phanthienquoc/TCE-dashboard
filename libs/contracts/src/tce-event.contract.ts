@@ -61,7 +61,9 @@ const TCE_RUNTIME_EVENT_TYPES: readonly TceRuntimeEventType[] = [
 ];
 
 export function isTceRuntimeEventType(value: unknown): value is TceRuntimeEventType {
-  return typeof value === 'string' && TCE_RUNTIME_EVENT_TYPES.includes(value as TceRuntimeEventType);
+  return (
+    typeof value === 'string' && TCE_RUNTIME_EVENT_TYPES.includes(value as TceRuntimeEventType)
+  );
 }
 
 export type TceEventDataByType = {
