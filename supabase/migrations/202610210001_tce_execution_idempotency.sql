@@ -1,6 +1,5 @@
 -- Durable request deduplication for TCE execution orchestration.
--- This table is additive and is not wired to live execution until an adapter is
--- configured and the runtime compatibility rollout is explicitly approved.
+-- Additive only: do not apply to production until the runtime rollout is approved.
 create table if not exists public.tce_execution_idempotency (
   account_id text not null,
   environment text not null,
@@ -16,7 +15,7 @@ create table if not exists public.tce_execution_idempotency (
   primary key (account_id, environment, idempotency_key),
   check (
     (status = 'PENDING' and result is null)
-    or (status in ('COMPLETED', 'UNKNOWN'))
+    or (status in ('COMPLETED', 'UNKNOWN') and result is not null)
   )
 );
 
@@ -25,3 +24,9 @@ create index if not exists idx_tce_execution_idempotency_intent
 
 create index if not exists idx_tce_execution_idempotency_updated
   on public.tce_execution_idempotency(updated_at desc);
+
+-- Idempotency keys and execution results are server-side operational data.
+-- RLS plus no client policies denies direct anon/authenticated table access.
+alter table public.tce_execution_idempotency enable row level security;
+revoke all on table public.tce_execution_idempotency from anon, authenticated;
+grant all on table public.tce_execution_idempotency to service_role;
