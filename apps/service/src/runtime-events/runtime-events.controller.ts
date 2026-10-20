@@ -35,6 +35,12 @@ export class RuntimeEventsController {
     @Query('eventType') eventType?: string
   ) {
     const accountId = this.accountId(authorization);
+    if (after !== undefined && !Number.isFinite(Date.parse(after))) {
+      throw new BadRequestException({
+        code: 'INVALID_CURSOR',
+        message: 'after must be an ISO-8601 timestamp',
+      });
+    }
     if (eventType && !isTceRuntimeEventType(eventType)) {
       throw new BadRequestException({
         code: 'INVALID_EVENT_TYPE',
