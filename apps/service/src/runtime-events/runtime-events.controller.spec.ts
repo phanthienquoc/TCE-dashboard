@@ -34,7 +34,7 @@ describe('RuntimeEventsController', () => {
     expect(response).toEqual({
       ok: true,
       data: [event],
-      meta: { limit: 25, nextCursor: event.occurredAt },
+      meta: { limit: 25, nextCursor: event.occurredAt, nextEventId: event.eventId },
     });
   });
 
