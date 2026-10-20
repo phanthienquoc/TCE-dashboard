@@ -392,7 +392,11 @@ export class SsiBrokerAdapter implements BrokerPort, SsiConnectionPort {
         const quantity = Number(position.quantity ?? 0);
         return Number.isFinite(quantity) && quantity !== 0;
       });
-      return { balance: balance.data, positions: activePositions, orders: orders.data };
+      const validOrders = orders.data.filter(order => {
+        const quantity = Number(order.quantity ?? 0);
+        return Boolean(order.externalId && order.symbol) && Number.isFinite(quantity) && quantity > 0;
+      });
+      return { balance: balance.data, positions: activePositions, orders: validOrders };
     });
   }
 
