@@ -388,7 +388,11 @@ export class SsiBrokerAdapter implements BrokerPort, SsiConnectionPort {
       if (!balance.ok) throw new Error(balance.error.message);
       if (!positions.ok) throw new Error(positions.error.message);
       if (!orders.ok) throw new Error(orders.error.message);
-      return { balance: balance.data, positions: positions.data, orders: orders.data };
+      const activePositions = positions.data.filter(position => {
+        const quantity = Number(position.quantity ?? 0);
+        return Number.isFinite(quantity) && quantity !== 0;
+      });
+      return { balance: balance.data, positions: activePositions, orders: orders.data };
     });
   }
 
