@@ -10,7 +10,7 @@
   "scripts": {
     "dev": "nx serve web",
     "build": "nx run-many -t build --projects=web,service",
-    "test": "node -e \"const {execFileSync}=require('node:child_process'); const fs=require('node:fs'); const path=require('node:path'); const roots=['libs/binance/src','libs/ssi/src','libs/tce/src','libs/db/src','libs/contracts/src','apps/service/src/auth','apps/service/src/platform','apps/service/src/monitor','apps/service/src/stock-events']; const files=[]; const walk=d=>{for(const e of fs.readdirSync(d,{withFileTypes:true})){const p=path.join(d,e.name); if(e.isDirectory()) walk(p); else if(/\\\\.(spec|test)\\\\.ts$/.test(e.name)) files.push(p)}}; for(const r of roots) if(fs.existsSync(r)) walk(r); files.sort(); const isNodeTest=f=>/from ['\\\"]node:test['\\\"]|require\\\\(['\\\"]node:test['\\\"]\\\\)/.test(fs.readFileSync(f,'utf8')); const node=files.filter(isNodeTest); const vitest=files.filter(f=>!isNodeTest(f)); if(node.length) execFileSync('npx',['tsx','--tsconfig','tsconfig.base.json','--test',...node],{stdio:'inherit'}); if(vitest.length) execFileSync('npx',['--yes','vitest@5.0.0','run','--globals',...vitest],{stdio:'inherit'});\"",
+    "test": "node -e \"const {execFileSync}=require('node:child_process'); const fs=require('node:fs'); const path=require('node:path'); const roots=['libs/binance/src','libs/ssi/src','libs/tce/src','libs/db/src','libs/contracts/src','apps/service/src/auth','apps/service/src/platform','apps/service/src/monitor','apps/service/src/stock-events','apps/service/src/runtime-events']; const files=[]; const walk=d=>{for(const e of fs.readdirSync(d,{withFileTypes:true})){const p=path.join(d,e.name); if(e.isDirectory()) walk(p); else if(/\\\\.(spec|test)\\\\.ts$/.test(e.name)) files.push(p)}}; for(const r of roots) if(fs.existsSync(r)) walk(r); files.sort(); const isNodeTest=f=>/from ['\\\"]node:test['\\\"]|require\\\\(['\\\"]node:test['\\\"]\\\\)/.test(fs.readFileSync(f,'utf8')); const node=files.filter(isNodeTest); const vitest=files.filter(f=>!isNodeTest(f)); if(node.length) execFileSync('npx',['tsx','--tsconfig','tsconfig.base.json','--test',...node],{stdio:'inherit'}); if(vitest.length) execFileSync('npx',['--yes','vitest@5.0.0','run','--globals',...vitest],{stdio:'inherit'});\"",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "lint": "eslint .",
@@ -61,7 +61,8 @@
     "zustand": "^5.0.8",
     "@xyflow/react": "^12.11.6",
     "lightweight-charts": "^5.0.8",
-    "pg": "^8.16.3"
+    "pg": "^8.16.3",
+    "ws": "^8.21.3"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
@@ -80,6 +81,7 @@
     "typescript": "^5.9.2",
     "typescript-eslint": "^8.68.0",
     "@types/express": "^5.0.6",
-    "@types/pg": "^8.15.5"
+    "@types/pg": "^8.15.5",
+    "@types/ws": "^8.18.1"
   }
 }

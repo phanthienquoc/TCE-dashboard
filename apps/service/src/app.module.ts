@@ -12,6 +12,7 @@ import { StockEventsModule } from './stock-events/stock-events.module';
 import { SystemUpdatesModule } from './system-updates/system-updates.module';
 import { DreModule } from './dre/dre.module';
 import { ScheduledTasksModule } from './scheduled-tasks.module';
+import { RuntimeEventsModule } from './runtime-events/runtime-events.module';
 
 @Controller()
 class HealthController {
@@ -36,6 +37,7 @@ class HealthController {
     SystemUpdatesModule,
     DreModule,
     ScheduledTasksModule,
+    RuntimeEventsModule,
   ],
   controllers: [HealthController],
 })
