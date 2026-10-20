@@ -32,10 +32,15 @@ Standardize runtime ownership and provider/domain/event contracts incrementally.
 
 ## Phase 3 — Unified transports
 
-- [ ] Define canonical REST result/error DTO semantics with compatibility mapping to existing API responses.
-- [ ] Implement REST/WebSocket/SSE adapters around the same event envelope and publisher contract, using supported/current transport infrastructure rather than inventing a second bus.
-- [ ] Add transport parity/compatibility tests for event ID/type/version, account scope, correlation ID and error classification.
-- [ ] Validate external payloads at runtime; TypeScript typing alone is not validation.
+- [x] Define canonical REST success/error DTO semantics and a separate transport-control error frame without misrepresenting it as a persisted domain event.
+- [x] Implement account-scoped REST replay, SSE polling, and a read-only WebSocket stream over the same canonical event envelopes.
+- [x] Derive account scope from the verified bearer identity or the existing auth-service session introspection; ignore caller-supplied account IDs.
+- [x] Add composite timestamp/event-ID replay cursors to avoid losing events with tied timestamps.
+- [x] Validate event names, envelope structure, cursor, limit and transport filter inputs at runtime.
+- [x] Apply WebSocket origin checks for cookie-authenticated sessions; optionally configure TCE_EVENT_WS_ALLOWED_ORIGINS.
+- [x] Add focused contract, query, REST/SSE and cursor tests; include apps/service/src/runtime-events in backend test discovery.
+- [ ] Run backend build/tests and Prettier on the latest PR head, resolve failures, then squash-merge.
+- [ ] Verify the runtime event migration has been applied in the target environment before enabling event routes in production.
 
 ## Phase 4 — Execution reliability
 
@@ -57,14 +62,23 @@ Standardize runtime ownership and provider/domain/event contracts incrementally.
 - [ ] Open a separate PR per task, with required CI green before squash merge into `master`.
 - [ ] Verify deployments separately after code is merged; this implementation does not deploy or enable LIVE trading.
 
-## Current task: Monitor event emission
+## Current task: Unified runtime event transports
 
-- [x] Add `SupabaseRuntimeEventPublisher` implementing the shared `TceEventPublisherPort`.
-- [x] Add an RLS-protected `tce_runtime_events` outbox migration; grant access only to `service_role`.
-- [x] Emit `monitor.snapshot.created` after snapshot persistence with a deterministic event ID and account/correlation metadata.
-- [x] Register the Monitor module with explicit scheduler opt-in (`TCE_MONITOR_SCHEDULER_ENABLED=true`) so module registration alone cannot start the legacy scheduler.
-- [x] Add contract/publisher/failure-isolation unit tests.
-- [x] Backend build/unit tests passed on the pre-format head (run #1905); Prettier passed and applied its formatting commit (run #1408). Re-run the required checks on the resulting formatted head before merge.
+- [x] Add authenticated GET /api/runtime/events with bounded replay, event-type filtering and a composite replay cursor.
+- [x] Add GET /api/runtime/events/stream (SSE) with canonical envelopes and retryable transport-control errors.
+- [x] Add read-only /api/runtime/events/ws over the same event stream; no client-to-server command path is exposed.
+- [x] Keep all reads scoped to the authenticated account identity; WebSocket cookie sessions use auth-service introspection and origin validation.
+- [x] Define shared REST success/error DTOs and transport-control frame contract.
+- [x] Add query/controller/contract tests and include runtime-events specs in the backend test script.
+- [ ] Validate latest-head CI and squash-merge this transport task.
+
+## Previous task: Monitor event emission
+
+- [x] Add SupabaseRuntimeEventPublisher implementing the shared TceEventPublisherPort.
+- [x] Add an RLS-protected tce_runtime_events outbox migration; grant access only to service_role.
+- [x] Emit monitor.snapshot.created after snapshot persistence with a deterministic event ID and account/correlation metadata.
+- [x] Register the Monitor module with explicit scheduler opt-in (TCE_MONITOR_SCHEDULER_ENABLED=true) so module registration alone cannot start the legacy scheduler.
+- [x] Backend build/unit tests and Prettier passed on the formatted head before PR #852 merge (runs #1906 and #1409).
 
 ## Previous task: durable idempotency store
 
@@ -78,7 +92,7 @@ Standardize runtime ownership and provider/domain/event contracts incrementally.
 - [x] Boundary ownership is documented and import-boundary tests exist.
 - [x] Durable idempotency port, SQL schema and adapter exist.
 - [x] Monitor emits through the shared event contract without gaining order-dispatch authority.
-- [ ] REST/WS/SSE share event semantics and correlation IDs.
+- [x] REST/WS/SSE share the canonical event envelope, event IDs and correlation IDs.
 - [ ] Production dispatch uses durable idempotency and verified authorization/scope checks.
 - [ ] Unknown outcomes require reconciliation, not blind retry.
 - [ ] Compatibility and rollout gates pass before production migration/deployment.
