@@ -82,8 +82,16 @@ export function prepareCapitalRotationExecution(
   }
   let quantity: number;
   if (decision.action === 'BUY') {
-    const budget = Math.min(Number(request.decision.capital), Number(request.riskContext.availableCapital));
-    if (!Number.isFinite(budget) || budget <= 0 || !Number.isFinite(entryPrice) || entryPrice <= 0) {
+    const budget = Math.min(
+      Number(request.decision.capital),
+      Number(request.riskContext.availableCapital)
+    );
+    if (
+      !Number.isFinite(budget) ||
+      budget <= 0 ||
+      !Number.isFinite(entryPrice) ||
+      entryPrice <= 0
+    ) {
       return {
         ok: false,
         code: 'INVALID_ORDER_PLAN',
