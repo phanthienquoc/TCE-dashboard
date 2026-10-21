@@ -15,6 +15,7 @@
 - [ ] Verify backend build/unit tests and Prettier on the exact latest PR head, including any formatter-generated commit.
 - [ ] Merge only after all required checks pass on the exact latest head and GitHub accepts the merge without bypassing protection.
 - Safety: no production migration/deployment; LIVE trading remains disabled.
+
 ## Automation recovery — PR #865 merged — 2026-10-21
 
 - PR [#865](https://github.com/phanthienquoc/TCE-dashboard/pull/865) was squash-merged at `d4ff9a4ae469e8c4124927e11d13046ef6ec77fd`.
