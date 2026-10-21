@@ -441,3 +441,70 @@ test('unconfirmed provider submissions require reconciliation and duplicate requ
   assert.equal(second.result.error?.reconciliationRequired, true);
   assert.equal(calls, 1);
 });
+
+test('existing durable UNKNOWN outcome requires reconciliation and never redispatches', async () => {
+  let calls = 0;
+  const command = submit();
+  const reservation: TceExecutionIdempotencyReservation = {
+    scope: {
+      accountId: command.accountId,
+      environment: command.environment,
+      idempotencyKey: command.authorization.idempotencyKey,
+    },
+    fingerprint: 'same-fingerprint',
+    executionIntentId: command.intent.id,
+    correlationId: command.authorization.correlationId,
+    clientRequestId: command.clientRequestId,
+    createdAt: '2026-10-21T12:00:00.000Z',
+  };
+  const persistedResult: TceExecutionResult = {
+    ok: false,
+    operation: 'SUBMIT',
+    status: 'UNKNOWN',
+    executionIntentId: command.intent.id,
+    correlationId: command.authorization.correlationId,
+    idempotencyKey: command.authorization.idempotencyKey,
+    clientRequestId: command.clientRequestId,
+    error: {
+      code: 'TIMEOUT_UNKNOWN',
+      message: 'provider outcome is unknown; reconciliation is required',
+      retryable: false,
+      reconciliationRequired: true,
+    },
+  };
+  const store: TceExecutionIdempotencyStore = {
+    reserve: async () => ({
+      kind: 'EXISTING',
+      record: {
+        reservation,
+        status: 'UNKNOWN',
+        result: persistedResult,
+        updatedAt: '2026-10-21T12:01:00.000Z',
+      },
+    }),
+    complete: async () => {
+      throw new Error('must not be called for an existing UNKNOWN reservation');
+    },
+  };
+  const port: TceExecutionPort = {
+    submit: async providerCommand => {
+      calls += 1;
+      return okResult(providerCommand);
+    },
+    cancel: async () => {
+      throw new Error('not used');
+    },
+    replace: async () => {
+      throw new Error('not used');
+    },
+  };
+
+  const result = await new TceExecutionOrchestrator(port, { idempotencyStore: store }).execute(
+    command
+  );
+
+  assert.equal(calls, 0);
+  assert.equal(result.ok, false);
+  assert.deepEqual(result.result, persistedResult);
+  assert.equal(result.result.error?.reconciliationRequired, true);
+});
