@@ -147,6 +147,10 @@ export function reconcileOrderStates(
     if ((localMatchCountsByProviderId.get(provider.providerOrderId) ?? 0) > 1) {
       ambiguousLocalIds.add(local.id);
       ambiguousProviderIds.add(provider.providerOrderId);
+      for (const matchedProvider of matchingProviders) {
+        ambiguousProviderIds.add(matchedProvider.providerOrderId);
+        matchedProviderIds.add(matchedProvider.providerOrderId);
+      }
       deltas.push({
         localOrderId: local.id,
         providerOrderId: provider.providerOrderId,
