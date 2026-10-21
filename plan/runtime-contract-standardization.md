@@ -1,8 +1,20 @@
-## Current task: Verify idempotency lookups stay account/environment scoped — 2026-10-21
+## Current task: Record PR #879 evidence and complete authorization-gate plan item — 2026-10-21
 
-- [x] Add adapter regression coverage proving duplicate idempotency lookups filter by the requested account, environment, and key.
+- [x] Record PR #879's verified merge SHA and exact-head CI evidence.
+- [x] Mark the non-PAPER authorization gate complete based on explicit-executor, readiness, and account/environment mismatch coverage.
 - [ ] Verify backend build/unit tests and Prettier on the exact latest PR head, including any formatter-generated commit.
+- CI recovery: Prettier generated commit `59b6475ee5b5acce7988a71b59f232799e71b5a2` with CI skipped; final verification must target the resulting head.
 - [ ] Merge only after all required checks pass on the exact latest head and GitHub accepts the merge without bypassing protection.
+- Safety: documentation only; no production migration/deployment; LIVE trading remains disabled.
+
+## PR #879 — merged account/environment idempotency scope — 2026-10-21
+
+- PR [#879](https://github.com/phanthienquoc/TCE-dashboard/pull/879) was squash-merged at `7514572c7d424db67212be1d696b37458f9f8282`; verified against current `master`.
+- Exact tested PR head: `a8a4da9c141bd20973232fa049cea574aaebc583`.
+- Backend build/unit tests passed on that exact head: [WF-05 run #2072](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/39565404120) and [run #2073](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/39565424068).
+- Prettier passed on the same exact head: [WF-02 run #1524](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/39565404108) and [run #1525](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/39565424011).
+- [x] Verify duplicate idempotency lookups filter by account, environment, and key.
+- [x] Verify exact-head CI and squash-merge only after GitHub accepted the merge without a protection bypass.
 - Safety: no production migration/deployment; LIVE trading remains disabled.
 
 ## PR #878 — merged authorization scope mismatch guard — 2026-10-21
@@ -202,7 +214,8 @@ Standardize runtime ownership and provider/domain/event contracts incrementally.
 - [x] Add focused tests for duplicate keys, conflicting fingerprints, separate account scopes, persisted results and unknown outcomes.
 - [x] Wire `TceExecutionOrchestrator` into the production auto-sell entry point (`ProfitExitExecutionService`) and inject the Supabase durable store behind `TCE_DURABLE_EXECUTION_IDEMPOTENCY_ENABLED=true`.
 - [ ] Enable the durable-store flag only after migration `202610210001_tce_execution_idempotency.sql` is applied and staging verification passes.
-- [ ] Enforce account/environment scope, current authorization validation and risk/safety gate before any non-PAPER dispatch.
+- [x] Enforce account/environment scope, current authorization validation and risk/safety gate before any non-PAPER dispatch.
+      Evidence: PR [#875](https://github.com/phanthienquoc/TCE-dashboard/pull/875) proves an explicit executor is required for new LIVE actions; PR [#878](https://github.com/phanthienquoc/TCE-dashboard/pull/878) rejects mismatched account/environment authorization; [trading authorization tests](https://github.com/phanthienquoc/TCE-dashboard/blob/master/libs/tce/src/execution/trading-authorization.spec.ts) cover readiness failures.
 - [x] Cover store-reservation failure (no provider dispatch, retryable READY order), persistence failure after dispatch (UNKNOWN), and existing PENDING reservation (reconciliation required).
 - [ ] Complete remaining failure-path tests for partial fills, provider outage and reconciliation from provider truth.
 - [x] Add a timeout-after-dispatch regression test proving the result stays UNKNOWN, reconciliation is required, and a duplicate request does not call the provider again (test-store contract; commit `a50c30891a38707efd0e7f80dae7595918e0cca4`). Backend build/unit tests and Prettier passed on PR head `6f63b025336d2158ea9d38f26f88816cc222c963` (runs #1925 and #1428). This test uses an in-memory implementation of the durable-store interface; production Supabase adapter integration/reconciliation remains a separate verification item.
