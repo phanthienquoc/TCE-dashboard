@@ -75,8 +75,24 @@ export function reconcileOrderStates(
   const matchedProviderIds = new Set<string>();
   const deltas: ReconciliationDelta[] = [];
 
-  for (const local of localOrders) {
-    const matchingProviders = providerOrders.filter(candidate => identityMatches(local, candidate));
+  // Build the complete identity graph first. Matching must be one-to-one; choosing a
+  // row inside the loop can otherwise reconcile one provider order against two locals.
+  const providersByLocal = localOrders.map(local =>
+    providerOrders.filter(candidate => identityMatches(local, candidate))
+  );
+  const localMatchCountsByProviderId = new Map<string, number>();
+  for (const matchingProviders of providersByLocal) {
+    for (const provider of matchingProviders) {
+      localMatchCountsByProviderId.set(
+        provider.providerOrderId,
+        (localMatchCountsByProviderId.get(provider.providerOrderId) ?? 0) + 1
+      );
+    }
+  }
+
+  for (let localIndex = 0; localIndex < localOrders.length; localIndex++) {
+    const local = localOrders[localIndex]!;
+    const matchingProviders = providersByLocal[localIndex]!;
     const provider = matchingProviders[0];
     const localQuantityError = quantityValidationReason(
       local.quantity,
@@ -103,9 +119,9 @@ export function reconcileOrderStates(
         localOrderId: local.id,
         disposition: 'RECONCILIATION_REQUIRED',
         localStatus: local.status,
-        providerStatus: provider.status,
+        providerStatus: provider?.status,
         localFilledQuantity: local.filledQuantity,
-        providerFilledQuantity: provider.filledQuantity,
+        providerFilledQuantity: provider?.filledQuantity,
         reason: 'Multiple provider orders match this local identity; provider truth is ambiguous.',
       });
       continue;
@@ -122,6 +138,21 @@ export function reconcileOrderStates(
     }
 
     matchedProviderIds.add(provider.providerOrderId);
+    if ((localMatchCountsByProviderId.get(provider.providerOrderId) ?? 0) > 1) {
+      deltas.push({
+        localOrderId: local.id,
+        providerOrderId: provider.providerOrderId,
+        disposition: 'RECONCILIATION_REQUIRED',
+        localStatus: local.status,
+        providerStatus: provider.status,
+        localFilledQuantity: local.filledQuantity,
+        providerFilledQuantity: provider.filledQuantity,
+        reason:
+          'One provider order matches multiple local orders; provider-to-local identity is ambiguous.',
+      });
+      continue;
+    }
+
     const providerQuantityError = quantityValidationReason(
       provider.quantity,
       provider.filledQuantity,
