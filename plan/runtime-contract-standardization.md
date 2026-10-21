@@ -191,3 +191,5 @@ Standardize runtime ownership and provider/domain/event contracts incrementally.
 - [ ] Verify backend build/unit tests and Prettier on the exact latest PR head, including any formatter-generated commit.
 - [ ] Merge only after all required checks pass on the exact latest head.
 - Safety: no production migration/deployment; durable idempotency rollout flag remains off; LIVE trading remains disabled.
+
+- CI checkpoint (2026-10-21): Prettier auto-format advanced PR #863 to `fcd079bac3377753f46771e2ee98fcf75ae806b8`; the checks on the earlier head do not verify this formatted commit. This plan-only commit triggers backend build/unit tests and Prettier on the formatted head. Do not merge until the latest-head checks complete successfully.
