@@ -1,3 +1,14 @@
+## Automation recovery and PR #867 latest CI — 2026-10-21
+
+- Schedule root cause: an earlier assistant disabled the hourly `TCE PR CI & Plan Loop` after a plan-file write was blocked by a safety gate. This was incorrect; a blocker must not pause the schedule. The automation is re-enabled with explicit retry/continue instructions.
+- PR [#867](https://github.com/phanthienquoc/TCE-dashboard/pull/867) remains open on `fix/reconciliation-ambiguous-provider-orphan`.
+- Latest observed PR head: `e8d2af28ca0e290db790098d88e060ad5103e153`.
+- Backend build and unit tests now pass at that exact head: [WF-05 run #1997](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/39544850950).
+- CI coverage is still incomplete: the exact-head check-runs API currently shows only `Backend unit tests`. WF-02 Prettier workflow is configured for pushes/PRs to master only, and there is no verified Prettier result for this feature head. This is a missing required check, so do not merge yet.
+- PR metadata still reports `mergeable:false` and there is no submitted review. Re-check the exact head/checks and GitHub-enforced review/protection before any merge. Do not bypass branch protection.
+- The regression work now computes connected local/provider identity ambiguity before emitting deltas; the latest backend CI passes. Remaining verification gate: make Prettier run on the current feature PR/head or otherwise obtain a valid exact-head formatting result without bypassing protections.
+- No production migrations/deployments and no LIVE trading. Keep hourly automation enabled.
+
 ## Current task: Prevent ambiguous provider rows from becoming orphans — 2026-10-21
 
 - [x] When provider/local matching is ambiguous, fail closed with `RECONCILIATION_REQUIRED`.
