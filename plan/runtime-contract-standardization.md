@@ -5,6 +5,7 @@
 - Backend build/unit tests passed on that exact head: [WF-05 run #2005](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/39561067201) and [run #2006](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/39561076085).
 - Prettier passed on that exact head: [WF-02 run #1457](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/39561066988) and [run #1458](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/39561076139).
 - [x] Ambiguous provider rows no longer emit duplicate orphan deltas; affected local orders fail closed with `RECONCILIATION_REQUIRED`.
+- Documentation evidence is being carried by PR [#869](https://github.com/phanthienquoc/TCE-dashboard/pull/869); verify its exact final head before merge.
 - Safety: no production migration/deployment; LIVE trading remains disabled.
 
 ## PR #868 — merged unconfirmed SSI submission handling — 2026-10-21
