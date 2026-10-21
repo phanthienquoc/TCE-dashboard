@@ -4,9 +4,19 @@ on:
   push:
     branches:
       - master
+      - staging
+      - development
+      - 'fix/**'
+      - 'feat/**'
+      - 'task/**'
+      - 'phase/**'
+      - 'docs/**'
+      - 'test/**'
   pull_request:
     branches:
       - master
+      - staging
+      - development
   workflow_dispatch:
 
 permissions:
