@@ -224,3 +224,80 @@ test('invalid quantities on unmatched orders are not mislabeled missing or orpha
   );
   assert.equal(providerDelta.disposition, 'RECONCILIATION_REQUIRED');
 });
+
+
+test('fails closed when multiple provider orders match one local order identity', () => {
+  const duplicateProviderId = reconcileOrderStates(
+    [
+      {
+        id: 'local-duplicate',
+        symbol: 'DPM',
+        side: 'BUY',
+        quantity: 100,
+        filledQuantity: 0,
+        status: 'SUBMITTED',
+        providerOrderId: 'ssi-duplicate',
+      },
+    ],
+    [
+      {
+        providerOrderId: 'ssi-duplicate',
+        symbol: 'DPM',
+        side: 'BUY',
+        quantity: 100,
+        filledQuantity: 20,
+        status: 'PARTIALLY_FILLED',
+      },
+      {
+        providerOrderId: 'ssi-duplicate',
+        symbol: 'DPM',
+        side: 'BUY',
+        quantity: 100,
+        filledQuantity: 40,
+        status: 'PARTIALLY_FILLED',
+      },
+    ]
+  );
+
+  assert.equal(duplicateProviderId.length, 1);
+  assert.equal(duplicateProviderId[0]?.disposition, 'RECONCILIATION_REQUIRED');
+  assert.match(duplicateProviderId[0]?.reason ?? '', /ambiguous/i);
+
+  const duplicateClientRequestId = reconcileOrderStates(
+    [
+      {
+        id: 'local-request',
+        symbol: 'FPT',
+        side: 'SELL',
+        quantity: 10,
+        filledQuantity: 0,
+        status: 'SUBMITTED',
+        clientRequestId: 'client-duplicate',
+      },
+    ],
+    [
+      {
+        providerOrderId: 'ssi-a',
+        clientRequestId: 'client-duplicate',
+        symbol: 'FPT',
+        side: 'SELL',
+        quantity: 10,
+        filledQuantity: 3,
+        status: 'PARTIALLY_FILLED',
+      },
+      {
+        providerOrderId: 'ssi-b',
+        clientRequestId: 'client-duplicate',
+        symbol: 'FPT',
+        side: 'SELL',
+        quantity: 10,
+        filledQuantity: 5,
+        status: 'PARTIALLY_FILLED',
+      },
+    ]
+  );
+
+  assert.equal(duplicateClientRequestId.length, 1);
+  assert.equal(duplicateClientRequestId[0]?.disposition, 'RECONCILIATION_REQUIRED');
+  assert.match(duplicateClientRequestId[0]?.reason ?? '', /ambiguous/i);
+});
