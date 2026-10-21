@@ -1,3 +1,11 @@
+## Automation recovery — PR #865 merged — 2026-10-21
+
+- PR [#865](https://github.com/phanthienquoc/TCE-dashboard/pull/865) was squash-merged at `d4ff9a4ae469e8c4124927e11d13046ef6ec77fd`.
+- Exact verified head: `5f865d751dbfa695c8439f8a5a21d836274deb46`.
+- Backend build/unit tests passed on that exact head: [run #1943](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/39539207470). Prettier passed: [run #1446](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/39539207463).
+- This closes the one-provider-to-multiple-local identity ambiguity task. The next safe task should continue reconciliation reliability (for example, ensure ambiguous shared provider IDs cannot also produce a duplicate ORPHAN disposition, and cover that behavior with regression tests) or another earliest unblocked unchecked runtime-contract task.
+- Automation remains enabled and must not be paused on blockers. No production migration/deployment and no LIVE trading.
+
 ## Automation checkpoint — PR #865 verification blocker — 2026-10-21
 
 - PR [#865](https://github.com/phanthienquoc/TCE-dashboard/pull/865) is open on dedicated branch `fix/reconciliation-provider-local-one-to-many`.
