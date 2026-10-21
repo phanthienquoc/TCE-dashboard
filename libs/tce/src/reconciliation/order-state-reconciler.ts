@@ -101,33 +101,58 @@ export function reconcileOrderStates(
   // Mark ambiguity across the complete bipartite identity graph before emitting
   // any deltas. This prevents an unvisited local from being classified as missing
   // while another local has already proven the same graph ambiguous.
+  const localIdsByProviderId = new Map<string, Set<string>>();
+  const providerIdsByLocalId = new Map<string, Set<string>>();
   for (let localIndex = 0; localIndex < localOrders.length; localIndex++) {
     const local = localOrders[localIndex]!;
     const matchingProviders = providersByLocal[localIndex]!;
-    if (
-      matchingProviders.length > 1 ||
-      matchingProviders.some(
-        provider =>
-          (localMatchCountsByProviderId.get(provider.providerOrderId) ?? 0) > 1 ||
-          (providerRowCounts.get(provider.providerOrderId) ?? 0) > 1
-      )
-    ) {
+    const relatedIds = new Set(matchingProviders.map(provider => provider.providerOrderId));
+    providerIdsByLocalId.set(local.id, relatedIds);
+    for (const provider of matchingProviders) {
+      const localIds = localIdsByProviderId.get(provider.providerOrderId) ?? new Set<string>();
+      localIds.add(local.id);
+      localIdsByProviderId.set(provider.providerOrderId, localIds);
+    }
+  }
+
+  const ambiguousProviderIds = new Set<string>();
+  const ambiguousLocalIds = new Set<string>();
+  // Mark the entire connected component of any non-one-to-one identity mapping.
+  // The relation is built across both provider ID and client request ID matches.
+  const ambiguousLocalQueue: string[] = [];
+  for (const local of localOrders) {
+    const providerIds = providerIdsByLocalId.get(local.id) ?? new Set<string>();
+    const hasMultipleProviders = providerIds.size > 1;
+    const hasProviderMatchingMultipleLocals = [...providerIds].some(
+      providerId => (localIdsByProviderId.get(providerId)?.size ?? 0) > 1
+    );
+    if (hasMultipleProviders || hasProviderMatchingMultipleLocals) {
       ambiguousLocalIds.add(local.id);
-      for (const provider of matchingProviders) {
-        ambiguousProviderIds.add(provider.providerOrderId);
-        matchedProviderIds.add(provider.providerOrderId);
-        for (const otherLocal of localOrders) {
-          if (identityMatches(otherLocal, provider)) ambiguousLocalIds.add(otherLocal.id);
+      ambiguousLocalQueue.push(local.id);
+    }
+  }
+  while (ambiguousLocalQueue.length > 0) {
+    const localId = ambiguousLocalQueue.pop()!;
+    for (const providerId of providerIdsByLocalId.get(localId) ?? []) {
+      ambiguousProviderIds.add(providerId);
+      for (const relatedLocalId of localIdsByProviderId.get(providerId) ?? []) {
+        if (!ambiguousLocalIds.has(relatedLocalId)) {
+          ambiguousLocalIds.add(relatedLocalId);
+          ambiguousLocalQueue.push(relatedLocalId);
         }
-        for (const relatedProvider of providerOrders) {
-          if (identityMatches(local, relatedProvider)) {
-            ambiguousProviderIds.add(relatedProvider.providerOrderId);
-            matchedProviderIds.add(relatedProvider.providerOrderId);
-          }
+      }
+      for (const provider of providerOrders) {
+        if (
+          provider.providerOrderId === providerId &&
+          (providerRowCounts.get(providerId) ?? 0) > 1 &&
+          !ambiguousProviderIds.has(provider.providerOrderId)
+        ) {
+          ambiguousProviderIds.add(provider.providerOrderId);
         }
       }
     }
   }
+
 
   for (let localIndex = 0; localIndex < localOrders.length; localIndex++) {
     const local = localOrders[localIndex]!;
