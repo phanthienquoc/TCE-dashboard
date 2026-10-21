@@ -408,13 +408,13 @@ export function reconcileOrderStates(
   for (const provider of providerOrders) {
     if (ambiguousProviderIds.has(provider.providerOrderId)) continue;
     if (matchedProviderIds.has(provider.providerOrderId)) continue;
-    // If a local order carries this request identity, do not emit an additional
-    // provider-only delta. The local-order pass is responsible for the single
-    // RECONCILIATION_REQUIRED result for the ambiguous identity component.
+    // A provider row with a request ID used by any local order is already
+    // accounted for by the local-order pass. Suppress its provider-only delta.
     if (
       provider.clientRequestId &&
       localOrders.some(local => local.clientRequestId === provider.clientRequestId)
     ) {
+      matchedProviderIds.add(provider.providerOrderId);
       continue;
     }
     // Don't classify a provider as an orphan when another local order already
