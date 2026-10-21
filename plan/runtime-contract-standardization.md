@@ -159,3 +159,13 @@ Standardize runtime ownership and provider/domain/event contracts incrementally.
 - CI checkpoint: backend build/unit tests passed on pre-format commit `b39262813ba723edc3a3dc0d95153df6aa603df3` (run [#1930](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/39526077460)); Prettier passed on that same head (run [#1431](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/39526077465)). Prettier then applied formatting in commit `a7964aa88d00ed7c7a6a4c257efb4f5fddd0e2cf`; the branch was re-squashed to `a5f4dee33c927228168f925dff2c497d34166244`. The formatted head has not yet emitted new checks, so latest-head verification remains pending and merge is prohibited until verified.
 
 - CI checkpoint (2026-10-21): Prettier workflow auto-format commit advanced the PR head to `62d48b040a401674e34a6943629a9f47607a6758`; checks have not yet been triggered for that exact SHA. Re-run latest-head backend build/unit tests and Prettier before considering merge.
+
+
+## Current task: Provider outage and timeout failure-path handling — 2026-10-21
+
+- [x] Normalize thrown SSI order-query failures to a structured retryable `PROVIDER_UNAVAILABLE` result instead of leaking exceptions.
+- [x] Normalize provider timeout exceptions to `TIMEOUT_UNKNOWN`; do not represent failed provider reads as an empty successful snapshot.
+- [x] Normalize thrown account-resolution failures to a structured retryable result.
+- [ ] Verify backend build/unit tests and Prettier on the exact latest PR head; wait for all required checks to complete before merge.
+- [ ] After merge, continue with provider-truth reconciliation tests covering partial fills and provider/local drift.
+- Safety: no production migration/deployment; durable idempotency rollout flag remains off; LIVE trading remains disabled.
