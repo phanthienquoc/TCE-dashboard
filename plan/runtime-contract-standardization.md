@@ -1,8 +1,20 @@
-## Current task: Preserve explicit SSI provider rejection semantics — 2026-10-21
+## Current task: Record PR #883 evidence and close failure-path test checklist — 2026-10-21
 
-- [x] Add regression coverage proving an explicit SSI rejection returns `PROVIDER_REJECTED` and is not represented as a successful empty snapshot.
-- [ ] Verify backend build/unit tests and Prettier on the exact latest PR head, including any formatter-generated commit.
+- [x] Record PR #883's verified merge SHA and exact-head CI evidence.
+- [x] Confirm regression coverage for partial actions, provider outage/rejection, and provider-truth reconciliation.
+- [ ] Verify backend build/unit tests and Prettier on the exact latest documentation PR head.
+- CI recovery: Prettier generated commit `fd591789bfd1f76d9668f4b262517dbf7f6599a5` with CI skipped; verify checks again on the resulting head.
 - [ ] Merge only after all required checks pass on the exact latest head and GitHub accepts the merge without bypassing protection.
+- Safety: documentation only; no production migration/deployment; LIVE trading remains disabled.
+
+## PR #883 — merged explicit SSI provider rejection regression — 2026-10-21
+
+- PR [#883](https://github.com/phanthienquoc/TCE-dashboard/pull/883) was squash-merged at `3ead952afb002e4621777f304f912bb979d4d964`; verified against current `master`.
+- Exact tested PR head: `3a23d426b52c52339bef986117638447b0e48739`.
+- Backend build/unit tests passed on that exact head: [WF-05 run #2094](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/39566781904) and [run #2095](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/39566798347).
+- Prettier passed on the same exact head: [WF-02 run #1546](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/39566782025) and [run #1547](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/39566798272).
+- [x] Surface explicit SSI provider rejection as `PROVIDER_REJECTED`, never as a successful empty snapshot.
+- [x] Verify exact-head CI and squash-merge only after GitHub accepted the merge without a protection bypass.
 - Safety: no production migration/deployment; LIVE trading remains disabled.
 
 ## PR #882 — merged reconciliation authorization readiness guard — 2026-10-21
@@ -245,7 +257,8 @@ Standardize runtime ownership and provider/domain/event contracts incrementally.
 - [x] Enforce account/environment scope, current authorization validation and risk/safety gate before any non-PAPER dispatch.
       Evidence: PR [#875](https://github.com/phanthienquoc/TCE-dashboard/pull/875) proves an explicit executor is required for new LIVE actions; PR [#878](https://github.com/phanthienquoc/TCE-dashboard/pull/878) rejects mismatched account/environment authorization; [trading authorization tests](https://github.com/phanthienquoc/TCE-dashboard/blob/master/libs/tce/src/execution/trading-authorization.spec.ts) cover readiness failures.
 - [x] Cover store-reservation failure (no provider dispatch, retryable READY order), persistence failure after dispatch (UNKNOWN), and existing PENDING reservation (reconciliation required).
-- [ ] Complete remaining failure-path tests for partial fills, provider outage and reconciliation from provider truth.
+- [x] Complete remaining failure-path tests for partial fills, provider outage and reconciliation from provider truth.
+      Evidence: DRE PARTIAL no-redispatch [PR #874](https://github.com/phanthienquoc/TCE-dashboard/pull/874), reconciliation sweep statuses [PR #877](https://github.com/phanthienquoc/TCE-dashboard/pull/877), authorization failure paths [PR #881](https://github.com/phanthienquoc/TCE-dashboard/pull/881) and [PR #882](https://github.com/phanthienquoc/TCE-dashboard/pull/882), explicit provider rejection [PR #883](https://github.com/phanthienquoc/TCE-dashboard/pull/883); provider-outage and provider-truth cases are in the linked reconciliation adapter and order-state reconciler specs.
 - [x] Add a timeout-after-dispatch regression test proving the result stays UNKNOWN, reconciliation is required, and a duplicate request does not call the provider again (test-store contract; commit `a50c30891a38707efd0e7f80dae7595918e0cca4`). Backend build/unit tests and Prettier passed on PR head `6f63b025336d2158ea9d38f26f88816cc222c963` (runs #1925 and #1428). This test uses an in-memory implementation of the durable-store interface; production Supabase adapter integration/reconciliation remains a separate verification item.
 - [x] Ensure unknown outcomes require reconciliation and can never be blindly resubmitted; covered by PRs #868, #870, #871 and #872 regression tests.
 
