@@ -139,12 +139,15 @@ export function reconcileOrderStates(
       continue;
     }
     if (!provider) {
+      const matchesAmbiguousLocal = ambiguousLocalIds.has(local.id);
       deltas.push({
         localOrderId: local.id,
-        disposition: 'MISSING_PROVIDER_ORDER',
+        disposition: matchesAmbiguousLocal ? 'RECONCILIATION_REQUIRED' : 'MISSING_PROVIDER_ORDER',
         localStatus: local.status,
         localFilledQuantity: local.filledQuantity,
-        reason: 'Local order has no matching provider order.',
+        reason: matchesAmbiguousLocal
+          ? 'Local order is part of an ambiguous provider identity mapping.'
+          : 'Local order has no matching provider order.',
       });
       continue;
     }
