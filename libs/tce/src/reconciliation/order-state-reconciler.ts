@@ -161,11 +161,7 @@ export function reconcileOrderStates(
     const ambiguousByRequestId =
       !!local.clientRequestId &&
       ((localIdsByClientRequestId.get(local.clientRequestId)?.size ?? 0) > 1 ||
-        providerOrders.some(
-          provider =>
-            provider.clientRequestId === local.clientRequestId &&
-            provider.providerOrderId !== local.providerOrderId
-        ));
+        (providerIdsByRequestId.get(local.clientRequestId)?.size ?? 0) > 0);
     if (matchedProviderIds.size > 1 || ambiguousByProviderId || ambiguousByRequestId) {
       ambiguousLocalIds.add(local.id);
       localQueue.push(local.id);
