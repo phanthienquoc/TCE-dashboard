@@ -2,6 +2,7 @@
 
 - [x] Add regression coverage proving a persisted DRE `PARTIAL` action is returned unchanged and the executor is not called again.
 - [ ] Verify backend build/unit tests and Prettier on the exact latest PR head, including any formatter-generated commit.
+- CI recovery: Prettier advanced the branch to `1e0b8e6f9baac6ddc8471ec1434e1d63c1b9820f`; results on the previous head do not verify this formatted commit.
 - [ ] Merge only after all required checks pass on the exact latest head and GitHub accepts the merge without bypassing protection.
 - Safety: no production migration/deployment; LIVE trading remains disabled.
 
