@@ -114,6 +114,25 @@ test('fails closed on account/environment authorization mismatch', async () => {
   assert.equal(result.error?.code, 'INVALID_QUERY');
 });
 
+test('fails closed when authorization environment does not match the reconciliation query', async () => {
+  let ssiCalled = false;
+  const instance = adapter();
+  (instance as any).authorization.ensureAuthorized = async () => ({
+    ...readyAuth,
+    data: { ...readyAuth.data, environment: 'PAPER' },
+  });
+  (instance as any).ssi.current = async () => {
+    ssiCalled = true;
+    throw new Error('must not read SSI');
+  };
+
+  const result = await instance.listOpenOrders(query());
+
+  assert.equal(result.ok, false);
+  assert.equal(result.error?.code, 'INVALID_QUERY');
+  assert.equal(ssiCalled, false);
+});
+
 test('unknown provider status is surfaced separately and never treated as open', async () => {
   const result = await adapter([
     {
