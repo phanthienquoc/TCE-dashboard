@@ -241,7 +241,7 @@ Standardize runtime ownership and provider/domain/event contracts incrementally.
 - [x] Emit DRE campaign status, rolling sequence/position, T+2 settlement and capital-recycling transitions through the shared event contract; event publishing has no order-dispatch authority.
 - [x] Enforce DRE_ENABLED and DRE_LIVE_EXECUTION at SafeOrderExecutionService.submit before database or provider work.
 - [x] Verify DRE owns campaign/sequence/T+2/continuity/GAP; TCE Core owns strategy decisions; only the authorized execution path dispatches broker commands.
-  Evidence: [DRE README](https://github.com/phanthienquoc/TCE-dashboard/blob/master/apps/service/src/dre/README.md), [DRE types](https://github.com/phanthienquoc/TCE-dashboard/blob/master/apps/service/src/dre/dre.types.ts), [DRE production boundary](https://github.com/phanthienquoc/TCE-dashboard/blob/master/apps/service/src/dre/dre-production.service.ts), and pass-through/explicit-executor regression coverage in [PR #875](https://github.com/phanthienquoc/TCE-dashboard/pull/875), [PR #876](https://github.com/phanthienquoc/TCE-dashboard/pull/876), [PR #873](https://github.com/phanthienquoc/TCE-dashboard/pull/873).
+      Evidence: [DRE README](https://github.com/phanthienquoc/TCE-dashboard/blob/master/apps/service/src/dre/README.md), [DRE types](https://github.com/phanthienquoc/TCE-dashboard/blob/master/apps/service/src/dre/dre.types.ts), [DRE production boundary](https://github.com/phanthienquoc/TCE-dashboard/blob/master/apps/service/src/dre/dre-production.service.ts), and pass-through/explicit-executor regression coverage in [PR #875](https://github.com/phanthienquoc/TCE-dashboard/pull/875), [PR #876](https://github.com/phanthienquoc/TCE-dashboard/pull/876), [PR #873](https://github.com/phanthienquoc/TCE-dashboard/pull/873).
 
 ## Phase 3 — Unified transports
 
@@ -347,7 +347,7 @@ Standardize runtime ownership and provider/domain/event contracts incrementally.
 - [x] Production auto-sell code path is wired to the durable orchestrator behind a rollout flag.
 - [ ] Durable idempotency is enabled in production only after migration and staging validation.
 - [x] Unknown outcomes require reconciliation, not blind retry.
-  Evidence: exact-head regression coverage in [PR #868](https://github.com/phanthienquoc/TCE-dashboard/pull/868), [PR #870](https://github.com/phanthienquoc/TCE-dashboard/pull/870), [PR #871](https://github.com/phanthienquoc/TCE-dashboard/pull/871), [PR #872](https://github.com/phanthienquoc/TCE-dashboard/pull/872), and [PR #873](https://github.com/phanthienquoc/TCE-dashboard/pull/873).
+      Evidence: exact-head regression coverage in [PR #868](https://github.com/phanthienquoc/TCE-dashboard/pull/868), [PR #870](https://github.com/phanthienquoc/TCE-dashboard/pull/870), [PR #871](https://github.com/phanthienquoc/TCE-dashboard/pull/871), [PR #872](https://github.com/phanthienquoc/TCE-dashboard/pull/872), and [PR #873](https://github.com/phanthienquoc/TCE-dashboard/pull/873).
 - [ ] Compatibility and rollout gates pass before production migration/deployment.
 
 ## Safety notes
