@@ -120,7 +120,9 @@ describe('SafeOrderExecutionService production safety', () => {
     vi.stubEnv('DRE_ENABLED', 'true');
     vi.stubEnv('DRE_LIVE_EXECUTION', 'true');
     const { service, repository } = makeService();
-    const executor = { execute: vi.fn().mockResolvedValue({ accepted: true, externalId: 'ssi-order-1' }) };
+    const executor = {
+      execute: vi.fn().mockResolvedValue({ accepted: true, externalId: 'ssi-order-1' }),
+    };
 
     await expect(service.submit(action, 'run-1', 'LIVE', executor)).resolves.toEqual({
       status: 'SUBMITTED',
