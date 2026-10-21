@@ -1,8 +1,18 @@
-## Current task: Require an explicit executor for LIVE DRE submissions — 2026-10-21
+## Current task: Preserve precomputed DRE action at execution boundary — 2026-10-21
 
-- [x] Add regression coverage proving LIVE submission without an explicit execution adapter fails before a new PENDING action is persisted.
+- [x] Add regression coverage proving the explicit LIVE executor receives the original precomputed action unchanged.
 - [ ] Verify backend build/unit tests and Prettier on the exact latest PR head, including any formatter-generated commit.
 - [ ] Merge only after all required checks pass on the exact latest head and GitHub accepts the merge without bypassing protection.
+- Safety: no production migration/deployment; LIVE trading remains disabled.
+
+## PR #875 — merged explicit LIVE DRE executor guard — 2026-10-21
+
+- PR [#875](https://github.com/phanthienquoc/TCE-dashboard/pull/875) was squash-merged at `0fa79bf8c585669072f9b522f0ac1fd46430fd00`; verified against current `master`.
+- Exact tested PR head: `be084e210a36fb467ffaa0331f29e9a2c77ec678`.
+- Backend build/unit tests passed on that exact head: [WF-05 run #2047](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/39563912827) and [run #2048](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/39563929452).
+- Prettier passed on the same exact head: [WF-02 run #1499](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/39563912843) and [run #1500](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/39563929434).
+- [x] Reject new LIVE actions without an explicit execution adapter before persisting a PENDING record.
+- [x] Verify exact-head CI and squash-merge only after GitHub accepted the merge without a protection bypass.
 - Safety: no production migration/deployment; LIVE trading remains disabled.
 
 ## PR #874 — merged DRE PARTIAL no-redispatch guard — 2026-10-21
