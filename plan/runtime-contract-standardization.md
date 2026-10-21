@@ -1,28 +1,19 @@
-## Current task: Prevent terminal UNKNOWN reservation overwrite — 2026-10-21
+## Current task: Preserve persisted UNKNOWN outcomes on duplicate execution requests — 2026-10-21
 
-- [x] Add adapter regression coverage proving a later completion attempt cannot overwrite an existing terminal `UNKNOWN` reservation.
+- [x] Add orchestrator regression coverage proving a duplicate request with an existing durable `UNKNOWN` result requires reconciliation and never calls the provider again.
 - [ ] Verify backend build/unit tests and Prettier on the exact latest PR head, including any formatter-generated commit.
 - [ ] Merge only after all required checks pass on the exact latest head and GitHub accepts the merge without bypassing protection.
 - Safety: no production migration/deployment; LIVE trading remains disabled.
 
-## PR #870 — merged durable UNKNOWN reservation regression — 2026-10-21
+## PR #871 — merged terminal UNKNOWN completion guard — 2026-10-21
 
-- PR [#870](https://github.com/phanthienquoc/TCE-dashboard/pull/870) was squash-merged at `e6445f94af99938d910aa54de27c308e5113bdaa`; verified against current `master`.
-- Exact tested PR head: `f9f496783644143e8e2678de90020fd23d56389a`.
-- Backend build/unit tests passed on that exact head: [WF-05 run #2021](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/39562146435) and [run #2022](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/39562157510).
-- Prettier passed on the same exact head: [WF-02 run #1473](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/39562146443) and [run #1474](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/39562157494).
-- [x] Preserve the existing `UNKNOWN` result and update timestamp when a duplicate reservation is attempted.
+- PR [#871](https://github.com/phanthienquoc/TCE-dashboard/pull/871) was squash-merged at `b50ba514c3cf7a06dcdd54a9046f36b7aefa9b2c`; verified against current `master`.
+- Exact tested PR head: `8f6489c8ed021cabde13478ef026c72f466f0488`.
+- Backend build/unit tests passed on that exact head: [WF-05 run #2025](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/39562456465) and [run #2026](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/39562471988).
+- Prettier passed on the same exact head: [WF-02 run #1477](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/39562456497) and [run #1478](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/39562472054).
+- [x] Prevent a later completion attempt from overwriting a terminal `UNKNOWN` reservation.
 - [x] Verify exact-head CI and squash-merge only after GitHub accepted the merge without a protection bypass.
 - Safety: no production migration/deployment; LIVE trading remains disabled.
-
-## PR #869 — plan evidence merged — 2026-10-21
-
-- PR [#869](https://github.com/phanthienquoc/TCE-dashboard/pull/869) was squash-merged at `db28069b0793ada11458abb30f0ac8f5cc61647a`; verified against current `master`.
-- Exact tested PR head: `f0433ca1710673f68437ded07d875dc24dd92f97`.
-- Backend build/unit tests passed on that exact head: [WF-05 run #2017](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/39561899384) and [run #2018](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/39561906201).
-- Prettier passed on the same exact head: [WF-02 run #1469](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/39561899175) and [run #1470](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/39561906195).
-- [x] Record PR #868's verified merge SHA and exact-head CI evidence in the implementation plan.
-- Safety: documentation only; no production migration/deployment; LIVE trading remains disabled.
 
 ## PR #867 — merged ambiguous-provider orphan suppression — 2026-10-21
 
@@ -143,7 +134,7 @@ Standardize runtime ownership and provider/domain/event contracts incrementally.
 - [x] Cover store-reservation failure (no provider dispatch, retryable READY order), persistence failure after dispatch (UNKNOWN), and existing PENDING reservation (reconciliation required).
 - [ ] Complete remaining failure-path tests for partial fills, provider outage and reconciliation from provider truth.
 - [x] Add a timeout-after-dispatch regression test proving the result stays UNKNOWN, reconciliation is required, and a duplicate request does not call the provider again (test-store contract; commit `a50c30891a38707efd0e7f80dae7595918e0cca4`). Backend build/unit tests and Prettier passed on PR head `6f63b025336d2158ea9d38f26f88816cc222c963` (runs #1925 and #1428). This test uses an in-memory implementation of the durable-store interface; production Supabase adapter integration/reconciliation remains a separate verification item.
-- [ ] Ensure unknown outcomes require reconciliation and can never be blindly resubmitted.
+- [x] Ensure unknown outcomes require reconciliation and can never be blindly resubmitted; covered by PRs #868, #870 and #871 regression tests.
 
 ## Phase 5 — Rollout
 
