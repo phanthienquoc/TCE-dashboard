@@ -1,9 +1,19 @@
-## Current task: Prevent redispatch of existing PARTIAL DRE actions — 2026-10-21
+## Current task: Require an explicit executor for LIVE DRE submissions — 2026-10-21
 
-- [x] Add regression coverage proving a persisted DRE `PARTIAL` action is returned unchanged and the executor is not called again.
+- [x] Add regression coverage proving LIVE submission without an explicit execution adapter fails before a new PENDING action is persisted.
 - [ ] Verify backend build/unit tests and Prettier on the exact latest PR head, including any formatter-generated commit.
-- CI recovery: Prettier advanced the branch to `1e0b8e6f9baac6ddc8471ec1434e1d63c1b9820f`; results on the previous head do not verify this formatted commit.
 - [ ] Merge only after all required checks pass on the exact latest head and GitHub accepts the merge without bypassing protection.
+- Safety: no production migration/deployment; LIVE trading remains disabled.
+
+## PR #874 — merged DRE PARTIAL no-redispatch guard — 2026-10-21
+
+- PR [#874](https://github.com/phanthienquoc/TCE-dashboard/pull/874) was squash-merged at `3f853f150f2a6ae11c41f81aa847ef4582e4441d`; verified against current `master`.
+- Exact tested PR head: `9ee3a3ec5644536985524f81982dfc241b8619a6`.
+- Backend build/unit tests passed on that exact head: [WF-05 run #2042](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/39563605631) and [run #2043](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/39563611272).
+- Prettier passed on the same exact head: [WF-02 run #1494](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/39563605691) and [run #1495](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/39563611279).
+- [x] Return persisted DRE `PARTIAL` actions unchanged without submitting duplicate broker orders.
+- [x] Verify exact-head CI and squash-merge only after GitHub accepted the merge without a protection bypass.
+- CI note: one concurrent Prettier push failed with a non-fast-forward rejection; the formatter's successful commit was followed by a fresh plan commit and green checks on the final head.
 - Safety: no production migration/deployment; LIVE trading remains disabled.
 
 ## PR #873 — merged DRE UNKNOWN no-redispatch guard — 2026-10-21
