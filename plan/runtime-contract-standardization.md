@@ -3,6 +3,7 @@
 - [x] Record PR #884's verified merge SHA and exact-head CI evidence.
 - [x] Mark the DRE/TCE ownership boundary and no-blind-retry safety invariants complete using source and regression evidence.
 - [ ] Verify backend build/unit tests and Prettier on the exact latest documentation PR head.
+- CI recovery: concurrent Prettier runs caused a non-fast-forward push rejection; successful formatting commit advanced the branch to `bc82f9ab50b7043597d77a54925c058333f3e51c`, so rerun checks on the resulting head.
 - [ ] Merge only after all required checks pass on the exact latest head and GitHub accepts the merge without bypassing protection.
 - Next dependency-safe task: design and test durable retry/replay for failed cross-database lifecycle-event publication; do not apply migrations or enable production routes without authorization.
 - Safety: documentation only; no production migration/deployment; LIVE trading remains disabled.
