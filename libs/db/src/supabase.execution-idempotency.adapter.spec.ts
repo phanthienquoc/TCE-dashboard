@@ -103,6 +103,49 @@ describe('SupabaseExecutionIdempotencyAdapter', () => {
     expect(result.kind).toBe('FINGERPRINT_CONFLICT');
   });
 
+  it('returns an existing UNKNOWN reservation without resetting or overwriting it', async () => {
+    const unknownResult = {
+      ok: false,
+      operation: 'SUBMIT',
+      status: 'UNKNOWN',
+      executionIntentId: 'intent-1',
+      correlationId: 'corr-1',
+      idempotencyKey: 'idem-1',
+      clientRequestId: 'client-1',
+      error: {
+        code: 'TIMEOUT_UNKNOWN',
+        message: 'provider outcome is unknown',
+        retryable: false,
+        reconciliationRequired: true,
+      },
+    };
+    const unknownRow = row({
+      status: 'UNKNOWN',
+      result: unknownResult,
+      updated_at: '2026-10-21T12:01:00.000Z',
+    });
+    const maybeSingleInsert = vi.fn().mockResolvedValue({ data: null, error: { code: '23505' } });
+    const selectInsert = vi.fn().mockReturnValue({ maybeSingle: maybeSingleInsert });
+    const insert = vi.fn().mockReturnValue({ select: selectInsert });
+    const maybeSingleRead = vi.fn().mockResolvedValue({ data: unknownRow, error: null });
+    const eq3 = vi.fn().mockReturnValue({ maybeSingle: maybeSingleRead });
+    const eq2 = vi.fn().mockReturnValue({ eq: eq3 });
+    const eq1 = vi.fn().mockReturnValue({ eq: eq2 });
+    const selectRead = vi.fn().mockReturnValue({ eq: eq1 });
+    const db = {
+      from: vi.fn().mockImplementation(() => ({ insert, select: selectRead })),
+    } as any;
+
+    const store = new SupabaseExecutionIdempotencyAdapter(db);
+    const result = await store.reserve(reservation);
+
+    expect(result.kind).toBe('EXISTING');
+    expect(result.record.status).toBe('UNKNOWN');
+    expect(result.record.result).toEqual(unknownResult);
+    expect(result.record.updatedAt).toBe(unknownRow.updated_at);
+    expect(insert).toHaveBeenCalledTimes(1);
+  });
+
   it('persists unknown outcomes as reconciliation-required', async () => {
     const result = {
       ok: false,
