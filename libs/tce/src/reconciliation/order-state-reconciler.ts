@@ -412,13 +412,9 @@ export function reconcileOrderStates(
       provider.clientRequestId &&
       localOrders.some(local => local.clientRequestId === provider.clientRequestId)
     ) {
-      deltas.push({
-        providerOrderId: provider.providerOrderId,
-        disposition: 'RECONCILIATION_REQUIRED',
-        providerStatus: provider.status,
-        providerFilledQuantity: provider.filledQuantity,
-        reason: 'Provider request identity matches a local order but provider identity is ambiguous.',
-      });
+      // This provider row is linked to a local order by request ID. Its local
+      // delta is the authoritative fail-closed result; don't create a second
+      // provider-only reconciliation delta for the same identity.
       continue;
     }
     // Don't classify a provider as an orphan when another local order already
