@@ -196,10 +196,15 @@ export function reconcileOrderStates(
         if (provider.clientRequestId !== local.clientRequestId) continue;
         ambiguousProviderIds.add(provider.providerOrderId);
         matchedProviderIds.add(provider.providerOrderId);
-        for (const relatedLocalId of localIdsByProviderId.get(provider.providerOrderId) ?? []) {
-          if (!ambiguousLocalIds.has(relatedLocalId)) {
-            ambiguousLocalIds.add(relatedLocalId);
-            localQueue.push(relatedLocalId);
+        for (const candidateLocal of localOrders) {
+          if (
+            providerIdsByLocalId.get(candidateLocal.id)?.has(provider.providerOrderId) ||
+            candidateLocal.clientRequestId === local.clientRequestId
+          ) {
+            if (!ambiguousLocalIds.has(candidateLocal.id)) {
+              ambiguousLocalIds.add(candidateLocal.id);
+              localQueue.push(candidateLocal.id);
+            }
           }
         }
       }
