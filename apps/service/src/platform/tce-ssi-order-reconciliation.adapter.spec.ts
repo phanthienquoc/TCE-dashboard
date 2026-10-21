@@ -158,3 +158,43 @@ test('rejects malformed reconciliation queries before provider access', async ()
   assert.equal(result.error?.code, 'INVALID_QUERY');
   assert.equal(called, false);
 });
+
+
+test('normalizes a thrown SSI provider outage and never returns an empty successful snapshot', async () => {
+  const instance = adapter();
+  (instance as any).ssi.current = async () => {
+    throw new Error('SSI gateway unavailable');
+  };
+
+  const result = await instance.listOpenOrders(query());
+  assert.equal(result.ok, false);
+  assert.equal(result.error?.code, 'PROVIDER_UNAVAILABLE');
+  assert.equal(result.error?.retryable, true);
+  assert.deepEqual(result.orders, []);
+});
+
+test('normalizes an SSI timeout as unknown and retryable for reconciliation reads', async () => {
+  const instance = adapter();
+  (instance as any).ssi.current = async () => {
+    throw new Error('request timed out after 5000ms');
+  };
+
+  const result = await instance.getOrder(query(), 'ssi-100');
+  assert.equal(result.ok, false);
+  assert.equal(result.error?.code, 'TIMEOUT_UNKNOWN');
+  assert.equal(result.error?.retryable, true);
+  assert.deepEqual(result.orders, []);
+});
+
+test('normalizes thrown account-store errors instead of leaking an exception', async () => {
+  const instance = adapter();
+  (instance as any).supabase.db.from = () => {
+    throw new Error('database connection unavailable');
+  };
+
+  const result = await instance.listOpenOrders(query());
+  assert.equal(result.ok, false);
+  assert.equal(result.error?.code, 'PROVIDER_UNAVAILABLE');
+  assert.equal(result.error?.retryable, true);
+  assert.deepEqual(result.orders, []);
+});
