@@ -1,12 +1,19 @@
-## PR #867 — ambiguous provider identity/orphan suppression — 2026-10-21
+## PR #867 — merged ambiguous-provider orphan suppression — 2026-10-21
 
-- Current implementation head before plan conflict resolution: `fa336c6d7d560af827a57c29ec9bf3a93e691b57`.
-- Backend build/unit tests passed on that exact head: [WF-05 run #2003](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/39549423882).
-- Prettier passed on that exact head: [WF-02 run #1455](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/39549423888).
-- Regression coverage asserts that an extra provider row linked into an ambiguous client-request identity graph does not emit a duplicate orphan delta and that affected local orders fail closed with `RECONCILIATION_REQUIRED`.
-- The branch was one commit behind `master` because PR #866 added a plan-only checkpoint. This branch plan is reconciled against the current `master` version to retain that evidence and avoid overwriting it.
-- These CI results apply to `fa336c6d7d560af827a57c29ec9bf3a93e691b57` only. The documentation/conflict-resolution head must receive fresh backend and Prettier results before merge.
-- PR [#867](https://github.com/phanthienquoc/TCE-dashboard/pull/867) remains unmerged until the exact final head is green, mergeability is true, and any enforced review/branch-protection requirements are satisfied. No bypass.
+- PR [#867](https://github.com/phanthienquoc/TCE-dashboard/pull/867) was squash-merged at `6019ebce307f369e706e177ef5f6c0330b6212ad`; verified against the `master` ref after merge.
+- Exact tested PR head: `3cb42b14e8ecfab6d73fc58ec887da432272c46e`, reconciled with `master` commit `d6dd0551c0147c62203a064e8faeeeaad0d6f733`.
+- Backend build/unit tests passed on that exact head: [WF-05 run #2005](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/39561067201) and [run #2006](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/39561076085).
+- Prettier passed on that exact head: [WF-02 run #1457](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/39561066988) and [run #1458](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/39561076139).
+- [x] Ambiguous provider rows no longer emit duplicate orphan deltas; affected local orders fail closed with `RECONCILIATION_REQUIRED`.
+- Safety: no production migration/deployment; LIVE trading remains disabled.
+
+## Current task: Fail closed on unconfirmed SSI submissions — 2026-10-21
+
+- [x] Treat SSI `confirmed: false` as a non-success `PENDING` result requiring reconciliation.
+- [x] Add adapter regression coverage for unconfirmed provider submission responses.
+- [x] Add durable-orchestrator regression coverage proving duplicate requests do not redispatch an unconfirmed submission.
+- [ ] Verify backend build/unit tests and Prettier on the exact latest PR head, including any formatter-generated commit.
+- [ ] Merge only after all required checks pass on the exact latest head and GitHub accepts the merge without bypassing protection.
 - Safety: no production migration/deployment; LIVE trading remains disabled.
 
 ## Automation recovery — PR #865 merged — 2026-10-21

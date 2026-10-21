@@ -153,17 +153,28 @@ export class TceSsiExecutionAdapter implements TceExecutionPort {
       return rejected(command, code, message, code === 'TIMEOUT_UNKNOWN');
     }
 
+    const confirmed = result.data.confirmed === true;
     const providerOrderId = result.data.confirmedOrderId ?? result.data.orderId;
     return {
-      ok: true,
+      ok: confirmed,
       operation: 'SUBMIT',
-      status: result.data.confirmed ? 'SUBMITTED' : 'PENDING',
+      status: confirmed ? 'SUBMITTED' : 'PENDING',
       executionIntentId: intent.id,
       correlationId: command.authorization.correlationId,
       idempotencyKey: command.authorization.idempotencyKey,
       providerOrderId,
       clientRequestId: result.data.clientRequestId ?? command.clientRequestId,
       providerStatus: result.data.providerStatus ?? result.data.status,
+      ...(confirmed
+        ? {}
+        : {
+            error: {
+              code: 'UNKNOWN',
+              message: 'SSI has not confirmed the submitted order; reconciliation is required',
+              retryable: false,
+              reconciliationRequired: true,
+            },
+          }),
     };
   }
 
