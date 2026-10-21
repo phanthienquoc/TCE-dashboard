@@ -344,6 +344,7 @@ test('fails closed when one provider order matches multiple local orders', () =>
   assert.ok(deltas.every(delta => /multiple local orders/i.test(delta.reason)));
 });
 
+
 test('fails closed for provider rows in an ambiguous local identity graph without duplicate orphan deltas', () => {
   const deltas = reconcileOrderStates(
     [
@@ -398,3 +399,4 @@ test('fails closed for provider rows in an ambiguous local identity graph withou
     'RECONCILIATION_REQUIRED'
   );
 });
+
