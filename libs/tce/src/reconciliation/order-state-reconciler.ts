@@ -134,6 +134,12 @@ export function reconcileOrderStates(
 
   const ambiguousLocalIds = new Set<string>();
   const ambiguousProviderIds = new Set<string>();
+  const ambiguousRequestIds = new Set(
+    localOrders
+      .filter(local => !!local.clientRequestId && localIdsByClientRequestId.get(local.clientRequestId)?.size)
+      .map(local => local.clientRequestId!)
+      .filter(requestId => (localIdsByClientRequestId.get(requestId)?.size ?? 0) > 1)
+  );
   const localQueue: string[] = [];
   for (const local of localOrders) {
     const matchedProviderIds = providerIdsByLocalId.get(local.id) ?? new Set<string>();
