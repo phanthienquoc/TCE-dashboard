@@ -7,15 +7,18 @@
 - [x] Ambiguous provider rows no longer emit duplicate orphan deltas; affected local orders fail closed with `RECONCILIATION_REQUIRED`.
 - Safety: no production migration/deployment; LIVE trading remains disabled.
 
-## Current task: Fail closed on unconfirmed SSI submissions — 2026-10-21
+## PR #868 — merged unconfirmed SSI submission handling — 2026-10-21
 
+- PR [#868](https://github.com/phanthienquoc/TCE-dashboard/pull/868) was squash-merged at `089d94238e740a4eec6a25da361a84fc683fcee7`; verified against current `master`.
+- Exact tested PR head: `b145b21ba590a9158b3b383d4ff00b5768992e2b`.
+- Backend build/unit tests passed on that exact head: [WF-05 run #2011](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/39561573836) and [run #2012](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/39561578969).
+- Prettier passed on the same exact head: [WF-02 run #1463](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/39561573956) and [run #1464](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/39561579184).
 - [x] Treat SSI `confirmed: false` as a non-success `PENDING` result requiring reconciliation.
 - [x] Add adapter regression coverage for unconfirmed provider submission responses.
 - [x] Add durable-orchestrator regression coverage proving duplicate requests do not redispatch an unconfirmed submission.
-- [ ] Verify backend build/unit tests and Prettier on the exact latest PR head, including any formatter-generated commit.
-- [ ] Merge only after all required checks pass on the exact latest head and GitHub accepts the merge without bypassing protection.
+- [x] Verify backend build/unit tests and Prettier on the exact latest PR head.
+- [x] Squash-merge PR #868 only after exact-head checks passed and GitHub accepted the merge; no protection bypass.
 - Safety: no production migration/deployment; LIVE trading remains disabled.
-
 ## Automation recovery — PR #865 merged — 2026-10-21
 
 - PR [#865](https://github.com/phanthienquoc/TCE-dashboard/pull/865) was squash-merged at `d4ff9a4ae469e8c4124927e11d13046ef6ec77fd`.
