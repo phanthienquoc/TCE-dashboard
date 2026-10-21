@@ -103,6 +103,35 @@ describe('SupabaseExecutionIdempotencyAdapter', () => {
     expect(result.kind).toBe('FINGERPRINT_CONFLICT');
   });
 
+  it('looks up a duplicate idempotency key within the requested account and environment', async () => {
+    const scopedReservation = {
+      ...reservation,
+      scope: { ...reservation.scope, accountId: 'account-2', environment: 'LIVE' },
+    };
+    const maybeSingleInsert = vi.fn().mockResolvedValue({ data: null, error: { code: '23505' } });
+    const selectInsert = vi.fn().mockReturnValue({ maybeSingle: maybeSingleInsert });
+    const insert = vi.fn().mockReturnValue({ select: selectInsert });
+    const maybeSingleRead = vi.fn().mockResolvedValue({
+      data: row({ account_id: 'account-2', environment: 'LIVE' }),
+      error: null,
+    });
+    const eq3 = vi.fn().mockReturnValue({ maybeSingle: maybeSingleRead });
+    const eq2 = vi.fn().mockReturnValue({ eq: eq3 });
+    const eq1 = vi.fn().mockReturnValue({ eq: eq2 });
+    const selectRead = vi.fn().mockReturnValue({ eq: eq1 });
+    const db = {
+      from: vi.fn().mockImplementation(() => ({ insert, select: selectRead })),
+    } as any;
+
+    const result = await new SupabaseExecutionIdempotencyAdapter(db).reserve(scopedReservation);
+
+    expect(result.kind).toBe('EXISTING');
+    expect(result.record.reservation.scope).toEqual(scopedReservation.scope);
+    expect(eq1).toHaveBeenCalledWith('account_id', 'account-2');
+    expect(eq2).toHaveBeenCalledWith('environment', 'LIVE');
+    expect(eq3).toHaveBeenCalledWith('idempotency_key', 'idem-1');
+  });
+
   it('returns an existing UNKNOWN reservation without resetting or overwriting it', async () => {
     const unknownResult = {
       ok: false,
