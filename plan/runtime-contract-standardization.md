@@ -171,7 +171,6 @@ Standardize runtime ownership and provider/domain/event contracts incrementally.
 
 - CI checkpoint (2026-10-21): Prettier auto-format advanced PR #861 to head `e9bc444320af82edea11d95f5de2d36fdace69de`; that exact SHA currently has no check runs. This plan-only commit is intended to trigger backend build/unit tests and Prettier on the formatted head. Do not merge until checks on the resulting latest head complete successfully.
 
-
 ## Current task: Provider-truth quantity validation — 2026-10-21
 
 - [x] Preserve provider partial-fill quantity/status through the SSI reconciliation adapter.

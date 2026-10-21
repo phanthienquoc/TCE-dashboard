@@ -198,7 +198,6 @@ test('normalizes thrown account-store errors instead of leaking an exception', a
   assert.deepEqual(result.orders, []);
 });
 
-
 test('preserves provider partial-fill truth across the reconciliation adapter', async () => {
   const result = await adapter([
     {
