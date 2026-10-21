@@ -133,6 +133,26 @@ test('fails closed when authorization environment does not match the reconciliat
   assert.equal(ssiCalled, false);
 });
 
+test('does not query SSI when reconciliation authorization is not READY', async () => {
+  let ssiCalled = false;
+  const instance = adapter();
+  (instance as any).authorization.ensureAuthorized = async () => ({
+    ...readyAuth,
+    data: { ...readyAuth.data, state: 'EXPIRED' },
+  });
+  (instance as any).ssi.current = async () => {
+    ssiCalled = true;
+    throw new Error('must not read SSI');
+  };
+
+  const result = await instance.listOpenOrders(query());
+
+  assert.equal(result.ok, false);
+  assert.equal(result.error?.code, 'PROVIDER_UNAVAILABLE');
+  assert.equal(result.error?.retryable, true);
+  assert.equal(ssiCalled, false);
+});
+
 test('unknown provider status is surfaced separately and never treated as open', async () => {
   const result = await adapter([
     {
