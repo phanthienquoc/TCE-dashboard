@@ -198,6 +198,24 @@ test('rejects malformed reconciliation queries before provider access', async ()
   assert.equal(called, false);
 });
 
+test('surfaces an explicit SSI provider rejection without returning a successful empty snapshot', async () => {
+  const instance = adapter();
+  (instance as any).ssi.current = async () => ({
+    ok: false,
+    error: {
+      message: 'broker rejected order query',
+      retryable: false,
+    },
+  });
+
+  const result = await instance.listOpenOrders(query());
+
+  assert.equal(result.ok, false);
+  assert.equal(result.error?.code, 'PROVIDER_REJECTED');
+  assert.equal(result.error?.retryable, false);
+  assert.equal(result.orders.length, 0);
+});
+
 test('normalizes a thrown SSI provider outage and never returns an empty successful snapshot', async () => {
   const instance = adapter();
   (instance as any).ssi.current = async () => {
