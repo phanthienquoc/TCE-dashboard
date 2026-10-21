@@ -273,6 +273,11 @@ export function reconcileOrderStates(
       .map(local => local.id)
       .filter(localId => ambiguousLocalIds.has(localId));
     if (ambiguousCandidateLocalIds.length > 0 || localOrders.some(local => identityMatches(local, provider))) {
+      // Local-order rows above already carry the reconciliation-required result
+      // for this ambiguous identity graph. Suppress duplicate provider-only rows.
+      continue;
+    }
+    if (false) {
       deltas.push({
         providerOrderId: provider.providerOrderId,
         disposition: 'RECONCILIATION_REQUIRED',
