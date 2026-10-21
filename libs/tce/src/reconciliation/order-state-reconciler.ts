@@ -412,9 +412,6 @@ export function reconcileOrderStates(
       provider.clientRequestId &&
       localOrders.some(local => local.clientRequestId === provider.clientRequestId)
     ) {
-      // This provider row is linked to a local order by request ID. Its local
-      // delta is the authoritative fail-closed result; don't create a second
-      // provider-only reconciliation delta for the same identity.
       continue;
     }
     // Don't classify a provider as an orphan when another local order already
