@@ -80,6 +80,12 @@ export function reconcileOrderStates(
   const providersByLocal = localOrders.map(local =>
     providerOrders.filter(candidate => identityMatches(local, candidate))
   );
+  const providerRowsById = new Map<string, ProviderReconciliationOrder[]>();
+  for (const provider of providerOrders) {
+    const rows = providerRowsById.get(provider.providerOrderId) ?? [];
+    rows.push(provider);
+    providerRowsById.set(provider.providerOrderId, rows);
+  }
   const localMatchCountsByProviderId = new Map<string, number>();
   for (const matchingProviders of providersByLocal) {
     for (const provider of matchingProviders) {
