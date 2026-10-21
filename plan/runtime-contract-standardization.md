@@ -1,11 +1,22 @@
-## Current task: Record PR #883 evidence and close failure-path test checklist — 2026-10-21
+## Current task: Record PR #884 evidence and close verified boundary checklist — 2026-10-21
 
-- [x] Record PR #883's verified merge SHA and exact-head CI evidence.
-- [x] Confirm regression coverage for partial actions, provider outage/rejection, and provider-truth reconciliation.
+- [x] Record PR #884's verified merge SHA and exact-head CI evidence.
+- [x] Mark the DRE/TCE ownership boundary and no-blind-retry safety invariants complete using source and regression evidence.
 - [ ] Verify backend build/unit tests and Prettier on the exact latest documentation PR head.
-- CI recovery: Prettier generated commit `fd591789bfd1f76d9668f4b262517dbf7f6599a5` with CI skipped; verify checks again on the resulting head.
 - [ ] Merge only after all required checks pass on the exact latest head and GitHub accepts the merge without bypassing protection.
+- Next dependency-safe task: design and test durable retry/replay for failed cross-database lifecycle-event publication; do not apply migrations or enable production routes without authorization.
 - Safety: documentation only; no production migration/deployment; LIVE trading remains disabled.
+
+## PR #884 — merged failure-path checklist evidence — 2026-10-21
+
+- PR [#884](https://github.com/phanthienquoc/TCE-dashboard/pull/884) was squash-merged at `e3e1e06731fa1dcb4d5703e5dd562509eb16a3df`; verified against current `master`.
+- Exact tested PR head: `585172e3166994da4b1e026b0cfb38c7ee5270ea`.
+- Backend build/unit tests passed on that exact head: [WF-05 run #2100](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/39567212172).
+- Prettier passed on the same exact head: [WF-02 run #1552](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/39567212217).
+- [x] Record PR #883 verification and close the partial-fill/provider-outage/provider-truth failure-path checklist.
+- [x] Verify exact-head CI and squash-merge only after GitHub accepted the merge without a protection bypass.
+- CI note: a concurrent Prettier push was rejected because another formatter run had advanced the branch; the successful formatter commit was followed by a fresh plan commit and green checks on the final head.
+- Safety: no production migration/deployment; LIVE trading remains disabled.
 
 ## PR #883 — merged explicit SSI provider rejection regression — 2026-10-21
 
@@ -229,7 +240,8 @@ Standardize runtime ownership and provider/domain/event contracts incrementally.
 - [x] Migrate Monitor snapshot emission through `TceEventPublisherPort`; events carry stable event IDs, schema version, account/aggregate scope and correlation IDs. Publisher failure is logged and does not interrupt snapshot/audit/cashout behavior.
 - [x] Emit DRE campaign status, rolling sequence/position, T+2 settlement and capital-recycling transitions through the shared event contract; event publishing has no order-dispatch authority.
 - [x] Enforce DRE_ENABLED and DRE_LIVE_EXECUTION at SafeOrderExecutionService.submit before database or provider work.
-- [ ] Verify DRE owns campaign/sequence/T+2/continuity/GAP; TCE Core owns strategy decisions; only the authorized execution path dispatches broker commands.
+- [x] Verify DRE owns campaign/sequence/T+2/continuity/GAP; TCE Core owns strategy decisions; only the authorized execution path dispatches broker commands.
+  Evidence: [DRE README](https://github.com/phanthienquoc/TCE-dashboard/blob/master/apps/service/src/dre/README.md), [DRE types](https://github.com/phanthienquoc/TCE-dashboard/blob/master/apps/service/src/dre/dre.types.ts), [DRE production boundary](https://github.com/phanthienquoc/TCE-dashboard/blob/master/apps/service/src/dre/dre-production.service.ts), and pass-through/explicit-executor regression coverage in [PR #875](https://github.com/phanthienquoc/TCE-dashboard/pull/875), [PR #876](https://github.com/phanthienquoc/TCE-dashboard/pull/876), [PR #873](https://github.com/phanthienquoc/TCE-dashboard/pull/873).
 
 ## Phase 3 — Unified transports
 
@@ -334,7 +346,8 @@ Standardize runtime ownership and provider/domain/event contracts incrementally.
 - [x] REST/WS/SSE share the canonical event envelope, event IDs and correlation IDs.
 - [x] Production auto-sell code path is wired to the durable orchestrator behind a rollout flag.
 - [ ] Durable idempotency is enabled in production only after migration and staging validation.
-- [ ] Unknown outcomes require reconciliation, not blind retry.
+- [x] Unknown outcomes require reconciliation, not blind retry.
+  Evidence: exact-head regression coverage in [PR #868](https://github.com/phanthienquoc/TCE-dashboard/pull/868), [PR #870](https://github.com/phanthienquoc/TCE-dashboard/pull/870), [PR #871](https://github.com/phanthienquoc/TCE-dashboard/pull/871), [PR #872](https://github.com/phanthienquoc/TCE-dashboard/pull/872), and [PR #873](https://github.com/phanthienquoc/TCE-dashboard/pull/873).
 - [ ] Compatibility and rollout gates pass before production migration/deployment.
 
 ## Safety notes
