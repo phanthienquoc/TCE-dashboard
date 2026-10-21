@@ -207,7 +207,9 @@ export function reconcileOrderStates(
         providerFilledQuantity: provider?.filledQuantity,
         reason:
           local.clientRequestId &&
-          (localIdsByRequest.get(local.clientRequestId)?.size ?? 0) > 1
+          ((localIdsByRequest.get(local.clientRequestId)?.size ?? 0) > 1 ||
+            (local.providerOrderId &&
+              (localIdsByProvider.get(local.providerOrderId)?.size ?? 0) > 1))
             ? 'Multiple local orders share this provider identity; reconciliation is required.'
             : 'Local/provider identity is ambiguous; reconciliation is required.',
       });
