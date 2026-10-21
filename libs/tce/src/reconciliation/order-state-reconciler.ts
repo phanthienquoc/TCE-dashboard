@@ -277,17 +277,6 @@ export function reconcileOrderStates(
       // for this ambiguous identity graph. Suppress duplicate provider-only rows.
       continue;
     }
-    if (false) {
-      deltas.push({
-        providerOrderId: provider.providerOrderId,
-        disposition: 'RECONCILIATION_REQUIRED',
-        providerStatus: provider.status,
-        providerFilledQuantity: provider.filledQuantity,
-        reason:
-          'Provider order is part of an ambiguous identity mapping; do not classify it as an orphan.',
-      });
-      continue;
-    }
     const providerQuantityError = quantityValidationReason(
       provider.quantity,
       provider.filledQuantity,
