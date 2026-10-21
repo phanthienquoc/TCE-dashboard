@@ -90,6 +90,7 @@ export function reconcileOrderStates(
     }
   }
 
+  const ambiguousLocalIds = new Set<string>();
   for (let localIndex = 0; localIndex < localOrders.length; localIndex++) {
     const local = localOrders[localIndex]!;
     const matchingProviders = providersByLocal[localIndex]!;
@@ -114,6 +115,7 @@ export function reconcileOrderStates(
       continue;
     }
     if (matchingProviders.length > 1) {
+      ambiguousLocalIds.add(local.id);
       for (const match of matchingProviders) matchedProviderIds.add(match.providerOrderId);
       deltas.push({
         localOrderId: local.id,
@@ -139,6 +141,7 @@ export function reconcileOrderStates(
 
     matchedProviderIds.add(provider.providerOrderId);
     if ((localMatchCountsByProviderId.get(provider.providerOrderId) ?? 0) > 1) {
+      ambiguousLocalIds.add(local.id);
       deltas.push({
         localOrderId: local.id,
         providerOrderId: provider.providerOrderId,
@@ -208,6 +211,21 @@ export function reconcileOrderStates(
 
   for (const provider of providerOrders) {
     if (matchedProviderIds.has(provider.providerOrderId)) continue;
+    const ambiguousCandidateLocalIds = localOrders
+      .filter(local => identityMatches(local, provider))
+      .map(local => local.id)
+      .filter(localId => ambiguousLocalIds.has(localId));
+    if (ambiguousCandidateLocalIds.length > 0) {
+      deltas.push({
+        providerOrderId: provider.providerOrderId,
+        disposition: 'RECONCILIATION_REQUIRED',
+        providerStatus: provider.status,
+        providerFilledQuantity: provider.filledQuantity,
+        reason:
+          'Provider order is part of an ambiguous identity mapping; do not classify it as an orphan.',
+      });
+      continue;
+    }
     const providerQuantityError = quantityValidationReason(
       provider.quantity,
       provider.filledQuantity,
