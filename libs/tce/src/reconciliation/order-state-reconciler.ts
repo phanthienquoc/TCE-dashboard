@@ -389,24 +389,13 @@ export function reconcileOrderStates(
   for (const provider of providerOrders) {
     if (ambiguousProviderIds.has(provider.providerOrderId)) continue;
     if (matchedProviderIds.has(provider.providerOrderId)) continue;
-    // A provider row sharing a request ID with a local row or another provider
-    // row is not safely classifiable as an independent orphan.
+    // If a local order carries this request identity, do not emit an additional
+    // provider-only delta. The local-order pass is responsible for the single
+    // RECONCILIATION_REQUIRED result for the ambiguous identity component.
     if (
       provider.clientRequestId &&
-      (localOrders.some(local => local.clientRequestId === provider.clientRequestId) ||
-        providerOrders.some(
-          candidate =>
-            candidate.providerOrderId !== provider.providerOrderId &&
-            candidate.clientRequestId === provider.clientRequestId
-        ))
+      localOrders.some(local => local.clientRequestId === provider.clientRequestId)
     ) {
-      deltas.push({
-        providerOrderId: provider.providerOrderId,
-        disposition: 'RECONCILIATION_REQUIRED',
-        providerStatus: provider.status,
-        providerFilledQuantity: provider.filledQuantity,
-        reason: 'Provider request identity is shared; reconciliation is required.',
-      });
       continue;
     }
     // Don't classify a provider as an orphan when another local order already
