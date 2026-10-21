@@ -147,7 +147,8 @@ export function reconcileOrderStates(
         providerStatus: provider.status,
         localFilledQuantity: local.filledQuantity,
         providerFilledQuantity: provider.filledQuantity,
-        reason: 'One provider order matches multiple local orders; provider-to-local identity is ambiguous.',
+        reason:
+          'One provider order matches multiple local orders; provider-to-local identity is ambiguous.',
       });
       continue;
     }
