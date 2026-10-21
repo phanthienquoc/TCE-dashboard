@@ -76,7 +76,8 @@ export function reconcileOrderStates(
   const deltas: ReconciliationDelta[] = [];
 
   for (const local of localOrders) {
-    const provider = providerOrders.find(candidate => identityMatches(local, candidate));
+    const matchingProviders = providerOrders.filter(candidate => identityMatches(local, candidate));
+    const provider = matchingProviders[0];
     const localQuantityError = quantityValidationReason(
       local.quantity,
       local.filledQuantity,
@@ -93,6 +94,19 @@ export function reconcileOrderStates(
         localFilledQuantity: local.filledQuantity,
         providerFilledQuantity: provider?.filledQuantity,
         reason: localQuantityError,
+      });
+      continue;
+    }
+    if (matchingProviders.length > 1) {
+      for (const match of matchingProviders) matchedProviderIds.add(match.providerOrderId);
+      deltas.push({
+        localOrderId: local.id,
+        disposition: 'RECONCILIATION_REQUIRED',
+        localStatus: local.status,
+        providerStatus: provider.status,
+        localFilledQuantity: local.filledQuantity,
+        providerFilledQuantity: provider.filledQuantity,
+        reason: 'Multiple provider orders match this local identity; provider truth is ambiguous.',
       });
       continue;
     }
