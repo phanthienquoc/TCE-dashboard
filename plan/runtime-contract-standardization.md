@@ -1,22 +1,21 @@
-## Automation recovery and PR #867 latest CI — 2026-10-21
+## PR #867 — ambiguous provider identity/orphan suppression — 2026-10-21
 
-- Schedule root cause: an earlier assistant disabled the hourly `TCE PR CI & Plan Loop` after a plan-file write was blocked by a safety gate. This was incorrect; a blocker must not pause the schedule. The automation is re-enabled with explicit retry/continue instructions.
-- PR [#867](https://github.com/phanthienquoc/TCE-dashboard/pull/867) remains open on `fix/reconciliation-ambiguous-provider-orphan`.
-- Latest observed PR head: `e8d2af28ca0e290db790098d88e060ad5103e153`.
-- Backend build and unit tests now pass at that exact head: [WF-05 run #1997](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/39544850950).
-- CI coverage is still incomplete: the exact-head check-runs API currently shows only `Backend unit tests`. WF-02 Prettier workflow is configured for pushes/PRs to master only, and there is no verified Prettier result for this feature head. This is a missing required check, so do not merge yet.
-- PR metadata still reports `mergeable:false` and there is no submitted review. Re-check the exact head/checks and GitHub-enforced review/protection before any merge. Do not bypass branch protection.
-- The regression work now computes connected local/provider identity ambiguity before emitting deltas; the latest backend CI passes. Remaining verification gate: make Prettier run on the current feature PR/head or otherwise obtain a valid exact-head formatting result without bypassing protections.
-- No production migrations/deployments and no LIVE trading. Keep hourly automation enabled.
+- Current implementation head before plan conflict resolution: `fa336c6d7d560af827a57c29ec9bf3a93e691b57`.
+- Backend build/unit tests passed on that exact head: [WF-05 run #2003](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/39549423882).
+- Prettier passed on that exact head: [WF-02 run #1455](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/39549423888).
+- Regression coverage asserts that an extra provider row linked into an ambiguous client-request identity graph does not emit a duplicate orphan delta and that affected local orders fail closed with `RECONCILIATION_REQUIRED`.
+- The branch was one commit behind `master` because PR #866 added a plan-only checkpoint. This branch plan is reconciled against the current `master` version to retain that evidence and avoid overwriting it.
+- These CI results apply to `fa336c6d7d560af827a57c29ec9bf3a93e691b57` only. The documentation/conflict-resolution head must receive fresh backend and Prettier results before merge.
+- PR [#867](https://github.com/phanthienquoc/TCE-dashboard/pull/867) remains unmerged until the exact final head is green, mergeability is true, and any enforced review/branch-protection requirements are satisfied. No bypass.
+- Safety: no production migration/deployment; LIVE trading remains disabled.
 
-## Current task: Prevent ambiguous provider rows from becoming orphans — 2026-10-21
+## Automation recovery — PR #865 merged — 2026-10-21
 
-- [x] When provider/local matching is ambiguous, fail closed with `RECONCILIATION_REQUIRED`.
-- [x] Prevent provider rows participating in ambiguous identities from also appearing as `ORPHAN_PROVIDER_ORDER`.
-- [x] Add regression coverage for the ambiguous-extra-provider row.
-- [ ] Verify backend build/unit tests and Prettier on exact latest PR head.
-- [ ] Merge only after all required checks pass on the exact head and GitHub-enforced review/branch protections are satisfied.
-- Safety: no production migration/deployment; no LIVE trading changes.
+- PR [#865](https://github.com/phanthienquoc/TCE-dashboard/pull/865) was squash-merged at `d4ff9a4ae469e8c4124927e11d13046ef6ec77fd`.
+- Exact verified head: `5f865d751dbfa695c8439f8a5a21d836274deb46`.
+- Backend build/unit tests passed on that exact head: [run #1943](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/39539207470). Prettier passed: [run #1446](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/39539207463).
+- This closes the one-provider-to-multiple-local identity ambiguity task. The next safe task should continue reconciliation reliability (for example, ensure ambiguous shared provider IDs cannot also produce a duplicate ORPHAN disposition, and cover that behavior with regression tests) or another earliest unblocked unchecked runtime-contract task.
+- Automation remains enabled and must not be paused on blockers. No production migration/deployment and no LIVE trading.
 
 ## Automation checkpoint — PR #865 verification blocker — 2026-10-21
 
