@@ -225,7 +225,6 @@ test('invalid quantities on unmatched orders are not mislabeled missing or orpha
   assert.equal(providerDelta.disposition, 'RECONCILIATION_REQUIRED');
 });
 
-
 test('fails closed when multiple provider orders match one local order identity', () => {
   const duplicateProviderId = reconcileOrderStates(
     [

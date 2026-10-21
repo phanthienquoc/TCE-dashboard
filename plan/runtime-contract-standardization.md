@@ -183,7 +183,6 @@ Standardize runtime ownership and provider/domain/event contracts incrementally.
 
 - CI checkpoint (2026-10-21): Prettier auto-format advanced PR #862 to `cf9094c1aff0895dab13ca9a2bc48184f37dd708`; no checks exist yet on that exact SHA. This plan-only commit triggers backend unit tests/build and Prettier on the formatted head. Do not merge until both complete successfully on the resulting latest head.
 
-
 ## Current task: Ambiguous provider identity reconciliation — 2026-10-21
 
 - [x] Detect when multiple provider orders match a single local order by provider order ID or client request ID.
