@@ -2,6 +2,7 @@
 
 - [x] Add regression coverage proving the explicit LIVE executor receives the original precomputed action unchanged.
 - [ ] Verify backend build/unit tests and Prettier on the exact latest PR head, including any formatter-generated commit.
+- CI recovery: Prettier added formatting commit `ce75f95e7b3becb3c3ee3cf5510d16a10fb4c3fb` with CI skipped; rerun required checks on the resulting head before merge.
 - [ ] Merge only after all required checks pass on the exact latest head and GitHub accepts the merge without bypassing protection.
 - Safety: no production migration/deployment; LIVE trading remains disabled.
 
