@@ -1,3 +1,12 @@
+## Current task: Prevent ambiguous provider rows from becoming orphans — 2026-10-21
+
+- [x] When provider/local matching is ambiguous, fail closed with `RECONCILIATION_REQUIRED`.
+- [x] Prevent provider rows participating in ambiguous identities from also appearing as `ORPHAN_PROVIDER_ORDER`.
+- [x] Add regression coverage for the ambiguous-extra-provider row.
+- [ ] Verify backend build/unit tests and Prettier on exact latest PR head.
+- [ ] Merge only after all required checks pass on the exact head and GitHub-enforced review/branch protections are satisfied.
+- Safety: no production migration/deployment; no LIVE trading changes.
+
 ## Automation checkpoint — PR #865 verification blocker — 2026-10-21
 
 - PR [#865](https://github.com/phanthienquoc/TCE-dashboard/pull/865) is open on dedicated branch `fix/reconciliation-provider-local-one-to-many`.
