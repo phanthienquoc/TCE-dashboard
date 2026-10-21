@@ -1,10 +1,18 @@
-## Current task: Record PR #879 evidence and complete authorization-gate plan item — 2026-10-21
+## Current task: Reject reconciliation when authorization environment mismatches — 2026-10-21
 
-- [x] Record PR #879's verified merge SHA and exact-head CI evidence.
-- [x] Mark the non-PAPER authorization gate complete based on explicit-executor, readiness, and account/environment mismatch coverage.
+- [x] Add regression coverage proving an authorization response for the wrong environment fails closed before the SSI order query.
 - [ ] Verify backend build/unit tests and Prettier on the exact latest PR head, including any formatter-generated commit.
-- CI recovery: Prettier generated commit `59b6475ee5b5acce7988a71b59f232799e71b5a2` with CI skipped; final verification must target the resulting head.
 - [ ] Merge only after all required checks pass on the exact latest head and GitHub accepts the merge without bypassing protection.
+- Safety: no production migration/deployment; LIVE trading remains disabled.
+
+## PR #880 — merged authorization gate plan evidence — 2026-10-21
+
+- PR [#880](https://github.com/phanthienquoc/TCE-dashboard/pull/880) was squash-merged at `6dd2cf54ac8098a41d10f87422a9a6df649eadbe`; verified against current `master`.
+- Exact tested PR head: `2b36444b1c2f0fcdb10d79691c5677576ccf542e`.
+- Backend build/unit tests passed on that exact head: [WF-05 run #2078](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/39565853115) and [run #2079](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/39565860623).
+- Prettier passed on the same exact head: [WF-02 run #1530](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/39565853181) and [run #1531](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/39565860643).
+- [x] Record PR #879's verified merge SHA and exact-head CI evidence.
+- [x] Complete the non-PAPER authorization gate plan item based on explicit-executor, readiness, and account/environment mismatch coverage.
 - Safety: documentation only; no production migration/deployment; LIVE trading remains disabled.
 
 ## PR #879 — merged account/environment idempotency scope — 2026-10-21
