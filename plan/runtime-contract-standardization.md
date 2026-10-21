@@ -1,11 +1,19 @@
-## Current task: Reject authorization scope mismatches before non-PAPER dispatch — 2026-10-21
+## Current task: Verify idempotency lookups stay account/environment scoped — 2026-10-21
 
-- [x] Fail closed when a `READY` authorization response names a different account or environment than the execution command.
-- [x] Add account-mismatch and environment-mismatch regression cases proving the provider port is never called.
+- [x] Add adapter regression coverage proving duplicate idempotency lookups filter by the requested account, environment, and key.
 - [ ] Verify backend build/unit tests and Prettier on the exact latest PR head, including any formatter-generated commit.
-- CI recovery: Prettier generated commit `7d2a72664a8d2d3a9b927d809b4411d17264103a` with CI skipped; rerun required checks on the resulting head before merge.
 - [ ] Merge only after all required checks pass on the exact latest head and GitHub accepts the merge without bypassing protection.
-- Safety: no production migrations/deployments; LIVE trading remains disabled.
+- Safety: no production migration/deployment; LIVE trading remains disabled.
+
+## PR #878 — merged authorization scope mismatch guard — 2026-10-21
+
+- PR [#878](https://github.com/phanthienquoc/TCE-dashboard/pull/878) was squash-merged at `acb9a1ce36865bc7baa2018b707d5ea3659304e3`; verified against current `master`.
+- Exact tested PR head: `9908447cc2c120b987246a5c0896f996f19b178a`.
+- Backend build/unit tests passed on that exact head: [WF-05 run #2067](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/39565132056) and [run #2068](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/39565139285).
+- Prettier passed on the same exact head: [WF-02 run #1519](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/39565132055) and [run #1520](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/39565139385).
+- [x] Reject `READY` authorization responses whose account or environment differs from the execution command; provider dispatch is not called.
+- [x] Verify exact-head CI and squash-merge only after GitHub accepted the merge without a protection bypass.
+- Safety: no production migration/deployment; LIVE trading remains disabled.
 
 ## PR #877 — merged DRE reconciliation sweep statuses — 2026-10-21
 
