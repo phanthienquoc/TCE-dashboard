@@ -355,6 +355,7 @@ test('fails closed for provider rows in an ambiguous local identity graph withou
         filledQuantity: 0,
         status: 'SUBMITTED',
         providerOrderId: 'ssi-shared',
+        clientRequestId: 'request-shared',
       },
       {
         id: 'local-secondary',
