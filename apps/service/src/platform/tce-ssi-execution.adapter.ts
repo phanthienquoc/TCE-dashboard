@@ -153,7 +153,7 @@ export class TceSsiExecutionAdapter implements TceExecutionPort {
       return rejected(command, code, message, code === 'TIMEOUT_UNKNOWN');
     }
 
-    const confirmed = result.data.confirmed;
+    const confirmed = result.data.confirmed === true;
     const providerOrderId = result.data.confirmedOrderId ?? result.data.orderId;
     return {
       ok: confirmed,
