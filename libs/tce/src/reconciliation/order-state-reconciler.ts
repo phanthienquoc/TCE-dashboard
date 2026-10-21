@@ -168,10 +168,14 @@ export function reconcileOrderStates(
     }
 
     if (local.clientRequestId) {
-      for (const providerId of providerIdsByClientRequestId.get(local.clientRequestId) ?? []) {
-        if (ambiguousProviderIds.has(providerId)) continue;
-        ambiguousProviderIds.add(providerId);
-        for (const relatedLocalId of localIdsByProviderId.get(providerId) ?? []) {
+      // A request ID may be present on provider rows that do not match the
+      // local via providerOrderId; all of those provider IDs are part of this
+      // ambiguous identity component.
+      for (const provider of providerOrders) {
+        if (provider.clientRequestId !== local.clientRequestId) continue;
+        ambiguousProviderIds.add(provider.providerOrderId);
+        matchedProviderIds.add(provider.providerOrderId);
+        for (const relatedLocalId of localIdsByProviderId.get(provider.providerOrderId) ?? []) {
           if (!ambiguousLocalIds.has(relatedLocalId)) {
             ambiguousLocalIds.add(relatedLocalId);
             localQueue.push(relatedLocalId);
