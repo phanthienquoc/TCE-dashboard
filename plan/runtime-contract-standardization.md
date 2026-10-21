@@ -1,9 +1,18 @@
-## Current task: Prevent DRE from redispatching existing UNKNOWN actions — 2026-10-21
+## Current task: Prevent redispatch of existing PARTIAL DRE actions — 2026-10-21
 
-- [x] Add regression coverage proving a persisted DRE `UNKNOWN` action is returned unchanged and never dispatched again, even when LIVE execution is enabled.
+- [x] Add regression coverage proving a persisted DRE `PARTIAL` action is returned unchanged and the executor is not called again.
 - [ ] Verify backend build/unit tests and Prettier on the exact latest PR head, including any formatter-generated commit.
-- CI recovery: Prettier run #1487 failed to push because a concurrent formatter run updated the branch; successful formatting commit is `0bc440dcb4944a8c1155306501376f49559e0242`. Verify all required checks on this resulting head.
 - [ ] Merge only after all required checks pass on the exact latest head and GitHub accepts the merge without bypassing protection.
+- Safety: no production migration/deployment; LIVE trading remains disabled.
+
+## PR #873 — merged DRE UNKNOWN no-redispatch guard — 2026-10-21
+
+- PR [#873](https://github.com/phanthienquoc/TCE-dashboard/pull/873) was squash-merged at `3c3d7fff474d0a2a767d9f674460a94d386734a3`; verified against current `master`.
+- Exact tested PR head: `fc2f6fc82b3e05138ef1847fb4bf112de356eaf0`.
+- Backend build/unit tests passed on that exact head: [WF-05 run #2036](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/39563252155) and [run #2037](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/39563258023).
+- Prettier passed on the same exact head: [WF-02 run #1488](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/39563252186) and [run #1489](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/39563258074).
+- [x] Return persisted DRE `UNKNOWN` actions without redispatch even when LIVE execution is enabled.
+- [x] Verify exact-head CI and squash-merge only after GitHub accepted the merge without a protection bypass.
 - Safety: no production migration/deployment; LIVE trading remains disabled.
 
 ## PR #872 — merged durable UNKNOWN duplicate execution guard — 2026-10-21

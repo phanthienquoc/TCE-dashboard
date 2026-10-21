@@ -79,6 +79,28 @@ describe('SafeOrderExecutionService production safety', () => {
     expect(executor.execute).not.toHaveBeenCalled();
   });
 
+  it('does not redispatch an existing PARTIAL action', async () => {
+    vi.stubEnv('DRE_ENABLED', 'true');
+    vi.stubEnv('DRE_LIVE_EXECUTION', 'true');
+    const { service, repository } = makeService();
+    repository.getAction.mockResolvedValue({
+      ...action,
+      runId: 'run-previous',
+      status: 'PARTIAL',
+      externalId: 'ssi-partial',
+      filledQuantity: 40,
+    });
+    const executor = { execute: vi.fn().mockResolvedValue({ accepted: true, externalId: 'ssi-new' }) };
+
+    await expect(service.submit(action, 'run-retry', 'LIVE', executor)).resolves.toEqual({
+      status: 'PARTIAL',
+      externalId: 'ssi-partial',
+    });
+    expect(repository.getAction).toHaveBeenCalledWith(action.idempotencyKey);
+    expect(repository.saveAction).not.toHaveBeenCalled();
+    expect(executor.execute).not.toHaveBeenCalled();
+  });
+
   it('keeps DRY_RUN available when DRE is enabled and live execution remains disabled', async () => {
     vi.stubEnv('DRE_ENABLED', 'true');
     vi.stubEnv('DRE_LIVE_EXECUTION', 'false');
