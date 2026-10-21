@@ -165,8 +165,18 @@ Standardize runtime ownership and provider/domain/event contracts incrementally.
 - [x] Normalize thrown SSI order-query failures to a structured retryable `PROVIDER_UNAVAILABLE` result instead of leaking exceptions.
 - [x] Normalize provider timeout exceptions to `TIMEOUT_UNKNOWN`; do not represent failed provider reads as an empty successful snapshot.
 - [x] Normalize thrown account-resolution failures to a structured retryable result.
-- [ ] Verify backend build/unit tests and Prettier on the exact latest PR head; wait for all required checks to complete before merge.
-- [ ] After merge, continue with provider-truth reconciliation tests covering partial fills and provider/local drift.
+- [x] Backend build/unit tests passed on exact formatted head `931627f99e48f1bd16351a8f59d8cb25535b807a` (run [#1932](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/39531084211)); Prettier passed (#1436). Squash-merged PR #861 at `6d4967a7832274d6df62fedafe5e98cd90cd4f30`.
+- [x] Continue provider-truth reconciliation work in a follow-up PR covering partial fills and malformed provider quantity data.
 - Safety: no production migration/deployment; durable idempotency rollout flag remains off; LIVE trading remains disabled.
 
 - CI checkpoint (2026-10-21): Prettier auto-format advanced PR #861 to head `e9bc444320af82edea11d95f5de2d36fdace69de`; that exact SHA currently has no check runs. This plan-only commit is intended to trigger backend build/unit tests and Prettier on the formatted head. Do not merge until checks on the resulting latest head complete successfully.
+
+
+## Current task: Provider-truth quantity validation — 2026-10-21
+
+- [x] Preserve provider partial-fill quantity/status through the SSI reconciliation adapter.
+- [x] Treat non-finite, non-positive, negative-fill, overfill, and missing filled quantity as UNKNOWN rather than safely open/terminal.
+- [x] Add adapter regression tests for valid partial fills, provider overfill, and missing fill quantity.
+- [ ] Verify backend build/unit tests and Prettier on the exact latest PR head, including any Prettier auto-format commit.
+- [ ] Merge only after all required checks pass on the exact latest head; then continue provider/local drift and duplicate-provider-ID reconciliation coverage.
+- Safety: no production migration/deployment; durable idempotency rollout flag remains off; LIVE trading remains disabled.
