@@ -176,8 +176,20 @@ Standardize runtime ownership and provider/domain/event contracts incrementally.
 - [x] Preserve provider partial-fill quantity/status through the SSI reconciliation adapter.
 - [x] Treat non-finite, non-positive, negative-fill, overfill, and missing filled quantity as UNKNOWN rather than safely open/terminal.
 - [x] Add adapter regression tests for valid partial fills, provider overfill, and missing fill quantity.
-- [ ] Verify backend build/unit tests and Prettier on the exact latest PR head, including any Prettier auto-format commit.
-- [ ] Merge only after all required checks pass on the exact latest head; then continue provider/local drift and duplicate-provider-ID reconciliation coverage.
+- [x] Backend build/unit tests passed on exact formatted head `6ba69c020d59885ddcfc2e23cd3e4593063b2928` (run [#1937](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/39531358015)); Prettier passed on the same head (run [#1440](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/39531358006)).
+- [x] Squash-merged PR #862 at `0bdb82630e75f279831530d7a8a3dc8bef4ae044`.
+- [x] Next follow-up: ambiguous provider identity matching is being hardened in a dedicated PR.
 - Safety: no production migration/deployment; durable idempotency rollout flag remains off; LIVE trading remains disabled.
 
 - CI checkpoint (2026-10-21): Prettier auto-format advanced PR #862 to `cf9094c1aff0895dab13ca9a2bc48184f37dd708`; no checks exist yet on that exact SHA. This plan-only commit triggers backend unit tests/build and Prettier on the formatted head. Do not merge until both complete successfully on the resulting latest head.
+
+## Current task: Ambiguous provider identity reconciliation — 2026-10-21
+
+- [x] Detect when multiple provider orders match a single local order by provider order ID or client request ID.
+- [x] Return `RECONCILIATION_REQUIRED` for ambiguous matches instead of choosing the first provider row or treating duplicates as harmless.
+- [x] Add regression tests for duplicate provider order IDs and duplicate client request IDs.
+- [ ] Verify backend build/unit tests and Prettier on the exact latest PR head, including any formatter-generated commit.
+- [ ] Merge only after all required checks pass on the exact latest head.
+- Safety: no production migration/deployment; durable idempotency rollout flag remains off; LIVE trading remains disabled.
+
+- CI checkpoint (2026-10-21): Prettier auto-format advanced PR #863 to `fcd079bac3377753f46771e2ee98fcf75ae806b8`; the checks on the earlier head do not verify this formatted commit. This plan-only commit triggers backend build/unit tests and Prettier on the formatted head. Do not merge until the latest-head checks complete successfully.
