@@ -312,6 +312,22 @@ export function reconcileOrderStates(
       for (const otherLocal of localOrders) {
         if (identityMatches(otherLocal, provider)) ambiguousLocalIds.add(otherLocal.id);
       }
+      if (
+        provider.clientRequestId &&
+        providerOrders.some(
+          candidate =>
+            candidate.providerOrderId !== provider.providerOrderId &&
+            candidate.clientRequestId === provider.clientRequestId
+        )
+      ) {
+        ambiguousRequestIds.add(provider.clientRequestId);
+        for (const relatedProvider of providerOrders) {
+          if (relatedProvider.clientRequestId === provider.clientRequestId) {
+            ambiguousProviderIds.add(relatedProvider.providerOrderId);
+            matchedProviderIds.add(relatedProvider.providerOrderId);
+          }
+        }
+      }
       deltas.push({
         localOrderId: local.id,
         providerOrderId: provider.providerOrderId,
