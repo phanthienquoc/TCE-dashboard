@@ -391,7 +391,12 @@ export function reconcileOrderStates(
     if (matchedProviderIds.has(provider.providerOrderId)) continue;
     if (
       provider.clientRequestId &&
-      localOrders.some(local => local.clientRequestId === provider.clientRequestId)
+      (localOrders.some(local => local.clientRequestId === provider.clientRequestId) ||
+        providerOrders.some(
+          candidate =>
+            candidate.providerOrderId !== provider.providerOrderId &&
+            candidate.clientRequestId === provider.clientRequestId
+        ))
     ) {
       continue;
     }
