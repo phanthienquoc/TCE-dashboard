@@ -3,6 +3,7 @@
 - [x] Fail closed when a `READY` authorization response names a different account or environment than the execution command.
 - [x] Add account-mismatch and environment-mismatch regression cases proving the provider port is never called.
 - [ ] Verify backend build/unit tests and Prettier on the exact latest PR head, including any formatter-generated commit.
+- CI recovery: Prettier generated commit `7d2a72664a8d2d3a9b927d809b4411d17264103a` with CI skipped; rerun required checks on the resulting head before merge.
 - [ ] Merge only after all required checks pass on the exact latest head and GitHub accepts the merge without bypassing protection.
 - Safety: no production migrations/deployments; LIVE trading remains disabled.
 
