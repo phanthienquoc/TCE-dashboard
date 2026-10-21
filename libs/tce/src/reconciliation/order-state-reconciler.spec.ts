@@ -300,3 +300,46 @@ test('fails closed when multiple provider orders match one local order identity'
   assert.equal(duplicateClientRequestId[0]?.disposition, 'RECONCILIATION_REQUIRED');
   assert.match(duplicateClientRequestId[0]?.reason ?? '', /ambiguous/i);
 });
+
+test('fails closed when one provider order matches multiple local orders', () => {
+  const deltas = reconcileOrderStates(
+    [
+      {
+        id: 'local-provider-id',
+        symbol: 'DPM',
+        side: 'BUY',
+        quantity: 100,
+        filledQuantity: 0,
+        status: 'SUBMITTED',
+        providerOrderId: 'ssi-shared',
+      },
+      {
+        id: 'local-client-request',
+        symbol: 'DPM',
+        side: 'BUY',
+        quantity: 100,
+        filledQuantity: 10,
+        status: 'SUBMITTED',
+        clientRequestId: 'request-shared',
+      },
+    ],
+    [
+      {
+        providerOrderId: 'ssi-shared',
+        symbol: 'DPM',
+        side: 'BUY',
+        quantity: 100,
+        filledQuantity: 30,
+        status: 'PARTIALLY_FILLED',
+        clientRequestId: 'request-shared',
+      },
+    ]
+  );
+
+  assert.equal(deltas.length, 2);
+  assert.deepEqual(
+    deltas.map(delta => delta.disposition),
+    ['RECONCILIATION_REQUIRED', 'RECONCILIATION_REQUIRED']
+  );
+  assert.ok(deltas.every(delta => /multiple local orders/i.test(delta.reason)));
+});
