@@ -1,3 +1,10 @@
+## Current task: Preserve durable UNKNOWN reservations on duplicate keys — 2026-10-21
+
+- [x] Add adapter regression coverage proving an existing `UNKNOWN` reservation returns its persisted result and timestamp without resetting the reservation.
+- [ ] Verify backend build/unit tests and Prettier on the exact latest PR head, including any formatter-generated commit.
+- [ ] Merge only after all required checks pass on the exact latest head and GitHub accepts the merge without bypassing protection.
+- Safety: no production migration/deployment; LIVE trading remains disabled.
+
 ## PR #867 — merged ambiguous-provider orphan suppression — 2026-10-21
 
 - PR [#867](https://github.com/phanthienquoc/TCE-dashboard/pull/867) was squash-merged at `6019ebce307f369e706e177ef5f6c0330b6212ad`; verified against the `master` ref after merge.
@@ -5,7 +12,7 @@
 - Backend build/unit tests passed on that exact head: [WF-05 run #2005](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/39561067201) and [run #2006](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/39561076085).
 - Prettier passed on that exact head: [WF-02 run #1457](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/39561066988) and [run #1458](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/39561076139).
 - [x] Ambiguous provider rows no longer emit duplicate orphan deltas; affected local orders fail closed with `RECONCILIATION_REQUIRED`.
-- Documentation evidence is being carried by PR [#869](https://github.com/phanthienquoc/TCE-dashboard/pull/869); verify its exact final head before merge.
+- PR [#869](https://github.com/phanthienquoc/TCE-dashboard/pull/869) was squash-merged at `db28069b0793ada11458abb30f0ac8f5cc61647a`; exact-head CI evidence is recorded in its verified merge section.
 - Safety: no production migration/deployment; LIVE trading remains disabled.
 
 ## PR #868 — merged unconfirmed SSI submission handling — 2026-10-21
