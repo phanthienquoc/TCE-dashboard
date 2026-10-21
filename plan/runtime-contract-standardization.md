@@ -1,3 +1,14 @@
+## PR #867 — ambiguous provider identity/orphan suppression — 2026-10-21
+
+- Current implementation head before plan conflict resolution: `fa336c6d7d560af827a57c29ec9bf3a93e691b57`.
+- Backend build/unit tests passed on that exact head: [WF-05 run #2003](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/39549423882).
+- Prettier passed on that exact head: [WF-02 run #1455](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/39549423888).
+- Regression coverage asserts that an extra provider row linked into an ambiguous client-request identity graph does not emit a duplicate orphan delta and that affected local orders fail closed with `RECONCILIATION_REQUIRED`.
+- The branch was one commit behind `master` because PR #866 added a plan-only checkpoint. This branch plan is reconciled against the current `master` version to retain that evidence and avoid overwriting it.
+- These CI results apply to `fa336c6d7d560af827a57c29ec9bf3a93e691b57` only. The documentation/conflict-resolution head must receive fresh backend and Prettier results before merge.
+- PR [#867](https://github.com/phanthienquoc/TCE-dashboard/pull/867) remains unmerged until the exact final head is green, mergeability is true, and any enforced review/branch-protection requirements are satisfied. No bypass.
+- Safety: no production migration/deployment; LIVE trading remains disabled.
+
 ## Automation recovery — PR #865 merged — 2026-10-21
 
 - PR [#865](https://github.com/phanthienquoc/TCE-dashboard/pull/865) was squash-merged at `d4ff9a4ae469e8c4124927e11d13046ef6ec77fd`.

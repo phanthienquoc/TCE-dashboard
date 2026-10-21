@@ -343,3 +343,55 @@ test('fails closed when one provider order matches multiple local orders', () =>
   );
   assert.ok(deltas.every(delta => /multiple local orders/i.test(delta.reason)));
 });
+
+test('fails closed for provider rows in an ambiguous local identity graph without duplicate orphan deltas', () => {
+  const deltas = reconcileOrderStates(
+    [
+      {
+        id: 'local-ambiguous',
+        symbol: 'DPM',
+        side: 'BUY',
+        quantity: 100,
+        filledQuantity: 0,
+        status: 'SUBMITTED',
+        providerOrderId: 'ssi-shared',
+        clientRequestId: 'request-shared',
+      },
+      {
+        id: 'local-secondary',
+        symbol: 'DPM',
+        side: 'BUY',
+        quantity: 100,
+        filledQuantity: 0,
+        status: 'SUBMITTED',
+        clientRequestId: 'request-shared',
+      },
+    ],
+    [
+      {
+        providerOrderId: 'ssi-shared',
+        symbol: 'DPM',
+        side: 'BUY',
+        quantity: 100,
+        filledQuantity: 20,
+        status: 'PARTIALLY_FILLED',
+      },
+      {
+        providerOrderId: 'ssi-extra',
+        symbol: 'DPM',
+        side: 'BUY',
+        quantity: 100,
+        filledQuantity: 40,
+        status: 'PARTIALLY_FILLED',
+        clientRequestId: 'request-shared',
+      },
+    ]
+  );
+
+  assert.equal(deltas.filter(delta => delta.providerOrderId === 'ssi-extra').length, 0);
+  assert.equal(deltas.filter(delta => delta.localOrderId === 'local-secondary').length, 1);
+  assert.equal(
+    deltas.find(delta => delta.localOrderId === 'local-secondary')?.disposition,
+    'RECONCILIATION_REQUIRED'
+  );
+});
