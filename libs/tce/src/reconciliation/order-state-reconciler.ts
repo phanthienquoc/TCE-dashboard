@@ -382,12 +382,13 @@ export function reconcileOrderStates(
     // matches a provider row carrying the same client request ID.
     if (
       provider.clientRequestId &&
-      providerOrders.some(
-        candidate =>
-          candidate.providerOrderId !== provider.providerOrderId &&
-          candidate.clientRequestId === provider.clientRequestId &&
-          matchedProviderIds.has(candidate.providerOrderId)
-      )
+      (ambiguousRequestIds.has(provider.clientRequestId) ||
+        providerOrders.some(
+          candidate =>
+            candidate.providerOrderId !== provider.providerOrderId &&
+            candidate.clientRequestId === provider.clientRequestId &&
+            matchedProviderIds.has(candidate.providerOrderId)
+        ))
     ) {
       continue;
     }
