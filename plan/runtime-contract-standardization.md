@@ -1,3 +1,12 @@
+## Current task: Record PR #879 evidence and complete authorization-gate plan item — 2026-10-21
+
+- [x] Record PR #879's verified merge SHA and exact-head CI evidence.
+- [x] Mark the non-PAPER authorization gate complete based on explicit-executor, readiness, and account/environment mismatch coverage.
+- [ ] Verify backend build/unit tests and Prettier on the exact latest PR head, including any formatter-generated commit.
+- CI recovery: Prettier generated commit `59b6475ee5b5acce7988a71b59f232799e71b5a2` with CI skipped; final verification must target the resulting head.
+- [ ] Merge only after all required checks pass on the exact latest head and GitHub accepts the merge without bypassing protection.
+- Safety: documentation only; no production migration/deployment; LIVE trading remains disabled.
+
 ## PR #879 — merged account/environment idempotency scope — 2026-10-21
 
 - PR [#879](https://github.com/phanthienquoc/TCE-dashboard/pull/879) was squash-merged at `7514572c7d424db67212be1d696b37458f9f8282`; verified against current `master`.
