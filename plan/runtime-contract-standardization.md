@@ -160,7 +160,6 @@ Standardize runtime ownership and provider/domain/event contracts incrementally.
 
 - CI checkpoint (2026-10-21): Prettier workflow auto-format commit advanced the PR head to `62d48b040a401674e34a6943629a9f47607a6758`; checks have not yet been triggered for that exact SHA. Re-run latest-head backend build/unit tests and Prettier before considering merge.
 
-
 ## Current task: Provider outage and timeout failure-path handling — 2026-10-21
 
 - [x] Normalize thrown SSI order-query failures to a structured retryable `PROVIDER_UNAVAILABLE` result instead of leaking exceptions.

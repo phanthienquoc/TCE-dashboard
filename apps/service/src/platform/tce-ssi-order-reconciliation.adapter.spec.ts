@@ -159,7 +159,6 @@ test('rejects malformed reconciliation queries before provider access', async ()
   assert.equal(called, false);
 });
 
-
 test('normalizes a thrown SSI provider outage and never returns an empty successful snapshot', async () => {
   const instance = adapter();
   (instance as any).ssi.current = async () => {
