@@ -1,8 +1,20 @@
-## Current task: Keep DRE reconciliation sweep inclusive of unresolved actions — 2026-10-21
+## Current task: Reject authorization scope mismatches before non-PAPER dispatch — 2026-10-21
 
-- [x] Add repository regression coverage proving the reconciliation sweep includes `PENDING`, `UNKNOWN`, and `PARTIAL` actions and orders them by submission time.
+- [x] Fail closed when a `READY` authorization response names a different account or environment than the execution command.
+- [x] Add account-mismatch and environment-mismatch regression cases proving the provider port is never called.
 - [ ] Verify backend build/unit tests and Prettier on the exact latest PR head, including any formatter-generated commit.
+- CI recovery: Prettier generated commit `7d2a72664a8d2d3a9b927d809b4411d17264103a` with CI skipped; rerun required checks on the resulting head before merge.
 - [ ] Merge only after all required checks pass on the exact latest head and GitHub accepts the merge without bypassing protection.
+- Safety: no production migrations/deployments; LIVE trading remains disabled.
+
+## PR #877 — merged DRE reconciliation sweep statuses — 2026-10-21
+
+- PR [#877](https://github.com/phanthienquoc/TCE-dashboard/pull/877) was squash-merged at `22b7bcbd6d6aa0d02315524da88deb7f1822974e`; verified against current `master`.
+- Exact tested PR head: `f45cda44ee4e32cb4259613f6dd85c49417e7c20`.
+- Backend build/unit tests passed on that exact head: [WF-05 run #2059](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/39564649542) and [run #2060](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/39564664846).
+- Prettier passed on the same exact head: [WF-02 run #1511](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/39564649502) and [run #1512](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/39564664926).
+- [x] Ensure the reconciliation sweep includes `PENDING`, `UNKNOWN`, and `PARTIAL` records, ordered by submission time.
+- [x] Verify exact-head CI and squash-merge only after GitHub accepted the merge without a protection bypass.
 - Safety: no production migration/deployment; LIVE trading remains disabled.
 
 ## PR #876 — merged precomputed DRE action boundary guard — 2026-10-21

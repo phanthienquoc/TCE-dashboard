@@ -81,6 +81,18 @@ export class TceTradingAuthorizedExecutionPort implements TceExecutionPort {
       return authFailure(command, message, false, 'AUTHORIZATION_REQUIRED');
     }
 
+    if (
+      result.data.accountId !== command.accountId ||
+      result.data.environment !== command.environment
+    ) {
+      return authFailure(
+        command,
+        'Trading authorization scope does not match execution account and environment',
+        false,
+        'AUTHORIZATION_REQUIRED'
+      );
+    }
+
     if (result.data.state === 'READY') return operation();
     if (result.data.state === 'EXPIRED')
       return authFailure(command, 'Trading authorization expired', true, 'AUTHORIZATION_EXPIRED');
