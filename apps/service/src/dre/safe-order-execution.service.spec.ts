@@ -79,6 +79,19 @@ describe('SafeOrderExecutionService production safety', () => {
     expect(executor.execute).not.toHaveBeenCalled();
   });
 
+  it('requires an explicit LIVE executor before persisting a new action', async () => {
+    vi.stubEnv('DRE_ENABLED', 'true');
+    vi.stubEnv('DRE_LIVE_EXECUTION', 'true');
+    const { service, repository } = makeService();
+
+    await expect(service.submit(action, 'run-1', 'LIVE')).rejects.toThrow(
+      'Live execution adapter is required explicitly'
+    );
+    expect(repository.ensureIndexes).toHaveBeenCalledTimes(1);
+    expect(repository.getAction).toHaveBeenCalledWith(action.idempotencyKey);
+    expect(repository.saveAction).not.toHaveBeenCalled();
+  });
+
   it('does not redispatch an existing PARTIAL action', async () => {
     vi.stubEnv('DRE_ENABLED', 'true');
     vi.stubEnv('DRE_LIVE_EXECUTION', 'true');
