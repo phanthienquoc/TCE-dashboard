@@ -3,6 +3,7 @@
 - [x] Record PR #883's verified merge SHA and exact-head CI evidence.
 - [x] Confirm regression coverage for partial actions, provider outage/rejection, and provider-truth reconciliation.
 - [ ] Verify backend build/unit tests and Prettier on the exact latest documentation PR head.
+- CI recovery: Prettier generated commit `fd591789bfd1f76d9668f4b262517dbf7f6599a5` with CI skipped; verify checks again on the resulting head.
 - [ ] Merge only after all required checks pass on the exact latest head and GitHub accepts the merge without bypassing protection.
 - Safety: documentation only; no production migration/deployment; LIVE trading remains disabled.
 
