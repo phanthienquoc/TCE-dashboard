@@ -389,6 +389,8 @@ export function reconcileOrderStates(
   for (const provider of providerOrders) {
     if (ambiguousProviderIds.has(provider.providerOrderId)) continue;
     if (matchedProviderIds.has(provider.providerOrderId)) continue;
+    // A provider row sharing a request ID with a local row or another provider
+    // row is not safely classifiable as an independent orphan.
     if (
       provider.clientRequestId &&
       (localOrders.some(local => local.clientRequestId === provider.clientRequestId) ||
@@ -398,6 +400,13 @@ export function reconcileOrderStates(
             candidate.clientRequestId === provider.clientRequestId
         ))
     ) {
+      deltas.push({
+        providerOrderId: provider.providerOrderId,
+        disposition: 'RECONCILIATION_REQUIRED',
+        providerStatus: provider.status,
+        providerFilledQuantity: provider.filledQuantity,
+        reason: 'Provider request identity is shared; reconciliation is required.',
+      });
       continue;
     }
     // Don't classify a provider as an orphan when another local order already
