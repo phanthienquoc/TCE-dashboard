@@ -1,3 +1,12 @@
+## Current task: Reject one-to-many provider/local identity matches — 2026-10-21
+
+- [x] Build the full local/provider identity mapping before classification.
+- [x] Fail closed with `RECONCILIATION_REQUIRED` when a single provider order identity matches multiple local orders.
+- [x] Add regression coverage for a provider order matched through providerOrderId by one local order and clientRequestId by another.
+- [ ] Verify backend build/unit tests and Prettier on the exact latest PR head, including any formatter-generated commit.
+- [ ] Merge only after required checks pass on the exact latest head and all enforced review/branch-protection requirements are satisfied.
+- Safety: no production migration/deployment and no LIVE trading changes.
+
 ## Automation continuity correction — 2026-10-21
 
 - The hourly `TCE PR CI & Plan Loop` was disabled by an earlier assistant action after a file-write safety-gate failure. This was incorrect: a blocker is not a reason to pause the schedule.
