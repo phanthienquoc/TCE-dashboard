@@ -66,7 +66,9 @@ describe('SafeOrderExecutionService production safety', () => {
       externalId: 'ssi-uncertain',
       error: 'provider timeout',
     });
-    const executor = { execute: vi.fn().mockResolvedValue({ accepted: true, externalId: 'ssi-new' }) };
+    const executor = {
+      execute: vi.fn().mockResolvedValue({ accepted: true, externalId: 'ssi-new' }),
+    };
 
     await expect(service.submit(action, 'run-retry', 'LIVE', executor)).resolves.toEqual({
       status: 'UNKNOWN',
