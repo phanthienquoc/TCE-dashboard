@@ -377,8 +377,9 @@ export function reconcileOrderStates(
       (provider.clientRequestId &&
         localOrders.some(
           local =>
-            ambiguousLocalIds.has(local.id) &&
-            local.clientRequestId === provider.clientRequestId
+            local.clientRequestId === provider.clientRequestId &&
+            (ambiguousLocalIds.has(local.id) ||
+              (localMatchCountsByProviderId.get(provider.providerOrderId) ?? 0) > 1)
         ))
     ) {
       continue;
