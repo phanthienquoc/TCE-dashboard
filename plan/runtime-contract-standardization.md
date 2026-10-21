@@ -1,8 +1,18 @@
-## Current task: Reject reconciliation when authorization environment mismatches — 2026-10-21
+## Current task: Block SSI reconciliation reads when authorization is not READY — 2026-10-21
 
-- [x] Add regression coverage proving an authorization response for the wrong environment fails closed before the SSI order query.
+- [x] Add regression coverage proving an expired/non-READY authorization returns retryable `PROVIDER_UNAVAILABLE` before SSI is queried.
 - [ ] Verify backend build/unit tests and Prettier on the exact latest PR head, including any formatter-generated commit.
 - [ ] Merge only after all required checks pass on the exact latest head and GitHub accepts the merge without bypassing protection.
+- Safety: no production migration/deployment; LIVE trading remains disabled.
+
+## PR #881 — merged reconciliation authorization environment guard — 2026-10-21
+
+- PR [#881](https://github.com/phanthienquoc/TCE-dashboard/pull/881) was squash-merged at `47e152e22e7a7c703fe9e43f2591517e95d2ccd8`; verified against current `master`.
+- Exact tested PR head: `5480ef27f230090dde26a6f41072b9d5c8ba3857`.
+- Backend build/unit tests passed on that exact head: [WF-05 run #2083](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/39566181141) and [run #2084](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/39566196577).
+- Prettier passed on the same exact head: [WF-02 run #1535](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/39566181129) and [run #1536](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/39566196685).
+- [x] Reject reconciliation authorization environment mismatches before any SSI read.
+- [x] Verify exact-head CI and squash-merge only after GitHub accepted the merge without a protection bypass.
 - Safety: no production migration/deployment; LIVE trading remains disabled.
 
 ## PR #880 — merged authorization gate plan evidence — 2026-10-21
