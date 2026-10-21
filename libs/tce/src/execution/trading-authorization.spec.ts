@@ -152,4 +152,41 @@ describe('TceTradingAuthorizedExecutionPort', () => {
       new TceTradingAuthorizedExecutionPort({ port, authorization }).submit(command('LIVE'))
     ).resolves.toEqual(success);
   });
+  it.each([
+    { accountId: 'other-account', environment: 'production' },
+    { accountId: 'account-1', environment: 'staging' },
+  ])('blocks non-PAPER dispatch when authorization scope differs from command scope', async scope => {
+    let submitted = 0;
+    const authorization: TceTradingAuthorizationPort = {
+      ensureAuthorized: async () => ({
+        ok: true,
+        data: {
+          state: 'READY',
+          provider: 'ssi',
+          accountId: scope.accountId,
+          environment: scope.environment,
+          checkedAt: '2026-10-21T07:00:00.000Z',
+        },
+      }),
+    };
+    const port: TceExecutionPort = {
+      submit: async () => {
+        submitted += 1;
+        return success;
+      },
+      cancel: async () => success,
+      replace: async () => success,
+    };
+
+    const result = await new TceTradingAuthorizedExecutionPort({ port, authorization }).submit(
+      command('LIVE')
+    );
+
+    expect(result.ok).toBe(false);
+    expect(result.status).toBe('REJECTED');
+    expect(result.error?.code).toBe('AUTHORIZATION_REQUIRED');
+    expect(result.error?.retryable).toBe(false);
+    expect(submitted).toBe(0);
+  });
+
 });
