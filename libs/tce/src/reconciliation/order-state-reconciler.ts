@@ -364,7 +364,15 @@ export function reconcileOrderStates(
       .filter(local => identityMatches(local, provider))
       .map(local => local.id)
       .filter(localId => ambiguousLocalIds.has(localId));
-    if (ambiguousCandidateLocalIds.length > 0 || localOrders.some(local => identityMatches(local, provider))) {
+    if (
+      ambiguousCandidateLocalIds.length > 0 ||
+      (provider.clientRequestId &&
+        localOrders.some(
+          local =>
+            ambiguousLocalIds.has(local.id) &&
+            local.clientRequestId === provider.clientRequestId
+        ))
+    ) {
       // Local-order rows above already carry the reconciliation-required result
       // for this ambiguous identity graph. Suppress duplicate provider-only rows.
       continue;
