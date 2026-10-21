@@ -146,3 +146,16 @@ Standardize runtime ownership and provider/domain/event contracts incrementally.
 - Event envelopes and event-specific payloads are both validated at the publisher and read boundary.
 - DRE lifecycle event publication is best-effort across MongoDB and Supabase; it is not an atomic outbox until durable replay/reconciliation is implemented.
 - DRE campaign events currently have no accountId because campaigns are global; account-scoped REST/SSE/WebSocket streams intentionally do not expose them until an explicit global/admin visibility policy is defined.
+
+## Current task: Partial-fill reconciliation quantity guards — 2026-10-21
+
+- [x] Validate local and provider order quantity fields before missing/orphan/terminal/partial-fill classification.
+- [x] Fail closed with `RECONCILIATION_REQUIRED` for non-finite quantities, non-positive order quantity, negative filled quantity, or filled quantity exceeding order quantity.
+- [x] Add regression tests for invalid local/provider quantities and unmatched invalid orders.
+- [ ] Run backend unit tests/build and Prettier on the exact PR head; only mark verification complete when the resulting GitHub Actions runs are green.
+- [ ] Open PR and merge only after required checks pass on the latest head and review/branch requirements are verified.
+- Safety: no production migration/deployment and no LIVE trading changes.
+
+- CI checkpoint: backend build/unit tests passed on pre-format commit `b39262813ba723edc3a3dc0d95153df6aa603df3` (run [#1930](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/39526077460)); Prettier passed on that same head (run [#1431](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/39526077465)). Prettier then applied formatting in commit `a7964aa88d00ed7c7a6a4c257efb4f5fddd0e2cf`; the branch was re-squashed to `a5f4dee33c927228168f925dff2c497d34166244`. The formatted head has not yet emitted new checks, so latest-head verification remains pending and merge is prohibited until verified.
+
+- CI checkpoint (2026-10-21): Prettier workflow auto-format commit advanced the PR head to `62d48b040a401674e34a6943629a9f47607a6758`; checks have not yet been triggered for that exact SHA. Re-run latest-head backend build/unit tests and Prettier before considering merge.
