@@ -380,16 +380,7 @@ export function reconcileOrderStates(
     if (matchedProviderIds.has(provider.providerOrderId)) continue;
     // Even a provider row that does not share the provider ID is not an orphan
     // when its client request ID belongs to an already ambiguous local component.
-    if (
-      (provider.clientRequestId && ambiguousRequestIds.has(provider.clientRequestId)) ||
-      (provider.clientRequestId &&
-        localOrders.some(
-          local =>
-            local.clientRequestId === provider.clientRequestId &&
-            (ambiguousLocalIds.has(local.id) ||
-              (localMatchCountsByProviderId.get(provider.providerOrderId) ?? 0) > 1)
-        ))
-    ) {
+    if (provider.clientRequestId && ambiguousRequestIds.has(provider.clientRequestId)) {
       continue;
     }
     const ambiguousCandidateLocalIds = localOrders
