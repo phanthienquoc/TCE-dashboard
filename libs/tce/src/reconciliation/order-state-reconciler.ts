@@ -178,6 +178,17 @@ export function reconcileOrderStates(
           }
         }
       }
+      for (const provider of providerOrders) {
+        if (provider.clientRequestId !== local.clientRequestId) continue;
+        ambiguousProviderIds.add(provider.providerOrderId);
+        matchedProviderIds.add(provider.providerOrderId);
+        for (const relatedLocalId of localIdsByProviderId.get(provider.providerOrderId) ?? []) {
+          if (!ambiguousLocalIds.has(relatedLocalId)) {
+            ambiguousLocalIds.add(relatedLocalId);
+            localQueue.push(relatedLocalId);
+          }
+        }
+      }
       for (const relatedLocalId of localIdsByClientRequestId.get(local.clientRequestId) ?? []) {
         if (!ambiguousLocalIds.has(relatedLocalId)) {
           ambiguousLocalIds.add(relatedLocalId);
