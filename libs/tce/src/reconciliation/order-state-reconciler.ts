@@ -138,7 +138,9 @@ export function reconcileOrderStates(
   for (const local of localOrders) {
     const matchedProviderIds = providerIdsByLocalId.get(local.id) ?? new Set<string>();
     const ambiguousByProviderId = [...matchedProviderIds].some(
-      providerId => (localIdsByProviderId.get(providerId)?.size ?? 0) > 1
+      providerId =>
+        (localIdsByProviderId.get(providerId)?.size ?? 0) > 1 ||
+        (providerRowCounts.get(providerId) ?? 0) > 1
     );
     const ambiguousByRequestId =
       !!local.clientRequestId &&
