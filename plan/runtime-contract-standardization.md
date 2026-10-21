@@ -155,3 +155,6 @@ Standardize runtime ownership and provider/domain/event contracts incrementally.
 - [ ] Run backend unit tests/build and Prettier on the exact PR head; only mark verification complete when the resulting GitHub Actions runs are green.
 - [ ] Open PR and merge only after required checks pass on the latest head and review/branch requirements are verified.
 - Safety: no production migration/deployment and no LIVE trading changes.
+
+
+- CI checkpoint: backend build/unit tests passed on pre-format commit `b39262813ba723edc3a3dc0d95153df6aa603df3` (run [#1930](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/39526077460)); Prettier passed on that same head (run [#1431](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/39526077465)). Prettier then applied formatting in commit `a7964aa88d00ed7c7a6a4c257efb4f5fddd0e2cf`; the branch was re-squashed to `a5f4dee33c927228168f925dff2c497d34166244`. The formatted head has not yet emitted new checks, so latest-head verification remains pending and merge is prohibited until verified.
