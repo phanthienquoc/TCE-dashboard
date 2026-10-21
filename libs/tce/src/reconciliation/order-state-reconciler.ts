@@ -89,6 +89,12 @@ export function reconcileOrderStates(
       );
     }
   }
+  // Provider order IDs must be unique in the snapshot itself; duplicate rows for
+  // the same ID are ambiguous even if they share all visible fields.
+  const providerRowCounts = new Map<string, number>();
+  for (const provider of providerOrders) {
+    providerRowCounts.set(provider.providerOrderId, (providerRowCounts.get(provider.providerOrderId) ?? 0) + 1);
+  }
 
   const ambiguousLocalIds = new Set<string>();
   const ambiguousProviderIds = new Set<string>();
@@ -101,7 +107,9 @@ export function reconcileOrderStates(
     if (
       matchingProviders.length > 1 ||
       matchingProviders.some(
-        provider => (localMatchCountsByProviderId.get(provider.providerOrderId) ?? 0) > 1
+        provider =>
+          (localMatchCountsByProviderId.get(provider.providerOrderId) ?? 0) > 1 ||
+          (providerRowCounts.get(provider.providerOrderId) ?? 0) > 1
       )
     ) {
       ambiguousLocalIds.add(local.id);
