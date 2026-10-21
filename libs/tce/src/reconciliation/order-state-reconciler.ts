@@ -124,6 +124,9 @@ export function reconcileOrderStates(
           if (identityMatches(otherLocal, match)) ambiguousLocalIds.add(otherLocal.id);
         }
       }
+      // Each local should produce one fail-closed result even when several provider
+      // rows point to it; the provider IDs are tracked so the final sweep emits no
+      // duplicate provider-only deltas.
       deltas.push({
         localOrderId: local.id,
         disposition: 'RECONCILIATION_REQUIRED',
