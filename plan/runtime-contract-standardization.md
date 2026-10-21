@@ -165,7 +165,7 @@ Standardize runtime ownership and provider/domain/event contracts incrementally.
 - [x] Normalize thrown SSI order-query failures to a structured retryable `PROVIDER_UNAVAILABLE` result instead of leaking exceptions.
 - [x] Normalize provider timeout exceptions to `TIMEOUT_UNKNOWN`; do not represent failed provider reads as an empty successful snapshot.
 - [x] Normalize thrown account-resolution failures to a structured retryable result.
-- [x] Backend build/unit tests passed on exact formatted head `931627f99e48f1bd16351a8f59d8cb25535b807a` (run [#1932](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/39531084211)); Prettier passed (#1436). Squash-merged PR #861 at `6d4967a7832274d6df62fedafe5e98cd90cd4f30`.
+- [x] Backend build/unit tests passed on exact formatted head `931627f99e48f1bd16351a8f59d8cb25535b807a` (run [#1935](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/39531084211)); Prettier passed in run [#1438](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/39531084265). Squash-merged PR #861 at `6d4967a7832274d6df62fedafe5e98cd90cd4f30`.
 - [x] Continue provider-truth reconciliation work in a follow-up PR covering partial fills and malformed provider quantity data.
 - Safety: no production migration/deployment; durable idempotency rollout flag remains off; LIVE trading remains disabled.
 
@@ -179,3 +179,5 @@ Standardize runtime ownership and provider/domain/event contracts incrementally.
 - [ ] Verify backend build/unit tests and Prettier on the exact latest PR head, including any Prettier auto-format commit.
 - [ ] Merge only after all required checks pass on the exact latest head; then continue provider/local drift and duplicate-provider-ID reconciliation coverage.
 - Safety: no production migration/deployment; durable idempotency rollout flag remains off; LIVE trading remains disabled.
+
+- CI checkpoint (2026-10-21): Prettier auto-format advanced PR #862 to `cf9094c1aff0895dab13ca9a2bc48184f37dd708`; no checks exist yet on that exact SHA. This plan-only commit triggers backend unit tests/build and Prettier on the formatted head. Do not merge until both complete successfully on the resulting latest head.
