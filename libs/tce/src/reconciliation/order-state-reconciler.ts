@@ -375,9 +375,17 @@ export function reconcileOrderStates(
     });
   }
 
+  const matchedRequestIds = new Set(
+    providerOrders
+      .filter(provider => matchedProviderIds.has(provider.providerOrderId))
+      .map(provider => provider.clientRequestId)
+      .filter((requestId): requestId is string => !!requestId)
+  );
+
   for (const provider of providerOrders) {
     if (ambiguousProviderIds.has(provider.providerOrderId)) continue;
     if (matchedProviderIds.has(provider.providerOrderId)) continue;
+    if (provider.clientRequestId && matchedRequestIds.has(provider.clientRequestId)) continue;
     // Don't classify a provider as an orphan when another local order already
     // matches a provider row carrying the same client request ID.
     if (
