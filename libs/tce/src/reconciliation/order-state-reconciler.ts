@@ -84,10 +84,10 @@ export function reconcileOrderStates(
       'Local order'
     );
     if (localQuantityError) {
-      if (provider) matchedProviderIds.add(provider.providerOrderId);
+      for (const match of matchingProviders) matchedProviderIds.add(match.providerOrderId);
       deltas.push({
         localOrderId: local.id,
-        providerOrderId: provider?.providerOrderId,
+        providerOrderId: matchingProviders.length === 1 ? provider?.providerOrderId : undefined,
         disposition: 'RECONCILIATION_REQUIRED',
         localStatus: local.status,
         providerStatus: provider?.status,
