@@ -163,6 +163,9 @@ export function reconcileOrderStates(
           matchedProviderIds.add(matchedProvider.providerOrderId);
         }
       }
+      for (const otherLocal of localOrders) {
+        if (identityMatches(otherLocal, provider)) ambiguousLocalIds.add(otherLocal.id);
+      }
       deltas.push({
         localOrderId: local.id,
         providerOrderId: provider.providerOrderId,
