@@ -40,7 +40,17 @@ export class TceSsiOrderReconciliationAdapter implements TceOrderReconciliationP
     const validation = this.validateQuery(query);
     if (validation) return validation;
 
-    const account = await this.resolveAccount(query);
+    let account: Awaited<ReturnType<TceSsiOrderReconciliationAdapter['resolveAccount']>>;
+    try {
+      account = await this.resolveAccount(query);
+    } catch (error) {
+      return errorResult(
+        query,
+        'PROVIDER_UNAVAILABLE',
+        error instanceof Error ? error.message : 'Unable to resolve TCE account',
+        true
+      );
+    }
     if (!account.ok) return account.result;
 
     const auth = await this.authorization.ensureAuthorized({
@@ -66,7 +76,19 @@ export class TceSsiOrderReconciliationAdapter implements TceOrderReconciliationP
         'SSI authorization identity does not match reconciliation account/environment'
       );
 
-    const result = await this.ssi.current(account.userId, query.environment, {});
+    let result: Awaited<ReturnType<SsiApplicationService['current']>>;
+    try {
+      result = await this.ssi.current(account.userId, query.environment, {});
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'SSI order query failed';
+      const timedOut = /timeout|timed out|deadline exceeded/i.test(message);
+      return errorResult(
+        query,
+        timedOut ? 'TIMEOUT_UNKNOWN' : 'PROVIDER_UNAVAILABLE',
+        message,
+        true
+      );
+    }
     if (!result.ok) {
       const lower = result.error.message.toLowerCase();
       const code =
