@@ -205,6 +205,9 @@ export function reconcileOrderStates(
     }
     if (ambiguousLocalIds.has(local.id)) {
       for (const match of matchingProviders) matchedProviderIds.add(match.providerOrderId);
+      const matchesMultipleLocals = matchingProviders.some(
+        match => (localMatchCountsByProviderId.get(match.providerOrderId) ?? 0) > 1
+      );
       deltas.push({
         localOrderId: local.id,
         disposition: 'RECONCILIATION_REQUIRED',
@@ -212,7 +215,9 @@ export function reconcileOrderStates(
         providerStatus: provider?.status,
         localFilledQuantity: local.filledQuantity,
         providerFilledQuantity: provider?.filledQuantity,
-        reason: 'Local/provider identity is ambiguous; reconciliation is required.',
+        reason: matchesMultipleLocals
+          ? 'One provider order matches multiple local orders; provider-to-local identity is ambiguous.'
+          : 'Local/provider identity is ambiguous; reconciliation is required.',
       });
       continue;
     }
