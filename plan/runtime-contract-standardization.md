@@ -1,3 +1,11 @@
+## Automation continuity correction — 2026-10-21
+
+- The hourly `TCE PR CI & Plan Loop` was disabled by an earlier assistant action after a file-write safety-gate failure. This was incorrect: a blocker is not a reason to pause the schedule.
+- The loop has been re-enabled. On a blocked action, continue read-only diagnosis and independent dependency-safe work; record the blocker and retry on the next hourly cycle.
+- Verified latest reconciliation checkpoint: PR #863 is merged at `21737eb769c4250504b99a668a3b8128403938b4`; its exact head was `5db788e06657ce65b3bb9086a76e211ac0f3845a`, with Backend and Prettier reported green in the canonical Notion evidence.
+- Follow-up items remain open unless supported by new evidence: ownership-boundary verification, event/idempotency migration and staging gates, account/environment/auth/risk dispatch gates, partial-fill/provider-outage/provider-truth failure-path tests, unknown-outcome no-resubmit behavior, and durable cross-database event replay.
+- Next step: choose the next small unblocked follow-up, implement and test on a dedicated branch, update plan evidence, and open a PR. No production migration/deployment and no LIVE trading.
+
 # Runtime Boundary Standardization — implementation plan
 
 **Repository:** `phanthienquoc/TCE-dashboard`  
