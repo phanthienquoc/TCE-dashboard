@@ -90,7 +90,9 @@ describe('SafeOrderExecutionService production safety', () => {
       externalId: 'ssi-partial',
       filledQuantity: 40,
     });
-    const executor = { execute: vi.fn().mockResolvedValue({ accepted: true, externalId: 'ssi-new' }) };
+    const executor = {
+      execute: vi.fn().mockResolvedValue({ accepted: true, externalId: 'ssi-new' }),
+    };
 
     await expect(service.submit(action, 'run-retry', 'LIVE', executor)).resolves.toEqual({
       status: 'PARTIAL',
