@@ -168,13 +168,16 @@ export function reconcileOrderStates(
       continue;
     }
     if (!provider) {
-      const matchesAmbiguousLocal = ambiguousLocalIds.has(local.id);
+      // The identity graph was pre-scanned, so this local may already be known
+      // ambiguous even if no provider row is unique to it.
       deltas.push({
         localOrderId: local.id,
-        disposition: matchesAmbiguousLocal ? 'RECONCILIATION_REQUIRED' : 'MISSING_PROVIDER_ORDER',
+        disposition: ambiguousLocalIds.has(local.id)
+          ? 'RECONCILIATION_REQUIRED'
+          : 'MISSING_PROVIDER_ORDER',
         localStatus: local.status,
         localFilledQuantity: local.filledQuantity,
-        reason: matchesAmbiguousLocal
+        reason: ambiguousLocalIds.has(local.id)
           ? 'Local order is part of an ambiguous provider identity mapping.'
           : 'Local order has no matching provider order.',
       });
