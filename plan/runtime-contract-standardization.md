@@ -1,9 +1,28 @@
-## Current task: Preserve durable UNKNOWN reservations on duplicate keys — 2026-10-21
+## Current task: Prevent terminal UNKNOWN reservation overwrite — 2026-10-21
 
-- [x] Add adapter regression coverage proving an existing `UNKNOWN` reservation returns its persisted result and timestamp without resetting the reservation.
+- [x] Add adapter regression coverage proving a later completion attempt cannot overwrite an existing terminal `UNKNOWN` reservation.
 - [ ] Verify backend build/unit tests and Prettier on the exact latest PR head, including any formatter-generated commit.
 - [ ] Merge only after all required checks pass on the exact latest head and GitHub accepts the merge without bypassing protection.
 - Safety: no production migration/deployment; LIVE trading remains disabled.
+
+## PR #870 — merged durable UNKNOWN reservation regression — 2026-10-21
+
+- PR [#870](https://github.com/phanthienquoc/TCE-dashboard/pull/870) was squash-merged at `e6445f94af99938d910aa54de27c308e5113bdaa`; verified against current `master`.
+- Exact tested PR head: `f9f496783644143e8e2678de90020fd23d56389a`.
+- Backend build/unit tests passed on that exact head: [WF-05 run #2021](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/39562146435) and [run #2022](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/39562157510).
+- Prettier passed on the same exact head: [WF-02 run #1473](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/39562146443) and [run #1474](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/39562157494).
+- [x] Preserve the existing `UNKNOWN` result and update timestamp when a duplicate reservation is attempted.
+- [x] Verify exact-head CI and squash-merge only after GitHub accepted the merge without a protection bypass.
+- Safety: no production migration/deployment; LIVE trading remains disabled.
+
+## PR #869 — plan evidence merged — 2026-10-21
+
+- PR [#869](https://github.com/phanthienquoc/TCE-dashboard/pull/869) was squash-merged at `db28069b0793ada11458abb30f0ac8f5cc61647a`; verified against current `master`.
+- Exact tested PR head: `f0433ca1710673f68437ded07d875dc24dd92f97`.
+- Backend build/unit tests passed on that exact head: [WF-05 run #2017](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/39561899384) and [run #2018](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/39561906201).
+- Prettier passed on the same exact head: [WF-02 run #1469](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/39561899175) and [run #1470](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/39561906195).
+- [x] Record PR #868's verified merge SHA and exact-head CI evidence in the implementation plan.
+- Safety: documentation only; no production migration/deployment; LIVE trading remains disabled.
 
 ## PR #867 — merged ambiguous-provider orphan suppression — 2026-10-21
 

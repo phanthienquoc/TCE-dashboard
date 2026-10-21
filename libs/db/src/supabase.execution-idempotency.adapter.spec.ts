@@ -146,6 +146,48 @@ describe('SupabaseExecutionIdempotencyAdapter', () => {
     expect(insert).toHaveBeenCalledTimes(1);
   });
 
+  it('does not overwrite an UNKNOWN reservation on a later completion attempt', async () => {
+    const unknownResult = {
+      ok: false,
+      operation: 'SUBMIT',
+      status: 'UNKNOWN',
+      executionIntentId: 'intent-1',
+      correlationId: 'corr-1',
+      idempotencyKey: 'idem-1',
+      clientRequestId: 'client-1',
+      error: {
+        code: 'TIMEOUT_UNKNOWN',
+        message: 'provider outcome is unknown',
+        retryable: false,
+        reconciliationRequired: true,
+      },
+    };
+    const maybeSingle = vi.fn().mockResolvedValue({ data: null, error: null });
+    const select = vi.fn().mockReturnValue({ maybeSingle });
+    const eqStatus = vi.fn().mockReturnValue({ select });
+    const eqFingerprint = vi.fn().mockReturnValue({ eq: eqStatus });
+    const eqIdempotencyKey = vi.fn().mockReturnValue({ eq: eqFingerprint });
+    const eqEnvironment = vi.fn().mockReturnValue({ eq: eqIdempotencyKey });
+    const eqAccount = vi.fn().mockReturnValue({ eq: eqEnvironment });
+    const update = vi.fn().mockReturnValue({ eq: eqAccount });
+    const db = { from: vi.fn().mockReturnValue({ update }) } as any;
+    const store = new SupabaseExecutionIdempotencyAdapter(db);
+
+    await expect(
+      store.complete(
+        reservation.scope,
+        reservation.fingerprint,
+        unknownResult as any,
+        '2026-10-21T12:02:00.000Z'
+      )
+    ).rejects.toThrow('Idempotency completion did not match a pending reservation');
+
+    expect(eqStatus).toHaveBeenCalledWith('status', 'PENDING');
+    expect(update).toHaveBeenCalledWith(
+      expect.objectContaining({ status: 'UNKNOWN', result: unknownResult })
+    );
+  });
+
   it('persists unknown outcomes as reconciliation-required', async () => {
     const result = {
       ok: false,
