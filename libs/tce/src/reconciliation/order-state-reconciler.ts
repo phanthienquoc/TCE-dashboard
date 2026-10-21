@@ -72,120 +72,118 @@ export function reconcileOrderStates(
   localOrders: readonly ReconciliationOrder[],
   providerOrders: readonly ProviderReconciliationOrder[]
 ): ReconciliationDelta[] {
+  const matchedProviderIds = new Set<string>();
   const deltas: ReconciliationDelta[] = [];
-  const providerIdsByLocal = new Map<string, Set<string>>();
-  const localIdsByProvider = new Map<string, Set<string>>();
-  const localIdsByRequest = new Map<string, Set<string>>();
-  const providerIdsByRequest = new Map<string, Set<string>>();
-  const providerRowsById = new Map<string, ProviderReconciliationOrder[]>();
 
-  for (const local of localOrders) {
-    const localIds = localIdsByRequest.get(local.clientRequestId ?? '') ?? new Set<string>();
-    if (local.clientRequestId) {
-      localIds.add(local.id);
-      localIdsByRequest.set(local.clientRequestId, localIds);
+  // Build the complete identity graph first. Matching must be one-to-one; choosing a
+  // row inside the loop can otherwise reconcile one provider order against two locals.
+  const providersByLocal = localOrders.map(local =>
+    providerOrders.filter(candidate => identityMatches(local, candidate))
+  );
+  const localMatchCountsByProviderId = new Map<string, number>();
+  for (const matchingProviders of providersByLocal) {
+    for (const provider of matchingProviders) {
+      localMatchCountsByProviderId.set(
+        provider.providerOrderId,
+        (localMatchCountsByProviderId.get(provider.providerOrderId) ?? 0) + 1
+      );
     }
   }
+  
+  const providerClientRequestIds = new Map<string, Set<string>>();
   for (const provider of providerOrders) {
-    const rows = providerRowsById.get(provider.providerOrderId) ?? [];
-    rows.push(provider);
-    providerRowsById.set(provider.providerOrderId, rows);
-    if (provider.clientRequestId) {
-      const ids = providerIdsByRequest.get(provider.clientRequestId) ?? new Set<string>();
-      ids.add(provider.providerOrderId);
-      providerIdsByRequest.set(provider.clientRequestId, ids);
-    }
+    if (!provider.clientRequestId) continue;
+    const ids = providerClientRequestIds.get(provider.clientRequestId) ?? new Set<string>();
+    ids.add(provider.providerOrderId);
+    providerClientRequestIds.set(provider.clientRequestId, ids);
   }
 
-  const providersByLocal = new Map<string, ProviderReconciliationOrder[]>();
-  for (const local of localOrders) {
-    const matches = providerOrders.filter(provider => identityMatches(local, provider));
-    providersByLocal.set(local.id, matches);
-    providerIdsByLocal.set(local.id, new Set(matches.map(provider => provider.providerOrderId)));
-    for (const provider of matches) {
-      const ids = localIdsByProvider.get(provider.providerOrderId) ?? new Set<string>();
-      ids.add(local.id);
-      localIdsByProvider.set(provider.providerOrderId, ids);
-    }
-  }
-
-  // Identity links are transitive: a provider order ID can connect one local order,
-  // while the same client request ID connects that provider row to another local/provider.
-  // Find connected components before classifying any individual row.
   const ambiguousLocalIds = new Set<string>();
   const ambiguousProviderIds = new Set<string>();
-  const ambiguousRequestIds = new Set<string>();
-  const queue: string[] = [];
-  for (const local of localOrders) {
-    const matches = providersByLocal.get(local.id) ?? [];
-    const providerIds = providerIdsByLocal.get(local.id) ?? new Set<string>();
-    const ambiguous =
-      providerIds.size > 1 ||
-      matches.some(provider =>
-        (localIdsByProvider.get(provider.providerOrderId)?.size ?? 0) > 1 ||
-        (providerRowsById.get(provider.providerOrderId)?.length ?? 0) > 1
-      ) ||
+  for (let localIndex = 0; localIndex < localOrders.length; localIndex++) {
+    const local = localOrders[localIndex]!;
+    const matching = providersByLocal[localIndex]!;
+    if (
+      matching.length > 1 ||
+      matching.some(p => (localMatchCountsByProviderId.get(p.providerOrderId) ?? 0) > 1) ||
+      matching.some(p => (providerRowsById.get(p.providerOrderId)?.length ?? 0) > 1) ||
       (!!local.clientRequestId &&
-        ((localIdsByRequest.get(local.clientRequestId)?.size ?? 0) > 1 ||
-          (providerIdsByRequest.get(local.clientRequestId)?.size ?? 0) > 1));
-    if (ambiguous) {
+        ((localOrders.filter(other => other.clientRequestId === local.clientRequestId).length > 1) ||
+          (providerClientRequestIds.get(local.clientRequestId)?.size ?? 0) > 1))
+    ) {
       ambiguousLocalIds.add(local.id);
-      queue.push(local.id);
+      for (const provider of matching) {
+        matchedProviderIds.add(provider.providerOrderId);
+        ambiguousProviderIds.add(provider.providerOrderId);
+      }
     }
   }
 
-  while (queue.length) {
+  // Propagate fail-closed classification across provider/request-id identity links.
+  const queue = [...ambiguousLocalIds];
+  while (queue.length > 0) {
     const localId = queue.pop()!;
     const local = localOrders.find(item => item.id === localId);
     if (!local) continue;
-    if (local.clientRequestId) ambiguousRequestIds.add(local.clientRequestId);
-
-    for (const providerId of providerIdsByLocal.get(localId) ?? []) {
-      ambiguousProviderIds.add(providerId);
-      for (const relatedLocalId of localIdsByProvider.get(providerId) ?? []) {
-        if (!ambiguousLocalIds.has(relatedLocalId)) {
-          ambiguousLocalIds.add(relatedLocalId);
-          queue.push(relatedLocalId);
-        }
-      }
-    }
-
-    if (local.clientRequestId) {
-      for (const provider of providerOrders) {
-        if (provider.clientRequestId !== local.clientRequestId) continue;
-        ambiguousProviderIds.add(provider.providerOrderId);
-        for (const relatedLocalId of localIdsByProvider.get(provider.providerOrderId) ?? []) {
-          if (!ambiguousLocalIds.has(relatedLocalId)) {
-            ambiguousLocalIds.add(relatedLocalId);
-            queue.push(relatedLocalId);
+    const matching = providersByLocal[localOrders.findIndex(item => item.id === localId)] ?? [];
+    for (const provider of matching) {
+      matchedProviderIds.add(provider.providerOrderId);
+      ambiguousProviderIds.add(provider.providerOrderId);
+      for (let j = 0; j < localOrders.length; j++) {
+        if (providersByLocal[j]!.some(p => p.providerOrderId === provider.providerOrderId)) {
+          const linkedLocal = localOrders[j]!;
+          if (!ambiguousLocalIds.has(linkedLocal.id)) {
+            ambiguousLocalIds.add(linkedLocal.id);
+            queue.push(linkedLocal.id);
           }
         }
       }
-      for (const relatedLocalId of localIdsByRequest.get(local.clientRequestId) ?? []) {
-        if (!ambiguousLocalIds.has(relatedLocalId)) {
-          ambiguousLocalIds.add(relatedLocalId);
-          queue.push(relatedLocalId);
+      if (provider.clientRequestId) {
+        for (let j = 0; j < localOrders.length; j++) {
+          if (localOrders[j]!.clientRequestId === provider.clientRequestId &&
+              !ambiguousLocalIds.has(localOrders[j]!.id)) {
+            ambiguousLocalIds.add(localOrders[j]!.id);
+            queue.push(localOrders[j]!.id);
+          }
+        }
+        for (const linkedProvider of providerOrders) {
+          if (linkedProvider.clientRequestId === provider.clientRequestId) {
+            matchedProviderIds.add(linkedProvider.providerOrderId);
+            ambiguousProviderIds.add(linkedProvider.providerOrderId);
+          }
+        }
+      }
+    }
+    if (local.clientRequestId) {
+      for (const linkedProvider of providerOrders) {
+        if (linkedProvider.clientRequestId !== local.clientRequestId) continue;
+        matchedProviderIds.add(linkedProvider.providerOrderId);
+        ambiguousProviderIds.add(linkedProvider.providerOrderId);
+      }
+      for (let j = 0; j < localOrders.length; j++) {
+        if (localOrders[j]!.clientRequestId === local.clientRequestId &&
+            !ambiguousLocalIds.has(localOrders[j]!.id)) {
+          ambiguousLocalIds.add(localOrders[j]!.id);
+          queue.push(localOrders[j]!.id);
         }
       }
     }
   }
 
-  const emittedLocalIds = new Set<string>();
-  const accountedProviderIds = new Set<string>(ambiguousProviderIds);
-  for (const local of localOrders) {
-    const matches = providersByLocal.get(local.id) ?? [];
-    const provider = matches[0];
-    for (const matched of matches) accountedProviderIds.add(matched.providerOrderId);
-
+  for (let localIndex = 0; localIndex < localOrders.length; localIndex++) {
+    const local = localOrders[localIndex]!;
+    const matchingProviders = providersByLocal[localIndex]!;
+    const provider = matchingProviders[0];
     const localQuantityError = quantityValidationReason(
       local.quantity,
       local.filledQuantity,
       'Local order'
     );
     if (localQuantityError) {
+      for (const match of matchingProviders) matchedProviderIds.add(match.providerOrderId);
       deltas.push({
         localOrderId: local.id,
-        providerOrderId: matches.length === 1 ? provider?.providerOrderId : undefined,
+        providerOrderId: matchingProviders.length === 1 ? provider?.providerOrderId : undefined,
         disposition: 'RECONCILIATION_REQUIRED',
         localStatus: local.status,
         providerStatus: provider?.status,
@@ -193,11 +191,10 @@ export function reconcileOrderStates(
         providerFilledQuantity: provider?.filledQuantity,
         reason: localQuantityError,
       });
-      emittedLocalIds.add(local.id);
       continue;
     }
-
     if (ambiguousLocalIds.has(local.id)) {
+      for (const match of matchingProviders) matchedProviderIds.add(match.providerOrderId);
       deltas.push({
         localOrderId: local.id,
         disposition: 'RECONCILIATION_REQUIRED',
@@ -205,19 +202,23 @@ export function reconcileOrderStates(
         providerStatus: provider?.status,
         localFilledQuantity: local.filledQuantity,
         providerFilledQuantity: provider?.filledQuantity,
-        reason:
-          (local.clientRequestId &&
-            (localIdsByRequest.get(local.clientRequestId)?.size ?? 0) > 1) ||
-          [...(providerIdsByLocal.get(local.id) ?? [])].some(
-            providerId => (localIdsByProvider.get(providerId)?.size ?? 0) > 1
-          )
-            ? 'Multiple local orders share this provider identity; reconciliation is required.'
-            : 'Local/provider identity is ambiguous; reconciliation is required.',
+        reason: 'Local/provider identity is ambiguous; reconciliation is required.',
       });
-      emittedLocalIds.add(local.id);
       continue;
     }
-
+    if (matchingProviders.length > 1) {
+      for (const match of matchingProviders) matchedProviderIds.add(match.providerOrderId);
+      deltas.push({
+        localOrderId: local.id,
+        disposition: 'RECONCILIATION_REQUIRED',
+        localStatus: local.status,
+        providerStatus: provider?.status,
+        localFilledQuantity: local.filledQuantity,
+        providerFilledQuantity: provider?.filledQuantity,
+        reason: 'Multiple provider orders match this local identity; provider truth is ambiguous.',
+      });
+      continue;
+    }
     if (!provider) {
       deltas.push({
         localOrderId: local.id,
@@ -226,7 +227,22 @@ export function reconcileOrderStates(
         localFilledQuantity: local.filledQuantity,
         reason: 'Local order has no matching provider order.',
       });
-      emittedLocalIds.add(local.id);
+      continue;
+    }
+
+    matchedProviderIds.add(provider.providerOrderId);
+    if ((localMatchCountsByProviderId.get(provider.providerOrderId) ?? 0) > 1) {
+      deltas.push({
+        localOrderId: local.id,
+        providerOrderId: provider.providerOrderId,
+        disposition: 'RECONCILIATION_REQUIRED',
+        localStatus: local.status,
+        providerStatus: provider.status,
+        localFilledQuantity: local.filledQuantity,
+        providerFilledQuantity: provider.filledQuantity,
+        reason:
+          'One provider order matches multiple local orders; provider-to-local identity is ambiguous.',
+      });
       continue;
     }
 
@@ -246,10 +262,8 @@ export function reconcileOrderStates(
         providerFilledQuantity: provider.filledQuantity,
         reason: providerQuantityError,
       });
-      emittedLocalIds.add(local.id);
       continue;
     }
-
     const normalizedProviderState = mapProviderOrderStatus(provider.status);
     if (normalizedProviderState === 'UNKNOWN') {
       deltas.push({
@@ -263,7 +277,6 @@ export function reconcileOrderStates(
         providerFilledQuantity: provider.filledQuantity,
         reason: 'Provider status is unknown; no local state mutation is safe.',
       });
-      emittedLocalIds.add(local.id);
       continue;
     }
 
@@ -284,12 +297,11 @@ export function reconcileOrderStates(
           ? 'Provider fill quantity is authoritative for reconciliation.'
           : 'Local order is consistent with provider truth.',
     });
-    emittedLocalIds.add(local.id);
   }
 
   for (const provider of providerOrders) {
-    if (accountedProviderIds.has(provider.providerOrderId)) continue;
-    if (provider.clientRequestId && ambiguousRequestIds.has(provider.clientRequestId)) continue;
+    if (ambiguousProviderIds.has(provider.providerOrderId)) continue;
+    if (matchedProviderIds.has(provider.providerOrderId)) continue;
     const providerQuantityError = quantityValidationReason(
       provider.quantity,
       provider.filledQuantity,
@@ -313,7 +325,6 @@ export function reconcileOrderStates(
       providerFilledQuantity: provider.filledQuantity,
       reason: 'Provider order has no matching local order; do not auto-adopt or resubmit.',
     });
-    accountedProviderIds.add(provider.providerOrderId);
   }
 
   return deltas;
