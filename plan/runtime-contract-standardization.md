@@ -2,6 +2,7 @@
 
 - [x] Add regression coverage proving a persisted DRE `UNKNOWN` action is returned unchanged and never dispatched again, even when LIVE execution is enabled.
 - [ ] Verify backend build/unit tests and Prettier on the exact latest PR head, including any formatter-generated commit.
+- CI recovery: Prettier run #1487 failed to push because a concurrent formatter run updated the branch; successful formatting commit is `0bc440dcb4944a8c1155306501376f49559e0242`. Verify all required checks on this resulting head.
 - [ ] Merge only after all required checks pass on the exact latest head and GitHub accepts the merge without bypassing protection.
 - Safety: no production migration/deployment; LIVE trading remains disabled.
 
