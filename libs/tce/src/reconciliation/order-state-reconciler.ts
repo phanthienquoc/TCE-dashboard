@@ -96,8 +96,6 @@ export function reconcileOrderStates(
     providerRowCounts.set(provider.providerOrderId, (providerRowCounts.get(provider.providerOrderId) ?? 0) + 1);
   }
 
-  const ambiguousLocalIds = new Set<string>();
-  const ambiguousProviderIds = new Set<string>();
   // Mark ambiguity across the complete bipartite identity graph before emitting
   // any deltas. This prevents an unvisited local from being classified as missing
   // while another local has already proven the same graph ambiguous.
