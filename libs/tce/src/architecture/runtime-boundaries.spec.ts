@@ -45,4 +45,11 @@ describe('TCE runtime dependency boundaries', () => {
       /(?:from\s*|import\s*\()\s*['"][^'"]*(?:@tce\/ssi|@ssi\/developer\/ssi-sdk|binance-api-node|@binance\/)[^'"]*['"]/;
     assert.deepEqual(importsMatching(files, forbidden), []);
   });
+
+  it('keeps DRE campaign lifecycle separate from TCE strategy and execution dispatch', () => {
+    const files = sourceFiles('apps/service/src/dre');
+    const forbidden =
+      /(?:from\s*|import\s*\()\s*['"][^'"]*(?:@tce\/tce-engine|@tce\/decision|libs\/tce\/src\/(?:decision|execution)|execution-orchestrator|SafeOrderExecutionService|@tce\/execution)[^'"]*['"]/;
+    assert.deepEqual(importsMatching(files, forbidden), []);
+  });
 });
