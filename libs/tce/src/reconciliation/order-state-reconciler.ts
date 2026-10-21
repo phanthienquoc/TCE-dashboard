@@ -43,6 +43,19 @@ export type ReconciliationDelta = {
 
 const TERMINAL = new Set(['FILLED', 'CANCELLED', 'REJECTED', 'EXPIRED']);
 
+function quantityValidationReason(
+  quantity: number,
+  filledQuantity: number,
+  label: string
+): string | undefined {
+  if (!Number.isFinite(quantity) || !Number.isFinite(filledQuantity))
+    return `${label} quantity and filled quantity must be finite numbers.`;
+  if (quantity <= 0) return `${label} quantity must be greater than zero.`;
+  if (filledQuantity < 0) return `${label} filled quantity cannot be negative.`;
+  if (filledQuantity > quantity) return `${label} filled quantity exceeds order quantity.`;
+  return undefined;
+}
+
 function identityMatches(
   local: ReconciliationOrder,
   provider: ProviderReconciliationOrder
@@ -64,6 +77,25 @@ export function reconcileOrderStates(
 
   for (const local of localOrders) {
     const provider = providerOrders.find(candidate => identityMatches(local, candidate));
+    const localQuantityError = quantityValidationReason(
+      local.quantity,
+      local.filledQuantity,
+      'Local order'
+    );
+    if (localQuantityError) {
+      if (provider) matchedProviderIds.add(provider.providerOrderId);
+      deltas.push({
+        localOrderId: local.id,
+        providerOrderId: provider?.providerOrderId,
+        disposition: 'RECONCILIATION_REQUIRED',
+        localStatus: local.status,
+        providerStatus: provider?.status,
+        localFilledQuantity: local.filledQuantity,
+        providerFilledQuantity: provider?.filledQuantity,
+        reason: localQuantityError,
+      });
+      continue;
+    }
     if (!provider) {
       deltas.push({
         localOrderId: local.id,
@@ -76,6 +108,24 @@ export function reconcileOrderStates(
     }
 
     matchedProviderIds.add(provider.providerOrderId);
+    const providerQuantityError = quantityValidationReason(
+      provider.quantity,
+      provider.filledQuantity,
+      'Provider order'
+    );
+    if (providerQuantityError) {
+      deltas.push({
+        localOrderId: local.id,
+        providerOrderId: provider.providerOrderId,
+        disposition: 'RECONCILIATION_REQUIRED',
+        localStatus: local.status,
+        providerStatus: provider.status,
+        localFilledQuantity: local.filledQuantity,
+        providerFilledQuantity: provider.filledQuantity,
+        reason: providerQuantityError,
+      });
+      continue;
+    }
     const normalizedProviderState = mapProviderOrderStatus(provider.status);
     if (normalizedProviderState === 'UNKNOWN') {
       deltas.push({
@@ -113,6 +163,21 @@ export function reconcileOrderStates(
 
   for (const provider of providerOrders) {
     if (matchedProviderIds.has(provider.providerOrderId)) continue;
+    const providerQuantityError = quantityValidationReason(
+      provider.quantity,
+      provider.filledQuantity,
+      'Provider order'
+    );
+    if (providerQuantityError) {
+      deltas.push({
+        providerOrderId: provider.providerOrderId,
+        disposition: 'RECONCILIATION_REQUIRED',
+        providerStatus: provider.status,
+        providerFilledQuantity: provider.filledQuantity,
+        reason: providerQuantityError,
+      });
+      continue;
+    }
     deltas.push({
       providerOrderId: provider.providerOrderId,
       disposition: 'ORPHAN_PROVIDER_ORDER',

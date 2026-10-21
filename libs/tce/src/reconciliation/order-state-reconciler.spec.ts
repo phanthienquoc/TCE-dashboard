@@ -117,3 +117,110 @@ test('detects missing and orphan provider orders without auto-adopting either', 
     ['MISSING_PROVIDER_ORDER', 'ORPHAN_PROVIDER_ORDER']
   );
 });
+
+test('rejects invalid local quantities as reconciliation-required before fill classification', () => {
+  const invalidQuantities = [
+    [0, 0],
+    [10, -1],
+    [10, 11],
+    [Number.NaN, 0],
+    [10, Number.POSITIVE_INFINITY],
+  ] as const;
+
+  for (const [quantity, filledQuantity] of invalidQuantities) {
+    const [delta] = reconcileOrderStates(
+      [
+        {
+          id: 'local-invalid',
+          symbol: 'VNM',
+          side: 'BUY',
+          quantity,
+          filledQuantity,
+          status: 'SUBMITTED',
+          providerOrderId: 'ssi-invalid',
+        },
+      ],
+      [
+        {
+          providerOrderId: 'ssi-invalid',
+          symbol: 'VNM',
+          side: 'BUY',
+          quantity: 10,
+          filledQuantity: 0,
+          status: 'PARTIAL_FILLED',
+        },
+      ]
+    );
+    assert.equal(delta.disposition, 'RECONCILIATION_REQUIRED');
+  }
+});
+
+test('rejects invalid provider quantities as reconciliation-required before fill classification', () => {
+  const invalidQuantities = [
+    [0, 0],
+    [10, -1],
+    [10, 11],
+    [Number.NEGATIVE_INFINITY, 0],
+    [10, Number.NaN],
+  ] as const;
+
+  for (const [quantity, filledQuantity] of invalidQuantities) {
+    const [delta] = reconcileOrderStates(
+      [
+        {
+          id: 'local-valid',
+          symbol: 'VNM',
+          side: 'BUY',
+          quantity: 10,
+          filledQuantity: 0,
+          status: 'SUBMITTED',
+          providerOrderId: 'ssi-invalid',
+        },
+      ],
+      [
+        {
+          providerOrderId: 'ssi-invalid',
+          symbol: 'VNM',
+          side: 'BUY',
+          quantity,
+          filledQuantity,
+          status: 'PARTIAL_FILLED',
+        },
+      ]
+    );
+    assert.equal(delta.disposition, 'RECONCILIATION_REQUIRED');
+  }
+});
+
+test('invalid quantities on unmatched orders are not mislabeled missing or orphan orders', () => {
+  const [localDelta] = reconcileOrderStates(
+    [
+      {
+        id: 'local-invalid',
+        symbol: 'VNM',
+        side: 'BUY',
+        quantity: 2,
+        filledQuantity: 3,
+        status: 'SUBMITTED',
+        providerOrderId: 'missing',
+      },
+    ],
+    []
+  );
+  assert.equal(localDelta.disposition, 'RECONCILIATION_REQUIRED');
+
+  const [providerDelta] = reconcileOrderStates(
+    [],
+    [
+      {
+        providerOrderId: 'ssi-invalid',
+        symbol: 'VNM',
+        side: 'BUY',
+        quantity: 2,
+        filledQuantity: 3,
+        status: 'OPEN',
+      },
+    ]
+  );
+  assert.equal(providerDelta.disposition, 'RECONCILIATION_REQUIRED');
+});

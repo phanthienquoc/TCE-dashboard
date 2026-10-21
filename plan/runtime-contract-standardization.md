@@ -146,3 +146,12 @@ Standardize runtime ownership and provider/domain/event contracts incrementally.
 - Event envelopes and event-specific payloads are both validated at the publisher and read boundary.
 - DRE lifecycle event publication is best-effort across MongoDB and Supabase; it is not an atomic outbox until durable replay/reconciliation is implemented.
 - DRE campaign events currently have no accountId because campaigns are global; account-scoped REST/SSE/WebSocket streams intentionally do not expose them until an explicit global/admin visibility policy is defined.
+
+## Current task: Partial-fill reconciliation quantity guards — 2026-10-21
+
+- [x] Validate local and provider order quantity fields before missing/orphan/terminal/partial-fill classification.
+- [x] Fail closed with `RECONCILIATION_REQUIRED` for non-finite quantities, non-positive order quantity, negative filled quantity, or filled quantity exceeding order quantity.
+- [x] Add regression tests for invalid local/provider quantities and unmatched invalid orders.
+- [ ] Run backend unit tests/build and Prettier on the exact PR head; only mark verification complete when the resulting GitHub Actions runs are green.
+- [ ] Open PR and merge only after required checks pass on the latest head and review/branch requirements are verified.
+- Safety: no production migration/deployment and no LIVE trading changes.
