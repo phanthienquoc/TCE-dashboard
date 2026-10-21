@@ -221,7 +221,7 @@ export function reconcileOrderStates(
       .filter(local => identityMatches(local, provider))
       .map(local => local.id)
       .filter(localId => ambiguousLocalIds.has(localId));
-    if (ambiguousCandidateLocalIds.length > 0) {
+    if (ambiguousCandidateLocalIds.length > 0 || localOrders.some(local => identityMatches(local, provider))) {
       deltas.push({
         providerOrderId: provider.providerOrderId,
         disposition: 'RECONCILIATION_REQUIRED',
