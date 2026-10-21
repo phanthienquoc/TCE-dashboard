@@ -129,7 +129,6 @@ export function reconcileOrderStates(
     if (!provider) {
       deltas.push({
         localOrderId: local.id,
-        symbol: undefined,
         disposition: 'MISSING_PROVIDER_ORDER',
         localStatus: local.status,
         localFilledQuantity: local.filledQuantity,
