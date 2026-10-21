@@ -91,6 +91,7 @@ export function reconcileOrderStates(
   }
 
   const ambiguousLocalIds = new Set<string>();
+  const ambiguousProviderIds = new Set<string>();
   for (let localIndex = 0; localIndex < localOrders.length; localIndex++) {
     const local = localOrders[localIndex]!;
     const matchingProviders = providersByLocal[localIndex]!;
@@ -116,7 +117,10 @@ export function reconcileOrderStates(
     }
     if (matchingProviders.length > 1) {
       ambiguousLocalIds.add(local.id);
-      for (const match of matchingProviders) matchedProviderIds.add(match.providerOrderId);
+      for (const match of matchingProviders) {
+        matchedProviderIds.add(match.providerOrderId);
+        ambiguousProviderIds.add(match.providerOrderId);
+      }
       deltas.push({
         localOrderId: local.id,
         disposition: 'RECONCILIATION_REQUIRED',
@@ -142,6 +146,7 @@ export function reconcileOrderStates(
     matchedProviderIds.add(provider.providerOrderId);
     if ((localMatchCountsByProviderId.get(provider.providerOrderId) ?? 0) > 1) {
       ambiguousLocalIds.add(local.id);
+      ambiguousProviderIds.add(provider.providerOrderId);
       deltas.push({
         localOrderId: local.id,
         providerOrderId: provider.providerOrderId,
@@ -210,6 +215,7 @@ export function reconcileOrderStates(
   }
 
   for (const provider of providerOrders) {
+    if (ambiguousProviderIds.has(provider.providerOrderId)) continue;
     if (matchedProviderIds.has(provider.providerOrderId)) continue;
     const ambiguousCandidateLocalIds = localOrders
       .filter(local => identityMatches(local, provider))
