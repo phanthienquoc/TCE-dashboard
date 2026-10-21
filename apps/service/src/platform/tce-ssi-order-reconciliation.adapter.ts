@@ -188,14 +188,27 @@ export class TceSsiOrderReconciliationAdapter implements TceOrderReconciliationP
     order: AccountOrder,
     query: TceReconciliationQuery
   ): TceReconciledOrder {
-    const state = mapProviderOrderStatus(order.status);
+    // Preserve malformed provider quantities as unsafe truth; never coerce missing
+    // fill data to zero or classify an invalid order as safely open/terminal.
+    const quantity = Number(order.quantity);
+    const filledQuantity =
+      order.filledQuantity === undefined || order.filledQuantity === null
+        ? Number.NaN
+        : Number(order.filledQuantity);
+    const invalidQuantities =
+      !Number.isFinite(quantity) ||
+      !Number.isFinite(filledQuantity) ||
+      quantity <= 0 ||
+      filledQuantity < 0 ||
+      filledQuantity > quantity;
+    const state = invalidQuantities ? 'UNKNOWN' : mapProviderOrderStatus(order.status);
     return {
       providerOrderId: order.externalId,
       clientOrderId: order.clientRequestId,
       symbol: order.symbol,
       side: order.side,
-      quantity: order.quantity,
-      filledQuantity: order.filledQuantity ?? 0,
+      quantity,
+      filledQuantity,
       state,
       providerStatus: order.status,
       observedAt: order.modifyTime ?? order.createdAt ?? query.requestedAt,

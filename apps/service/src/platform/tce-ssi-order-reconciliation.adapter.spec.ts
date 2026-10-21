@@ -197,3 +197,85 @@ test('normalizes thrown account-store errors instead of leaking an exception', a
   assert.equal(result.error?.retryable, true);
   assert.deepEqual(result.orders, []);
 });
+
+test('preserves provider partial-fill truth across the reconciliation adapter', async () => {
+  const result = await adapter([
+    {
+      accountNo: '123456',
+      externalId: 'ssi-partial',
+      clientRequestId: 'client-partial',
+      symbol: 'DPM',
+      side: 'BUY',
+      quantity: 100,
+      osQuantity: 60,
+      filledQuantity: 40,
+      cancelQuantity: 0,
+      price: 42.5,
+      avgPrice: 42.25,
+      status: 'PARTIALLY_FILLED',
+      createdAt: '2026-09-10T14:00:00.000Z',
+      modifyTime: '2026-09-10T14:05:00.000Z',
+      source: 'ssi',
+      raw: {},
+    },
+  ] as any).listOpenOrders(query());
+
+  assert.equal(result.ok, true);
+  assert.equal(result.orders.length, 1);
+  assert.equal(result.orders[0]?.providerOrderId, 'ssi-partial');
+  assert.equal(result.orders[0]?.state, 'PARTIALLY_FILLED');
+  assert.equal(result.orders[0]?.quantity, 100);
+  assert.equal(result.orders[0]?.filledQuantity, 40);
+});
+
+test('routes provider overfill quantities to UNKNOWN instead of an open-order snapshot', async () => {
+  const result = await adapter([
+    {
+      accountNo: '123456',
+      externalId: 'ssi-overfill',
+      symbol: 'DPM',
+      side: 'BUY',
+      quantity: 100,
+      osQuantity: 0,
+      filledQuantity: 101,
+      cancelQuantity: 0,
+      price: 42.5,
+      avgPrice: 42.5,
+      status: 'FILLED',
+      createdAt: '2026-09-10T14:00:00.000Z',
+      source: 'ssi',
+      raw: {},
+    },
+  ] as any).listOpenOrders(query());
+
+  assert.equal(result.ok, true);
+  assert.equal(result.orders.length, 0);
+  assert.equal(result.unknownProviderOrders.length, 1);
+  assert.equal(result.unknownProviderOrders[0]?.state, 'UNKNOWN');
+  assert.equal(result.unknownProviderOrders[0]?.filledQuantity, 101);
+});
+
+test('does not coerce a missing provider fill quantity to zero', async () => {
+  const order: any = {
+    accountNo: '123456',
+    externalId: 'ssi-missing-fill',
+    symbol: 'DPM',
+    side: 'BUY',
+    quantity: 100,
+    osQuantity: 100,
+    cancelQuantity: 0,
+    price: 42.5,
+    avgPrice: 0,
+    status: 'RS',
+    createdAt: '2026-09-10T14:00:00.000Z',
+    source: 'ssi',
+    raw: {},
+  };
+  const result = await adapter([order]).listOpenOrders(query());
+
+  assert.equal(result.ok, true);
+  assert.equal(result.orders.length, 0);
+  assert.equal(result.unknownProviderOrders.length, 1);
+  assert.equal(result.unknownProviderOrders[0]?.state, 'UNKNOWN');
+  assert.equal(Number.isNaN(result.unknownProviderOrders[0]?.filledQuantity), true);
+});
