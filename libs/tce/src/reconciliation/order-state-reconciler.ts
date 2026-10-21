@@ -92,6 +92,21 @@ export function reconcileOrderStates(
 
   const ambiguousLocalIds = new Set<string>();
   const ambiguousProviderIds = new Set<string>();
+  // Mark every local order involved in a many-to-many identity graph before
+  // producing deltas so result order cannot hide ambiguity.
+  for (let localIndex = 0; localIndex < localOrders.length; localIndex++) {
+    const local = localOrders[localIndex]!;
+    const matchingProviders = providersByLocal[localIndex]!;
+    if (matchingProviders.length > 1 ||
+      matchingProviders.some(provider => (localMatchCountsByProviderId.get(provider.providerOrderId) ?? 0) > 1)) {
+      ambiguousLocalIds.add(local.id);
+      for (const provider of matchingProviders) {
+        ambiguousProviderIds.add(provider.providerOrderId);
+        matchedProviderIds.add(provider.providerOrderId);
+      }
+    }
+  }
+
   for (let localIndex = 0; localIndex < localOrders.length; localIndex++) {
     const local = localOrders[localIndex]!;
     const matchingProviders = providersByLocal[localIndex]!;
