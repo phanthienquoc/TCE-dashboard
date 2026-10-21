@@ -116,6 +116,35 @@ describe('SafeOrderExecutionService production safety', () => {
     expect(executor.execute).not.toHaveBeenCalled();
   });
 
+  it('passes the precomputed action unchanged to the explicit LIVE executor', async () => {
+    vi.stubEnv('DRE_ENABLED', 'true');
+    vi.stubEnv('DRE_LIVE_EXECUTION', 'true');
+    const { service, repository } = makeService();
+    const executor = {
+      execute: vi.fn().mockResolvedValue({ accepted: true, externalId: 'ssi-order-1' }),
+    };
+
+    await expect(service.submit(action, 'run-1', 'LIVE', executor)).resolves.toEqual({
+      status: 'SUBMITTED',
+      externalId: 'ssi-order-1',
+    });
+    expect(executor.execute).toHaveBeenCalledWith(action);
+    expect(repository.saveAction).toHaveBeenNthCalledWith(1, {
+      ...action,
+      runId: 'run-1',
+      status: 'PENDING',
+    });
+    expect(repository.saveAction).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        ...action,
+        runId: 'run-1',
+        status: 'SUBMITTED',
+        externalId: 'ssi-order-1',
+      })
+    );
+  });
+
   it('keeps DRY_RUN available when DRE is enabled and live execution remains disabled', async () => {
     vi.stubEnv('DRE_ENABLED', 'true');
     vi.stubEnv('DRE_LIVE_EXECUTION', 'false');
