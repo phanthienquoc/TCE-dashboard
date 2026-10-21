@@ -1,9 +1,19 @@
-## Current task: Preserve precomputed DRE action at execution boundary — 2026-10-21
+## Current task: Keep DRE reconciliation sweep inclusive of unresolved actions — 2026-10-21
 
-- [x] Add regression coverage proving the explicit LIVE executor receives the original precomputed action unchanged.
+- [x] Add repository regression coverage proving the reconciliation sweep includes `PENDING`, `UNKNOWN`, and `PARTIAL` actions and orders them by submission time.
 - [ ] Verify backend build/unit tests and Prettier on the exact latest PR head, including any formatter-generated commit.
-- CI recovery: Prettier added formatting commit `ce75f95e7b3becb3c3ee3cf5510d16a10fb4c3fb` with CI skipped; rerun required checks on the resulting head before merge.
 - [ ] Merge only after all required checks pass on the exact latest head and GitHub accepts the merge without bypassing protection.
+- Safety: no production migration/deployment; LIVE trading remains disabled.
+
+## PR #876 — merged precomputed DRE action boundary guard — 2026-10-21
+
+- PR [#876](https://github.com/phanthienquoc/TCE-dashboard/pull/876) was squash-merged at `04f6e3bac60d8ea38d3a0670928d7df10f99148e`; verified against current `master`.
+- Exact tested PR head: `c78c406f2e77bd559a6141117579fba3b6709c6e`.
+- Backend build/unit tests passed on that exact head: [WF-05 run #2054](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/39564388911) and [run #2055](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/39564395024).
+- Prettier passed on the same exact head: [WF-02 run #1506](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/39564389018) and [run #1507](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/39564395253).
+- [x] Pass the original precomputed action unchanged to the explicit LIVE executor.
+- [x] Verify exact-head CI and squash-merge only after GitHub accepted the merge without a protection bypass.
+- CI note: a formatter-generated commit was followed by a plan update and fresh green checks on the final head.
 - Safety: no production migration/deployment; LIVE trading remains disabled.
 
 ## PR #875 — merged explicit LIVE DRE executor guard — 2026-10-21
