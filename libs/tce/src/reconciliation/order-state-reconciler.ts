@@ -95,7 +95,7 @@ export function reconcileOrderStates(
       );
     }
   }
-  
+
   const providerClientRequestIds = new Map<string, Set<string>>();
   for (const provider of providerOrders) {
     if (!provider.clientRequestId) continue;
@@ -114,7 +114,7 @@ export function reconcileOrderStates(
       matching.some(p => (localMatchCountsByProviderId.get(p.providerOrderId) ?? 0) > 1) ||
       matching.some(p => (providerRowsById.get(p.providerOrderId)?.length ?? 0) > 1) ||
       (!!local.clientRequestId &&
-        ((localOrders.filter(other => other.clientRequestId === local.clientRequestId).length > 1) ||
+        (localOrders.filter(other => other.clientRequestId === local.clientRequestId).length > 1 ||
           (providerClientRequestIds.get(local.clientRequestId)?.size ?? 0) > 1))
     ) {
       ambiguousLocalIds.add(local.id);
@@ -146,8 +146,10 @@ export function reconcileOrderStates(
       }
       if (provider.clientRequestId) {
         for (let j = 0; j < localOrders.length; j++) {
-          if (localOrders[j]!.clientRequestId === provider.clientRequestId &&
-              !ambiguousLocalIds.has(localOrders[j]!.id)) {
+          if (
+            localOrders[j]!.clientRequestId === provider.clientRequestId &&
+            !ambiguousLocalIds.has(localOrders[j]!.id)
+          ) {
             ambiguousLocalIds.add(localOrders[j]!.id);
             queue.push(localOrders[j]!.id);
           }
@@ -167,8 +169,10 @@ export function reconcileOrderStates(
         ambiguousProviderIds.add(linkedProvider.providerOrderId);
       }
       for (let j = 0; j < localOrders.length; j++) {
-        if (localOrders[j]!.clientRequestId === local.clientRequestId &&
-            !ambiguousLocalIds.has(localOrders[j]!.id)) {
+        if (
+          localOrders[j]!.clientRequestId === local.clientRequestId &&
+          !ambiguousLocalIds.has(localOrders[j]!.id)
+        ) {
           ambiguousLocalIds.add(localOrders[j]!.id);
           queue.push(localOrders[j]!.id);
         }
