@@ -1,8 +1,19 @@
-## Current task: Preserve persisted UNKNOWN outcomes on duplicate execution requests — 2026-10-21
+## Current task: Prevent DRE from redispatching existing UNKNOWN actions — 2026-10-21
 
-- [x] Add orchestrator regression coverage proving a duplicate request with an existing durable `UNKNOWN` result requires reconciliation and never calls the provider again.
+- [x] Add regression coverage proving a persisted DRE `UNKNOWN` action is returned unchanged and never dispatched again, even when LIVE execution is enabled.
 - [ ] Verify backend build/unit tests and Prettier on the exact latest PR head, including any formatter-generated commit.
+- CI recovery: Prettier run #1487 failed to push because a concurrent formatter run updated the branch; successful formatting commit is `0bc440dcb4944a8c1155306501376f49559e0242`. Verify all required checks on this resulting head.
 - [ ] Merge only after all required checks pass on the exact latest head and GitHub accepts the merge without bypassing protection.
+- Safety: no production migration/deployment; LIVE trading remains disabled.
+
+## PR #872 — merged durable UNKNOWN duplicate execution guard — 2026-10-21
+
+- PR [#872](https://github.com/phanthienquoc/TCE-dashboard/pull/872) was squash-merged at `737ca2183be5cc5990755cfcd54ad3baaa83b25d`; verified against current `master`.
+- Exact tested PR head: `b1a4f942e3eeedffd3f29d2226bc8373bd01747d`.
+- Backend build/unit tests passed on that exact head: [WF-05 run #2030](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/39562757291) and [run #2031](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/39562803721).
+- Prettier passed on the same exact head: [WF-02 run #1482](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/39562757278) and [run #1483](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/39562803850).
+- [x] Return persisted `UNKNOWN` execution results with reconciliation required and do not call the provider again.
+- [x] Verify exact-head CI and squash-merge only after GitHub accepted the merge without a protection bypass.
 - Safety: no production migration/deployment; LIVE trading remains disabled.
 
 ## PR #871 — merged terminal UNKNOWN completion guard — 2026-10-21
@@ -134,7 +145,7 @@ Standardize runtime ownership and provider/domain/event contracts incrementally.
 - [x] Cover store-reservation failure (no provider dispatch, retryable READY order), persistence failure after dispatch (UNKNOWN), and existing PENDING reservation (reconciliation required).
 - [ ] Complete remaining failure-path tests for partial fills, provider outage and reconciliation from provider truth.
 - [x] Add a timeout-after-dispatch regression test proving the result stays UNKNOWN, reconciliation is required, and a duplicate request does not call the provider again (test-store contract; commit `a50c30891a38707efd0e7f80dae7595918e0cca4`). Backend build/unit tests and Prettier passed on PR head `6f63b025336d2158ea9d38f26f88816cc222c963` (runs #1925 and #1428). This test uses an in-memory implementation of the durable-store interface; production Supabase adapter integration/reconciliation remains a separate verification item.
-- [x] Ensure unknown outcomes require reconciliation and can never be blindly resubmitted; covered by PRs #868, #870 and #871 regression tests.
+- [x] Ensure unknown outcomes require reconciliation and can never be blindly resubmitted; covered by PRs #868, #870, #871 and #872 regression tests.
 
 ## Phase 5 — Rollout
 
