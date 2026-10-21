@@ -396,3 +396,48 @@ test('durable timeout outcome is persisted as UNKNOWN and duplicate request neve
   assert.equal(second.result.error?.reconciliationRequired, true);
   assert.equal(calls, 1);
 });
+
+test('unconfirmed provider submissions require reconciliation and duplicate requests never redispatch', async () => {
+  let calls = 0;
+  const store = memoryStore();
+  const port: TceExecutionPort = {
+    submit: async command => {
+      calls += 1;
+      return {
+        ok: false,
+        operation: 'SUBMIT',
+        status: 'PENDING',
+        executionIntentId: command.intent.id,
+        correlationId: command.authorization.correlationId,
+        idempotencyKey: command.authorization.idempotencyKey,
+        clientRequestId: command.clientRequestId,
+        providerOrderId: 'ssi-pending',
+        providerStatus: 'WAIT',
+        error: {
+          code: 'UNKNOWN',
+          message: 'SSI has not confirmed the submitted order; reconciliation is required',
+          retryable: false,
+          reconciliationRequired: true,
+        },
+      };
+    },
+    cancel: async () => {
+      throw new Error('not used');
+    },
+    replace: async () => {
+      throw new Error('not used');
+    },
+  };
+  const orchestrator = new TceExecutionOrchestrator(port, { idempotencyStore: store });
+
+  const first = await orchestrator.execute(submit());
+  assert.equal(first.ok, false);
+  assert.equal(first.result.status, 'PENDING');
+  assert.equal(first.result.error?.reconciliationRequired, true);
+
+  const second = await orchestrator.execute(submit());
+  assert.equal(second.ok, false);
+  assert.equal(second.result.status, 'PENDING');
+  assert.equal(second.result.error?.reconciliationRequired, true);
+  assert.equal(calls, 1);
+});

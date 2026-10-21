@@ -230,6 +230,27 @@ test('maps provider timeout to UNKNOWN-safe reconciliation result', async () => 
   assert.equal(result.error?.reconciliationRequired, true);
 });
 
+test('requires reconciliation when SSI returns an unconfirmed submission', async () => {
+  const instance = adapter(readyAuth, {
+    placeOrder: async () => ({
+      ok: true as const,
+      data: {
+        orderId: 'ssi-pending',
+        status: 'PENDING',
+        confirmed: false,
+        providerStatus: 'WAIT',
+      },
+    }),
+  });
+  const result = await instance.submit(command());
+  assert.equal(result.ok, false);
+  assert.equal(result.status, 'PENDING');
+  assert.equal(result.providerOrderId, 'ssi-pending');
+  assert.equal(result.error?.code, 'UNKNOWN');
+  assert.equal(result.error?.retryable, false);
+  assert.equal(result.error?.reconciliationRequired, true);
+});
+
 test('does not guess SSI CANCEL or REPLACE semantics', async () => {
   const instance = adapter();
   const cancel = await instance.cancel({
