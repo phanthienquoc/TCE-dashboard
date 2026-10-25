@@ -47,7 +47,6 @@
 - **Next step:** Obtain an approved non-production Supabase environment and validate an additive contract that persists the position/correlation identity and records bounded delivery state, retry timing and terminal/dead-letter visibility, or prove an atomic snapshot+outbox transaction. Validate concurrent claim/idempotency behavior before enabling a worker.
 - **Safety:** Catalog and migration reads only; no SQL writes, migrations, deployments, platform-infra access, LIVE-mode changes or orders.
 
-
 ### TCE-PLAN-001 — Reconcile stale runtime-plan frontier and exact-head evidence
 
 - **Priority/status:** P2 / DONE on 2026-10-25.
