@@ -71,7 +71,10 @@ const browser = await puppeteer.launch({
 
 try {
   for (const testCase of cases) {
-    const page = await browser.newPage();
+    const context = await browser.createBrowserContext();
+    const page = await context.newPage();
+    await page.setBypassServiceWorker(true);
+    await page.setCacheEnabled(false);
     await page.setViewport({
       width: testCase.width,
       height: testCase.height,
@@ -80,7 +83,7 @@ try {
       hasTouch: true,
     });
     await page.emulateMediaFeatures([{ name: 'prefers-reduced-motion', value: 'reduce' }]);
-    const diagnostics = { api: [], auth: [], consoleErrors: [], pageErrors: [] };
+    const diagnostics = { api: [], auth: [], requests: [], consoleErrors: [], pageErrors: [] };
     page.on('response', response => {
       try {
         const url = new URL(response.url());
@@ -96,17 +99,17 @@ try {
       if (message.type() === 'error') diagnostics.consoleErrors.push(message.text());
     });
     page.on('pageerror', error => diagnostics.pageErrors.push(String(error)));
+    await page.setRequestInterception(true);
     const dashboardResponsePromise = page
       .waitForResponse(
         response => {
           const url = new URL(response.url());
           return url.origin === origin && url.pathname === '/api/dashboard';
         },
-        { timeout: 90_000 }
+        { timeout: 20_000 }
       )
       .catch(() => null);
 
-    await page.setRequestInterception(true);
     page.on('request', request => {
       let url;
       try {
@@ -117,6 +120,7 @@ try {
       }
 
       if (url.origin === origin && url.pathname.startsWith('/auth/')) {
+        diagnostics.requests.push({ path: url.pathname, method: request.method() });
         const body = url.pathname === '/auth/me' ? { user: mockUser } : { ok: true };
         void request
           .respond({
@@ -130,6 +134,7 @@ try {
       }
 
       if (url.origin === origin && url.pathname.startsWith('/api/')) {
+        diagnostics.requests.push({ path: url.pathname, method: request.method() });
         void request
           .respond({
             status: 200,
@@ -163,9 +168,10 @@ try {
       console.log(
         `Observed dashboard API status ${dashboardResponse.status()} for ${testCase.name}`
       );
-      await page.waitForSelector('.tce-pools-view .tce-pool-balance', { timeout: 90_000 });
+      await page.waitForSelector('.tce-pools-view', { timeout: 30_000 });
+      await page.waitForSelector('.tce-pools-view .tce-pool-balance', { timeout: 30_000 });
       try {
-        await page.waitForSelector('.tce-pools-view .tce-rotation-row', { timeout: 30_000 });
+        await page.waitForSelector('.tce-pools-view .tce-rotation-row', { timeout: 15_000 });
       } catch (error) {
         const pageState = await page.evaluate(() => ({
           path: window.location.pathname,
@@ -299,7 +305,7 @@ try {
       });
       console.log(`PASS POOLS ${testCase.name}: ${JSON.stringify(metrics)}`);
     } finally {
-      await page.close();
+      await context.close();
     }
   }
 } finally {
