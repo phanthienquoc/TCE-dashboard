@@ -62,6 +62,7 @@
 - **Sources:** [PR #809](https://github.com/phanthienquoc/TCE-dashboard/pull/809), [PR #810](https://github.com/phanthienquoc/TCE-dashboard/pull/810), [PR #811](https://github.com/phanthienquoc/TCE-dashboard/pull/811).
 
 ## Completed / resolved audit items
+
 ### TCE-OPS-001 — Require explicit manual production release dispatch
 
 - **Priority/status:** P0 / DONE on 2026-10-25.

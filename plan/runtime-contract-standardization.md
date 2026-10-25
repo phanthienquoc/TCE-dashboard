@@ -407,7 +407,6 @@ Standardize runtime ownership and provider/domain/event contracts incrementally.
 
 - CI checkpoint (2026-10-21): Prettier auto-format advanced PR #863 to `fcd079bac3377753f46771e2ee98fcf75ae806b8`; the checks on the earlier head do not verify this formatted commit. This plan-only commit triggers backend build/unit tests and Prettier on the formatted head. Do not merge until the latest-head checks complete successfully.
 
-
 ## Issue #887 — explicit production release gate — 2026-10-25
 
 - PR [#888](https://github.com/phanthienquoc/TCE-dashboard/pull/888) was squash-merged at `f301c1b633af307ad07940d576d8c123f5698bfb`; exact tested head `aa309ae4bc6a1024b3ebc8d06503c589b96bc873`. WF-05 backend tests and WF-02 Prettier passed on that head.
