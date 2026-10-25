@@ -1,9 +1,7 @@
 name: WF-00 TCE Legacy Actions Cleanup
 
 on:
-  push:
-    branches:
-      - master
+  # This job deletes historical workflow runs; require an explicit manual dispatch.
   workflow_dispatch:
 
 permissions:
