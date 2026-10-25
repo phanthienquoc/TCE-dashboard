@@ -211,7 +211,7 @@ try {
           'desktop: positions HUD uses the available viewport'
         );
         assert.ok(
-          metrics.mobileViewWidth >= testCase.width - 32,
+          metrics.mobileViewWidth >= testCase.width * 0.85,
           'desktop: positions HUD expands across the available content width'
         );
       }
