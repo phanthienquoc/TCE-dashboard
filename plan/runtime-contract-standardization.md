@@ -1,7 +1,7 @@
 ## Current task: Durable retry/replay for lifecycle-event publication — 2026-10-25
 
 - [x] Verify PR #884 merge SHA `e3e1e06731fa1dcb4d5703e5dd562509eb16a3df` and exact-head CI evidence on `585172e3166994da4b1e026b0cfb38c7ee5270ea`.
-- [x] Verify documentation follow-up PR #885 merge SHA `5b6f4e94d5b940c83f7f534d57e3d49590d7e013` and exact-head CI on `016cbd2083a6853a07159ef980be2ba708f54b37`; WF-05 run #2112 and WF-02 run #2111 passed on that exact head.
+- [x] Verify documentation follow-up PR #885 merge SHA `5b6f4e94d5b940c83f7f534d57e3d49590d7e013` and exact-head CI on `016cbd2083a6853a07159ef980be2ba708f54b37`; [WF-05 run #2107](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/39567687431) and [WF-02 run #1559](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/39567687358) passed on that exact head.
 - [x] Resolve issue #887's implicit production-release trigger with PRs #888 and #889; current `master` is `a47cc1063354abd2ea58219dd5af570a0a5e2b4a`, and WF-03 has no push trigger.
 - [ ] Inspect the current monitor snapshot/publisher write boundary and define the smallest additive outbox contract; keep migration application gated on approved non-production validation.
 - Next dependency-safe implementation task: TCE-RUNTIME-001 — durable retry/replay for failed cross-database lifecycle-event publication. Preserve stable event identity, idempotent consumers, bounded retry/dead-letter behavior, and never turn a monitor signal into a broker command.
