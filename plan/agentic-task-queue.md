@@ -68,9 +68,21 @@
 - **Visual review:** Inspected Chromium screenshots from the successful viewport run for 390×844 portrait, 844×430 landscape, 844×390 short landscape, and 1280×800 desktop. Seven actual navigation links now fit in one row; landscape header text is legible; the short-landscape dock fits its items. The desktop screenshot uses mocked data and skeleton placeholders; no production-data/preview visual pass is claimed.
 - **Root causes fixed:** The real dashboard rendered seven links while the CSS/fixture expected six; the landscape media query did not inherit the shared mobile palette; and the 42px short-landscape dock was too short for tab content. The final implementation uses seven columns, applies shared mobile styles to the bounded landscape media query, and constrains short-landscape tab height/line-height within a 44px dock.
 - **Evidence paths:** `apps/web/app/mobile-command-center.css`, `apps/web/app/mobile-design-system.css`, `apps/web/components/dashboard/DividendPositionsView.tsx`, `apps/web/scripts/mobile-landscape-viewport.test.mjs`, and `apps/web/scripts/mobile-landscape-app.test.mjs`.
-- **Post-merge validation:** WF-05 [#40227321165](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/40227321165) passed; WF-02 [#40227321175](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/40227321175) completed successfully. WF-01 build/verify [#40227321159](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/40227321159) was still running when this evidence was prepared; verify its final result before closing this task.
+- **Post-merge validation:** WF-01 build/verify [#40227321159](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/40227321159), WF-02 [#40227321175](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/40227321175), and WF-05 [#40227321165](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/40227321165) all passed on merge SHA `6cc92f4613b0876cb769d521db3a1b474052e346`. Plan-evidence PR #897 merged at `af7ebdf9f9512fa133c7cc87226e55c76b80e690`; post-merge WF-02 [#40227611007](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/40227611007) and WF-05 [#40227611004](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/40227611004) passed.
 - **Merge safety:** WF-03 remains `workflow_dispatch`-only; no WF-03 run was created. The matching WF-01 push workflow builds/verifies images and production-config presence but does not publish or deploy; WF-08B's path filters do not match. No production migration, deployment, LIVE trading or order action.
 - **Supersession:** PRs #809, #810 and #811 were closed as superseded after verifying their key landscape/positions-HUD selectors and component class exist in merged `master`.
+
+### TCE-UI-002 — Align desktop positions-HUD header and live status
+
+- **Priority/status:** P2 / IN PR — follow-up from the 1280×800 screenshot review of TCE-UI-001.
+- **Current behavior:** At desktop widths, the positions header inherits no flex layout because shared mobile styles are bounded to portrait/mobile-landscape. The title and subtitle render inline as `PositionsLive exposure`, and the LIVE status renders as plain text.
+- **Desired behavior:** At widths ≥951px, align the header title/subtitle as a stacked brand block, keep the LIVE status as a distinct readable pill, and preserve existing mobile/landscape styling.
+- **Acceptance criteria:** Add a desktop-only style block scoped to `.tce-position-hud`; test the running local `/position` route at 1280×800 for flex header, separate subtitle, visible title and pill display; verify 390×844, 844×430 and 844×390 behavior remains unchanged. No data/schema/trading changes.
+- **Validation:** WF-11 browser contract, WF-02 Prettier and WF-05 backend tests on the exact PR head; inspect the updated desktop screenshot artifact.
+- **Dependencies:** None; independent of TCE-RUNTIME-001's blocked Supabase schema work.
+- **Risk:** Low — desktop-only CSS scoped to the positions HUD.
+- **Safety:** No production migration/deployment, LIVE trading, orders or platform-infra changes.
+
 
 ### TCE-OPS-002 — Make destructive legacy workflow cleanup manual-only
 
