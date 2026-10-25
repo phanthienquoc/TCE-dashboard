@@ -101,7 +101,7 @@ try {
         ).matches,
         navPosition: style(nav).position,
         navHeight: Number.parseFloat(style(nav).height),
-        navGridColumns: style(navInner).gridTemplateColumns.split(/\\s+/).length,
+        navGridColumns: style(navInner).gridTemplateColumns.trim().split(" ").length,
         shellHeight: Number.parseFloat(style(shell).height),
         contentOverflowY: style(content).overflowY,
         mobileViewMaxWidth: style(mobileView).maxWidth,
