@@ -1281,6 +1281,7 @@ body {
   }
 
   .tce-bottom-tabs-inner {
+    height: 100% !important;
     gap: 2px !important;
   }
 
