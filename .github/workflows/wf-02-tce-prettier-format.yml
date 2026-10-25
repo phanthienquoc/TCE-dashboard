@@ -61,7 +61,7 @@ jobs:
               grep -E '[.](cjs|cts|css|html|js|jsx|json|jsonc|md|mdx|mjs|mts|scss|ts|tsx|yaml|yml)$' |
               grep -v '^[.]github/workflows/' || true
           )
-          if (("${#files[@]}")); then
+          if ((${#files[@]})); then
             npx prettier --check "${files[@]}"
           else
             echo "No eligible changed files to check."
@@ -101,7 +101,7 @@ jobs:
               grep -E '[.](cjs|cts|css|html|js|jsx|json|jsonc|md|mdx|mjs|mts|scss|ts|tsx|yaml|yml)$' |
               grep -v '^[.]github/workflows/' || true
           )
-          if (("${#files[@]}")); then
+          if ((${#files[@]})); then
             npx prettier --write "${files[@]}"
           else
             echo "No eligible changed files to format."
