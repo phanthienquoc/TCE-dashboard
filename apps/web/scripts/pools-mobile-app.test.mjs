@@ -1,3 +1,4 @@
+// Browser-only viewport coverage with mocked auth/dashboard APIs; no live account or broker calls.
 import assert from 'node:assert/strict';
 import { mkdirSync } from 'node:fs';
 import { resolve } from 'node:path';
