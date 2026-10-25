@@ -51,16 +51,20 @@
 
 ### TCE-UI-001 — Consolidate overlapping mobile-landscape PRs
 
-- **Priority/status:** P2 / OPEN.
+- **Priority/status:** P2 / IN PROGRESS — consolidation branch created; exact-head CI and responsive behavior validation pending.
 - **Evidence paths:** `apps/web/app/mobile-command-center.css`, `apps/web/components/dashboard/DividendPositionsView.tsx`.
-- **Current behavior:** Three stale open PRs (#809, #810, #811) all modify `mobile-command-center.css`; #811 also changes one line in `DividendPositionsView.tsx`. Their stated goals overlap (mobile landscape/command-center density), and the audited check-runs endpoint returned no check-runs for the three current head SHAs.
-- **Desired behavior:** One canonical, reviewable PR contains the agreed combined UX without silently dropping unique changes; superseded PRs are closed only after the canonical branch has a tested, reviewable result.
-- **Acceptance criteria:** Compare all three diffs and branch ancestry; explicitly choose the canonical branch; preserve portrait behavior and verify landscape at short phone heights; run checks on the exact final head; document any deferred behavior before closing superseded PRs.
-- **Tests/validation:** Frontend lint/typecheck/build, relevant component tests, exact-head Actions checks and visual/manual viewport review for portrait plus landscape.
-- **Dependencies:** None, but do not merge or close PRs merely because their files overlap; review the diffs first.
-- **Risk:** Medium; stylesheet overlap can regress responsive behavior or lose changes.
-- **Sources:** [PR #809](https://github.com/phanthienquoc/TCE-dashboard/pull/809), [PR #810](https://github.com/phanthienquoc/TCE-dashboard/pull/810), [PR #811](https://github.com/phanthienquoc/TCE-dashboard/pull/811).
-
+- **Current behavior:** Open PRs #809 and #810 append overlapping phone-landscape styles to the same CSS file; PR #811 adds a position-HUD class plus tablet/desktop layout rules. Their heads are stale and had no check-runs when inspected. All three CSS branches share the exact 939-line CSS prefix from current master SHA `aaf039a0ad3c9b2a27e16eb56e0eaf745dc41835`.
+- **Desired behavior:** One canonical PR preserves the full landscape-mode design, density overrides and positions HUD layout while keeping portrait styling unchanged and making the precedence between shared landscape rules explicit through append order.
+- **Acceptance criteria:**
+  - Compare the three source diffs and preserve their distinct behavior; do not silently drop the positions root class.
+  - Keep all phone-only rules constrained to the existing `max-width: 767px` and `orientation: landscape` media query; keep tablet/desktop positions rules separately scoped.
+  - Preserve portrait behavior and avoid adding runtime/data/API changes.
+  - Run repository CI on the exact final head; report any visual/browser checks that are not available rather than claiming them passed.
+  - After the canonical PR passes checks and is merge-safe, close superseded PRs #809/#810/#811 with a link to the canonical result.
+- **Validation:** Static base-prefix comparison passed for all three CSS branches (939 shared lines); combined source currently contains 325 lines from #809, 256 lines from #810 and 96 lines from #811. Exact-head WF-02/WF-05 checks and build validation are pending. Manual viewport review for portrait plus short/normal-height landscape remains required if no browser harness is available.
+- **Dependencies:** None; use current master as the merge base.
+- **Risk:** Medium — CSS precedence and small-height layouts may regress. No backend, trading, schema, production release or live-order behavior is changed.
+- **Links:** [PR #809](https://github.com/phanthienquoc/TCE-dashboard/pull/809), [PR #810](https://github.com/phanthienquoc/TCE-dashboard/pull/810), [PR #811](https://github.com/phanthienquoc/TCE-dashboard/pull/811).
 ## Completed / resolved audit items
 
 ### TCE-OPS-001 — Require explicit manual production release dispatch
