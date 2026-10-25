@@ -65,6 +65,7 @@
 - **Dependencies:** None; use current master as the merge base.
 - **Risk:** Medium — CSS precedence and small-height layouts may regress. No backend, trading, schema, production release or live-order behavior is changed.
 - **Links:** [PR #809](https://github.com/phanthienquoc/TCE-dashboard/pull/809), [PR #810](https://github.com/phanthienquoc/TCE-dashboard/pull/810), [PR #811](https://github.com/phanthienquoc/TCE-dashboard/pull/811).
+
 ## Completed / resolved audit items
 
 ### TCE-OPS-001 — Require explicit manual production release dispatch
