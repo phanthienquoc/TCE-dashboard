@@ -4,20 +4,7 @@ name: WF-03 TCE Production Deploy
 run-name: WF-03 TCE Production Deploy — ${{ github.ref_name }} — ${{ github.sha }}
 
 on:
-  push:
-    branches:
-      - master
-    paths:
-      - Dockerfile
-      - package.json
-      - package-lock.json
-      - postcss.config.mjs
-      - nx.json
-      - tsconfig.base.json
-      - apps/web/**
-      - apps/service/**
-      - libs/**
-      - packages/**
+  # Production release requires explicit manual dispatch; ordinary pushes only run CI.
   workflow_dispatch:
 
 permissions:
