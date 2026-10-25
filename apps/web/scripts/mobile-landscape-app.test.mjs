@@ -136,11 +136,13 @@ try {
           navHeight: Number.parseFloat(style(nav)?.height ?? '0'),
           navGridColumns: style(navInner)?.gridTemplateColumns.trim().split(' ').length ?? 0,
           navItemCount: navInner?.querySelectorAll('.tce-bottom-tab').length ?? 0,
-          navItemsWithinNav: Boolean(nav && navInner) && [...navInner.querySelectorAll('.tce-bottom-tab')].every(item => {
-            const itemRect = item.getBoundingClientRect();
-            const navRect = nav.getBoundingClientRect();
-            return itemRect.top >= navRect.top - 1 && itemRect.bottom <= navRect.bottom + 1;
-          }),
+          navItemsWithinNav:
+            Boolean(nav && navInner) &&
+            [...navInner.querySelectorAll('.tce-bottom-tab')].every(item => {
+              const itemRect = item.getBoundingClientRect();
+              const navRect = nav.getBoundingClientRect();
+              return itemRect.top >= navRect.top - 1 && itemRect.bottom <= navRect.bottom + 1;
+            }),
           headerTitleColor: style(query('.tce-mobile-header strong'))?.color ?? null,
           shellHeight: Number.parseFloat(style(shell)?.height ?? '0'),
           contentOverflowY: style(content)?.overflowY ?? null,
@@ -158,11 +160,23 @@ try {
       );
 
       assert.equal(metrics.navGridColumns, 7, `${testCase.name}: seven navigation columns`);
-      assert.equal(metrics.navItemCount, 7, `${testCase.name}: all seven navigation items are rendered`);
-      assert.equal(metrics.navItemsWithinNav, true, `${testCase.name}: all navigation items fit inside the dock`);
+      assert.equal(
+        metrics.navItemCount,
+        7,
+        `${testCase.name}: all seven navigation items are rendered`
+      );
+      assert.equal(
+        metrics.navItemsWithinNav,
+        true,
+        `${testCase.name}: all navigation items fit inside the dock`
+      );
 
       if (testCase.landscape) {
-        assert.equal(metrics.headerTitleColor, 'rgb(242, 247, 248)', `${testCase.name}: landscape header text has the intended high-contrast color`);
+        assert.equal(
+          metrics.headerTitleColor,
+          'rgb(242, 247, 248)',
+          `${testCase.name}: landscape header text has the intended high-contrast color`
+        );
         assert.equal(metrics.navPosition, 'fixed', `${testCase.name}: navigation is fixed`);
         assert.ok(
           Math.abs(metrics.navTop) <= 1,

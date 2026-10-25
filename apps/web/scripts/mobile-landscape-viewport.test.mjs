@@ -145,11 +145,23 @@ try {
     );
 
     assert.equal(metrics.navGridColumns, 7, `${testCase.name}: seven navigation columns`);
-    assert.equal(metrics.navItemCount, 7, `${testCase.name}: all seven navigation items are rendered`);
-    assert.equal(metrics.navItemsWithinNav, true, `${testCase.name}: all navigation items fit inside the dock`);
+    assert.equal(
+      metrics.navItemCount,
+      7,
+      `${testCase.name}: all seven navigation items are rendered`
+    );
+    assert.equal(
+      metrics.navItemsWithinNav,
+      true,
+      `${testCase.name}: all navigation items fit inside the dock`
+    );
 
     if (testCase.landscape) {
-      assert.equal(metrics.headerTitleColor, 'rgb(242, 247, 248)', `${testCase.name}: landscape header text has the intended high-contrast color`);
+      assert.equal(
+        metrics.headerTitleColor,
+        'rgb(242, 247, 248)',
+        `${testCase.name}: landscape header text has the intended high-contrast color`
+      );
       assert.equal(metrics.navPosition, 'fixed', `${testCase.name}: compact top navigation`);
       assert.ok(
         Math.abs(metrics.navTop) <= 1,
