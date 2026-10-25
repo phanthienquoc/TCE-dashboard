@@ -55,7 +55,7 @@ export function DividendPositionsView({ data, actions }: ViewProps) {
   }, [symbolsKey, syncMarketPrices]);
 
   return (
-    <div className="tce-mobile-view">
+    <div className="tce-mobile-view tce-position-hud">
       <header className="tce-mobile-header">
         <div className="tce-header-brand">
           <WalletCards className="size-5" />
