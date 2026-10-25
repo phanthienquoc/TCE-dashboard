@@ -255,10 +255,22 @@ try {
       if (testCase.width >= 1180) {
         assert.equal(metrics.headerDisplay, 'flex', 'desktop: positions header uses a flex row');
         assert.equal(metrics.headerBrandDisplay, 'flex', 'desktop: brand and title are aligned');
-        assert.equal(metrics.headerSubtitleDisplay, 'block', 'desktop: subtitle is on a separate line');
-        assert.equal(metrics.livePillDisplay, 'inline-flex', 'desktop: LIVE status is a distinct pill');
+        assert.equal(
+          metrics.headerSubtitleDisplay,
+          'block',
+          'desktop: subtitle is on a separate line'
+        );
+        assert.equal(
+          metrics.livePillDisplay,
+          'inline-flex',
+          'desktop: LIVE status is a distinct pill'
+        );
         assert.equal(metrics.headerTitleText, 'Positions', 'desktop: title remains visible');
-        assert.equal(metrics.headerSubtitleText, 'Live exposure', 'desktop: subtitle remains visible');
+        assert.equal(
+          metrics.headerSubtitleText,
+          'Live exposure',
+          'desktop: subtitle remains visible'
+        );
       }
 
       await page.screenshot({

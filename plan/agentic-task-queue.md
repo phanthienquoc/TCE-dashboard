@@ -83,7 +83,6 @@
 - **Risk:** Low — desktop-only CSS scoped to the positions HUD.
 - **Safety:** No production migration/deployment, LIVE trading, orders or platform-infra changes.
 
-
 ### TCE-OPS-002 — Make destructive legacy workflow cleanup manual-only
 
 - **Priority/status:** P1 / DONE on 2026-10-25 — [PR #895](https://github.com/phanthienquoc/TCE-dashboard/pull/895) squash-merged at `03f564e76d5a4c368c1db924ebb8d61f5f1bae9b`; `master` verified at the same SHA.
