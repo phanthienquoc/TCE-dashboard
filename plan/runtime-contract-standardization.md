@@ -1,12 +1,11 @@
-## Current task: Record PR #884 evidence and close verified boundary checklist — 2026-10-21
+## Current task: Durable retry/replay for lifecycle-event publication — 2026-10-25
 
-- [x] Record PR #884's verified merge SHA and exact-head CI evidence.
-- [x] Mark the DRE/TCE ownership boundary and no-blind-retry safety invariants complete using source and regression evidence.
-- [ ] Verify backend build/unit tests and Prettier on the exact latest documentation PR head.
-- CI recovery: concurrent Prettier runs caused a non-fast-forward push rejection; successful formatting commit advanced the branch to `bc82f9ab50b7043597d77a54925c058333f3e51c`, so rerun checks on the resulting head.
-- [ ] Merge only after all required checks pass on the exact latest head and GitHub accepts the merge without bypassing protection.
-- Next dependency-safe task: design and test durable retry/replay for failed cross-database lifecycle-event publication; do not apply migrations or enable production routes without authorization.
-- Safety: documentation only; no production migration/deployment; LIVE trading remains disabled.
+- [x] Verify PR #884 merge SHA `e3e1e06731fa1dcb4d5703e5dd562509eb16a3df` and exact-head CI evidence on `585172e3166994da4b1e026b0cfb38c7ee5270ea`.
+- [x] Verify documentation follow-up PR #885 merge SHA `5b6f4e94d5b940c83f7f534d57e3d49590d7e013` and exact-head CI on `016cbd2083a6853a07159ef980be2ba708f54b37`; [WF-05 run #2107](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/39567687431) and [WF-02 run #1559](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/39567687358) passed on that exact head.
+- [x] Resolve issue #887's implicit production-release trigger with PRs #888 and #889; current `master` is `a47cc1063354abd2ea58219dd5af570a0a5e2b4a`, and WF-03 has no push trigger.
+- [ ] Inspect the current monitor snapshot/publisher write boundary and define the smallest additive outbox contract; keep migration application gated on approved non-production validation.
+- Next dependency-safe implementation task: TCE-RUNTIME-001 — durable retry/replay for failed cross-database lifecycle-event publication. Preserve stable event identity, idempotent consumers, bounded retry/dead-letter behavior, and never turn a monitor signal into a broker command.
+- Safety: no production migration/deployment; LIVE trading remains disabled. Production release requires explicit manual WF-03 dispatch; do not dispatch it without separate release authorization.
 
 ## PR #884 — merged failure-path checklist evidence — 2026-10-21
 
@@ -407,3 +406,10 @@ Standardize runtime ownership and provider/domain/event contracts incrementally.
 - Safety: no production migration/deployment; durable idempotency rollout flag remains off; LIVE trading remains disabled.
 
 - CI checkpoint (2026-10-21): Prettier auto-format advanced PR #863 to `fcd079bac3377753f46771e2ee98fcf75ae806b8`; the checks on the earlier head do not verify this formatted commit. This plan-only commit triggers backend build/unit tests and Prettier on the formatted head. Do not merge until the latest-head checks complete successfully.
+
+## Issue #887 — explicit production release gate — 2026-10-25
+
+- PR [#888](https://github.com/phanthienquoc/TCE-dashboard/pull/888) was squash-merged at `f301c1b633af307ad07940d576d8c123f5698bfb`; exact tested head `aa309ae4bc6a1024b3ebc8d06503c589b96bc873`. WF-05 backend tests and WF-02 Prettier passed on that head.
+- PR [#889](https://github.com/phanthienquoc/TCE-dashboard/pull/889) removed the remaining automatic push trigger and was squash-merged at `a47cc1063354abd2ea58219dd5af570a0a5e2b4a`; exact tested head `00f2c0ac8b6bc51958c01ec3a129e6157acd4c93`. WF-05 and WF-02 passed on that exact head.
+- The exact workflow-only merge was reviewed against the full downstream job graph: WF-03 has only `workflow_dispatch`; no WF-03 run was observed for the merge SHA. WF-04 cleanup is triggered by WF-03 completion, so it was not started by these merges. WF-01 build verification and WF-00 workflow-run cleanup may still run on workflow-file pushes but do not publish or promote production images.
+- Safety: no platform-infra access/change, production deployment/migration, or live order was performed. The historical docs-only PR #886 run #40209684600 remains evidence of an earlier promotion request only, not production health.
