@@ -85,6 +85,22 @@
 - **Risk:** Low — desktop-only CSS scoped to the positions HUD.
 - **Safety:** No production migration/deployment, LIVE trading, orders or platform-infra changes.
 
+### TCE-UI-003 — Compact Pools mobile layout and safe-area spacing
+
+- **Priority/status:** P2 / BLOCKED after repeated implementation attempts; keep PR #902 open and do not merge until the real-browser viewport contract passes.
+- **Evidence:** [PR #902](https://github.com/phanthienquoc/TCE-dashboard/pull/902), head `92d182355032b8a2f253d47c0a786b3f5cb284a0`; [WF-11 run #40234416071](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/40234416071), job `Chromium mobile viewport contract`.
+- **Current behavior:** Chromium passed the 390×844 portrait Pools case and the existing Positions viewport checks, but failed at `apps/web/scripts/pools-mobile-app.test.mjs:243` for 844×430: computed `rotationColumns` was 3 instead of 2. The branch contains a page-scoped `.tce-pools-view .tce-rotation-kpis` two-column override in `apps/web/app/mobile-command-center-fix.css` under the 600–950px width media query, yet the runtime computed style remains three columns. WF-02 Prettier and WF-05 backend unit tests pass on the same PR head.
+- **Desired behavior:** Keep Active Rotation metrics in two columns, with the third metric on the next row; show all three capital pools within the viewport; prevent horizontal overflow and preserve safe-area/bottom-dock spacing.
+- **Acceptance criteria:**
+  - [ ] Capture computed `grid-template-columns`, `matchMedia` state and matched CSS rules at 844×430 before making another CSS change.
+  - [ ] Correct the proven cascade/selector cause without broadening unrelated page styles.
+  - [ ] WF-11 passes at 390×844, 844×430 and 844×390; inspect the generated screenshots for the same viewports.
+  - [ ] No capital-allocation, API, schema, authentication or trading behavior changes.
+- **Validation:** [WF-11 #40234416071](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/40234416071) failed only at the Pools rotation-column assertion after the portrait case passed. WF-02 and WF-05 passed on PR head `92d1823`. This task records the observed failure; no further blind CSS variants should be tried.
+- **Dependencies:** PR #902 and a focused cascade/matched-rule diagnosis. Existing production-release workflow WF-03 is `workflow_dispatch`-only; ordinary master pushes do not trigger its publish/promotion jobs.
+- **Risk:** Low-to-medium UI regression risk; no runtime/trading behavior change intended. Do not merge while WF-11 is failing.
+- **Links:** [PR #902](https://github.com/phanthienquoc/TCE-dashboard/pull/902), [issue #433](https://github.com/phanthienquoc/TCE-dashboard/issues/433), [WF-11 failure](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/40234416071).
+
 ### TCE-OPS-002 — Make destructive legacy workflow cleanup manual-only
 
 - **Priority/status:** P1 / DONE on 2026-10-25 — [PR #895](https://github.com/phanthienquoc/TCE-dashboard/pull/895) squash-merged at `03f564e76d5a4c368c1db924ebb8d61f5f1bae9b`; `master` verified at the same SHA.
