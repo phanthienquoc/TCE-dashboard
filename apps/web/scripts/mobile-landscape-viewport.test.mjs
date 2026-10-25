@@ -120,6 +120,10 @@ try {
         navBottom: nav.getBoundingClientRect().bottom,
         navGridColumns: style(navInner).gridTemplateColumns.trim().split(' ').length,
         navItemCount: navInner.querySelectorAll('.tce-bottom-tab').length,
+        navItemBounds: [...navInner.querySelectorAll('.tce-bottom-tab')].map(item => {
+          const rect = item.getBoundingClientRect();
+          return { top: Math.round(rect.top * 100) / 100, bottom: Math.round(rect.bottom * 100) / 100 };
+        }),
         navItemsWithinNav: [...navInner.querySelectorAll('.tce-bottom-tab')].every(item => {
           const itemRect = item.getBoundingClientRect();
           const navRect = nav.getBoundingClientRect();
@@ -153,7 +157,7 @@ try {
     assert.equal(
       metrics.navItemsWithinNav,
       true,
-      `${testCase.name}: all navigation items fit inside the dock`
+      `${testCase.name}: all navigation items fit inside the dock; bounds=${JSON.stringify(metrics.navItemBounds)}, nav=${JSON.stringify({ top: metrics.navTop, bottom: metrics.navBottom, height: metrics.navHeight })}`
     );
 
     if (testCase.landscape) {
