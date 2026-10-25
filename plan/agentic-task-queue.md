@@ -85,6 +85,23 @@
 - **Risk:** Low — desktop-only CSS scoped to the positions HUD.
 - **Safety:** No production migration/deployment, LIVE trading, orders or platform-infra changes.
 
+### TCE-UI-003 — Compact Pools mobile layout and safe-area spacing
+
+- **Priority/status:** P2 / IN PROGRESS — [PR #902](https://github.com/phanthienquoc/TCE-dashboard/pull/902) opened; exact-head browser/format/test validation pending.
+- **Evidence paths:** `apps/web/app/pools/page.tsx`, `apps/web/components/dashboard/DashboardViews.tsx` (`PoolsView`), `apps/web/app/dashboard-layout.css`, `apps/web/app/mobile-command-center-fix.css`, `apps/web/scripts/pools-mobile-app.test.mjs`, `.github/workflows/wf-11-tce-mobile-landscape-viewport.yml`.
+- **Current behavior:** Issue #433 records an oversized Pools screen and top summary overlap on mobile. Capital Pool balance cards use a single-column layout at phone widths; Active Rotation has three KPI columns, and the generic mobile spacing does not reserve enough page-specific scroll space for the bottom dock.
+- **Desired behavior:** Keep the existing top safe-area/header offset, compact the status/stat sections, show pool balances in two columns on phones and three columns on short landscape, wrap Active Rotation KPIs into a two-column grid, and leave scroll clearance for the bottom dock.
+- **Acceptance criteria:**
+  - Actual `/pools` route renders all three capital pools without horizontal overflow at 390×844, 844×430 and 844×390.
+  - Pool cards remain inside viewport bounds; Active Rotation KPI grid has two columns and the third item wraps to row two.
+  - Summary card clears the page header; the final section can scroll above the portrait bottom dock.
+  - All API/auth responses in browser tests are mocked; no real account or Supabase calls.
+  - No capital-allocation semantics, runtime API, schema, auth, order or LIVE-mode behavior changes.
+- **Validation:** WF-11 runs the existing positions viewport contract plus `node apps/web/scripts/pools-mobile-app.test.mjs` against local Next.js with mocked `/auth/*` and `/api/*). WF-02 Prettier and WF-05 backend tests are expected on the exact PR head; record outcomes after completion.
+- **Dependencies:** Existing `PoolsView`, shared dashboard layout and installed Puppeteer/Chromium. No schema or service dependency.
+- **Risk:** Low — page-scoped CSS and a browser-test/workflow extension; visual regressions are the main risk.
+- **Sources:** [issue #433](https://github.com/phanthienquoc/TCE-dashboard/issues/433), [PR #902](https://github.com/phanthienquoc/TCE-dashboard/pull/902), [WF-11](../.github/workflows/wf-11-tce-mobile-landscape-viewport.yml).
+
 ### TCE-OPS-002 — Make destructive legacy workflow cleanup manual-only
 
 - **Priority/status:** P1 / DONE on 2026-10-25 — [PR #895](https://github.com/phanthienquoc/TCE-dashboard/pull/895) squash-merged at `03f564e76d5a4c368c1db924ebb8d61f5f1bae9b`; `master` verified at the same SHA.
