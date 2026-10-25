@@ -160,7 +160,9 @@ try {
       if (!dashboardResponse) {
         throw new Error(`Dashboard API was not observed: ${JSON.stringify(diagnostics)}`);
       }
-      console.log(`Observed dashboard API status ${dashboardResponse.status()} for ${testCase.name}`);
+      console.log(
+        `Observed dashboard API status ${dashboardResponse.status()} for ${testCase.name}`
+      );
       await page.waitForSelector('.tce-pools-view .tce-pool-balance', { timeout: 90_000 });
       try {
         await page.waitForSelector('.tce-pools-view .tce-rotation-row', { timeout: 30_000 });
