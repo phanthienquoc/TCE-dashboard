@@ -166,7 +166,9 @@ try {
             return rect.left >= -1 && rect.right <= window.innerWidth + 1;
           }),
           rotationColumns: style(rotationGrid)?.gridTemplateColumns.trim().split(' ').length ?? 0,
-          rotationMetricTops: rotationMetrics.map(item => Math.round(item.getBoundingClientRect().top)),
+          rotationMetricTops: rotationMetrics.map(item =>
+            Math.round(item.getBoundingClientRect().top)
+          ),
           rotationMetricCount: rotationMetrics.length,
           contentPaddingBottom: Number.parseFloat(style(poolsView)?.paddingBottom ?? '0'),
           lastSectionBottom: sections.at(-1)?.getBoundingClientRect().bottom ?? null,
@@ -209,14 +211,22 @@ try {
       );
 
       if (testCase.landscape) {
-        assert.equal(metrics.poolColumns, 3, `${testCase.name}: three pool cards fit across landscape`);
+        assert.equal(
+          metrics.poolColumns,
+          3,
+          `${testCase.name}: three pool cards fit across landscape`
+        );
         assert.equal(metrics.navPosition, 'fixed', `${testCase.name}: navigation remains fixed`);
         assert.ok(
           metrics.headerTop >= metrics.navBottom - 1,
           `${testCase.name}: page header clears the top navigation`
         );
       } else {
-        assert.equal(metrics.poolColumns, 2, `${testCase.name}: pools use a compact two-column grid`);
+        assert.equal(
+          metrics.poolColumns,
+          2,
+          `${testCase.name}: pools use a compact two-column grid`
+        );
         assert.ok(
           metrics.contentPaddingBottom >= 128,
           'portrait: scroll content reserves space for the bottom dock and safe area'
