@@ -1,6 +1,0 @@
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: tce
-  labels:
-    app.kubernetes.io/part-of: tce

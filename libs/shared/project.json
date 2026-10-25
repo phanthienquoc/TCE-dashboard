@@ -1,6 +1,0 @@
-{
-  "name": "shared",
-  "projectType": "library",
-  "sourceRoot": "libs/shared/src",
-  "targets": { "lint": {}, "lint:fix": {} }
-}
