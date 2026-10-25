@@ -106,17 +106,17 @@
 - **Risk:** Low; avoids split or duplicated implementation state.
 - **Sources:** [architecture issue #845](https://github.com/phanthienquoc/TCE-dashboard/issues/845), [canonical tracker #848](https://github.com/phanthienquoc/TCE-dashboard/issues/848), [closed duplicate #849](https://github.com/phanthienquoc/TCE-dashboard/issues/849).
 
-### TCE-CI-001 — Classify the 2026-10-21 Prettier push failure
+### TCE-CI-001 — Prevent Prettier push/PR workflow races
 
-- **Priority/status:** P2 / RESOLVED AS TRANSIENT GIT RACE; reopen only if reproduced.
-- **Evidence paths:** `.github/workflows/wf-02-tce-prettier-format.yml`, `plan/runtime-contract-standardization.md`.
-- **Current behavior/evidence:** Run [#39567566629](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/39567566629) completed Prettier successfully, then failed at the formatter bot's `git push` with `[rejected] (fetch first)`; a concurrent remote update had advanced the branch. This is a Git non-fast-forward race, not a Prettier syntax failure. Other adjacent runs were cancelled during the concurrent update. The latest audited scheduled WF-06 healthcheck and WF-07 integration check both succeeded on 2026-10-25.
-- **Desired behavior:** If reproduced, inspect the branch head and logs, reconcile the concurrent update safely and rerun only on the latest head; do not force-push or blindly rerun.
-- **Acceptance criteria:** No active failing latest-head run remains for this incident; any recurrence is classified with exact log evidence and handled without bypassing protection.
-- **Tests/validation:** Formatter step success and push-step failure verified in job logs; [WF-06 run #40200652855](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/40200652855) and [WF-07 run #40189234703](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/40189234703) succeeded on 2026-10-25.
+- **Priority/status:** P1 / IN PROGRESS — dedicated branch `fix/wf-02-prettier-pull-request-race`; PR will be opened after the workflow and queue changes are validated.
+- **Evidence paths:** `.github/workflows/wf-02-tce-prettier-format.yml`, `plan/agentic-task-queue.md`.
+- **Current behavior/evidence:** On 2026-10-25, run [#40224363153](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/40224363153) completed Prettier formatting, then failed at the formatter bot's `git push` with `[rejected] (fetch first)`. The workflow triggers on both `push` and `pull_request`, and both events previously ran a write-and-push job under different concurrency groups. Concurrent runs could therefore race on the same branch. This reproduces the class of failure previously recorded in [run #39567566629](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/39567566629).
+- **Desired behavior:** Pull-request runs perform a read-only `prettier --check` with `contents: read`; push/manual runs alone may format and commit with `contents: write`. Concurrency groups are event-specific. Never force-push or let a PR check mutate its head branch.
+- **Acceptance criteria:** The PR check retains the existing `Prettier auto-format & commit` check name; PR events contain no git-push step; push/dispatch formatting succeeds on the current head; no concurrent formatter push rejection remains; exact-head Prettier and backend checks pass.
+- **Tests/validation:** Reproduced in run [#40224363153](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/40224363153): formatter step succeeded and push step failed. Fix validation is pending on this dedicated branch.
 - **Dependencies:** None.
-- **Risk:** Low after resolution; unsafe force-push would be a separate high-risk action and is prohibited.
-- **Sources:** [failed formatter job](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/39567566629), [current healthcheck](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/40200652855), [current integration check](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/40189234703).
+- **Risk:** Low; workflow-only behavior change. PR runs lose write permission, and automatic formatting remains available on push/dispatch.
+- **Sources:** [failed formatter job logs](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/40224363153), [canonical UI PR #892](https://github.com/phanthienquoc/TCE-dashboard/pull/892), [prior race evidence](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/39567566629).
 
 ## Audit snapshot
 

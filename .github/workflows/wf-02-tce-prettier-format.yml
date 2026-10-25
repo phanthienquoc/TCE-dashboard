@@ -20,15 +20,18 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
-  group: prettier-format-${{ github.ref }}
+  group: prettier-format-${{ github.event_name }}-${{ github.event.pull_request.head.ref || github.ref_name }}
   cancel-in-progress: true
 
 jobs:
-  prettier-format:
+  prettier-check:
+    if: github.event_name == 'pull_request'
     name: Prettier auto-format & commit
+    permissions:
+      contents: read
     runs-on: ubuntu-latest
     timeout-minutes: 10
 
@@ -36,7 +39,47 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.head_ref || github.ref_name }}
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm install --include=dev --no-audit --no-fund
+
+      - name: Check Prettier formatting (read-only)
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          set -euo pipefail
+          diff_range="origin/${BASE_REF}...HEAD"
+          mapfile -t files < <(
+            git diff --name-only --diff-filter=ACMR "${diff_range}" |
+              grep -E '[.](cjs|cts|css|html|js|jsx|json|jsonc|md|mdx|mjs|mts|scss|ts|tsx|yaml|yml)$' |
+              grep -v '^[.]github/workflows/' || true
+          )
+          if ((${#files[@]})); then
+            npx prettier --check "${files[@]}"
+          else
+            echo "No eligible changed files to check."
+          fi
+
+  prettier-write:
+    if: github.event_name != 'pull_request'
+    name: Auto-format on push
+    permissions:
+      contents: write
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref_name }}
           token: ${{ secrets.GITHUB_TOKEN }}
           fetch-depth: 0
 
@@ -49,16 +92,10 @@ jobs:
       - name: Install dependencies
         run: npm install --include=dev --no-audit --no-fund
 
-      - name: Run Prettier format
-        env:
-          BASE_REF: ${{ github.base_ref || 'master' }}
+      - name: Format changed files
         run: |
           set -euo pipefail
-          if [ "${GITHUB_EVENT_NAME}" = "pull_request" ]; then
-            diff_range="origin/${BASE_REF}...HEAD"
-          else
-            diff_range="HEAD^...HEAD"
-          fi
+          diff_range="HEAD^...HEAD"
           mapfile -t files < <(
             git diff --name-only --diff-filter=ACMR "${diff_range}" |
               grep -E '[.](cjs|cts|css|html|js|jsx|json|jsonc|md|mdx|mjs|mts|scss|ts|tsx|yaml|yml)$' |
@@ -70,7 +107,7 @@ jobs:
             echo "No eligible changed files to format."
           fi
 
-      - name: Commit and push changes
+      - name: Commit and push formatting changes
         run: |
           set -euo pipefail
           if [ -n "$(git status --porcelain)" ]; then
@@ -79,7 +116,7 @@ jobs:
             git config user.email "github-actions[bot]@users.noreply.github.com"
             git add -u
             git commit -m "style: format changed files with Prettier [skip ci]"
-            git push origin HEAD:${{ github.head_ref || github.ref_name }}
+            git push origin HEAD:${{ github.ref_name }}
             echo "Auto-formatted changed files pushed successfully."
           else
             echo "No formatting changes detected. Code is clean."
