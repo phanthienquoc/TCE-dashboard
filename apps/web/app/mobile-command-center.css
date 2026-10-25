@@ -936,3 +936,677 @@ body {
 }
 
 /* Restored pre-705 mobile layout. */
+/* Full mobile landscape command-center mode. Keep portrait unchanged. */
+@media screen and (max-width: 767px) and (orientation: landscape) {
+  html,
+  body {
+    width: 100%;
+    min-width: 0;
+    overflow: hidden;
+    overscroll-behavior: none;
+  }
+
+  .app-shell,
+  .dashboard-layout,
+  .app-content {
+    width: 100%;
+    min-width: 0;
+    background: var(--tce-bg) !important;
+  }
+
+  .app-shell {
+    height: 100dvh !important;
+    min-height: 100dvh !important;
+    max-height: 100dvh !important;
+    overflow: hidden !important;
+  }
+
+  .app-shell > .tce-breadcrumbs {
+    display: none !important;
+  }
+
+  .dashboard-layout {
+    height: 100dvh !important;
+    min-height: 0 !important;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden !important;
+  }
+
+  .dashboard-layout > .app-content {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+    padding: calc(58px + env(safe-area-inset-top)) 14px calc(14px + env(safe-area-inset-bottom)) !important;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-y: contain;
+  }
+
+  /* Reuse the existing navigation component as a compact landscape top bar. */
+  .dashboard-layout > .tce-bottom-tabs,
+  .app-shell:has(.tce-bottom-tabs) > .tce-bottom-tabs {
+    position: fixed !important;
+    z-index: 80;
+    top: env(safe-area-inset-top);
+    bottom: auto !important;
+    left: 0;
+    right: 0;
+    width: 100% !important;
+    height: 48px;
+    padding: 0 10px;
+    border-top: 0;
+    border-bottom: 1px solid var(--tce-border);
+    background: rgba(7, 16, 22, 0.94);
+    backdrop-filter: blur(16px) saturate(130%);
+    -webkit-backdrop-filter: blur(16px) saturate(130%);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+  }
+
+  .tce-bottom-tabs-inner {
+    width: 100%;
+    height: 100%;
+    max-width: none;
+    display: grid !important;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap: 4px;
+    align-items: stretch;
+  }
+
+  .tce-bottom-tab {
+    min-width: 0;
+    min-height: 44px;
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 5px 8px !important;
+    border-radius: 9px;
+    color: var(--tce-muted);
+    font-size: 9px !important;
+    font-weight: 750;
+    white-space: nowrap;
+  }
+
+  .tce-bottom-tab-icon {
+    width: 24px;
+    height: 24px;
+    display: grid;
+    place-items: center;
+    flex: 0 0 auto;
+    border-radius: 7px;
+  }
+
+  .tce-bottom-tab-active {
+    color: var(--tce-blue) !important;
+    background: rgba(85, 191, 255, 0.08);
+  }
+
+  .tce-mobile-view {
+    max-width: none;
+    width: 100%;
+    padding-top: 0;
+  }
+
+  .tce-mobile-header {
+    min-height: 38px;
+    margin-bottom: 8px;
+  }
+
+  .tce-header-brand strong {
+    font-size: 15px;
+  }
+
+  .tce-header-brand span {
+    font-size: 8px;
+    margin-top: 1px;
+  }
+
+  .tce-brand-mark {
+    width: 25px;
+    height: 25px;
+    border-radius: 8px;
+  }
+
+  .tce-greeting p {
+    font-size: 20px;
+  }
+
+  .tce-greeting span {
+    font-size: 9px;
+    margin-top: 2px;
+  }
+
+  .tce-hero-card {
+    margin-top: 8px;
+    padding: 12px 14px;
+  }
+
+  .tce-hero-card strong {
+    font-size: 21px;
+  }
+
+  .tce-stat-grid {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap: 6px;
+    margin-top: 7px;
+  }
+
+  .tce-stat {
+    padding: 8px 9px;
+  }
+
+  .tce-stat strong {
+    font-size: 11px;
+    margin-top: 3px;
+  }
+
+  .tce-section {
+    margin-top: 12px;
+  }
+
+  .tce-section-title {
+    margin-bottom: 7px;
+  }
+
+  .tce-section-title h2 {
+    font-size: 13px;
+  }
+
+  .tce-list-stack {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 7px;
+  }
+
+  .tce-row-card {
+    min-height: 52px;
+    padding: 9px 10px;
+  }
+
+  .tce-pool-grid {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+  }
+
+  .tce-pool-card,
+  .tce-position-card,
+  .tce-dividend-card {
+    padding: 11px;
+  }
+
+  .tce-dividend-month-groups {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .tce-dividend-skeleton-list {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .tce-dividend-skeleton-grid {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+  }
+
+  .page-filter-slot {
+    margin: 6px 0 8px;
+  }
+
+  .tce-page-filter .tce-dividend-filter-summary {
+    min-height: 48px;
+    border-radius: 12px;
+  }
+
+  .tce-dividend-filter-summary {
+    min-height: 48px;
+    padding: 6px 8px;
+  }
+
+  .tce-dividend-filter-summary-icon {
+    width: 28px;
+    height: 28px;
+    border-radius: 8px;
+  }
+
+  .tce-dividend-filter-summary-copy > span {
+    font-size: 9px;
+  }
+
+  .tce-dividend-filter-summary-copy small {
+    margin-top: 2px;
+    font-size: 7px;
+  }
+
+  /* Landscape filters use a compact centered panel instead of an 84vh bottom sheet. */
+  .tce-filter-sheet {
+    width: min(560px, calc(100vw - 24px)) !important;
+    height: min(92dvh, 360px) !important;
+    max-height: calc(100dvh - 12px) !important;
+    border-radius: 18px !important;
+    border-bottom: 1px solid var(--tce-border) !important;
+  }
+
+  .tce-filter-sheet-header {
+    padding: 10px 14px 8px;
+  }
+
+  .tce-filter-sheet-header strong {
+    font-size: 15px;
+  }
+
+  .tce-filter-sheet-body {
+    padding: 10px 14px 12px;
+    gap: 4px;
+  }
+
+  .tce-filter-control {
+    gap: 5px;
+    padding: 4px 0 8px;
+  }
+
+  .tce-filter-control > span {
+    font-size: 8px;
+  }
+
+  .tce-filter-control > select,
+  .tce-filter-input-row select,
+  .tce-filter-range-row input {
+    min-height: 36px;
+    font-size: 11px;
+  }
+
+  .tce-filter-sheet-footer {
+    padding: 7px 14px calc(7px + env(safe-area-inset-bottom));
+  }
+
+  .tce-filter-sheet-footer button {
+    min-height: 38px;
+  }
+}
+
+/* Very short landscape phones: prioritize the workspace over decorative chrome. */
+@media screen and (max-width: 767px) and (orientation: landscape) and (max-height: 420px) {
+  .dashboard-layout > .app-content {
+    padding-top: calc(52px + env(safe-area-inset-top)) !important;
+  }
+
+  .tce-bottom-tabs,
+  .tce-bottom-tabs-inner {
+    height: 44px !important;
+  }
+
+  .tce-bottom-tab {
+    min-height: 40px;
+    padding-block: 3px !important;
+  }
+
+  .tce-bottom-tab-icon {
+    width: 22px;
+    height: 22px;
+  }
+
+  .tce-section {
+    margin-top: 9px;
+  }
+
+  .tce-card-top strong {
+    font-size: 15px;
+  }
+
+  .tce-price-line strong {
+    font-size: 20px;
+  }
+}
+/* Landscape mobile: game-like command-center density.
+   Preserve the TCE visual language; compress chrome, typography and cards
+   so the workspace fills the viewport like a game HUD. */
+@media screen and (max-width: 767px) and (orientation: landscape) {
+  .dashboard-layout > .app-content {
+    padding-inline: 8px !important;
+    padding-top: calc(50px + env(safe-area-inset-top)) !important;
+    padding-bottom: calc(8px + env(safe-area-inset-bottom)) !important;
+  }
+
+  .tce-bottom-tabs {
+    height: 42px !important;
+    padding: 0 6px !important;
+  }
+
+  .tce-bottom-tabs-inner {
+    gap: 2px !important;
+  }
+
+  .tce-bottom-tab {
+    min-height: 38px !important;
+    padding: 3px 6px !important;
+    gap: 4px !important;
+    border-radius: 7px !important;
+    font-size: 8px !important;
+    letter-spacing: -0.01em;
+  }
+
+  .tce-bottom-tab-icon {
+    width: 20px !important;
+    height: 20px !important;
+  }
+
+  .tce-bottom-tab-icon svg {
+    width: 15px !important;
+    height: 15px !important;
+  }
+
+  .tce-mobile-view {
+    gap: 0 !important;
+  }
+
+  .tce-mobile-header {
+    min-height: 30px !important;
+    margin-bottom: 4px !important;
+  }
+
+  .tce-header-brand strong {
+    font-size: 13px !important;
+  }
+
+  .tce-header-brand span {
+    font-size: 7px !important;
+  }
+
+  .tce-brand-mark {
+    width: 22px !important;
+    height: 22px !important;
+    border-radius: 6px !important;
+  }
+
+  .tce-greeting p {
+    font-size: 16px !important;
+    line-height: 1.05 !important;
+  }
+
+  .tce-greeting span {
+    font-size: 7px !important;
+  }
+
+  .tce-section {
+    margin-top: 7px !important;
+  }
+
+  .tce-section-title {
+    margin-bottom: 4px !important;
+  }
+
+  .tce-section-title h2 {
+    font-size: 11px !important;
+  }
+
+  .tce-stat-grid {
+    gap: 4px !important;
+    margin-top: 4px !important;
+  }
+
+  .tce-stat {
+    padding: 5px 7px !important;
+    border-radius: 8px !important;
+  }
+
+  .tce-stat strong {
+    font-size: 9px !important;
+    margin-top: 1px !important;
+  }
+
+  .tce-stat span {
+    font-size: 6px !important;
+  }
+
+  .tce-list-stack {
+    gap: 4px !important;
+  }
+
+  .tce-row-card,
+  .tce-pool-card,
+  .tce-position-card,
+  .tce-dividend-card {
+    padding: 7px !important;
+    border-radius: 10px !important;
+  }
+
+  .tce-row-card {
+    min-height: 42px !important;
+  }
+
+  .tce-card-top {
+    gap: 5px !important;
+    margin-bottom: 4px !important;
+  }
+
+  .tce-card-top strong {
+    font-size: 12px !important;
+  }
+
+  .tce-card-top span {
+    font-size: 6px !important;
+  }
+
+  .tce-price-line {
+    gap: 5px !important;
+  }
+
+  .tce-price-line strong {
+    font-size: 16px !important;
+  }
+
+  .tce-price-line span {
+    font-size: 7px !important;
+  }
+
+  .tce-pool-grid,
+  .tce-dividend-skeleton-grid {
+    gap: 4px !important;
+  }
+
+  .tce-pool-grid {
+    grid-template-columns: repeat(6, minmax(0, 1fr)) !important;
+  }
+
+  .tce-dividend-month-groups,
+  .tce-dividend-skeleton-list {
+    gap: 4px !important;
+  }
+
+  .tce-page-filter .tce-dividend-filter-summary,
+  .tce-dividend-filter-summary {
+    min-height: 38px !important;
+    padding: 4px 6px !important;
+    border-radius: 8px !important;
+  }
+
+  .tce-dividend-filter-summary-icon {
+    width: 23px !important;
+    height: 23px !important;
+    border-radius: 6px !important;
+  }
+
+  .tce-dividend-filter-summary-copy > span {
+    font-size: 7px !important;
+  }
+
+  .tce-dividend-filter-summary-copy small {
+    font-size: 6px !important;
+  }
+
+  /* Position/dividend cards: compact HUD tiles rather than full-size mobile cards. */
+  .tce-position-card,
+  .tce-dividend-card {
+    padding: 6px !important;
+  }
+
+  .tce-position-card .grid,
+  .tce-dividend-card .grid {
+    gap: 4px !important;
+  }
+
+  .tce-position-card [class*='text-'],
+  .tce-dividend-card [class*='text-'] {
+    line-height: 1.05;
+  }
+
+  /* Keep landscape filter compact and game-HUD-like. */
+  .tce-filter-sheet {
+    width: min(620px, calc(100vw - 18px)) !important;
+    height: min(86dvh, 330px) !important;
+    border-radius: 14px !important;
+  }
+
+  .tce-filter-sheet-header {
+    padding: 7px 10px 6px !important;
+  }
+
+  .tce-filter-sheet-header strong {
+    font-size: 13px !important;
+  }
+
+  .tce-filter-sheet-header span {
+    font-size: 7px !important;
+  }
+
+  .tce-filter-sheet-body {
+    padding: 6px 10px 8px !important;
+    gap: 2px !important;
+  }
+
+  .tce-filter-control {
+    gap: 4px !important;
+    padding: 3px 0 6px !important;
+  }
+
+  .tce-filter-control > span {
+    font-size: 7px !important;
+  }
+
+  .tce-filter-control > select,
+  .tce-filter-input-row select,
+  .tce-filter-range-row input {
+    min-height: 32px !important;
+    font-size: 9px !important;
+    border-radius: 8px !important;
+  }
+
+  .tce-filter-quick-row {
+    gap: 4px !important;
+  }
+
+  .tce-filter-quick-row button {
+    min-height: 25px !important;
+    padding-inline: 8px !important;
+    font-size: 7px !important;
+  }
+
+  .tce-filter-sheet-footer {
+    gap: 5px !important;
+    padding: 5px 10px calc(5px + env(safe-area-inset-bottom)) !important;
+  }
+
+  .tce-filter-sheet-footer button {
+    min-height: 32px !important;
+    border-radius: 8px !important;
+    font-size: 9px !important;
+  }
+}
+/* Positions HUD: use the available viewport in landscape/tablet widths while
+   keeping the compact mobile card language on phones. */
+@media screen and (min-width: 768px) {
+  .tce-mobile-view.tce-position-hud {
+    width: 100%;
+    max-width: none;
+    padding: 14px 0 24px;
+  }
+
+  .tce-position-hud .tce-mobile-header {
+    margin-bottom: 14px;
+  }
+
+  .tce-position-hud .tce-positions-content {
+    width: 100%;
+  }
+
+  .tce-position-hud .tce-positions-list {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+    align-items: start;
+  }
+
+  .tce-position-hud .tce-dividend-month-group {
+    display: contents;
+  }
+
+  .tce-position-hud .tce-list-stack {
+    display: contents;
+  }
+
+  .tce-position-hud .tce-dividend-card {
+    min-width: 0;
+    padding: 12px;
+  }
+
+  .tce-position-hud .tce-pool-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 6px;
+  }
+
+  .tce-position-hud .tce-pool-grid > div {
+    padding: 8px;
+  }
+
+  .tce-position-hud .tce-card-actions {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+}
+
+@media screen and (min-width: 1180px) {
+  .tce-position-hud .tce-positions-list {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .tce-position-hud .tce-mobile-header {
+    min-height: 46px;
+  }
+
+  .tce-position-hud .tce-header-brand strong {
+    font-size: 17px;
+  }
+}
+
+@media screen and (orientation: landscape) and (max-height: 520px) {
+  .tce-position-hud {
+    padding-top: 6px !important;
+  }
+
+  .tce-position-hud .tce-mobile-header {
+    min-height: 40px;
+    margin-bottom: 8px;
+  }
+
+  .tce-position-hud .tce-header-brand strong {
+    font-size: 16px;
+  }
+
+  .tce-position-hud .tce-header-brand span {
+    font-size: 8px;
+  }
+
+  .tce-position-hud .tce-live-pill {
+    padding: 4px 7px;
+  }
+
+  .tce-position-hud .tce-dividend-card {
+    padding: 10px;
+  }
+
+  .tce-position-hud .tce-pool-grid {
+    margin-top: 7px;
+  }
+}
