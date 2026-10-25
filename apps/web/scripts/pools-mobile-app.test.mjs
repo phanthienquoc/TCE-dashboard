@@ -221,7 +221,11 @@ try {
             Math.round(item.getBoundingClientRect().top)
           ),
           rotationMetricCount: rotationMetrics.length,
+          contentPaddingTop: Number.parseFloat(style(content)?.paddingTop ?? '0'),
           contentPaddingBottom: Number.parseFloat(style(poolsView)?.paddingBottom ?? '0'),
+          shortLandscapeQueryMatches: window.matchMedia(
+            '(min-width: 600px) and (max-width: 950px) and (max-height: 500px)'
+          ).matches,
           lastSectionBottom: sections.at(-1)?.getBoundingClientRect().bottom ?? null,
           contentScrollHeight: content?.scrollHeight ?? 0,
           contentClientHeight: content?.clientHeight ?? 0,
@@ -257,11 +261,16 @@ try {
         `${testCase.name}: third rotation metric wraps to the next row`
       );
       assert.ok(
-        metrics.statusTop >= metrics.headerBottom - 1,
-        `${testCase.name}: summary card does not overlap the page header`
+        metrics.statusTop >= metrics.contentPaddingTop - 1,
+        `${testCase.name}: summary card clears the shared safe-area/top chrome`
       );
 
       if (testCase.landscape) {
+        assert.equal(
+          metrics.shortLandscapeQueryMatches,
+          true,
+          `${testCase.name}: compact landscape media query matches viewport dimensions`
+        );
         assert.equal(
           metrics.poolColumns,
           3,
