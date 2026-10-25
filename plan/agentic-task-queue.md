@@ -1,7 +1,7 @@
 # TCE Dashboard — Agent Task Queue
 
 **Last audited:** 2026-10-25  
-**Default branch:** `master` at `5b6f4e94d5b940c83f7f534d57e3d49590d7e013`  
+**Default branch:** `master` at `a47cc1063354abd2ea58219dd5af570a0a5e2b4a`  
 **Queue convention:** This repository has a mature `plan/` directory but no existing `docs/agentic/` queue. This file follows the current `plan/` convention and supplements, rather than replaces, canonical phase plans/issues.  
 **Safety:** No production changes, migrations, live orders, or LIVE-mode enablement are part of this queue.
 
@@ -40,15 +40,14 @@
 
 ### TCE-PLAN-001 — Reconcile stale runtime-plan frontier and exact-head evidence
 
-- **Priority/status:** P2 / OPEN.
-- **Evidence paths:** `plan/runtime-contract-standardization.md`, `docs/architecture/runtime-boundaries.md`.
-- **Current behavior:** The top “Current task” block still has unchecked verify/merge steps for PR #884 evidence, although PR #884 and the documentation follow-up PR #885 are both merged. The plan already names durable lifecycle-event replay as the next dependency-safe task, but its checklist/frontier is stale.
-- **Desired behavior:** Record exact merged PR/test evidence, close stale checklist items, and make the next actionable frontier match current code and issue #848 without marking unimplemented phases complete.
-- **Acceptance criteria:** Verify PR #884/#885 merge state and exact tested SHAs; link the relevant successful WF-05/WF-02 runs; remove only steps proven complete; leave durable event replay as the next task; keep PAPER/LIVE safety statements accurate.
-- **Tests/validation:** Read current PR metadata and run logs; validate links and commit SHAs; run Prettier/checks on the documentation PR head.
-- **Dependencies:** None; documentation-only.
+- **Priority/status:** P2 / DONE on 2026-10-25.
+- **Evidence paths:** `plan/runtime-contract-standardization.md`, `docs/architecture/runtime-boundaries.md`, `plan/agentic-task-queue.md`.
+- **Verified evidence:** PR #884 merged at `e3e1e06731fa1dcb4d5703e5dd562509eb16a3df` from tested head `585172e3166994da4b1e026b0cfb38c7ee5270ea`. PR #885 merged at `5b6f4e94d5b940c83f7f534d57e3d49590d7e013` from tested head `016cbd2083a6853a07159ef980be2ba708f54b37`; [WF-05 #2107](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/39567687431) and [WF-02 #1559](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/39567687358) passed on that exact head.
+- **Result:** The stale verify/merge checklist is reconciled; durable lifecycle-event replay remains the next implementation task. Issue #887's production-trigger gate is also resolved by PRs #888/#889 and recorded in the runtime plan.
+- **Validation:** Re-read merged PR metadata, exact-head check runs, current `master` SHA and the manual-only WF-03 trigger. No production workflow ran for the workflow-only merge SHA.
+- **Dependencies:** None for documentation; TCE-RUNTIME-001 still requires an additive schema design and non-production validation before any migration rollout.
 - **Risk:** Low; stale status can cause duplicate work or false completion claims.
-- **Sources:** [PR #884](https://github.com/phanthienquoc/TCE-dashboard/pull/884), [merged documentation PR #885](https://github.com/phanthienquoc/TCE-dashboard/pull/885), [runtime contract plan](https://github.com/phanthienquoc/TCE-dashboard/blob/master/plan/runtime-contract-standardization.md).
+- **Sources:** [PR #884](https://github.com/phanthienquoc/TCE-dashboard/pull/884), [PR #885](https://github.com/phanthienquoc/TCE-dashboard/pull/885), [PR #888](https://github.com/phanthienquoc/TCE-dashboard/pull/888), [PR #889](https://github.com/phanthienquoc/TCE-dashboard/pull/889), [runtime contract plan](https://github.com/phanthienquoc/TCE-dashboard/blob/master/plan/runtime-contract-standardization.md).
 
 ### TCE-UI-001 — Consolidate overlapping mobile-landscape PRs
 
@@ -63,6 +62,16 @@
 - **Sources:** [PR #809](https://github.com/phanthienquoc/TCE-dashboard/pull/809), [PR #810](https://github.com/phanthienquoc/TCE-dashboard/pull/810), [PR #811](https://github.com/phanthienquoc/TCE-dashboard/pull/811).
 
 ## Completed / resolved audit items
+
+### TCE-OPS-001 — Require explicit manual production release dispatch
+
+- **Priority/status:** P0 / DONE on 2026-10-25.
+- **Evidence:** PR #888 merged at `f301c1b633af307ad07940d576d8c123f5698bfb` from exact tested head `aa309ae4bc6a1024b3ebc8d06503c589b96bc873`; PR #889 merged at `a47cc1063354abd2ea58219dd5af570a0a5e2b4a` from exact tested head `00f2c0ac8b6bc51958c01ec3a129e6157acd4c93`. WF-05 and WF-02 passed on both exact PR heads.
+- **Current/desired behavior:** WF-03 previously ran on every `master` push and could publish ARM64 images and dispatch platform-infra promotion. WF-03 now has only `workflow_dispatch`; ordinary PR merges cannot start production release/promotion.
+- **Acceptance:** Preserve the image/tag/promotion contract, keep release initiation explicit and auditable, and ensure the workflow-only merges cannot match a push trigger.
+- **Validation:** Reviewed the complete WF-03 downstream job graph and related triggers. Current `master` verified at `a47cc1063354abd2ea58219dd5af570a0a5e2b4a`; no WF-03 run was observed for the merge SHA. WF-01 build verification and WF-00 cleanup were observed separately; neither publishes/promotes production images.
+- **Risk:** High if manually dispatched without release authorization; do not dispatch as part of implementation work.
+- **Sources:** [issue #887](https://github.com/phanthienquoc/TCE-dashboard/issues/887), [PR #888](https://github.com/phanthienquoc/TCE-dashboard/pull/888), [PR #889](https://github.com/phanthienquoc/TCE-dashboard/pull/889), historical [WF-03 run #40209684600](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/40209684600).
 
 ### TCE-TRACK-001 — Deduplicate runtime-standardization issue tracker
 
