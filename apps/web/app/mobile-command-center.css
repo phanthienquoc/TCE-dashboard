@@ -937,7 +937,7 @@ body {
 
 /* Restored pre-705 mobile layout. */
 /* Full mobile landscape command-center mode. Keep portrait unchanged. */
-@media screen and (max-width: 767px) and (orientation: landscape) {
+@media screen and (max-width: 950px) and (max-height: 500px) and (orientation: landscape) {
   html,
   body {
     width: 100%;
@@ -1228,7 +1228,7 @@ body {
 }
 
 /* Very short landscape phones: prioritize the workspace over decorative chrome. */
-@media screen and (max-width: 767px) and (orientation: landscape) and (max-height: 420px) {
+@media screen and (max-width: 950px) and (orientation: landscape) and (max-height: 420px) {
   .dashboard-layout > .app-content {
     padding-top: calc(52px + env(safe-area-inset-top)) !important;
   }
@@ -1263,7 +1263,7 @@ body {
 /* Landscape mobile: game-like command-center density.
    Preserve the TCE visual language; compress chrome, typography and cards
    so the workspace fills the viewport like a game HUD. */
-@media screen and (max-width: 767px) and (orientation: landscape) {
+@media screen and (max-width: 950px) and (max-height: 500px) and (orientation: landscape) {
   .dashboard-layout > .app-content {
     padding-inline: 8px !important;
     padding-top: calc(50px + env(safe-area-inset-top)) !important;
