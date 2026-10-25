@@ -1,6 +1,6 @@
 # TCE Dashboard — Agent Task Queue
 
-**Last audited:** 2026-10-25  
+**Last audited:** 2026-10-26  
 **Default branch:** `master` at `a47cc1063354abd2ea58219dd5af570a0a5e2b4a`  
 **Queue convention:** This repository has a mature `plan/` directory but no existing `docs/agentic/` queue. This file follows the current `plan/` convention and supplements, rather than replaces, canonical phase plans/issues.  
 **Safety:** No production changes, migrations, live orders, or LIVE-mode enablement are part of this queue.
@@ -51,7 +51,7 @@
 
 ### TCE-UI-001 — Consolidate overlapping mobile-landscape PRs
 
-- **Priority/status:** P2 / IN PROGRESS — [canonical PR #892](https://github.com/phanthienquoc/TCE-dashboard/pull/892) is open; exact-head CI and responsive behavior validation pending.
+- **Priority/status:** P2 / BLOCKED on browser/viewport verification — [canonical PR #892](https://github.com/phanthienquoc/TCE-dashboard/pull/892) remains open. Exact-head CI passed; the remaining gate is real browser layout evidence for portrait, normal landscape and short landscape.
 - **Implementation branch:** `feat/tce-ui-001-consolidated-landscape`; current combined CSS is 1,613 lines with the original 939-line master prefix preserved.
 - **Evidence paths:** `apps/web/app/mobile-command-center.css`, `apps/web/components/dashboard/DividendPositionsView.tsx`.
 - **Current behavior:** Open PRs #809 and #810 append overlapping phone-landscape styles to the same CSS file; PR #811 adds a position-HUD class plus tablet/desktop layout rules. Their heads are stale and had no check-runs when inspected. All three CSS branches share the exact 939-line CSS prefix from current master SHA `aaf039a0ad3c9b2a27e16eb56e0eaf745dc41835`.
@@ -62,7 +62,7 @@
   - Preserve portrait behavior and avoid adding runtime/data/API changes.
   - Run repository CI on the exact final head; report any visual/browser checks that are not available rather than claiming them passed.
   - After the canonical PR passes checks and is merge-safe, close superseded PRs #809/#810/#811 with a link to the canonical result.
-- **Validation:** Static base-prefix comparison passed for all three CSS branches (939 shared lines); combined source currently contains 325 lines from #809, 256 lines from #810 and 96 lines from #811. Exact-head WF-02/WF-05 checks and build validation are pending. Manual viewport review for portrait plus short/normal-height landscape remains required if no browser harness is available.
+- **Validation:** Static base-prefix comparison passed for all three CSS branches (939 shared lines); combined source currently contains 325 lines from #809, 256 lines from #810 and 96 lines from #811. On exact head `1e94ee9aa4b3ff7de43ea7cd5c5c4abe490afe1e`, WF-02 Prettier runs [#40214439611](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/40214439611) and [#40214436059](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/40214436059) passed; WF-05 backend test runs [#40214439601](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/40214439601) and [#40214435950](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/40214435950) passed. GitHub CI does not provide browser viewport evidence, and no preview/browser capture was available during this audit; no visual pass is claimed. Manual/browser review for portrait, normal landscape and short landscape remains the merge gate.
 - **Dependencies:** None; use current master as the merge base.
 - **Risk:** Medium — CSS precedence and small-height layouts may regress. No backend, trading, schema, production release or live-order behavior is changed.
 - **Links:** [PR #809](https://github.com/phanthienquoc/TCE-dashboard/pull/809), [PR #810](https://github.com/phanthienquoc/TCE-dashboard/pull/810), [PR #811](https://github.com/phanthienquoc/TCE-dashboard/pull/811).
