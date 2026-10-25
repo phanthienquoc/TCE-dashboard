@@ -1,7 +1,7 @@
 # TCE Dashboard — Agent Task Queue
 
-**Last audited:** 2026-10-25  
-**Default branch:** `master` at `a47cc1063354abd2ea58219dd5af570a0a5e2b4a`  
+**Last audited:** 2026-10-26  
+**Default branch snapshot:** `master` at `61ccdaabb14a5d18b7e2722edadd1ec9162603ce` when TCE-UI-001 was revalidated  
 **Queue convention:** This repository has a mature `plan/` directory but no existing `docs/agentic/` queue. This file follows the current `plan/` convention and supplements, rather than replaces, canonical phase plans/issues.  
 **Safety:** No production changes, migrations, live orders, or LIVE-mode enablement are part of this queue.
 
@@ -61,7 +61,7 @@
 
 ### TCE-UI-001 — Consolidate overlapping mobile-landscape PRs
 
-- **Priority/status:** P2 / IN PR — canonical [PR #892](https://github.com/phanthienquoc/TCE-dashboard/pull/892), branch `feat/tce-ui-001-consolidated-landscape`.
+- **Priority/status:** P2 / READY TO MERGE — exact-head browser app contract, CSS viewport contract, Prettier and backend tests pass on `8e15a1da31ae49d7f217608d1e51f365462e76fc`; merge is safe with WF-03 manual-dispatch-only.
 - **Current implementation HEAD before this plan-only update:** `8e15a1da31ae49d7f217608d1e51f365462e76fc`.
 - **Scope:** Consolidates the overlapping landscape CSS from PRs #809/#810 with the positions-HUD class and tablet/desktop rules from #811; adds the Chromium viewport fixture and a running local Next.js `/position` route test using mocked auth/API endpoints. No API, database, trading, migration or production-release code changes.
 - **Acceptance criteria:**
@@ -97,17 +97,7 @@
 - **Evidence:** PR #888 merged at `f301c1b633af307ad07940d576d8c123f5698bfb` from exact tested head `aa309ae4bc6a1024b3ebc8d06503c589b96bc873`; PR #889 merged at `a47cc1063354abd2ea58219dd5af570a0a5e2b4a` from exact tested head `00f2c0ac8b6bc51958c01ec3a129e6157acd4c93`. WF-05 and WF-02 passed on both exact PR heads.
 - **Current/desired behavior:** WF-03 previously ran on every `master` push and could publish ARM64 images and dispatch platform-infra promotion. WF-03 now has only `workflow_dispatch`; ordinary PR merges cannot start production release/promotion.
 - **Acceptance:** Preserve the image/tag/promotion contract, keep release initiation explicit and auditable, and ensure the workflow-only merges cannot match a push trigger.
-- **Validation:** Reviewed the complete WF-03 downstream job graph and related triggers. Current `master` verified at `a47cc1063354abd2ea58219dd5af570a0a5e2b4a`; no WF-03 run was observed for the merge SHA. WF-01 build verification and WF-00 cleanup were observed separately; neither publishes/promotes production images.
-- **Risk:** High if manually dispatched without release authorization; do not dispatch as part of implementation work.
-- **Sources:** [issue #887](https://github.com/phanthienquoc/TCE-dashboard/issues/887), [PR #888](https://github.com/phanthienquoc/TCE-dashboard/pull/888), [PR #889](https://github.com/phanthienquoc/TCE-dashboard/pull/889), historical [WF-03 run #40209684600](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/40209684600).
-
-### TCE-TRACK-001 — Deduplicate runtime-standardization issue tracker
-
-- **Priority/status:** P2 / DONE on 2026-10-25.
-- **Evidence paths:** GitHub issue metadata for #845, #848 and #849.
-- **Current vs desired:** #848 and #849 had identical title, goal, workflow policy, acceptance checklist and original context. #849 was closed with reason `duplicate`; #848 remains the single active implementation tracker and #845 remains the architecture umbrella.
-- **Acceptance criteria:** Only one active copy of the same implementation checklist remains; canonical issue links are preserved.
-- **Tests/validation:** Re-read issue state after the update; #849 is closed as duplicate of #848.
+- **Validation:** Static base-prefix comparison passed for all three source branches (939 shared lines); the combined CSS preserves the positions-HUD class and separate tablet/desktop rules. Exact final head `8e15a1da31ae49d7f217608d1e51f365462e76fc` has green checks: [WF-02 Prettier #40226337573](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/40226337573), [WF-05 backend tests #40226337562](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/40226337562), and [WF-11 Chromium mobile viewport contract #40226337535](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/40226337535). WF-11 starts the local Next.js app and tests the real `/position` route with mocked auth/API endpoints at portrait 390×844, landscape 844×430, short landscape 844×390 and desktop 1280×800. Results: no horizontal overflow; landscape nav fixed at top (42px), six navigation columns, full-width workspace, vertical scrolling and hidden redundant heading; portrait retains bottom navigation; desktop HUD expands to 1,232px and the page heading remains visible. [Exact-head screenshot artifact](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/40226337535/artifacts/12611497310). This is a local app run with mocked endpoints, not a production preview or real-account/data test. No API, schema, migration, live trading or release workflow changes are included.
 - **Dependencies:** None.
 - **Risk:** Low; avoids split or duplicated implementation state.
 - **Sources:** [architecture issue #845](https://github.com/phanthienquoc/TCE-dashboard/issues/845), [canonical tracker #848](https://github.com/phanthienquoc/TCE-dashboard/issues/848), [closed duplicate #849](https://github.com/phanthienquoc/TCE-dashboard/issues/849).
