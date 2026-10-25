@@ -1,11 +1,23 @@
 name: WF-03 TCE Production Deploy
-# Re-registered under a new workflow path to clear the stale Actions metadata.
+# Production release is limited to app/build inputs. Docs, plans, and workflow-only
+# changes must not publish images or request GitOps promotion.
 run-name: WF-03 TCE Production Deploy — ${{ github.ref_name }} — ${{ github.sha }}
 
 on:
   push:
     branches:
       - master
+    paths:
+      - Dockerfile
+      - package.json
+      - package-lock.json
+      - postcss.config.mjs
+      - nx.json
+      - tsconfig.base.json
+      - apps/web/**
+      - apps/service/**
+      - libs/**
+      - packages/**
   workflow_dispatch:
 
 permissions:
