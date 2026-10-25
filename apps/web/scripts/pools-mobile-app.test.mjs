@@ -224,7 +224,7 @@ try {
           contentPaddingTop: Number.parseFloat(style(content)?.paddingTop ?? '0'),
           contentPaddingBottom: Number.parseFloat(style(poolsView)?.paddingBottom ?? '0'),
           shortLandscapeQueryMatches: window.matchMedia(
-            '(min-width: 600px) and (max-width: 950px) and (max-height: 500px)'
+            '(min-width: 600px) and (max-width: 950px)'
           ).matches,
           lastSectionBottom: sections.at(-1)?.getBoundingClientRect().bottom ?? null,
           contentScrollHeight: content?.scrollHeight ?? 0,
