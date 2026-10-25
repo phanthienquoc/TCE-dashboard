@@ -74,7 +74,7 @@
 
 ### TCE-UI-002 — Align desktop positions-HUD header and live status
 
-- **Priority/status:** P2 / IN PR — follow-up from the 1280×800 screenshot review of TCE-UI-001.
+- **Priority/status:** P2 / READY TO MERGE — the desktop header and computed LIVE-pill assertions are corrected; formatter follow-up is on head `7d15d24274118f0ed8e1b3221d1a4a19374fb1d3`. This queue-only update triggers the final exact-head WF-11/WF-02/WF-05 checks before merge.
 - **Current behavior:** At desktop widths, the positions header inherits no flex layout because shared mobile styles are bounded to portrait/mobile-landscape. The title and subtitle render inline as `PositionsLive exposure`, and the LIVE status renders as plain text.
 - **Desired behavior:** At widths ≥951px, align the header title/subtitle as a stacked brand block, keep the LIVE status as a distinct readable pill, and preserve existing mobile/landscape styling.
 - **Acceptance criteria:** Add a desktop-only style block scoped to `.tce-position-hud`; test the running local `/position` route at 1280×800 for flex header, separate subtitle, visible title and pill display; verify 390×844, 844×430 and 844×390 behavior remains unchanged. No data/schema/trading changes.
