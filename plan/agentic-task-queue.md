@@ -1,0 +1,95 @@
+# TCE Dashboard — Agent Task Queue
+
+**Last audited:** 2026-10-25  
+**Default branch:** `master` at `5b6f4e94d5b940c83f7f534d57e3d49590d7e013`  
+**Queue convention:** This repository has a mature `plan/` directory but no existing `docs/agentic/` queue. This file follows the current `plan/` convention and supplements, rather than replaces, canonical phase plans/issues.  
+**Safety:** No production changes, migrations, live orders, or LIVE-mode enablement are part of this queue.
+
+## Queue rules
+
+- Keep IDs stable and update existing entries instead of duplicating them.
+- Every task records evidence, current/desired behavior, acceptance, validation, dependencies, risk and source links.
+- Check active PRs/branches/issues before creating a new task. Use a dedicated descriptive branch and PR; never commit directly to `master`.
+- CI failures are diagnostic. Do not bypass required checks, weaken tests, or submit live orders.
+- Treat linked source/docs as repository evidence; verify current code before changing a task's status.
+
+## Priority legend
+
+- **P0** — blocks a critical contract or risks auth/trading correctness.
+- **P1** — next dependency-safe engineering task.
+- **P2** — important maintenance, UI consolidation or tracking hygiene.
+
+## Active tasks
+
+### TCE-RUNTIME-001 — Durable retry/replay for lifecycle event publication
+
+- **Priority/status:** P1 / READY.
+- **Evidence paths:** `apps/service/src/monitor/tce-monitor.service.ts`, `apps/service/src/monitor/monitor-event.ts`, `apps/service/src/monitor/monitor-event.spec.ts`, `libs/contracts/src/tce-event.contract.ts`, `plan/runtime-contract-standardization.md`.
+- **Current behavior:** Monitor persists a position snapshot, then calls `publishMonitorSnapshotBestEffort`. On publisher failure it logs a warning and continues; the helper explicitly says publication is best-effort until an outbox shares the write transaction. The event can therefore be absent after a transient publisher/store outage, with no durable replay record.
+- **Desired behavior:** Keep snapshot/audit behavior authoritative while making event publication durably retryable/replayable with stable event identity, correlation and account scope. Never turn a monitor signal into a broker command.
+- **Acceptance criteria:**
+  - Failed publication remains durably discoverable and is retried/replayed after process restart.
+  - Stable `eventId` is preserved; duplicate delivery is idempotent at consumers.
+  - Retry/backoff, terminal failure/dead-letter or operator visibility are explicit; no blind retry of unknown broker outcomes.
+  - Existing snapshot, audit and cashout behavior is unchanged; no LIVE order dispatch is added.
+  - Any schema change is additive and tested in a non-production environment before rollout.
+- **Tests/validation:** Inject publisher/database failures; prove replay after restart; test duplicate event delivery, ordering/correlation and retry limits; run focused monitor/runtime-event tests, backend unit tests, typecheck, build and Prettier on the exact PR head.
+- **Dependencies:** Existing `TceEventEnvelope`/publisher port and monitor snapshot tests are present. Migration design and rollout remain gated by non-production validation.
+- **Risk:** Medium/high; lost lifecycle events can create gaps between persisted snapshots and downstream consumers.
+- **Sources:** [issue #845](https://github.com/phanthienquoc/TCE-dashboard/issues/845), [canonical implementation tracker #848](https://github.com/phanthienquoc/TCE-dashboard/issues/848), [runtime boundary architecture](https://github.com/phanthienquoc/TCE-dashboard/blob/master/docs/architecture/runtime-boundaries.md), [runtime contract plan](https://github.com/phanthienquoc/TCE-dashboard/blob/master/plan/runtime-contract-standardization.md), [monitor publisher](https://github.com/phanthienquoc/TCE-dashboard/blob/master/apps/service/src/monitor/monitor-event.ts).
+
+### TCE-PLAN-001 — Reconcile stale runtime-plan frontier and exact-head evidence
+
+- **Priority/status:** P2 / OPEN.
+- **Evidence paths:** `plan/runtime-contract-standardization.md`, `docs/architecture/runtime-boundaries.md`.
+- **Current behavior:** The top “Current task” block still has unchecked verify/merge steps for PR #884 evidence, although PR #884 and the documentation follow-up PR #885 are both merged. The plan already names durable lifecycle-event replay as the next dependency-safe task, but its checklist/frontier is stale.
+- **Desired behavior:** Record exact merged PR/test evidence, close stale checklist items, and make the next actionable frontier match current code and issue #848 without marking unimplemented phases complete.
+- **Acceptance criteria:** Verify PR #884/#885 merge state and exact tested SHAs; link the relevant successful WF-05/WF-02 runs; remove only steps proven complete; leave durable event replay as the next task; keep PAPER/LIVE safety statements accurate.
+- **Tests/validation:** Read current PR metadata and run logs; validate links and commit SHAs; run Prettier/checks on the documentation PR head.
+- **Dependencies:** None; documentation-only.
+- **Risk:** Low; stale status can cause duplicate work or false completion claims.
+- **Sources:** [PR #884](https://github.com/phanthienquoc/TCE-dashboard/pull/884), [merged documentation PR #885](https://github.com/phanthienquoc/TCE-dashboard/pull/885), [runtime contract plan](https://github.com/phanthienquoc/TCE-dashboard/blob/master/plan/runtime-contract-standardization.md).
+
+### TCE-UI-001 — Consolidate overlapping mobile-landscape PRs
+
+- **Priority/status:** P2 / OPEN.
+- **Evidence paths:** `apps/web/app/mobile-command-center.css`, `apps/web/components/dashboard/DividendPositionsView.tsx`.
+- **Current behavior:** Three stale open PRs (#809, #810, #811) all modify `mobile-command-center.css`; #811 also changes one line in `DividendPositionsView.tsx`. Their stated goals overlap (mobile landscape/command-center density), and the audited check-runs endpoint returned no check-runs for the three current head SHAs.
+- **Desired behavior:** One canonical, reviewable PR contains the agreed combined UX without silently dropping unique changes; superseded PRs are closed only after the canonical branch has a tested, reviewable result.
+- **Acceptance criteria:** Compare all three diffs and branch ancestry; explicitly choose the canonical branch; preserve portrait behavior and verify landscape at short phone heights; run checks on the exact final head; document any deferred behavior before closing superseded PRs.
+- **Tests/validation:** Frontend lint/typecheck/build, relevant component tests, exact-head Actions checks and visual/manual viewport review for portrait plus landscape.
+- **Dependencies:** None, but do not merge or close PRs merely because their files overlap; review the diffs first.
+- **Risk:** Medium; stylesheet overlap can regress responsive behavior or lose changes.
+- **Sources:** [PR #809](https://github.com/phanthienquoc/TCE-dashboard/pull/809), [PR #810](https://github.com/phanthienquoc/TCE-dashboard/pull/810), [PR #811](https://github.com/phanthienquoc/TCE-dashboard/pull/811).
+
+## Completed / resolved audit items
+
+### TCE-TRACK-001 — Deduplicate runtime-standardization issue tracker
+
+- **Priority/status:** P2 / DONE on 2026-10-25.
+- **Evidence paths:** GitHub issue metadata for #845, #848 and #849.
+- **Current vs desired:** #848 and #849 had identical title, goal, workflow policy, acceptance checklist and original context. #849 was closed with reason `duplicate`; #848 remains the single active implementation tracker and #845 remains the architecture umbrella.
+- **Acceptance criteria:** Only one active copy of the same implementation checklist remains; canonical issue links are preserved.
+- **Tests/validation:** Re-read issue state after the update; #849 is closed as duplicate of #848.
+- **Dependencies:** None.
+- **Risk:** Low; avoids split or duplicated implementation state.
+- **Sources:** [architecture issue #845](https://github.com/phanthienquoc/TCE-dashboard/issues/845), [canonical tracker #848](https://github.com/phanthienquoc/TCE-dashboard/issues/848), [closed duplicate #849](https://github.com/phanthienquoc/TCE-dashboard/issues/849).
+
+### TCE-CI-001 — Classify the 2026-10-21 Prettier push failure
+
+- **Priority/status:** P2 / RESOLVED AS TRANSIENT GIT RACE; reopen only if reproduced.
+- **Evidence paths:** `.github/workflows/wf-02-tce-prettier-format.yml`, `plan/runtime-contract-standardization.md`.
+- **Current behavior/evidence:** Run [#39567566629](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/39567566629) completed Prettier successfully, then failed at the formatter bot's `git push` with `[rejected] (fetch first)`; a concurrent remote update had advanced the branch. This is a Git non-fast-forward race, not a Prettier syntax failure. Other adjacent runs were cancelled during the concurrent update. The latest audited scheduled WF-06 healthcheck and WF-07 integration check both succeeded on 2026-10-25.
+- **Desired behavior:** If reproduced, inspect the branch head and logs, reconcile the concurrent update safely and rerun only on the latest head; do not force-push or blindly rerun.
+- **Acceptance criteria:** No active failing latest-head run remains for this incident; any recurrence is classified with exact log evidence and handled without bypassing protection.
+- **Tests/validation:** Formatter step success and push-step failure verified in job logs; [WF-06 run #40200652855](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/40200652855) and [WF-07 run #40189234703](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/40189234703) succeeded on 2026-10-25.
+- **Dependencies:** None.
+- **Risk:** Low after resolution; unsafe force-push would be a separate high-risk action and is prohibited.
+- **Sources:** [failed formatter job](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/39567566629), [current healthcheck](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/40200652855), [current integration check](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/40189234703).
+
+## Audit snapshot
+
+- **Open PRs:** #809, #810, #811; all are stale and overlap in the same stylesheet. Their current heads had no check-runs in the audited GitHub endpoint; this is a validation gap, not proof that the code fails.
+- **Open runtime issues:** #845 (architecture umbrella) and #848 (implementation tracker). Exact duplicate #849 is closed.
+- **Recent workflow state:** scheduled healthcheck, integration-check and backup runs audited on 2026-10-24/25 are green. Historical 2026-10-21 formatter failure is classified above.
+- **Next implementation task:** TCE-RUNTIME-001 durable retry/replay for lifecycle-event publication. Continue independently of auth user-management work; do not touch repositories outside this queue's scope.
