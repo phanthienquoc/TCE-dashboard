@@ -71,6 +71,18 @@
 - **Risk:** Medium; stylesheet overlap can regress responsive behavior or lose changes.
 - **Sources:** [PR #809](https://github.com/phanthienquoc/TCE-dashboard/pull/809), [PR #810](https://github.com/phanthienquoc/TCE-dashboard/pull/810), [PR #811](https://github.com/phanthienquoc/TCE-dashboard/pull/811).
 
+### TCE-OPS-002 — Make destructive legacy workflow cleanup manual-only
+
+- **Priority/status:** P1 / IN PROGRESS — dedicated branch `fix/wf-00-cleanup-manual-only`.
+- **Evidence paths:** `.github/workflows/wf-00-tce-legacy-actions-cleanup.yml`, `.github/workflows/wf-01-tce-build-verify.yml`, `.github/workflows/wf-03-tce-production-deploy.yml`.
+- **Current behavior/evidence:** WF-00 triggers on every push to `master`, grants `actions: write`, enumerates repository workflow runs, and deletes every run whose name does not start with `WF-`. Therefore unrelated merges such as [CI race fix PR #894](https://github.com/phanthienquoc/TCE-dashboard/pull/894) or [UI PR #892](https://github.com/phanthienquoc/TCE-dashboard/pull/892) would incidentally delete historical workflow runs.
+- **Desired behavior:** Keep the cleanup operation available only through explicit `workflow_dispatch`; ordinary merges must not delete workflow history.
+- **Acceptance criteria:** WF-00 has no push or workflow-run trigger; the manual-dispatch job remains intact; workflow validation and PR CI pass; merging this trigger-only change does not invoke WF-00, WF-03 or production promotion.
+- **Tests/validation:** Read-only trigger graph inspection confirmed the push trigger and destructive `gh api --method DELETE` loop. Validation is pending on this branch.
+- **Dependencies:** None.
+- **Risk:** Medium — automatic cleanup stops; an operator must explicitly dispatch it when cleanup is intended. Manual execution remains destructive and must not be part of normal implementation runs.
+- **Sources:** [WF-00 workflow](https://github.com/phanthienquoc/TCE-dashboard/blob/master/.github/workflows/wf-00-tce-legacy-actions-cleanup.yml), [PR #894](https://github.com/phanthienquoc/TCE-dashboard/pull/894), [PR #892](https://github.com/phanthienquoc/TCE-dashboard/pull/892).
+
 ## Completed / resolved audit items
 
 ### TCE-OPS-001 — Require explicit manual production release dispatch
