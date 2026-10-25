@@ -111,7 +111,7 @@ export function PoolsView({ data, actions }: ViewProps) {
   const poolStates = buildPoolStates(capital, available, pending, positions);
   const decisionRows = [...next, ...pools].slice(0, 12);
   return (
-    <div className="tce-mobile-view">
+    <div className="tce-mobile-view tce-pools-view">
       <MobileHeader
         title="Hunting Dividend"
         subtitle="Decision Engine · 30D rolling"
