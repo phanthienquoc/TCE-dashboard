@@ -272,8 +272,16 @@ try {
           'rgba(0, 0, 0, 0)',
           'desktop: LIVE status has a visible pill background'
         );
-        assert.equal(metrics.livePillBorderRadius, '999px', 'desktop: LIVE status has pill-shaped corners');
-        assert.notEqual(metrics.livePillBorderTopWidth, '0px', 'desktop: LIVE status has a visible border');
+        assert.equal(
+          metrics.livePillBorderRadius,
+          '999px',
+          'desktop: LIVE status has pill-shaped corners'
+        );
+        assert.notEqual(
+          metrics.livePillBorderTopWidth,
+          '0px',
+          'desktop: LIVE status has a visible border'
+        );
         assert.equal(metrics.headerTitleText, 'Positions', 'desktop: title remains visible');
         assert.equal(
           metrics.headerSubtitleText,
