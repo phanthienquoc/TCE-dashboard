@@ -80,6 +80,29 @@ try {
       hasTouch: true,
     });
     await page.emulateMediaFeatures([{ name: 'prefers-reduced-motion', value: 'reduce' }]);
+    const diagnostics = { api: [], auth: [], consoleErrors: [], pageErrors: [] };
+    page.on('response', response => {
+      try {
+        const url = new URL(response.url());
+        if (url.origin === origin && url.pathname.startsWith('/api/')) {
+          diagnostics.api.push({ path: url.pathname, status: response.status() });
+        }
+        if (url.origin === origin && url.pathname.startsWith('/auth/')) {
+          diagnostics.auth.push({ path: url.pathname, status: response.status() });
+        }
+      } catch {}
+    });
+    page.on('console', message => {
+      if (message.type() === 'error') diagnostics.consoleErrors.push(message.text());
+    });
+    page.on('pageerror', error => diagnostics.pageErrors.push(String(error)));
+    const dashboardResponsePromise = page
+      .waitForResponse(response => {
+        const url = new URL(response.url());
+        return url.origin === origin && url.pathname === '/api/dashboard';
+      }, { timeout: 90_000 })
+      .catch(() => null);
+
     await page.setRequestInterception(true);
     page.on('request', request => {
       let url;
@@ -130,8 +153,24 @@ try {
 
     try {
       await page.goto(`${baseUrl}/pools`, { waitUntil: 'domcontentloaded', timeout: 120_000 });
+      const dashboardResponse = await dashboardResponsePromise;
+      if (!dashboardResponse) {
+        throw new Error(`Dashboard API was not observed: ${JSON.stringify(diagnostics)}`);
+      }
       await page.waitForSelector('.tce-pools-view .tce-pool-balance', { timeout: 90_000 });
-      await page.waitForSelector('.tce-pools-view .tce-rotation-row', { timeout: 30_000 });
+      try {
+        await page.waitForSelector('.tce-pools-view .tce-rotation-row', { timeout: 30_000 });
+      } catch (error) {
+        const pageState = await page.evaluate(() => ({
+          path: window.location.pathname,
+          text: document.body.innerText.slice(0, 800),
+          poolCards: document.querySelectorAll('.tce-pools-view .tce-pool-balance').length,
+          rotationRows: document.querySelectorAll('.tce-pools-view .tce-rotation-row').length,
+        }));
+        throw new Error(
+          `Pools data did not render a rotation row: ${JSON.stringify({ pageState, diagnostics })}; ${String(error)}`
+        );
+      }
 
       const metrics = await page.evaluate(() => {
         const query = selector => document.querySelector(selector);
