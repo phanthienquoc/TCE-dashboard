@@ -1,7 +1,7 @@
 # TCE Dashboard — Agent Task Queue
 
-**Last audited:** 2026-10-25  
-**Default branch:** `master` at `a47cc1063354abd2ea58219dd5af570a0a5e2b4a`  
+**Last audited:** 2026-10-26  
+**Default branch snapshot:** `master` at `61ccdaabb14a5d18b7e2722edadd1ec9162603ce` when TCE-UI-001 was revalidated  
 **Queue convention:** This repository has a mature `plan/` directory but no existing `docs/agentic/` queue. This file follows the current `plan/` convention and supplements, rather than replaces, canonical phase plans/issues.  
 **Safety:** No production changes, migrations, live orders, or LIVE-mode enablement are part of this queue.
 
@@ -61,15 +61,29 @@
 
 ### TCE-UI-001 — Consolidate overlapping mobile-landscape PRs
 
-- **Priority/status:** P2 / OPEN.
-- **Evidence paths:** `apps/web/app/mobile-command-center.css`, `apps/web/components/dashboard/DividendPositionsView.tsx`.
-- **Current behavior:** Three stale open PRs (#809, #810, #811) all modify `mobile-command-center.css`; #811 also changes one line in `DividendPositionsView.tsx`. Their stated goals overlap (mobile landscape/command-center density), and the audited check-runs endpoint returned no check-runs for the three current head SHAs.
-- **Desired behavior:** One canonical, reviewable PR contains the agreed combined UX without silently dropping unique changes; superseded PRs are closed only after the canonical branch has a tested, reviewable result.
-- **Acceptance criteria:** Compare all three diffs and branch ancestry; explicitly choose the canonical branch; preserve portrait behavior and verify landscape at short phone heights; run checks on the exact final head; document any deferred behavior before closing superseded PRs.
-- **Tests/validation:** Frontend lint/typecheck/build, relevant component tests, exact-head Actions checks and visual/manual viewport review for portrait plus landscape.
-- **Dependencies:** None, but do not merge or close PRs merely because their files overlap; review the diffs first.
-- **Risk:** Medium; stylesheet overlap can regress responsive behavior or lose changes.
-- **Sources:** [PR #809](https://github.com/phanthienquoc/TCE-dashboard/pull/809), [PR #810](https://github.com/phanthienquoc/TCE-dashboard/pull/810), [PR #811](https://github.com/phanthienquoc/TCE-dashboard/pull/811).
+- **Priority/status:** P2 / READY TO MERGE — the short-landscape fix passed WF-11 and WF-05 on implementation head `ed4d0aedfa7900b380eefab454ec726b60595a54`; Prettier formatting was corrected in follow-up head `89bc287faeaa6c7c3b710b5d46de156d45648870`. This queue-only update triggers the final exact-head CI gate before merge; WF-03 is manual-dispatch-only.
+- **Implementation branch:** `feat/tce-ui-001-consolidated-landscape`.
+- **Evidence paths:** `apps/web/app/mobile-command-center.css`, `apps/web/app/mobile-design-system.css`, `apps/web/components/dashboard/DividendPositionsView.tsx`, and the two Chromium viewport scripts.
+- **Current behavior and diagnosis:** Screenshot review of the running local `/position` route showed seven actual navigation links while CSS and the original fixture reserved six columns, wrapping Chart outside the dock. It also showed low-contrast landscape header text because shared mobile base styles were scoped to `max-width: 767px`, not the supported landscape width up to 950px. After extending those styles and switching to seven columns, the short-landscape fixture exposed that a 42px dock let tab content exceed its bounds at 844×390.
+- **Fix in this PR:** Apply shared mobile base styles to the bounded landscape media query as well as portrait; use seven navigation columns in base and landscape; apply high-contrast header text; increase the short-landscape dock to 44px and constrain tab height/line-height so all seven items fit without clipping. Both fixture and running-app tests assert seven items, item bounds, landscape title color and target viewports; failure output includes exact item/nav bounds.
+- **Acceptance criteria:** Preserve the original 939-line master CSS prefix; preserve portrait behavior; verify 390×844 portrait, 844×430 landscape, 844×390 short landscape and 1280×800 desktop; prove no horizontal overflow, one-row seven-item navigation, visible high-contrast landscape heading, full-width positions HUD and vertical scrolling; pass WF-11, WF-02 and WF-05 on the exact final head.
+- **Prior evidence:** The initial local-app browser run on `8e15a1da31ae49d7f217608d1e51f365462e76fc` passed WF-11/WF-02/WF-05 but screenshot review revealed the missing seventh tab and contrast issue. Follow-up head `e155d742823ac76109e7c9ebeb045817b26cc2f2` exposed short-landscape tab bounds and formatting failures. The height/line-height fix passed [WF-11 #40227068666](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/40227068666) and [WF-05 #40227068652](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/40227068652) on implementation head `ed4d0aedfa7900b380eefab454ec726b60595a54`; the formatter follow-up `89bc287faeaa6c7c3b710b5d46de156d45648870` applies only Prettier changes to the two test scripts. The queue-only update triggers a final exact-head CI pass before merge. Screenshots from the successful browser run are available in [artifact 12611129472](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/40226953659/artifacts/12611129472).
+- **Dependencies:** None; merge must remain safe against current `master`.
+- **Risk:** Medium — responsive CSS precedence and short-height layouts; no runtime/data/trading/schema changes.
+- **Safety:** WF-03 is `workflow_dispatch`-only. WF-01 may build/verify local images and production-config presence because `apps/web/**` changes, but it does not publish or deploy. WF-08B does not match these paths. No production migration, deployment, LIVE trading or order action.
+- **Supersession:** Close PRs #809/#810/#811 only after #892 is accepted and merged.
+
+### TCE-OPS-002 — Make destructive legacy workflow cleanup manual-only
+
+- **Priority/status:** P1 / DONE on 2026-10-25 — [PR #895](https://github.com/phanthienquoc/TCE-dashboard/pull/895) squash-merged at `03f564e76d5a4c368c1db924ebb8d61f5f1bae9b`; `master` verified at the same SHA.
+- **Evidence paths:** `.github/workflows/wf-00-tce-legacy-actions-cleanup.yml`, `.github/workflows/wf-01-tce-build-verify.yml`, `.github/workflows/wf-03-tce-production-deploy.yml`.
+- **Current behavior/evidence:** Before PR #895, WF-00 triggered on every push to `master`, granted `actions: write`, enumerated repository workflow runs, and deleted every run whose name did not start with `WF-`. PR #895 removed that push trigger; WF-00 now runs only on explicit `workflow_dispatch`.
+- **Desired behavior:** Keep the cleanup operation available only through explicit `workflow_dispatch`; ordinary merges must not delete workflow history.
+- **Acceptance criteria:** WF-00 has no push or workflow-run trigger; the manual-dispatch job remains intact; workflow validation and PR CI pass; merging this trigger-only change does not invoke WF-00, WF-03 or production promotion.
+- **Tests/validation:** Exact-head checks passed: [WF-02 #40224885796](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/40224885796) and [WF-05 #40224885833](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/40224885833); push checks [#40224807344](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/40224807344) and [#40224807333](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/40224807333) also passed. Post-merge WF-01 [#40224993887](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/40224993887), WF-02 [#40224993872](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/40224993872), and WF-05 [#40224993834](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/40224993834) passed on merge SHA `03f564e76d5a4c368c1db924ebb8d61f5f1bae9b`. No WF-00 or WF-03 run was observed for that merge SHA.
+- **Dependencies:** None.
+- **Risk:** Medium — automatic cleanup stops; an operator must explicitly dispatch it when cleanup is intended. Manual execution remains destructive and must not be part of normal implementation runs.
+- **Sources:** [WF-00 workflow](https://github.com/phanthienquoc/TCE-dashboard/blob/master/.github/workflows/wf-00-tce-legacy-actions-cleanup.yml), [PR #894](https://github.com/phanthienquoc/TCE-dashboard/pull/894), [PR #892](https://github.com/phanthienquoc/TCE-dashboard/pull/892).
 
 ### TCE-OPS-002 — Make destructive legacy workflow cleanup manual-only
 

@@ -1,0 +1,86 @@
+name: WF-11 TCE Mobile Landscape Browser Contract
+
+on:
+  push:
+    branches:
+      - 'feat/**'
+    paths:
+      - 'apps/web/app/mobile-command-center.css'
+      - 'apps/web/components/dashboard/DividendPositionsView.tsx'
+      - 'apps/web/scripts/mobile-landscape-viewport.test.mjs'
+      - 'apps/web/scripts/mobile-landscape-app.test.mjs'
+      - '.github/workflows/wf-11-tce-mobile-landscape-viewport.yml'
+  pull_request:
+    branches:
+      - master
+    paths:
+      - 'apps/web/app/mobile-command-center.css'
+      - 'apps/web/components/dashboard/DividendPositionsView.tsx'
+      - 'apps/web/scripts/mobile-landscape-viewport.test.mjs'
+      - 'apps/web/scripts/mobile-landscape-app.test.mjs'
+      - '.github/workflows/wf-11-tce-mobile-landscape-viewport.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tce-mobile-landscape-browser-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  viewport-contract:
+    name: Chromium mobile viewport contract
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install repository dependencies and Chromium
+        run: npm install --include=dev --no-audit --no-fund
+
+      - name: Start local Next.js app with local mock-service endpoints
+        env:
+          NEXT_PUBLIC_AUTH_BASE_URL: http://127.0.0.1:3000
+          NEXT_PUBLIC_API_BASE_URL: /api
+          NEXT_PUBLIC_WS_BASE_URL: ws://127.0.0.1:3000/ws
+        run: |
+          set -euo pipefail
+          nohup npx next dev apps/web --hostname 127.0.0.1 --port 3000 > /tmp/tce-next-dev.log 2>&1 &
+          echo $! > /tmp/tce-next-dev.pid
+          ready=false
+          for attempt in $(seq 1 90); do
+            status=$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:3000/position || true)
+            if [[ "$status" == "200" || "$status" == "307" || "$status" == "308" ]]; then
+              ready=true
+              break
+            fi
+            sleep 2
+          done
+          if [ "$ready" != "true" ]; then
+            cat /tmp/tce-next-dev.log
+            exit 1
+          fi
+
+      - name: Verify portrait, landscape and short-landscape viewports
+        run: node apps/web/scripts/mobile-landscape-viewport.test.mjs
+
+      - name: Verify the running positions page in real Chromium viewports
+        env:
+          TCE_APP_URL: http://127.0.0.1:3000
+        run: node apps/web/scripts/mobile-landscape-app.test.mjs
+
+      - name: Upload viewport screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tce-mobile-landscape-viewport-screenshots
+          path: |
+            artifacts/mobile-landscape/*.png
+            artifacts/mobile-landscape-app/*.png
+          if-no-files-found: ignore
+          retention-days: 7
