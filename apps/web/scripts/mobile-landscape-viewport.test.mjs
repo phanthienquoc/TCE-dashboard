@@ -158,6 +158,11 @@ try {
         `${testCase.name}: landscape workspace uses full width`
       );
       assert.equal(
+        metrics.pageHeadingDisplay,
+        'none',
+        `${testCase.name}: hide redundant page heading`
+      );
+      assert.equal(
         metrics.navGridColumns,
         6,
         `${testCase.name}: all six navigation tabs remain in one grid`
