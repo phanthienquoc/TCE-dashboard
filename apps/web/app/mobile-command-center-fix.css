@@ -488,6 +488,7 @@
   gap: 10px;
 }
 
+/* Keep page-scoped Pools overrides after shared mobile styles in the cascade. */
 /* The shared app layout owns top safe-area spacing; this page reserves bottom dock space. */
 /* TCE-UI-003: keep the Pools summary and rotation cards compact without
    changing capital-allocation or trading behavior. */
