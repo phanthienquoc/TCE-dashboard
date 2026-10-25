@@ -87,7 +87,7 @@
 
 ### TCE-UI-003 — Compact Pools mobile layout and safe-area spacing
 
-- **Priority/status:** P2 / IN PROGRESS — [PR #902](https://github.com/phanthienquoc/TCE-dashboard/pull/902) opened; exact-head browser/format/test validation pending.
+- **Priority/status:** P2 / BLOCKED — [PR #902](https://github.com/phanthienquoc/TCE-dashboard/pull/902) remains open; do not merge while WF-11 fails.
 - **Evidence paths:** `apps/web/app/pools/page.tsx`, `apps/web/components/dashboard/DashboardViews.tsx` (`PoolsView`), `apps/web/app/dashboard-layout.css`, `apps/web/app/mobile-command-center-fix.css`, `apps/web/scripts/pools-mobile-app.test.mjs`, `.github/workflows/wf-11-tce-mobile-landscape-viewport.yml`.
 - **Current behavior:** Issue #433 records an oversized Pools screen and top summary overlap on mobile. Capital Pool balance cards use a single-column layout at phone widths; Active Rotation has three KPI columns, and the generic mobile spacing does not reserve enough page-specific scroll space for the bottom dock.
 - **Desired behavior:** Keep the existing top safe-area/header offset, compact the status/stat sections, show pool balances in two columns on phones and three columns on short landscape, wrap Active Rotation KPIs into a two-column grid, and leave scroll clearance for the bottom dock.
@@ -98,6 +98,7 @@
   - All API/auth responses in browser tests are mocked; no real account or Supabase calls.
   - No capital-allocation semantics, runtime API, schema, auth, order or LIVE-mode behavior changes.
 - **Validation:** WF-11 runs the existing positions viewport contract plus `node apps/web/scripts/pools-mobile-app.test.mjs` against local Next.js with mocked `/auth/*` and `/api/*). WF-02 Prettier and WF-05 backend tests are expected on the exact PR head; record outcomes after completion.
+- **Blocked evidence / recovery:** The actual Chromium route consistently renders the portrait 2-column grid, but landscape 844×430 still computes 3 KPI columns instead of 2. WF-11 failed on head `a151b6293d64b15e0192196715c1ff90f967004d` (first test-harness attempt) and again on `c167bd911ea1829b59687e63819ea6201126bd67` and `0129c07c0cf01d6051a47fb133d30867b3a30816` after changing the media query three ways (orientation+height, width+height, width-only). Portrait checks passed and the mocked dashboard endpoint returned HTTP 200. WF-02 Prettier and WF-05 backend tests passed on head `c167bd9`; WF-11 remains the blocking required check. Stop further blind CSS retries. Next diagnostic must record `matchMedia` results and the actual matched/computed rule source in the same failing landscape viewport, then choose between a viewport-emulation fix and a selector/cascade fix.
 - **Dependencies:** Existing `PoolsView`, shared dashboard layout and installed Puppeteer/Chromium. No schema or service dependency.
 - **Risk:** Low — page-scoped CSS and a browser-test/workflow extension; visual regressions are the main risk.
 - **Sources:** [issue #433](https://github.com/phanthienquoc/TCE-dashboard/issues/433), [PR #902](https://github.com/phanthienquoc/TCE-dashboard/pull/902), [WF-11](../.github/workflows/wf-11-tce-mobile-landscape-viewport.yml).
