@@ -51,7 +51,8 @@
 
 ### TCE-UI-001 — Consolidate overlapping mobile-landscape PRs
 
-- **Priority/status:** P2 / IN PROGRESS — consolidation branch created; exact-head CI and responsive behavior validation pending.
+- **Priority/status:** P2 / IN PROGRESS — [canonical PR #892](https://github.com/phanthienquoc/TCE-dashboard/pull/892) is open; exact-head CI and responsive behavior validation pending.
+- **Implementation branch:** `feat/tce-ui-001-consolidated-landscape`; current combined CSS is 1,613 lines with the original 939-line master prefix preserved.
 - **Evidence paths:** `apps/web/app/mobile-command-center.css`, `apps/web/components/dashboard/DividendPositionsView.tsx`.
 - **Current behavior:** Open PRs #809 and #810 append overlapping phone-landscape styles to the same CSS file; PR #811 adds a position-HUD class plus tablet/desktop layout rules. Their heads are stale and had no check-runs when inspected. All three CSS branches share the exact 939-line CSS prefix from current master SHA `aaf039a0ad3c9b2a27e16eb56e0eaf745dc41835`.
 - **Desired behavior:** One canonical PR preserves the full landscape-mode design, density overrides and positions HUD layout while keeping portrait styling unchanged and making the precedence between shared landscape rules explicit through append order.
