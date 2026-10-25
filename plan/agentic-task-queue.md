@@ -79,6 +79,7 @@
 - **Desired behavior:** At widths ≥951px, align the header title/subtitle as a stacked brand block, keep the LIVE status as a distinct readable pill, and preserve existing mobile/landscape styling.
 - **Acceptance criteria:** Add a desktop-only style block scoped to `.tce-position-hud`; test the running local `/position` route at 1280×800 for flex header, separate subtitle, visible title and pill display; verify 390×844, 844×430 and 844×390 behavior remains unchanged. No data/schema/trading changes.
 - **Validation:** WF-11 browser contract, WF-02 Prettier and WF-05 backend tests on the exact PR head; inspect the updated desktop screenshot artifact.
+- **Validation note:** The first desktop run on head `43dfa14c82bb38757d39602b5a542270f14932c2` failed only because the test expected computed `display: inline-flex`. Since the badge is a flex item, browsers blockify that to computed `flex`; the test now accepts either flex display and asserts the actual background, border and 999px radius instead of overfitting a CSS display keyword.
 - **Dependencies:** None; independent of TCE-RUNTIME-001's blocked Supabase schema work.
 - **Risk:** Low — desktop-only CSS scoped to the positions HUD.
 - **Safety:** No production migration/deployment, LIVE trading, orders or platform-infra changes.

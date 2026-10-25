@@ -157,6 +157,9 @@ try {
           headerBrandDisplay: style(query('.tce-header-brand'))?.display ?? null,
           headerSubtitleDisplay: style(query('.tce-header-brand span'))?.display ?? null,
           livePillDisplay: style(query('.tce-live-pill'))?.display ?? null,
+          livePillBackgroundColor: style(query('.tce-live-pill'))?.backgroundColor ?? null,
+          livePillBorderRadius: style(query('.tce-live-pill'))?.borderRadius ?? null,
+          livePillBorderTopWidth: style(query('.tce-live-pill'))?.borderTopWidth ?? null,
           headerTitleText: query('.tce-mobile-header strong')?.textContent?.trim() ?? null,
           headerSubtitleText: query('.tce-header-brand span')?.textContent?.trim() ?? null,
           shellHeight: Number.parseFloat(style(shell)?.height ?? '0'),
@@ -260,11 +263,17 @@ try {
           'block',
           'desktop: subtitle is on a separate line'
         );
-        assert.equal(
-          metrics.livePillDisplay,
-          'inline-flex',
-          'desktop: LIVE status is a distinct pill'
+        assert.ok(
+          ['flex', 'inline-flex'].includes(metrics.livePillDisplay),
+          'desktop: LIVE status uses a flex layout (inline-flex is blockified as a flex item)'
         );
+        assert.notEqual(
+          metrics.livePillBackgroundColor,
+          'rgba(0, 0, 0, 0)',
+          'desktop: LIVE status has a visible pill background'
+        );
+        assert.equal(metrics.livePillBorderRadius, '999px', 'desktop: LIVE status has pill-shaped corners');
+        assert.notEqual(metrics.livePillBorderTopWidth, '0px', 'desktop: LIVE status has a visible border');
         assert.equal(metrics.headerTitleText, 'Positions', 'desktop: title remains visible');
         assert.equal(
           metrics.headerSubtitleText,
