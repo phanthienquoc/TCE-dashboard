@@ -22,7 +22,7 @@ const artifactDirectory = resolve('artifacts/mobile-landscape');
 mkdirSync(artifactDirectory, { recursive: true });
 
 const navigation = Array.from(
-  { length: 6 },
+  { length: 7 },
   (_, index) =>
     `<button class="tce-bottom-tab"><span class="tce-bottom-tab-icon">${index + 1}</span><span>Tab ${index + 1}</span></button>`
 ).join('');
@@ -119,6 +119,13 @@ try {
         navTop: nav.getBoundingClientRect().top,
         navBottom: nav.getBoundingClientRect().bottom,
         navGridColumns: style(navInner).gridTemplateColumns.trim().split(' ').length,
+        navItemCount: navInner.querySelectorAll('.tce-bottom-tab').length,
+        navItemsWithinNav: [...navInner.querySelectorAll('.tce-bottom-tab')].every(item => {
+          const itemRect = item.getBoundingClientRect();
+          const navRect = nav.getBoundingClientRect();
+          return itemRect.top >= navRect.top - 1 && itemRect.bottom <= navRect.bottom + 1;
+        }),
+        headerTitleColor: style(document.querySelector('.tce-mobile-header strong')).color,
         shellHeight: Number.parseFloat(style(shell).height),
         contentOverflowY: style(content).overflowY,
         mobileViewMaxWidth: style(mobileView).maxWidth,
@@ -137,7 +144,12 @@ try {
       `${testCase.name}: horizontal overflow (${metrics.documentWidth}px)`
     );
 
+    assert.equal(metrics.navGridColumns, 7, `${testCase.name}: seven navigation columns`);
+    assert.equal(metrics.navItemCount, 7, `${testCase.name}: all seven navigation items are rendered`);
+    assert.equal(metrics.navItemsWithinNav, true, `${testCase.name}: all navigation items fit inside the dock`);
+
     if (testCase.landscape) {
+      assert.equal(metrics.headerTitleColor, 'rgb(242, 247, 248)', `${testCase.name}: landscape header text has the intended high-contrast color`);
       assert.equal(metrics.navPosition, 'fixed', `${testCase.name}: compact top navigation`);
       assert.ok(
         Math.abs(metrics.navTop) <= 1,
@@ -161,11 +173,6 @@ try {
         metrics.pageHeadingDisplay,
         'none',
         `${testCase.name}: hide redundant page heading`
-      );
-      assert.equal(
-        metrics.navGridColumns,
-        6,
-        `${testCase.name}: all six navigation tabs remain in one grid`
       );
       assert.ok(
         metrics.navHeight <= 44,
