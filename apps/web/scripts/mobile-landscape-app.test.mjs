@@ -133,6 +133,7 @@ try {
           shellHeight: Number.parseFloat(style(shell)?.height ?? "0"),
           contentOverflowY: style(content)?.overflowY ?? null,
           mobileViewMaxWidth: style(mobileView)?.maxWidth ?? null,
+          mobileViewWidth: mobileView?.getBoundingClientRect().width ?? 0,
           pageHeadingDisplay: style(heading)?.display ?? null,
           documentWidth: Math.max(document.documentElement.scrollWidth, document.body.scrollWidth),
           visibleText: document.body.innerText.slice(0, 180),
@@ -161,7 +162,11 @@ try {
         assert.ok(metrics.navBottom <= testCase.height + 1, "portrait: navigation remains inside the viewport");
         assert.ok(metrics.navBottom >= testCase.height - 120, "portrait: navigation remains near the bottom edge");
       } else {
-        assert.equal(metrics.mobileViewMaxWidth, "480px", "desktop: positions view remains centered and bounded");
+        assert.equal(metrics.mobileViewMaxWidth, "none", "desktop: positions HUD uses the available viewport");
+        assert.ok(
+          metrics.mobileViewWidth >= testCase.width - 32,
+          "desktop: positions HUD expands across the available content width",
+        );
       }
 
       await page.screenshot({
