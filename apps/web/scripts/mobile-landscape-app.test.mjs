@@ -139,7 +139,10 @@ try {
           navItemBounds: navInner
             ? [...navInner.querySelectorAll('.tce-bottom-tab')].map(item => {
                 const rect = item.getBoundingClientRect();
-                return { top: Math.round(rect.top * 100) / 100, bottom: Math.round(rect.bottom * 100) / 100 };
+                return {
+                  top: Math.round(rect.top * 100) / 100,
+                  bottom: Math.round(rect.bottom * 100) / 100,
+                };
               })
             : [],
           navItemsWithinNav:
