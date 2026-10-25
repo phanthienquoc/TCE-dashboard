@@ -97,10 +97,13 @@ try {
     });
     page.on('pageerror', error => diagnostics.pageErrors.push(String(error)));
     const dashboardResponsePromise = page
-      .waitForResponse(response => {
-        const url = new URL(response.url());
-        return url.origin === origin && url.pathname === '/api/dashboard';
-      }, { timeout: 90_000 })
+      .waitForResponse(
+        response => {
+          const url = new URL(response.url());
+          return url.origin === origin && url.pathname === '/api/dashboard';
+        },
+        { timeout: 90_000 }
+      )
       .catch(() => null);
 
     await page.setRequestInterception(true);
