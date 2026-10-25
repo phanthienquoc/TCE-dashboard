@@ -74,11 +74,12 @@
 
 ### TCE-UI-002 — Align desktop positions-HUD header and live status
 
-- **Priority/status:** P2 / READY TO MERGE — the desktop header and computed LIVE-pill assertions are corrected; formatter follow-up is on head `7d15d24274118f0ed8e1b3221d1a4a19374fb1d3`. This queue-only update triggers the final exact-head WF-11/WF-02/WF-05 checks before merge.
+- **Priority/status:** P2 / DONE — [PR #898](https://github.com/phanthienquoc/TCE-dashboard/pull/898) squash-merged at `c716e51b0c2161fd8ac9d4e8e5d376fa50c0031d`; current `master` verified at that SHA.
 - **Current behavior:** At desktop widths, the positions header inherits no flex layout because shared mobile styles are bounded to portrait/mobile-landscape. The title and subtitle render inline as `PositionsLive exposure`, and the LIVE status renders as plain text.
 - **Desired behavior:** At widths ≥951px, align the header title/subtitle as a stacked brand block, keep the LIVE status as a distinct readable pill, and preserve existing mobile/landscape styling.
 - **Acceptance criteria:** Add a desktop-only style block scoped to `.tce-position-hud`; test the running local `/position` route at 1280×800 for flex header, separate subtitle, visible title and pill display; verify 390×844, 844×430 and 844×390 behavior remains unchanged. No data/schema/trading changes.
-- **Validation:** WF-11 browser contract, WF-02 Prettier and WF-05 backend tests on the exact PR head; inspect the updated desktop screenshot artifact.
+- **Merge evidence:** Exact tested PR HEAD `67db3e1575a0c266eb4a1d9b0d916abf5710708a`. WF-11 Chromium viewport contract [#40227941665](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/40227941665), WF-02 Prettier [#40227941870](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/40227941870), and WF-05 backend unit tests [#40227941735](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/40227941735) all passed on the exact tested head. The inspected merge diff changed only scoped HUD CSS, browser assertions, and this task queue; no API, schema, trading, or order behavior changed.
+- **Validation:** WF-11 browser contract, WF-02 Prettier and WF-05 backend tests passed on exact PR HEAD. The desktop screenshot artifact was reviewed in the successful run. Post-merge master workflow runs were not yet visible at the time of this update; no post-merge pass is claimed.
 - **Validation note:** The first desktop run on head `43dfa14c82bb38757d39602b5a542270f14932c2` failed only because the test expected computed `display: inline-flex`. Since the badge is a flex item, browsers blockify that to computed `flex`; the test now accepts either flex display and asserts the actual background, border and 999px radius instead of overfitting a CSS display keyword.
 - **Dependencies:** None; independent of TCE-RUNTIME-001's blocked Supabase schema work.
 - **Risk:** Low — desktop-only CSS scoped to the positions HUD.
