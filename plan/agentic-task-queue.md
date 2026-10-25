@@ -1,6 +1,6 @@
 # TCE Dashboard — Agent Task Queue
 
-**Last audited:** 2026-10-26  
+**Last audited:** 2026-10-25  
 **Default branch:** `master` at `a47cc1063354abd2ea58219dd5af570a0a5e2b4a`  
 **Queue convention:** This repository has a mature `plan/` directory but no existing `docs/agentic/` queue. This file follows the current `plan/` convention and supplements, rather than replaces, canonical phase plans/issues.  
 **Safety:** No production changes, migrations, live orders, or LIVE-mode enablement are part of this queue.
@@ -23,9 +23,9 @@
 
 ### TCE-RUNTIME-001 — Durable retry/replay for lifecycle event publication
 
-- **Priority/status:** P1 / READY.
+- **Priority/status:** P1 / BLOCKED on approved non-production validation and replay-complete snapshot metadata (read-only live catalog evidence recorded 2026-10-25).
 - **Evidence paths:** `apps/service/src/monitor/tce-monitor.service.ts`, `apps/service/src/monitor/monitor-event.ts`, `apps/service/src/monitor/monitor-event.spec.ts`, `libs/contracts/src/tce-event.contract.ts`, `plan/runtime-contract-standardization.md`.
-- **Current behavior:** Monitor persists a position snapshot, then calls `publishMonitorSnapshotBestEffort`. On publisher failure it logs a warning and continues; the helper explicitly says publication is best-effort until an outbox shares the write transaction. The event can therefore be absent after a transient publisher/store outage, with no durable replay record.
+- **Current behavior:** Monitor persists a position snapshot, then calls `publishMonitorSnapshotBestEffort`. On publisher failure it logs a warning and continues; there is no durable replay record. Read-only live catalog inspection on 2026-10-25 found `public.tce_position_snapshots` has no `position_id` or `correlation_id`, and `public.tce_runtime_events` is absent; migration `202610210002_tce_runtime_events` is not in the remote migration ledger. A snapshot alone therefore cannot currently reconstruct the exact event payload after process restart.
 - **Desired behavior:** Keep snapshot/audit behavior authoritative while making event publication durably retryable/replayable with stable event identity, correlation and account scope. Never turn a monitor signal into a broker command.
 - **Acceptance criteria:**
   - Failed publication remains durably discoverable and is retried/replayed after process restart.
@@ -34,9 +34,19 @@
   - Existing snapshot, audit and cashout behavior is unchanged; no LIVE order dispatch is added.
   - Any schema change is additive and tested in a non-production environment before rollout.
 - **Tests/validation:** Inject publisher/database failures; prove replay after restart; test duplicate event delivery, ordering/correlation and retry limits; run focused monitor/runtime-event tests, backend unit tests, typecheck, build and Prettier on the exact PR head.
-- **Dependencies:** Existing `TceEventEnvelope`/publisher port and monitor snapshot tests are present. Migration design and rollout remain gated by non-production validation.
+- **Dependencies:** Existing `TceEventEnvelope`/publisher port and monitor event tests are present. The only connected Supabase development branch is non-persistent `main` with status `MIGRATIONS_FAILED` (preview status `ACTIVE_HEALTHY`); no approved healthy non-production schema environment is available for this validation. Do not apply the migration to production.
 - **Risk:** Medium/high; lost lifecycle events can create gaps between persisted snapshots and downstream consumers.
 - **Sources:** [issue #845](https://github.com/phanthienquoc/TCE-dashboard/issues/845), [canonical implementation tracker #848](https://github.com/phanthienquoc/TCE-dashboard/issues/848), [runtime boundary architecture](https://github.com/phanthienquoc/TCE-dashboard/blob/master/docs/architecture/runtime-boundaries.md), [runtime contract plan](https://github.com/phanthienquoc/TCE-dashboard/blob/master/plan/runtime-contract-standardization.md), [monitor publisher](https://github.com/phanthienquoc/TCE-dashboard/blob/master/apps/service/src/monitor/monitor-event.ts).
+
+### TCE-RUNTIME-001A — Read-only schema and replay-contract discovery
+
+- **Priority/status:** P1 / DONE — evidence slice only; no runtime or database changes.
+- **Evidence:** Connected Supabase project catalog and migration ledger, inspected read-only on 2026-10-25; source files `apps/service/src/monitor/tce-monitor.service.ts`, `apps/service/src/monitor/monitor-event.ts`, and `supabase/migrations/202610210002_tce_runtime_events.sql`.
+- **Verified live facts:** `public.tce_position_snapshots` has `id`, `account_id`, `symbol`, `observed_at`, `signal`, `signal_reason`, `t_plus`, `is_market_hours`, `created_at` and other observation fields, but no `position_id` or `correlation_id`. `public.tce_runtime_events` is absent from the live catalog. The remote migration ledger ends at `20261020234922 keycloak_identity_persistence`; it does not include `202610210002_tce_runtime_events`.
+- **Implication:** Current snapshots do not carry enough persisted identity to reconstruct the exact `monitor.snapshot.created` event after a process restart. Reusing the checked-in migration without additional replay metadata would not by itself satisfy durable replay.
+- **Next step:** Obtain an approved non-production Supabase environment and validate an additive contract that persists the position/correlation identity and records bounded delivery state, retry timing and terminal/dead-letter visibility, or prove an atomic snapshot+outbox transaction. Validate concurrent claim/idempotency behavior before enabling a worker.
+- **CI checkpoint:** Initial PR head `8f60d08eb711e2f9b68b797446d9ee28e8e60433` had Prettier run [#40214472194](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/40214472194) format successfully but fail at the commit push with a non-fast-forward rejection because a concurrent formatter run was updating the same branch. The alternate formatter run [#40214482490](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/40214482490) succeeded and produced formatted head `0ec80cd3460d941308c6e183d538d04c23b01ca0`. The formatter commit used `[skip ci]`; the plan-evidence head `2f1f4a051cc5544aceaebbbc48281648e4f6d226` therefore does not validate the latest formatted head. A second pair of formatter runs on that head reproduced the concurrent-push race: [#40214654730](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/40214654730) failed at push while [#40214659364](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/40214659364) successfully pushed formatting-only head `1bb513a98fde1bc4d98b33e449c40b58666cf259`. This evidence update triggers the required checks on the resulting head; do not merge until those exact-head checks are green.
+- **Safety:** Catalog and migration reads only; no SQL writes, migrations, deployments, platform-infra access, LIVE-mode changes or orders.
 
 ### TCE-PLAN-001 — Reconcile stale runtime-plan frontier and exact-head evidence
 
@@ -90,17 +100,17 @@
 - **Risk:** Low; avoids split or duplicated implementation state.
 - **Sources:** [architecture issue #845](https://github.com/phanthienquoc/TCE-dashboard/issues/845), [canonical tracker #848](https://github.com/phanthienquoc/TCE-dashboard/issues/848), [closed duplicate #849](https://github.com/phanthienquoc/TCE-dashboard/issues/849).
 
-### TCE-CI-001 — Classify the 2026-10-21 Prettier push failure
+### TCE-CI-001 — Prevent Prettier push/PR workflow races
 
-- **Priority/status:** P2 / RESOLVED AS TRANSIENT GIT RACE; reopen only if reproduced.
-- **Evidence paths:** `.github/workflows/wf-02-tce-prettier-format.yml`, `plan/runtime-contract-standardization.md`.
-- **Current behavior/evidence:** Run [#39567566629](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/39567566629) completed Prettier successfully, then failed at the formatter bot's `git push` with `[rejected] (fetch first)`; a concurrent remote update had advanced the branch. This is a Git non-fast-forward race, not a Prettier syntax failure. Other adjacent runs were cancelled during the concurrent update. The latest audited scheduled WF-06 healthcheck and WF-07 integration check both succeeded on 2026-10-25.
-- **Desired behavior:** If reproduced, inspect the branch head and logs, reconcile the concurrent update safely and rerun only on the latest head; do not force-push or blindly rerun.
-- **Acceptance criteria:** No active failing latest-head run remains for this incident; any recurrence is classified with exact log evidence and handled without bypassing protection.
-- **Tests/validation:** Formatter step success and push-step failure verified in job logs; [WF-06 run #40200652855](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/40200652855) and [WF-07 run #40189234703](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/40189234703) succeeded on 2026-10-25.
+- **Priority/status:** P1 / IN PROGRESS — dedicated branch `fix/wf-02-prettier-pull-request-race`; PR will be opened after the workflow and queue changes are validated.
+- **Evidence paths:** `.github/workflows/wf-02-tce-prettier-format.yml`, `plan/agentic-task-queue.md`.
+- **Current behavior/evidence:** On 2026-10-25, run [#40224363153](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/40224363153) completed Prettier formatting, then failed at the formatter bot's `git push` with `[rejected] (fetch first)`. The workflow triggers on both `push` and `pull_request`, and both events previously ran a write-and-push job under different concurrency groups. Concurrent runs could therefore race on the same branch. This reproduces the class of failure previously recorded in [run #39567566629](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/39567566629).
+- **Desired behavior:** Pull-request runs perform a read-only `prettier --check` with `contents: read`; push/manual runs alone may format and commit with `contents: write`. Concurrency groups are event-specific. Never force-push or let a PR check mutate its head branch.
+- **Acceptance criteria:** The PR check retains the existing `Prettier auto-format & commit` check name; PR events contain no git-push step; push/dispatch formatting succeeds on the current head; no concurrent formatter push rejection remains; exact-head Prettier and backend checks pass.
+- **Tests/validation:** Reproduced in run [#40224363153](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/40224363153): formatter step succeeded and push step failed. Fix validation is pending on this dedicated branch.
 - **Dependencies:** None.
-- **Risk:** Low after resolution; unsafe force-push would be a separate high-risk action and is prohibited.
-- **Sources:** [failed formatter job](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/39567566629), [current healthcheck](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/40200652855), [current integration check](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/40189234703).
+- **Risk:** Low; workflow-only behavior change. PR runs lose write permission, and automatic formatting remains available on push/dispatch.
+- **Sources:** [failed formatter job logs](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/40224363153), [canonical UI PR #892](https://github.com/phanthienquoc/TCE-dashboard/pull/892), [prior race evidence](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/39567566629).
 
 ## Audit snapshot
 
