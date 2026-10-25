@@ -97,6 +97,8 @@
 - **Risk:** Medium — automatic cleanup stops; an operator must explicitly dispatch it when cleanup is intended. Manual execution remains destructive and must not be part of normal implementation runs.
 - **Sources:** [WF-00 workflow](https://github.com/phanthienquoc/TCE-dashboard/blob/master/.github/workflows/wf-00-tce-legacy-actions-cleanup.yml), [PR #894](https://github.com/phanthienquoc/TCE-dashboard/pull/894), [PR #892](https://github.com/phanthienquoc/TCE-dashboard/pull/892).
 
+## Completed / resolved audit items
+
 ### TCE-OPS-001 — Require explicit manual production release dispatch
 
 - **Priority/status:** P0 / DONE on 2026-10-25.
