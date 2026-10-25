@@ -414,5 +414,4 @@ Standardize runtime ownership and provider/domain/event contracts incrementally.
 - The exact workflow-only merge was reviewed against the full downstream job graph: WF-03 has only `workflow_dispatch`; no WF-03 run was observed for the merge SHA. WF-04 cleanup is triggered by WF-03 completion, so it was not started by these merges. WF-01 build verification and WF-00 workflow-run cleanup may still run on workflow-file pushes but do not publish or promote production images.
 - Safety: no platform-infra access/change, production deployment/migration, or live order was performed. The historical docs-only PR #886 run #40209684600 remains evidence of an earlier promotion request only, not production health.
 
-
 - CI checkpoint (2026-10-25): the Prettier workflow advanced this documentation PR to head `003d0068b43892953364e2044c7d7b478d2efd64` after the earlier green runs on `cbaafa7c062579d7388bd51ab43f1dabd048a202`. Those earlier runs do not validate the formatter-updated head; require fresh WF-05 and WF-02 checks on the new exact head before merge.
