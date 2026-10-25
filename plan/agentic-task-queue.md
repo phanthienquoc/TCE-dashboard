@@ -48,7 +48,6 @@
 - **CI checkpoint:** Initial PR head `8f60d08eb711e2f9b68b797446d9ee28e8e60433` had Prettier run [#40214472194](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/40214472194) format successfully but fail at the commit push with a non-fast-forward rejection because a concurrent formatter run was updating the same branch. The alternate formatter run [#40214482490](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/40214482490) succeeded and produced formatted head `0ec80cd3460d941308c6e183d538d04c23b01ca0`. The formatter commit used `[skip ci]`; exact-head validation is being re-triggered by this plan-evidence commit, and no merge is allowed until the new head is green.
 - **Safety:** Catalog and migration reads only; no SQL writes, migrations, deployments, platform-infra access, LIVE-mode changes or orders.
 
-
 ### TCE-PLAN-001 — Reconcile stale runtime-plan frontier and exact-head evidence
 
 - **Priority/status:** P2 / DONE on 2026-10-25.
