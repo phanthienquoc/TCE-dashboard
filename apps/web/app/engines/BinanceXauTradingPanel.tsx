@@ -1,0 +1,301 @@
+'use client';
+
+import { useEffect, useState } from 'react';
+import { Activity, Bell, Loader2, Save, Wifi } from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
+import { Button } from '../../components/ui/button';
+import { Input } from '../../components/ui/input';
+import { platformApi } from '../../lib/api';
+
+type Config = {
+  enabled: boolean;
+  quantity: number;
+  positionSide: 'BOTH' | 'LONG' | 'SHORT';
+  xauEnabled: boolean;
+  xauSymbol: string;
+  autoProtection: boolean;
+  tpPct: number;
+  slPct: number;
+  notificationId: string | null;
+};
+type Position = {
+  symbol: string;
+  positionAmt: number;
+  entryPrice: number;
+  markPrice: number;
+  unrealizedProfit: number;
+  positionSide?: string;
+};
+type BotRow = { id: string; name: string; environment: string; isActive: boolean };
+
+const fieldClass = 'mt-1 h-10 w-full';
+const selectClass =
+  'mt-1 h-10 w-full rounded-xl border border-white/10 bg-[#120b18] px-3 text-sm text-white outline-none';
+
+export default function BinanceXauTradingPanel() {
+  const [config, setConfig] = useState<Config>({
+    enabled: false,
+    quantity: 0.01,
+    positionSide: 'BOTH',
+    xauEnabled: false,
+    xauSymbol: 'XAUUSDT',
+    autoProtection: true,
+    tpPct: 5,
+    slPct: 5,
+    notificationId: null,
+  });
+  const [position, setPosition] = useState<Position | null>(null);
+  const [bots, setBots] = useState<BotRow[]>([]);
+  const [environment, setEnvironment] = useState<'production' | 'testnet'>('production');
+  const [busy, setBusy] = useState(true);
+  const [message, setMessage] = useState('');
+  const [socketState, setSocketState] = useState<'polling' | 'api-sync'>('polling');
+
+  async function refreshPosition() {
+    try {
+      const response = await platformApi.binanceXauPositions(environment);
+      const rows = Array.isArray(response.data) ? response.data : [];
+      setPosition(rows.find((item: Position) => Math.abs(Number(item.positionAmt)) > 0) ?? null);
+    } catch {
+      setPosition(null);
+    }
+  }
+
+  async function load() {
+    setBusy(true);
+    try {
+      const [configResponse, botsResponse] = await Promise.all([
+        platformApi.binanceXauConfig(),
+        platformApi.telegramBots(),
+      ]);
+      const nextConfig = configResponse.data ?? {};
+      setConfig(current => ({ ...current, ...nextConfig }));
+      const rows = botsResponse.data?.bots ?? botsResponse.data ?? [];
+      setBots(Array.isArray(rows) ? rows : []);
+      await refreshPosition();
+    } catch (error: any) {
+      setMessage(
+        error?.response?.data?.message ?? error?.message ?? 'Unable to load Binance XAU engine.'
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  useEffect(() => {
+    void load();
+  }, []);
+
+  useEffect(() => {
+    const timer = setInterval(() => void refreshPosition(), 5000);
+    setSocketState('api-sync');
+    return () => clearInterval(timer);
+  }, [environment]);
+
+  async function saveConfig() {
+    setBusy(true);
+    setMessage('');
+    try {
+      const response = await platformApi.saveBinanceXauConfig(config);
+      setConfig(current => ({ ...current, ...(response.data ?? {}) }));
+      setMessage('Binance XAU engine saved.');
+    } catch (error: any) {
+      setMessage(
+        error?.response?.data?.message ?? error?.message ?? 'Unable to save Binance XAU config.'
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="space-y-4">
+      <Card className="panel-card">
+        <CardHeader>
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+                <Activity className="size-4" /> Binance Futures · XAU
+              </CardTitle>
+              <p className="mt-1 text-xs text-zinc-500">
+                Telegram signals → Binance Futures execution
+              </p>
+            </div>
+            <span className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-zinc-400">
+              <Wifi className="size-3.5" /> {socketState}
+            </span>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="grid grid-cols-2 gap-3">
+            <button
+              type="button"
+              onClick={() =>
+                setConfig(current => ({
+                  ...current,
+                  enabled: !current.enabled,
+                  xauEnabled: !current.xauEnabled,
+                }))
+              }
+              className={`rounded-xl border px-3 py-2 text-left text-sm ${config.enabled && config.xauEnabled ? 'border-emerald-300/20 bg-emerald-300/[0.05] text-emerald-200' : 'border-white/10 text-zinc-400'}`}
+            >
+              <strong>
+                {config.enabled && config.xauEnabled ? 'Engine ACTIVE' : 'Engine INACTIVE'}
+              </strong>
+              <span className="mt-0.5 block text-[11px] opacity-70">
+                Single-position signal guard
+              </span>
+            </button>
+            <button
+              type="button"
+              onClick={() =>
+                setConfig(current => ({ ...current, autoProtection: !current.autoProtection }))
+              }
+              className={`rounded-xl border px-3 py-2 text-left text-sm ${config.autoProtection ? 'border-violet-300/20 bg-violet-300/[0.05] text-violet-200' : 'border-white/10 text-zinc-400'}`}
+            >
+              <strong>{config.autoProtection ? 'Auto TP/SL ON' : 'Auto TP/SL OFF'}</strong>
+              <span className="mt-0.5 block text-[11px] opacity-70">
+                Protection fallback from fill
+              </span>
+            </button>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <label className="text-xs text-zinc-400">
+              Environment
+              <select
+                value={environment}
+                onChange={e => setEnvironment(e.target.value as 'production' | 'testnet')}
+                className={selectClass}
+              >
+                <option value="production">Production</option>
+                <option value="testnet">Testnet</option>
+              </select>
+            </label>
+            <label className="text-xs text-zinc-400">
+              Notification
+              <div className="relative">
+                <Bell className="pointer-events-none absolute left-3 top-3 size-4 text-zinc-500" />
+                <select
+                  value={config.notificationId ?? ''}
+                  onChange={e =>
+                    setConfig(current => ({ ...current, notificationId: e.target.value || null }))
+                  }
+                  className={`${selectClass} pl-9`}
+                >
+                  <option value="">No notification</option>
+                  {bots.map(bot => (
+                    <option key={bot.id} value={bot.id}>
+                      {bot.name} · {bot.environment}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </label>
+            <label className="text-xs text-zinc-400">
+              Symbol
+              <Input
+                value={config.xauSymbol}
+                onChange={e => setConfig({ ...config, xauSymbol: e.target.value.toUpperCase() })}
+                className={fieldClass}
+              />
+            </label>
+            <label className="text-xs text-zinc-400">
+              Quantity
+              <Input
+                type="number"
+                step="0.001"
+                min="0"
+                value={config.quantity}
+                onChange={e => setConfig({ ...config, quantity: Number(e.target.value) })}
+                className={fieldClass}
+              />
+            </label>
+            <label className="text-xs text-zinc-400">
+              Position side
+              <select
+                value={config.positionSide}
+                onChange={e =>
+                  setConfig({ ...config, positionSide: e.target.value as Config['positionSide'] })
+                }
+                className={selectClass}
+              >
+                <option>BOTH</option>
+                <option>LONG</option>
+                <option>SHORT</option>
+              </select>
+            </label>
+            <label className="text-xs text-zinc-400">
+              Auto TP %
+              <Input
+                type="number"
+                min="0.1"
+                step="0.1"
+                value={config.tpPct}
+                onChange={e => setConfig({ ...config, tpPct: Number(e.target.value) })}
+                className={fieldClass}
+              />
+            </label>
+            <label className="text-xs text-zinc-400">
+              Auto SL %
+              <Input
+                type="number"
+                min="0.1"
+                step="0.1"
+                value={config.slPct}
+                onChange={e => setConfig({ ...config, slPct: Number(e.target.value) })}
+                className={fieldClass}
+              />
+            </label>
+          </div>
+
+          <Button type="button" disabled={busy} onClick={() => void saveConfig()}>
+            {busy ? <Loader2 className="size-4 animate-spin" /> : <Save className="size-4" />}
+            Save engine
+          </Button>
+        </CardContent>
+      </Card>
+
+      <Card className="panel-card">
+        <CardHeader>
+          <CardTitle className="text-base">Live XAU position</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {!position ? (
+            <div className="text-sm text-zinc-500">No open XAU position.</div>
+          ) : (
+            <div className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-5">
+              <div>
+                <span className="text-xs text-zinc-500">Side</span>
+                <div className="font-semibold">
+                  {Number(position.positionAmt) > 0 ? 'LONG' : 'SHORT'}
+                </div>
+              </div>
+              <div>
+                <span className="text-xs text-zinc-500">Size</span>
+                <div>{Math.abs(Number(position.positionAmt))}</div>
+              </div>
+              <div>
+                <span className="text-xs text-zinc-500">Entry</span>
+                <div>{position.entryPrice}</div>
+              </div>
+              <div>
+                <span className="text-xs text-zinc-500">Mark</span>
+                <div>{position.markPrice}</div>
+              </div>
+              <div>
+                <span className="text-xs text-zinc-500">PnL</span>
+                <div>{position.unrealizedProfit}</div>
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+      {message && (
+        <div className="rounded-xl border border-white/10 bg-white/[0.02] p-3 text-sm text-zinc-300">
+          {message}
+        </div>
+      )}
+    </div>
+  );
+}

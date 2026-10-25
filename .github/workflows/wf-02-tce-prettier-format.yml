@@ -1,0 +1,86 @@
+name: 'WF-02 TCE Prettier Format Code'
+
+on:
+  push:
+    branches:
+      - master
+      - staging
+      - development
+      - 'fix/**'
+      - 'feat/**'
+      - 'task/**'
+      - 'phase/**'
+      - 'docs/**'
+      - 'test/**'
+  pull_request:
+    branches:
+      - master
+      - staging
+      - development
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: prettier-format-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  prettier-format:
+    name: Prettier auto-format & commit
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref || github.ref_name }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm install --include=dev --no-audit --no-fund
+
+      - name: Run Prettier format
+        env:
+          BASE_REF: ${{ github.base_ref || 'master' }}
+        run: |
+          set -euo pipefail
+          if [ "${GITHUB_EVENT_NAME}" = "pull_request" ]; then
+            diff_range="origin/${BASE_REF}...HEAD"
+          else
+            diff_range="HEAD^...HEAD"
+          fi
+          mapfile -t files < <(
+            git diff --name-only --diff-filter=ACMR "${diff_range}" |
+              grep -E '[.](cjs|cts|css|html|js|jsx|json|jsonc|md|mdx|mjs|mts|scss|ts|tsx|yaml|yml)$' |
+              grep -v '^[.]github/workflows/' || true
+          )
+          if ((${#files[@]})); then
+            npx prettier --write "${files[@]}"
+          else
+            echo "No eligible changed files to format."
+          fi
+
+      - name: Commit and push changes
+        run: |
+          set -euo pipefail
+          if [ -n "$(git status --porcelain)" ]; then
+            echo "Formatting changes detected. Committing..."
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git add -u
+            git commit -m "style: format changed files with Prettier [skip ci]"
+            git push origin HEAD:${{ github.head_ref || github.ref_name }}
+            echo "Auto-formatted changed files pushed successfully."
+          else
+            echo "No formatting changes detected. Code is clean."
+          fi

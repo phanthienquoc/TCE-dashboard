@@ -1,0 +1,10 @@
+node_modules/
+dist/
+.next/
+tmp/
+coverage/
+.git/
+.nx/
+package-lock.json
+*.tsbuildinfo
+.github/workflows/wf-03-tce-deploy.yml

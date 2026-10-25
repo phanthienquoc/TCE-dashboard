@@ -1,0 +1,75 @@
+name: 'WF-04 TCE K3s Cleanup'
+
+on:
+  workflow_run:
+    workflows: ['WF-03 TCE Production Deploy']
+    types: [completed]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  cleanup:
+    name: Cleanup production VPS
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 10
+    env:
+      HOST: 132.226.175.206
+      USERNAME: ubuntu
+      VPS_SSH_PRIVATE_KEY: ${{ secrets.VPS_SSH_PRIVATE_KEY }}
+    steps:
+      - name: Configure SSH
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.ssh
+          printf '%s\n' "$VPS_SSH_PRIVATE_KEY" | tr -d '\r' > ~/.ssh/tce_vps_key
+          chmod 600 ~/.ssh/tce_vps_key
+          ssh-keygen -y -f ~/.ssh/tce_vps_key >/dev/null
+
+      - name: Cleanup production VPS
+        run: |
+          set -euo pipefail
+          SSH_OPTS=(-i ~/.ssh/tce_vps_key -o IdentitiesOnly=yes -o StrictHostKeyChecking=no -o BatchMode=yes -o ConnectTimeout=15 -o ServerAliveInterval=15 -o ServerAliveCountMax=3)
+          ssh "${SSH_OPTS[@]}" "$USERNAME@$HOST" 'set -euo pipefail
+            NS=tce-prod
+            KEEP_IMAGES=2
+            sudo -n true
+            sudo kubectl get nodes
+
+            echo "=== REMOVE TEMP DEPLOY FILES ==="
+            sudo rm -f /tmp/tce-frontend.tar /tmp/tce-frontend.sha256 /tmp/tce-service.tar /tmp/tce-service.sha256 /tmp/frontend-prod.yaml /tmp/service-prod.yaml /tmp/image-tag.txt
+            sudo find /tmp -maxdepth 1 -type d \( -name "tce-build-*" -o -name "tce-deploy-*" -o -name "tce-images-*" \) -exec rm -rf {} + 2>/dev/null || true
+
+            echo "=== CURRENT DEPLOYED IMAGES ==="
+            CURRENT_IMAGES=$(sudo kubectl -n "$NS" get deployment tce-service tce-frontend -o jsonpath="{range .items[*]}{.spec.template.spec.containers[0].image}{\\\"\\n\\\"}{end}" 2>/dev/null || true)
+            printf "%s\\n" "$CURRENT_IMAGES"
+
+            echo "=== REMOVE OLD TCE IMAGES (KEEP 2 PER REPOSITORY) ==="
+            for repo in tce-frontend tce-service; do
+              mapfile -t IMAGES < <(sudo k3s ctr images list -q | grep -E "(^|/)${repo}:" | sort -r || true)
+              kept=0
+              for image in "${IMAGES[@]}"; do
+                if [ "$kept" -lt "$KEEP_IMAGES" ]; then
+                  kept=$((kept + 1))
+                  continue
+                fi
+                if printf "%s\\n" "$CURRENT_IMAGES" | grep -Fxq "$image"; then
+                  echo "KEEP deployed image: $image"
+                  continue
+                fi
+                echo "DELETE old image: $image"
+                sudo k3s ctr images rm "$image" || true
+              done
+            done
+
+            echo "=== CLEANUP RESULT ==="
+            sudo k3s ctr images list | grep -E "tce-(frontend|service)" || true
+            df -h / /tmp
+            sudo du -sh /var/lib/rancher/k3s 2>/dev/null || true
+          '
+
+      - name: Cleanup runner credentials
+        if: always()
+        run: rm -rf ~/.ssh/tce_vps_key

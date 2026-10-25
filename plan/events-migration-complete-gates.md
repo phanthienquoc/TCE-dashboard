@@ -1,0 +1,1 @@
+Final gates: full backfill, exact source/target reconciliation, sustained shadow parity, final delta, Supabase read cutover, monitoring, rollback retention, then Mongo dependency removal after repository-wide inventory.

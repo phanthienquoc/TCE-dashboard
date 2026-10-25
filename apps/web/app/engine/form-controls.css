@@ -1,0 +1,12 @@
+/* Engine form controls inherit the active TCE theme on iOS/WebKit. */
+.engine-page-content input,
+.engine-page-content select,
+.engine-page-content textarea {
+  background-color: var(--surface) !important;
+  color: var(--foreground) !important;
+  border-color: var(--border) !important;
+}
+.engine-page-content select option {
+  background-color: var(--surface) !important;
+  color: var(--foreground) !important;
+}

@@ -1,0 +1,198 @@
+/* Mobile TCE dark palette. Must outrank ThemeProvider's non-important inline token writes. */
+:root {
+  color-scheme: dark;
+}
+
+@media (max-width: 767px) {
+  :root {
+    --background: #071016 !important;
+    --foreground: #f2f7f8 !important;
+    --secondary: #82939b !important;
+    --tertiary: #61727a !important;
+    --accent: #55bfff !important;
+    --panel: #0b171e !important;
+    --panel-strong: #102029 !important;
+    --line: rgba(255, 255, 255, 0.09) !important;
+    --surface: #0b171e !important;
+    --surface-strong: #102029 !important;
+    --border: rgba(255, 255, 255, 0.09) !important;
+    --muted: #82939b !important;
+    --subtle: #61727a !important;
+    --primary: #55bfff !important;
+    --primary-foreground: #071016 !important;
+    --success: #31e981 !important;
+    --warning: #f4b860 !important;
+    --danger: #ff5e72 !important;
+    --tce-bg: #071016 !important;
+    --tce-surface: #0b171e !important;
+    --tce-surface-2: #102029 !important;
+    --tce-border: rgba(255, 255, 255, 0.09) !important;
+    --tce-text: #f2f7f8 !important;
+    --tce-muted: #82939b !important;
+    --tce-green: #31e981 !important;
+    --tce-red: #ff5e72 !important;
+    --tce-blue: #55bfff !important;
+  }
+
+  html,
+  body {
+    background: var(--background) !important;
+    color: var(--foreground) !important;
+    color-scheme: dark !important;
+  }
+
+  body,
+  .app-shell,
+  .dashboard-layout,
+  .app-content,
+  .app-container {
+    background: var(--background) !important;
+    color: var(--foreground) !important;
+  }
+
+  .app-content {
+    padding-top: calc(72px + env(safe-area-inset-top)) !important;
+    padding-bottom: calc(108px + env(safe-area-inset-bottom)) !important;
+  }
+
+  .hero-card,
+  .panel-card,
+  .data-card,
+  .engine-list-card,
+  .notification-section,
+  .platform-config section,
+  .tce-settings-card,
+  .tce-status-card,
+  .tce-scan-card,
+  .tce-pool-card,
+  .tce-position-card,
+  .tce-dividend-card {
+    background: var(--surface-strong) !important;
+    color: var(--foreground) !important;
+    border-color: var(--border) !important;
+    box-shadow: 0 10px 28px rgb(0 0 0 / 0.2) !important;
+  }
+
+  .engine-row {
+    background: var(--surface-strong) !important;
+    border-color: var(--border) !important;
+    color: var(--foreground) !important;
+    box-shadow: none !important;
+  }
+
+  .engine-power,
+  .panel-icon,
+  .asset-mark,
+  .account-chip-icon,
+  .brand-orb {
+    background: var(--surface) !important;
+    color: var(--foreground) !important;
+    border-color: var(--border) !important;
+  }
+
+  .engine-power.is-active {
+    background: color-mix(in srgb, var(--success) 10%, var(--surface)) !important;
+    color: var(--success) !important;
+    border-color: color-mix(in srgb, var(--success) 42%, var(--border)) !important;
+  }
+
+  .engine-meta {
+    background: var(--surface) !important;
+    color: var(--muted) !important;
+    border-color: var(--border) !important;
+  }
+
+  .engine-meta .is-active-text {
+    color: var(--success) !important;
+  }
+
+  .engine-title-row p,
+  .page-heading h1,
+  .section-header h2,
+  .panel-head h2,
+  .account-chip strong {
+    color: var(--foreground) !important;
+  }
+
+  .engine-description,
+  .engine-title-row span,
+  .engine-note,
+  .page-subtitle,
+  .section-header span,
+  .panel-head p,
+  .eyebrow,
+  .account-chip small {
+    color: var(--muted) !important;
+  }
+
+  .platform-config,
+  .platform-config > *,
+  .engine-control-section,
+  .engine-control-section > * {
+    opacity: 1 !important;
+    filter: none !important;
+  }
+
+  .platform-config [role='tablist'] {
+    background: var(--surface) !important;
+    border-color: var(--border) !important;
+  }
+
+  .platform-config [role='tab'] {
+    background: transparent !important;
+    color: var(--muted) !important;
+  }
+
+  .platform-config [role='tab'][data-state='active'] {
+    background: var(--surface-strong) !important;
+    color: var(--foreground) !important;
+    box-shadow: 0 1px 4px rgb(0 0 0 / 0.28) !important;
+  }
+
+  .platform-config select,
+  .platform-config input,
+  .platform-config textarea,
+  input,
+  select,
+  textarea {
+    background: var(--surface) !important;
+    color: var(--foreground) !important;
+    border-color: var(--border) !important;
+    color-scheme: dark !important;
+  }
+
+  .platform-config input::placeholder,
+  .platform-config textarea::placeholder,
+  input::placeholder,
+  textarea::placeholder {
+    color: var(--subtle) !important;
+  }
+
+  .mobile-bottom-nav,
+  .tce-bottom-tabs {
+    background: color-mix(in srgb, var(--surface-strong) 96%, transparent) !important;
+    border-color: var(--border) !important;
+    box-shadow: 0 -10px 28px rgb(0 0 0 / 0.22) !important;
+    color: var(--foreground) !important;
+  }
+
+  .tce-bottom-tab {
+    color: var(--muted) !important;
+  }
+
+  .tce-bottom-tab-active {
+    color: var(--primary) !important;
+  }
+
+  [class*='text-white'] {
+    color: var(--foreground) !important;
+  }
+
+  [class*='bg-white'] {
+    background-color: var(--surface-strong) !important;
+  }
+
+  [class*='border-white/'] {
+    border-color: var(--border) !important;
+  }
+}
