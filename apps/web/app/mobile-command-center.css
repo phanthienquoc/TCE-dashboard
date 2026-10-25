@@ -965,6 +965,10 @@ body {
     display: none !important;
   }
 
+  .page-heading {
+    display: none !important;
+  }
+
   .dashboard-layout {
     height: 100dvh !important;
     min-height: 0 !important;
