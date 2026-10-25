@@ -1,0 +1,54 @@
+name: WF-11 TCE Mobile Landscape Browser Contract
+
+on:
+  push:
+    branches:
+      - 'feat/**'
+    paths:
+      - 'apps/web/app/mobile-command-center.css'
+      - 'apps/web/components/dashboard/DividendPositionsView.tsx'
+      - 'apps/web/scripts/mobile-landscape-viewport.test.mjs'
+      - '.github/workflows/wf-11-tce-mobile-landscape-viewport.yml'
+  pull_request:
+    branches:
+      - master
+    paths:
+      - 'apps/web/app/mobile-command-center.css'
+      - 'apps/web/components/dashboard/DividendPositionsView.tsx'
+      - 'apps/web/scripts/mobile-landscape-viewport.test.mjs'
+      - '.github/workflows/wf-11-tce-mobile-landscape-viewport.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tce-mobile-landscape-browser-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  viewport-contract:
+    name: Chromium mobile viewport contract
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install repository dependencies and Chromium
+        run: npm install --include=dev --no-audit --no-fund
+
+      - name: Verify portrait, landscape and short-landscape viewports
+        run: node apps/web/scripts/mobile-landscape-viewport.test.mjs
+
+      - name: Upload viewport screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tce-mobile-landscape-viewport-screenshots
+          path: artifacts/mobile-landscape/*.png
+          if-no-files-found: ignore
+          retention-days: 7
