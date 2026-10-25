@@ -24,7 +24,6 @@ function apiPayload(pathname) {
       nextPositions: [],
       orders: [],
       brokerAccounts: [],
-      nextPositions: [],
     };
   }
   if (pathname === "/api/stock-events") return [];
