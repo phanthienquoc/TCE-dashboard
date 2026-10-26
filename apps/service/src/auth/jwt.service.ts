@@ -12,11 +12,16 @@ export interface AccessClaims {
 
 @Injectable()
 export class JwtService {
-  private readonly secret = process.env.JWT_SECRET || 'CHANGE_ME_IN_ENV';
+  private get secret(): string {
+    const value = process.env.JWT_SECRET;
+    if (!value || value === 'CHANGE_ME_IN_ENV' || Buffer.byteLength(value) < 32) {
+      throw new Error('JWT_SECRET must be configured with at least 32 bytes');
+    }
+    return value;
+  }
   private readonly ttl = Number(process.env.JWT_ACCESS_TTL_SECONDS || 900);
 
   issue(userId: string, role: string): string {
-    if (this.secret === 'CHANGE_ME_IN_ENV') throw new Error('JWT_SECRET is required');
     const header = this.b64(JSON.stringify({ alg: 'HS256', typ: 'JWT' }));
     const now = Math.floor(Date.now() / 1000);
     const payload = this.b64(
