@@ -85,6 +85,23 @@
 - **Risk:** Low; stale task status can cause duplicate work or false completion claims.
 - **Links:** [PR #865](https://github.com/phanthienquoc/TCE-dashboard/pull/865), [runtime contract plan](https://github.com/phanthienquoc/TCE-dashboard/blob/master/plan/runtime-contract-standardization.md), [PR #907](https://github.com/phanthienquoc/TCE-dashboard/pull/907).
 
+### TCE-PLAN-002 — Synchronize runtime standardization issue with phase evidence
+
+- **Priority/status:** P2 / DONE — issue #848's stale unchecked Phase 2–4 boxes were reconciled on 2026-10-26; implementation is merged while environment-dependent rollout gates remain open.
+- **Evidence:** `plan/runtime-contract-standardization.md` Phase 2–4; `apps/service/src/monitor/tce-monitor.service.ts`; `apps/service/src/runtime-events/runtime-events.controller.ts`; `apps/service/src/runtime-events/runtime-events.websocket.ts`; `libs/contracts/src/tce-event.contract.ts`; `libs/contracts/src/tce-idempotency.contract.ts`. PR #853 merged at `1040823b4281b21f6057ce4015b6a80ca3bced74`; idempotency foundation PR #851 merged at `caa64bd4ebaf2cc99b966c2cfe606bfcbf8f689d`; failure-path follow-ups #868/#870/#871/#872 are recorded in the canonical plan.
+- **Current behavior:** Issue #848 still showed Phase 2–4 unchecked even though the plan and current source/tests record those implementations as complete. Phase 5 remains incomplete, and environment-dependent activation/rollout is still gated.
+- **Desired behavior:** Keep the issue tracker aligned with the canonical phase plan without claiming staging verification or production rollout that has not occurred.
+- **Acceptance criteria:**
+  - [x] Mark Phase 2 runtime ownership/event emission complete using merged source and tests.
+  - [x] Mark Phase 3 REST/SSE/WebSocket contract work complete with PR #853 evidence.
+  - [x] Mark Phase 4 implementation/failure-path coverage complete while keeping durable-store activation blocked pending approved non-production verification.
+  - [x] Leave Phase 5 rollout and deployment verification open until an approved non-production target is confirmed.
+  - [x] Verify WF-03 is manual-dispatch-only; do not dispatch it or enable LIVE trading.
+- **Validation:** Read-only source/plan/merge-history inspection; the live connected Supabase environment remains unclassified and reports `MIGRATIONS_FAILED`. No code or SQL changed, no database operation was run, and no production release or live order was triggered.
+- **Dependencies:** Explicit non-production environment classification; required migration state and staging integration checks before enabling the durable-store flag. Production rollout remains separately gated.
+- **Risk:** Low documentation-only change. Stale tracker status could cause duplicate work or falsely imply that rollout checks passed.
+- **Links:** [Issue #848](https://github.com/phanthienquoc/TCE-dashboard/issues/848), [runtime contract plan](https://github.com/phanthienquoc/TCE-dashboard/blob/master/plan/runtime-contract-standardization.md), [PR #853](https://github.com/phanthienquoc/TCE-dashboard/pull/853), [PR #851](https://github.com/phanthienquoc/TCE-dashboard/pull/851).
+
 ### TCE-UI-001 — Consolidate overlapping mobile-landscape PRs
 
 - **Priority/status:** P2 / DONE — [PR #892](https://github.com/phanthienquoc/TCE-dashboard/pull/892) squash-merged at `6cc92f4613b0876cb769d521db3a1b474052e346`; current `master` was verified at that exact SHA.
