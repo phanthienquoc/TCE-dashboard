@@ -422,7 +422,7 @@ try {
         assert.equal(
           metrics.rotationColumns,
           2,
-          `${testCase.name}: active rotation metrics use a two-column grid; see TCE-UI-003A diagnostics`
+          `${testCase.name}: rotation metrics use two columns`
         );
         assert.equal(
           metrics.rotationMetricCount,
