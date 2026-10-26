@@ -40,9 +40,9 @@ export class JwtService {
         exp: now + Number(process.env.JWT_ACCESS_TTL_SECONDS ?? 900),
         jti: randomBytes(16).toString('hex'),
         ...(typeof mfaVerifiedAt === 'number' &&
-        Number.isSafeInteger(mfaVerifiedAt) &&
-        mfaVerifiedAt >= 0 &&
-        mfaVerifiedAt <= now
+          Number.isSafeInteger(mfaVerifiedAt) &&
+          mfaVerifiedAt >= 0 &&
+          mfaVerifiedAt <= now
           ? { mfa_verified_at: mfaVerifiedAt }
           : {}),
       })
