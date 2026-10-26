@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   InMemoryPositionRecoveryPersistence,
+  PositionRecoveryUnavailableError,
   rebuildPositionOwnership,
   recoverPositions,
 } from './position-recovery';
@@ -37,13 +38,27 @@ describe('position recovery', () => {
     ]);
   });
 
-  it('ignores invalid positions and duplicate ownership keys', () => {
-    expect(
-      rebuildPositionOwnership([
-        position,
-        { ...position, symbol: 'VNM' },
-        { ...position, id: '', symbol: 'INVALID', quantity: 0 },
-      ])
-    ).toHaveLength(1);
+  it('fails closed for invalid positions and duplicate normalized symbols', () => {
+    expect(() => rebuildPositionOwnership([
+      { ...position, quantity: 0 },
+    ])).toThrow(/quantity/i);
+
+    expect(() => rebuildPositionOwnership([
+      position,
+      { ...position, id: 'slot-2', symbol: ' dpm ' },
+    ])).toThrow(/duplicate/i);
+  });
+
+  it('does not treat a missing recovery snapshot as an empty account', async () => {
+    const persistence = new InMemoryPositionRecoveryPersistence();
+    await expect(recoverPositions(persistence)).rejects.toThrow(PositionRecoveryUnavailableError);
+  });
+
+  it('rejects invalid snapshot timestamps instead of silently ignoring a save', async () => {
+    const persistence = new InMemoryPositionRecoveryPersistence();
+    await expect(persistence.save({
+      recordedAt: 'not-a-timestamp',
+      positions: [position],
+    })).rejects.toThrow(/timestamp/i);
   });
 });
