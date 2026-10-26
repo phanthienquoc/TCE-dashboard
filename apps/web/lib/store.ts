@@ -276,4 +276,4 @@ export const useDashboardStore = create<DashboardState>(set => ({
     }
     set({ data: null, marketPrices: {}, loading: false, error: null });
   },
-}));
+})); 
