@@ -68,7 +68,10 @@ function makeDb(
           return Promise.resolve(updateResult);
         },
         then(resolve: (value: QueryResult) => unknown, reject?: (reason: unknown) => unknown) {
-          return Promise.resolve(action === 'update' ? updateResult : readResult).then(resolve, reject);
+          return Promise.resolve(action === 'update' ? updateResult : readResult).then(
+            resolve,
+            reject
+          );
         },
       };
       return builder;
@@ -93,7 +96,12 @@ test('replays a due snapshot with stable event identity and marks it delivered',
   const { publisher, published } = makePublisher(async () => {});
   const warnings: string[] = [];
 
-  const result = await replayPendingMonitorSnapshotEvents(db, publisher, message => warnings.push(message), now);
+  const result = await replayPendingMonitorSnapshotEvents(
+    db,
+    publisher,
+    message => warnings.push(message),
+    now
+  );
 
   assert.deepEqual(result, {
     scanned: 1,
@@ -123,7 +131,12 @@ test('records bounded exponential retry without persisting error messages', asyn
   });
   const warnings: string[] = [];
 
-  const result = await replayPendingMonitorSnapshotEvents(db, publisher, message => warnings.push(message), now);
+  const result = await replayPendingMonitorSnapshotEvents(
+    db,
+    publisher,
+    message => warnings.push(message),
+    now
+  );
 
   assert.equal(result.retried, 1);
   assert.equal(calls.updates[0].state, 'pending');
@@ -152,11 +165,19 @@ test('moves a repeatedly failing event to durable dead-letter state at the retry
 });
 
 test('fails open for the monitor loop when the replay store cannot be queried', async () => {
-  const { db, calls } = makeDb({ data: null, error: { code: '42P01', message: 'relation missing' } });
+  const { db, calls } = makeDb({
+    data: null,
+    error: { code: '42P01', message: 'relation missing' },
+  });
   const { publisher, published } = makePublisher(async () => {});
   const warnings: string[] = [];
 
-  const result = await replayPendingMonitorSnapshotEvents(db, publisher, message => warnings.push(message), now);
+  const result = await replayPendingMonitorSnapshotEvents(
+    db,
+    publisher,
+    message => warnings.push(message),
+    now
+  );
 
   assert.equal(result.storeUnavailable, true);
   assert.equal(result.scanned, 0);
