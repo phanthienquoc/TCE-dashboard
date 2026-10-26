@@ -327,6 +327,7 @@
 - **Dependencies:** None for the source fix; production rollout remains separate and is not part of this task.
 - **Risk:** High severity root cause, now fixed in source; retain regression tests and do not weaken secret validation.
 - **Links:** [PR #920](https://github.com/phanthienquoc/TCE-dashboard/pull/920), [merge commit](https://github.com/phanthienquoc/TCE-dashboard/commit/24e972bad13449174d9dde49786303041a1f7a41), [JWT service](../apps/service/src/auth/jwt.service.ts), [JWT regression tests](../apps/service/src/auth/jwt.service.spec.ts), [central Auth JWT secret contract](https://github.com/phanthienquoc/phanthienquoc-authentication/blob/master/src/auth/jwt.service.ts).
+
 ### TCE-OPS-001 — Require explicit manual production release dispatch
 
 - **Priority/status:** P0 / DONE on 2026-10-25.
