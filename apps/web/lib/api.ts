@@ -1,3 +1,4 @@
+import { getAccessToken, setAccessToken } from './session-token';
 import axios, { type AxiosInstance } from 'axios';
 import { encryptCredentialPayload } from './credential-transport';
 
@@ -12,7 +13,14 @@ export const authClient: AxiosInstance = axios.create({
   timeout: 15000,
 });
 
+const attachAccessToken = (config: any) => {
+  const token = getAccessToken();
+  if (token) config.headers.Authorization = `Bearer ${token}`;
+  return config;
+};
+api.interceptors.request.use(attachAccessToken);
 authClient.interceptors.request.use(config => {
+  attachAccessToken(config);
   if (typeof document === 'undefined') return config;
   const csrf = document.cookie
     .split('; ')
@@ -28,12 +36,24 @@ authClient.interceptors.request.use(config => {
 
 export const authApi = {
   status: () => authClient.get('/auth/status'),
-  login: (email: string, password: string) => authClient.post('/auth/login', { email, password }),
-  mfaLogin: (userId: string, code: string) => authClient.post('/auth/mfa/login', { userId, code }),
+  login: async (email: string, password: string) => {
+    const response = await authClient.post('/auth/login', { email, password });
+    if (typeof response.data?.accessToken === 'string') setAccessToken(response.data.accessToken);
+    return response;
+  },
+  mfaLogin: async (userId: string, code: string) => {
+    const response = await authClient.post('/auth/mfa/login', { userId, code });
+    if (typeof response.data?.accessToken === 'string') setAccessToken(response.data.accessToken);
+    return response;
+  },
   recovery: (userId: string, code: string) =>
     authClient.post('/auth/mfa/recovery', { userId, code }),
   me: () => authClient.get('/auth/me'),
-  refresh: () => authClient.post('/auth/refresh'),
+  refresh: async () => {
+    const response = await authClient.post('/auth/refresh');
+    if (typeof response.data?.accessToken === 'string') setAccessToken(response.data.accessToken);
+    return response;
+  },
   logout: () => authClient.post('/auth/logout'),
   passkeyLoginOptions: () => authClient.post('/auth/passkey/login/options'),
   passkeyLoginVerify: (response: unknown) =>
