@@ -1,9 +1,9 @@
 # TCE Dashboard — Agent Task Queue
 
-**Last audited:** 2026-10-26  
+**Last audited:** 2026-10-26 15:22 +07:00  
 **Default branch checkpoint:** `master` audited on 2026-10-26. The latest functional/schema merge tracked by this queue is TCE-SEC-001/TCE-RUNTIME-001 at `ccaccb6b6131665e317774dfc8742b480972a316`; subsequent queue-checkpoint commits are documentation-only. Consult Git history for the exact current `master` SHA.  
 **Queue convention:** This repository has a mature `plan/` directory but no existing `docs/agentic/` queue. This file follows the current `plan/` convention and supplements, rather than replaces, canonical phase plans/issues.  
-**Safety:** No production application release, live orders, or LIVE-mode enablement are part of this queue. This queue records previously authorized, scoped schema work only; it does not authorize future migration applies, Supabase branch creation/merge, production data/schema changes, app releases, or trading actions. The connected project's environment classification remains unverified and its branch metadata reports `MIGRATIONS_FAILED`.
+**Safety:** No production application release, live orders, or LIVE-mode enablement are part of this queue. The owner explicitly classified the shared Supabase project as private production in prior instructions on 2026-10-26. No production migration/deploy, live trading action, or Supabase branch operation is authorized by this task. The only listed Supabase branch is non-persistent main / Git master with MIGRATIONS_FAILED; the GitHub integration target/deploy-to-production toggle remains unverified.
 
 ## Queue rules
 
@@ -20,6 +20,27 @@
 - **P2** — important maintenance, UI consolidation or tracking hygiene.
 
 ## Active tasks
+
+### TCE-TEST-001 — Restore unit-test discovery in the root test runner
+
+- **Priority/status:** P0 / VALIDATED; **MERGE BLOCKED** by the private-production Supabase target, unknown GitHub integration/deploy-to-production setting, and unresolved migration-history drift.
+- **Evidence:** The root package.json matcher was over-escaped and could discover zero ordinary .spec.ts/.test.ts files while exiting successfully. The corrected matcher discovers the intended Node/Vitest files and fails closed on zero discovery. Code/test head `89b73649aecf74de462f6c39d5293a495bc13d37` passed 201 Node tests plus 23 Vitest files / 99 Vitest tests. Latest exact PR head `f43953791a97fbbe374ceb117b876b3108b9e162` passed backend unit tests [#40296128895](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/40296128895) and [#40296135534](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/40296135534); Prettier auto-format passed [#40296135535](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/40296135535). Duplicate jobs are expected from push/PR triggers; all applicable checks on this exact head are green.
+- **Current behavior before fix:** The root test runner could report success without executing tests because both runner groups were empty.
+- **Desired behavior:** Discover intended Node/Vitest tests and fail rather than report success if no test files are discovered.
+- **Acceptance criteria:**
+  - [x] Correct the filename matcher for .spec.ts and .test.ts.
+  - [x] Fail the test command when no test files are discovered.
+  - [x] Validate the root runner: 201 Node tests plus 23 Vitest files / 99 Vitest tests passed on the validated code/test head.
+  - [x] Validate exact PR-head CI: WF-05 backend unit tests and WF-02 Prettier checks succeeded; the latest exact head has passing check runs and skipped duplicate jobs only.
+  - [x] Inspect push-triggered GitHub workflows and confirm WF-03 is workflow_dispatch-only.
+  - [ ] Verify the actual Supabase GitHub integration repository and deploy-to-production setting.
+  - [ ] Reconcile TCE source migration versions against the live ledger from authoritative source before any default-branch push that could invoke Supabase deployment.
+- **Current read-only Supabase evidence (2026-10-26 15:48 +07):** The owner explicitly classified the shared project as private production. The sole listed project ref is gtqovpusfyyvxpeezxlo (organization jopjvkofwvbnxaajkhlo, region ap-southeast-1), API status ACTIVE_HEALTHY; its only branch is default non-persistent main / Git master with MIGRATIONS_FAILED. The project API does not expose which GitHub repository is connected or whether Deploy to production is enabled. The live ledger now has 77 entries; a new remote version `20261026084506 auth_admin_user_lifecycle_rpcs` is associated with Authentication User Management, not a TCE source migration. TCE master still has 35 migration files, of which 30/35 version prefixes do not exactly match a ledger version (11 same-name migrations have different versions; 19 have no exact name match). Duplicate local prefixes exist for 202609070001 (2), 202609140001 (2), 202609160002 (2), and 202609160003 (4). These mismatches are not proof that any source migration should be applied; do not repair history by guessing. No TCE schema change was performed in this run.
+- **Pre-merge workflow side-effect gate (verified on current master):** WF-03 has only workflow_dispatch and its jobs publish production images and request GitOps promotion, so a merge does not dispatch WF-03. WF-04 runs after WF-03 completion or manual dispatch only. WF-01 matches package.json pushes to master but only builds local images and validates configuration; it does not publish/deploy. WF-05 and WF-02 run tests/formatting. WF-08B is filtered to microfe/** and its own workflow, which this PR does not change; WF-11 path filters also do not match. WF-06/07 are scheduled/manual and not triggered by this merge; the scheduled order integration uses Binance Testnet, while the order job is manual-dispatch-only. These workflow checks do not resolve the separate Supabase GitHub integration risk.
+- **Why merge remains blocked:** Current Supabase documentation states the GitHub integration watches repository commits and automatically runs migrations; if Deploy to production is enabled, pushes/merges can apply migrations to the main project. The connected repository and setting cannot be verified from the available project metadata, while the owner-classified target is private production and migration drift is significant. Therefore do not merge this PR yet, even though its source diff is limited to package.json and a task queue. No Supabase branch/migration apply, production deploy, or live order was performed.
+- **Validation links:** [WF-05 exact-head #40293119575](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/40293119575), [WF-02 exact-head #40293119549](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/40293119549), [Supabase GitHub integration docs](https://supabase.com/docs/guides/deployment/branching/github-integration), [Supabase branching docs](https://supabase.com/docs/guides/deployment/branching).
+- **Dependencies:** Root test-runner fix; Supabase integration/deploy-target verification; authoritative migration provenance; exact-head CI.
+- **Risk:** Critical — a default-branch push may invoke an external Supabase integration and apply pending source migrations to the owner's private production project.
 
 ### TCE-SEC-001 — Remove public read and destructive browser grants on position snapshots
 
@@ -38,6 +59,24 @@
 - **Dependencies:** Current monitor uses the server-side Supabase service-role client. End-to-end service smoke remains part of required CI/integration validation; the app has not been deployed.
 - **Risk:** Previously critical exposure is mitigated at the database grant/policy layer. Remaining risk is an untracked external consumer outside the two authorized repositories that expects browser access; the existing source inventory found none.
 - **Links:** [applied migration](../supabase/migrations/20261026034917_revoke_public_snapshot_access.sql), [runtime boundary architecture](https://github.com/phanthienquoc/TCE-dashboard/blob/master/docs/architecture/runtime-boundaries.md), [Supabase API security](https://supabase.com/docs/guides/api/securing-your-api), [PostgreSQL row security](https://www.postgresql.org/docs/current/ddl-rowsecurity.html).
+
+### TCE-SEC-002 — Review public SECURITY DEFINER market-metrics view
+
+- **Priority/status:** P1 / OPEN — read-only security finding confirmed; no schema/privilege change is authorized against the private-production project.
+- **Evidence:** Supabase Security Advisor reports one ERROR, security_definer_view, on public.tce_stock_event_market_metrics. Read-only catalog inspection confirms it is a view with reloptions NULL (no security_invoker=true) and SELECT grants to anon, authenticated, service_role and postgres. Its definition exposes stock-event fields plus latest quote/OHLCV-derived current price, price date, 365-day low/high and dividend yield; it does not select user IDs, password hashes, tokens, MFA or passkey material. The underlying stock_events and tce_market_prices tables have RLS enabled with no policies and SELECT grants to anon/authenticated; tce_market_ohlcv_daily has RLS enabled and an authenticated-only read policy. The SECURITY DEFINER view can bypass those underlying RLS policies for its public readers.
+- **Application contract:** GitHub search finds the view consumed by apps/service/src/stock-events/stock-events.supabase.repository.ts and stock-dividend-pool.service.ts. The current service repository uses the backend Supabase client; no direct frontend call was found in the searched source paths. This suggests the view may not need browser-role access, but public market-data intent must be confirmed before changing it.
+- **Current behavior:** anon/authenticated can SELECT the view; default view-owner privileges can bypass underlying RLS. The view appears to expose market/event data rather than account data, so this is an access-control mismatch requiring confirmation, not proof of a private-data leak.
+- **Desired behavior:** Confirm intended anonymous access. If the NestJS service is the only consumer, prefer an additive migration that sets WITH (security_invoker=on) and revokes SELECT from anon/authenticated while preserving the service_role path; verify the view output and service behavior before any deployment. Do not blindly broaden underlying-table policies or merely suppress the advisor.
+- **Acceptance criteria:**
+  - [x] Capture advisor finding, live view definition/options, SELECT grants, underlying RLS/policies and repository call sites read-only.
+  - [ ] Confirm whether anonymous direct access to this market-metrics view is a product requirement.
+  - [ ] Reconcile the migration source/ledger drift and verify the connected Supabase GitHub integration target before preparing a migration.
+  - [ ] Test service_role read success and anon/authenticated denial against a separate explicitly approved non-production target.
+  - [ ] If approved, add an additive migration and regression checks on a dedicated TCE branch; do not merge/apply against private production.
+- **Validation:** No table rows were read; no schema/grant/policy/view change, Supabase branch operation, deployment or trading action occurred. Current target is private production and its only listed branch reports MIGRATIONS_FAILED.
+- **Dependencies:** Product decision on public access, authoritative migration provenance, verified integration/deploy settings, separate safe non-production target.
+- **Risk:** High — a SECURITY DEFINER view with public SELECT can bypass the underlying tables' RLS intent even when the exposed columns are market data.
+- **Links:** [Source view migration](../supabase/migrations/202609160003_dividend_current_price_ohlcv_fallback.sql), [service repository](../apps/service/src/stock-events/stock-events.supabase.repository.ts), [Supabase security-definer-view advisor](https://supabase.com/docs/guides/observability/advisors?queryGroups=lint&lint=0010_security_definer_view), [Supabase RLS documentation](https://supabase.com/docs/guides/database/postgres/row-level-security).
 
 ### TCE-RUNTIME-001 — Durable retry/replay for lifecycle event publication
 
