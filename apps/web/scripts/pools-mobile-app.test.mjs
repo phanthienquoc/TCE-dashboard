@@ -271,9 +271,8 @@ try {
           navBottom: navRect?.bottom ?? null,
           navPosition: style(nav)?.position ?? null,
           // Count rendered x positions; computed grid-template strings can retain repeat() syntax.
-          poolColumns: new Set(
-            poolCards.map(card => Math.round(card.getBoundingClientRect().left)),
-          ).size,
+          poolColumns: new Set(poolCards.map(card => Math.round(card.getBoundingClientRect().left)))
+            .size,
           poolGridDisplay: style(poolGrid)?.display ?? null,
           poolGridComputedColumns: style(poolGrid)?.gridTemplateColumns ?? '',
           poolCount: poolCards.length,
@@ -282,7 +281,7 @@ try {
             return rect.left >= -1 && rect.right <= window.innerWidth + 1;
           }),
           rotationColumns: new Set(
-            rotationMetrics.map(item => Math.round(item.getBoundingClientRect().left)),
+            rotationMetrics.map(item => Math.round(item.getBoundingClientRect().left))
           ).size,
           rotationComputedColumns,
           rotationGridDisplay: style(rotationGrid)?.display ?? null,
@@ -290,7 +289,7 @@ try {
           rotationGridIsInsidePoolsView: Boolean(unscopedRotationGrid?.closest('.tce-pools-view')),
           rotationGridMatchesScoped: unscopedRotationGrid === rotationGrid,
           scopedRotationColumns: new Set(
-            scopedRotationMetrics.map(item => Math.round(item.getBoundingClientRect().left)),
+            scopedRotationMetrics.map(item => Math.round(item.getBoundingClientRect().left))
           ).size,
           scopedRotationComputedColumns,
           rotationGridCandidates,
@@ -381,7 +380,7 @@ try {
         [
           ...(cdpRuleDiagnostics.unscoped.matchedRules ?? []),
           ...(cdpRuleDiagnostics.scoped.matchedRules ?? []),
-        ...(cdpRuleDiagnostics.poolGrid.matchedRules ?? []),
+          ...(cdpRuleDiagnostics.poolGrid.matchedRules ?? []),
         ]
           .map(rule => rule.styleSheetId)
           .filter(Boolean)
