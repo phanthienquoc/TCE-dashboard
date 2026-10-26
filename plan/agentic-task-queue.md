@@ -1,6 +1,6 @@
 # TCE Dashboard — Agent Task Queue
 
-**Last audited:** 2026-10-27 04:33 +07:00
+**Last audited:** 2026-10-27 04:34 +07:00
 **Default branch checkpoint:** `master` verified at `6036c65629e1aec482fcc62321ea72b8ce38a57e`. TCE-SEC-004 cashout-access remediation squash-merged at that SHA; post-merge WF-02 and WF-05 passed. WF-01 post-merge frontend build failure is tracked under TCE-AUTH-004.  
 **Queue convention:** This repository has a mature `plan/` directory but no existing `docs/agentic/` queue. This file follows the current `plan/` convention and supplements, rather than replaces, canonical phase plans/issues.  
 **Safety:** The shared project `gtqovpusfyyvxpeezxlo` is documented historically as non-production, but the current task still requires runtime URL-to-ref and GitHub/Supabase integration binding to be verified independently. The only listed branch is non-persistent default `main` / Git `master` with status `MIGRATIONS_FAILED`; project API health does not override that migration status. No exact future migration/write/deploy is authorized by this checkpoint; no production release, live orders, LIVE-mode changes, unrelated-repository changes or potentially billable Supabase branch creation without `get_cost` and explicit cost approval.
