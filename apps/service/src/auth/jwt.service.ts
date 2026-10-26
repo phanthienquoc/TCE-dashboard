@@ -15,6 +15,7 @@ export interface AccessClaims {
 
 @Injectable()
 export class JwtService {
+  // Validate at use time so a missing environment secret can never become a signing key.
   private get secret(): string {
     const value = process.env.JWT_SECRET;
     if (!value || value === 'CHANGE_ME_IN_ENV' || Buffer.byteLength(value) < 32) {
