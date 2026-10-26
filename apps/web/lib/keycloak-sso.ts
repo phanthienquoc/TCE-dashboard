@@ -144,3 +144,14 @@ export async function completeKeycloakLogin(search: string): Promise<string> {
     clearTransaction();
   }
 }
+
+export function keycloakLogoutUrl(): string | null {
+  if (!keycloakSsoEnabled()) return null;
+  const cfg = config();
+  const endpoint = new URL(`${cfg.issuer}/protocol/openid-connect/logout`);
+  endpoint.search = new URLSearchParams({
+    client_id: cfg.clientId,
+    post_logout_redirect_uri: `${window.location.origin}/login`,
+  }).toString();
+  return endpoint.toString();
+}
