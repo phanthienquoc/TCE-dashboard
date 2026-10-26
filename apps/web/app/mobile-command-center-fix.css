@@ -487,3 +487,152 @@
 .tce-dividend-month-cards {
   gap: 10px;
 }
+
+/* Keep page-scoped Pools overrides after shared mobile styles in the cascade. */
+/* The shared app layout owns top safe-area spacing; this page reserves bottom dock space. */
+/* TCE-UI-003: keep the Pools summary and rotation cards compact without
+   changing capital-allocation or trading behavior. */
+@media screen and (max-width: 767px) {
+  .tce-pools-view {
+    padding-bottom: calc(128px + env(safe-area-inset-bottom));
+  }
+
+  .tce-pools-view > .tce-mobile-header {
+    margin-bottom: 10px;
+  }
+
+  .tce-pools-view > .tce-status-card {
+    margin-top: 8px;
+    padding: 12px;
+  }
+
+  .tce-pools-view > .tce-stat-grid {
+    gap: 6px;
+    margin-top: 8px;
+  }
+
+  .tce-pools-view > .tce-stat-grid .tce-stat {
+    padding: 9px 8px;
+  }
+
+  .tce-pools-view .tce-section {
+    margin-top: 15px;
+  }
+
+  .tce-pools-view .tce-section-title {
+    margin-bottom: 7px;
+  }
+
+  .tce-pools-view .tce-pool-balance-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .tce-pools-view .tce-pool-balance {
+    padding: 10px;
+    border-radius: 12px;
+  }
+
+  .tce-pools-view .tce-pool-balance-amount {
+    flex-wrap: wrap;
+    gap: 5px;
+    margin-top: 7px;
+  }
+
+  .tce-pools-view .tce-pool-balance > .tce-pool-balance-amount strong {
+    max-width: 100%;
+    overflow-wrap: anywhere;
+    font-size: clamp(13px, 3.7vw, 17px);
+  }
+
+  .tce-pools-view .tce-pool-balance-meta {
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 7px;
+  }
+
+  .tce-pools-view .tce-list-stack {
+    gap: 7px;
+  }
+
+  .tce-pools-view .tce-rotation-row {
+    padding: 11px;
+  }
+
+  .tce-pools-view .tce-rotation-kpis {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px;
+    margin-top: 9px;
+  }
+
+  .tce-pools-view .tce-rotation-kpis > div {
+    padding: 8px;
+  }
+
+  .tce-pools-view .tce-rotation-footer {
+    gap: 7px;
+    margin-top: 8px;
+    padding-top: 8px;
+  }
+}
+
+@media screen and (min-width: 600px) and (max-width: 950px) {
+  .tce-pools-view {
+    padding-bottom: calc(64px + env(safe-area-inset-bottom));
+  }
+
+  .tce-pools-view > .tce-mobile-header {
+    min-height: 40px;
+    margin-bottom: 6px;
+  }
+
+  .tce-pools-view > .tce-status-card {
+    margin-top: 6px;
+    padding: 8px 10px;
+  }
+
+  .tce-pools-view > .tce-stat-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 5px;
+    margin-top: 6px;
+  }
+
+  .tce-pools-view > .tce-stat-grid .tce-stat {
+    padding: 6px 8px;
+  }
+
+  .tce-pools-view .tce-section {
+    margin-top: 10px;
+  }
+
+  .tce-pools-view .tce-section-title {
+    margin-bottom: 5px;
+  }
+
+  .tce-pools-view .tce-pool-balance-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 6px;
+  }
+
+  .tce-pools-view .tce-pool-balance {
+    padding: 8px;
+  }
+
+  .tce-pools-view .tce-pool-balance > .tce-pool-balance-amount strong {
+    font-size: clamp(12px, 2.4vw, 16px);
+  }
+
+  .tce-pools-view .tce-rotation-kpis {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 5px;
+    margin-top: 8px;
+  }
+
+  .tce-pools-view .tce-rotation-kpis > div {
+    padding: 6px;
+  }
+
+  .tce-pools-view .tce-rotation-kpis b {
+    font-size: 12px;
+  }
+}
