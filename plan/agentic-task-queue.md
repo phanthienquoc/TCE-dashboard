@@ -65,7 +65,7 @@
 - **Verified live facts:** `public.tce_position_snapshots` has the three replay metadata columns and an enabled AFTER INSERT trigger `trg_tce_monitor_snapshot_enqueue_event`. `public.tce_runtime_events` and `public.tce_monitor_event_replay` exist with RLS enabled. `enqueue_tce_monitor_snapshot_event()` is `SECURITY DEFINER` with fixed `search_path` and EXECUTE for `postgres`/`service_role`. The new event/replay tables have no browser-role table grants; `service_role` currently has all privileges, which is broader than the code requires.
 - **Separate P0 security observation:** `pg_policies` shows `tce_position_snapshots_read` applies to `public` with `USING (true)`. Current `role_table_grants` also shows `anon` and `authenticated` have direct SELECT/INSERT/UPDATE/DELETE/TRUNCATE and other table privileges on `tce_position_snapshots`. RLS does not constrain TRUNCATE. This is tracked separately as `TCE-SEC-001`; do not revoke access blindly until all consumers are inventoried and the change is validated safely.
 - **Environment caveat:** The project status is `ACTIVE_HEALTHY`, but the only listed branch has status `MIGRATIONS_FAILED` and the repository/CI config does not prove production vs preview. Treat it as unsafe for further schema writes.
-- **Actions in this audit:** Read-only inspection only; no Supabase SQL write, migration apply, branch operation, live order, or runtime deployment was performed.
+- **Actions in the initial discovery audit:** That checkpoint was read-only. The later scoped TCE-RUNTIME-001 schema migration was applied and verified as recorded above; no Supabase branch operation, application deployment, live order, or trading-mode change was performed.
 - **Sources:** [runtime contract plan](https://github.com/phanthienquoc/TCE-dashboard/blob/master/plan/runtime-contract-standardization.md), [migration artifact on the working branch](https://github.com/phanthienquoc/TCE-dashboard/blob/feat/tce-runtime-001-snapshot-event-replay/supabase/migrations/20261026033600_tce_monitor_event_replay_contract.sql), [Supabase branching docs](https://supabase.com/docs/guides/deployment/branching).
 
 ### TCE-PLAN-001 — Reconcile stale runtime-plan frontier and exact-head evidence
@@ -73,13 +73,13 @@
 - **Priority/status:** P2 / DONE — follow-up stale PR #865 checkpoint reconciled on 2026-10-26.
 - **Evidence:** `plan/runtime-contract-standardization.md`, `docs/architecture/runtime-boundaries.md`, and this queue. GitHub confirms [PR #865](https://github.com/phanthienquoc/TCE-dashboard/pull/865) is merged at `d4ff9a4ae469e8c4124927e11d13046ef6ec77fd`, from exact head `5f865d751dbfa695c8439f8a5a21d836274deb46`.
 - **Current behavior:** The runtime plan retained a stale checkpoint saying PR #865 was open, its latest head had no CI runs, and merge was prohibited; it also repeated the completed identity-matching task as the current task.
-- **Desired behavior:** Keep one authoritative current frontier. PR #865's identity ambiguity task is historical/completed; durable lifecycle-event retry/replay remains the next task and stays blocked on approved non-production schema/atomic-outbox validation.
+- **Desired behavior:** Keep one authoritative current frontier. PR #865's identity ambiguity task is historical/completed; durable lifecycle-event retry/replay is now implemented in the active PR against the applied additive replay contract. Exact-head CI and separately authorized application rollout remain outstanding.
 - **Acceptance criteria:**
   - [x] Remove stale open-PR/no-CI claims for PR #865 and preserve the completed exact-head evidence.
   - [x] Retire the duplicate unchecked task block without deleting the completed PR history.
   - [x] Preserve the TCE-RUNTIME-001 non-production migration gate and LIVE-trading safety boundary.
 - **Validation:** Exact-head backend build/unit tests passed [run #39539207470](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/39539207470); Prettier passed [run #39539207463](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/39539207463). Current `master` was verified at `32b0c45b1fe2fb79aaa8c68b73d4240ab41546d0`; WF-03 remains `workflow_dispatch`-only. No production workflow was dispatched.
-- **Dependencies:** None for documentation; TCE-RUNTIME-001 still requires approved non-production validation before any schema migration or runtime rollout.
+- **Dependencies:** None for documentation. TCE-RUNTIME-001's schema contract is applied; exact-head CI and separately authorized application rollout remain outstanding.
 - **Risk:** Low; stale task status can cause duplicate work or false completion claims.
 - **Links:** [PR #865](https://github.com/phanthienquoc/TCE-dashboard/pull/865), [runtime contract plan](https://github.com/phanthienquoc/TCE-dashboard/blob/master/plan/runtime-contract-standardization.md), [PR #907](https://github.com/phanthienquoc/TCE-dashboard/pull/907).
 
