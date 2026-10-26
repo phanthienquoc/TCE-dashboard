@@ -6,6 +6,9 @@ on:
       - 'feat/**'
     paths:
       - 'apps/web/app/mobile-command-center.css'
+      - 'apps/web/app/mobile-command-center-fix.css'
+      - 'apps/web/components/dashboard/DashboardViews.tsx'
+      - 'apps/web/scripts/pools-mobile-app.test.mjs'
       - 'apps/web/components/dashboard/DividendPositionsView.tsx'
       - 'apps/web/scripts/mobile-landscape-viewport.test.mjs'
       - 'apps/web/scripts/mobile-landscape-app.test.mjs'
@@ -15,6 +18,9 @@ on:
       - master
     paths:
       - 'apps/web/app/mobile-command-center.css'
+      - 'apps/web/app/mobile-command-center-fix.css'
+      - 'apps/web/components/dashboard/DashboardViews.tsx'
+      - 'apps/web/scripts/pools-mobile-app.test.mjs'
       - 'apps/web/components/dashboard/DividendPositionsView.tsx'
       - 'apps/web/scripts/mobile-landscape-viewport.test.mjs'
       - 'apps/web/scripts/mobile-landscape-app.test.mjs'
@@ -74,6 +80,11 @@ jobs:
           TCE_APP_URL: http://127.0.0.1:3000
         run: node apps/web/scripts/mobile-landscape-app.test.mjs
 
+      - name: Verify the running Pools page in real Chromium viewports
+        env:
+          TCE_APP_URL: http://127.0.0.1:3000
+        run: node apps/web/scripts/pools-mobile-app.test.mjs
+
       - name: Upload viewport screenshots
         if: always()
         uses: actions/upload-artifact@v4
@@ -82,5 +93,6 @@ jobs:
           path: |
             artifacts/mobile-landscape/*.png
             artifacts/mobile-landscape-app/*.png
+            artifacts/pools-mobile/*.png
           if-no-files-found: ignore
           retention-days: 7
