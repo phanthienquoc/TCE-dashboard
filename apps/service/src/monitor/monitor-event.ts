@@ -44,10 +44,12 @@ export async function publishMonitorSnapshotBestEffort(
   publisher: TceEventPublisherPort,
   event: TceRuntimeEvent<'monitor.snapshot.created'>,
   onFailure: (error: unknown) => void
-): Promise<void> {
+): Promise<boolean> {
   try {
     await publisher.publish(event);
+    return true;
   } catch (error) {
     onFailure(error);
+    return false;
   }
 }

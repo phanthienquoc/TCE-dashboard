@@ -1,12 +1,31 @@
-## Current task: Durable retry/replay for lifecycle-event publication — 2026-10-25
+## Current task: Durable retry/replay for lifecycle-event publication — updated 2026-10-26
 
-- [x] Verify PR #884 merge SHA `e3e1e06731fa1dcb4d5703e5dd562509eb16a3df` and exact-head CI evidence on `585172e3166994da4b1e026b0cfb38c7ee5270ea`.
-- [x] Verify documentation follow-up PR #885 merge SHA `5b6f4e94d5b940c83f7f534d57e3d49590d7e013` and exact-head CI on `016cbd2083a6853a07159ef980be2ba708f54b37`; [WF-05 run #2107](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/39567687431) and [WF-02 run #1559](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/39567687358) passed on that exact head.
-- [x] Resolve issue #887's implicit production-release trigger with PRs #888 and #889; current `master` is `a47cc1063354abd2ea58219dd5af570a0a5e2b4a`, and WF-03 has no push trigger.
-- [x] Inspect the monitor snapshot/publisher boundary and read the live snapshot/event catalog without writes; see TCE-RUNTIME-001A in `plan/agentic-task-queue.md`.
-- [ ] Define and validate the additive replay metadata/atomic outbox contract in an approved non-production environment. The live snapshot table lacks `position_id` and `correlation_id`, and the event table/migration is absent from the inspected live catalog/ledger; do not infer that the checked-in migration is deployed.
-- Next dependency-safe implementation task: TCE-RUNTIME-001 — durable retry/replay for failed cross-database lifecycle-event publication. Preserve stable event identity, idempotent consumers, bounded retry/dead-letter behavior, and never turn a monitor signal into a broker command.
-- Safety: no production migration/deployment; LIVE trading remains disabled. Production release requires explicit manual WF-03 dispatch; do not dispatch it without separate release authorization.
+- [x] Verify PR #884/#885 historical merge and CI evidence; the separate identity task remains completed.
+- [x] Inspect the current monitor snapshot/publisher boundary, live snapshot schema and migration ledger.
+- [x] Apply additive Supabase migration `20261026033600 tce_monitor_event_replay_contract` to connected project `gtqovpusfyyvxpeezxlo`; source artifact is `supabase/migrations/20261026033600_tce_monitor_event_replay_contract.sql`.
+- [x] Apply migration `20261026034559 tce_monitor_event_least_privilege`; `service_role` is narrowed to event SELECT/INSERT and queue SELECT/UPDATE, with no browser/public table privileges.
+- [x] Implement durable queue replay with deterministic event IDs, compare-and-set outcome updates, bounded exponential backoff, safe error-code storage and dead-letter status after eight attempts.
+- [x] Add focused unit tests for successful replay, retry timing/redaction, terminal dead-letter state, replay-store query failure, and immediate publish failure.
+- [ ] Run exact-head Prettier, service unit tests, typecheck and build via PR CI; inspect the Supabase integration result after the source migration reaches master.
+- [ ] Verify post-merge default branch at merge SHA and confirm the source migration ledger entry is consistent. Do not dispatch a production release as part of this task.
+
+### Current schema and runtime contract
+
+- The migration is additive and does not change `tce_positions`, `tce_orders`, `tce_strategy_config`, cashout rows, LIVE-mode flags or existing account data.
+- `tce_position_snapshots` stores `position_id`, `correlation_id`, and `event_occurred_at` for new monitor snapshots. An `AFTER INSERT` trigger atomically creates `tce_monitor_event_replay` rows only when all three fields are present; older/legacy inserts without them remain unaffected.
+- `tce_monitor_event_replay` is server-only (RLS enabled; `service_role` has SELECT/UPDATE only) and stores state/attempts/next-attempt/error-code/delivery/dead-letter timestamps. It does not store raw error messages. `tce_runtime_events` is also server-only with SELECT/INSERT only for `service_role`.
+- The replay worker reads up to 100 due rows on each monitor run. Failed attempts back off from 5 seconds, doubling to a maximum of 15 minutes, and stop automatically after eight attempts in `dead_letter`. If event insertion succeeds but queue-state update fails, replay uses the same stable event ID; the `tce_runtime_events.event_id` primary key makes the duplicate idempotent.
+- Queue-store query failures remain best-effort and do not abort the monitor run. The monitor scheduler remains opt-in through `TCE_MONITOR_SCHEDULER_ENABLED`; this PR does not enable it or dispatch a production deployment.
+- Supabase ledger versions `20261026033600`, `20261026034559`, and `20261026034917` confirm the replay schema, least-privilege grants and snapshot access remediation. Read-only catalog queries confirm the trigger is enabled and no public/browser policy or privileges remain on `tce_position_snapshots`. Branch metadata still reports `MIGRATIONS_FAILED`, inconsistent with the observed migration ledger/catalog; track it separately rather than treating successful applies as failed.
+- Schema was applied to the connected shared project at the owner's direction. Its production/non-production classification was not inferred from repo placeholders. No application image was published/deployed, no live order was placed, and no position/order/config rows were read or changed by the migration.
+
+## Applied snapshot access remediation — 2026-10-26
+
+- Source inventory found the monitor as the only direct runtime table consumer of `tce_position_snapshots`; `apps/service/src/db/supabase.client.ts` uses the server-side `SUPABASE_SERVICE_ROLE_KEY`. Repository search found no browser Supabase client or direct web query of this table.
+- Migration `20261026034917_revoke_public_snapshot_access` dropped `tce_position_snapshots_read` (previously `roles={public}`, `cmd=SELECT`, `qual=true`) and revoked table privileges from `PUBLIC`, `anon`, and `authenticated`.
+- Post-apply checks: `pg_policies` returned no policies for `tce_position_snapshots`; `has_table_privilege` is false for `anon`/`authenticated` SELECT/INSERT/UPDATE/DELETE/TRUNCATE and true for `service_role`/`postgres`. No row data was queried or changed.
+- The Supabase security advisor now reports 32 project-wide `rls_enabled_no_policy` findings, including this intentionally server-only table. This is expected deny-by-default behavior when all browser grants and the permissive policy are absent; do not add a public read policy to silence the advisor.
+- This migration did not release/deploy the TCE service and did not change positions, orders, strategy config, cashouts, LIVE-mode flags or event scheduler state. Application rollout and CI remain separate.
 
 ## PR #884 — merged failure-path checklist evidence — 2026-10-21
 
@@ -186,8 +205,8 @@
 
 - The 2026-10-21 checkpoint claiming PR #865 was open and had no CI for its latest head is superseded. GitHub now confirms PR [#865](https://github.com/phanthienquoc/TCE-dashboard/pull/865) is closed and squash-merged at `d4ff9a4ae469e8c4124927e11d13046ef6ec77fd`, from exact head `5f865d751dbfa695c8439f8a5a21d836274deb46`.
 - Backend build/unit tests passed on the exact head: [run #39539207470](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/39539207470). Prettier passed on that head: [run #39539207463](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/39539207463).
-- The duplicate unchecked `Current task: Reject one-to-many provider/local identity matches` block is retired; its acceptance criteria were completed by PR #865. The current task remains durable lifecycle-event retry/replay at the top of this plan and is blocked pending an approved non-production schema/atomic-outbox contract.
-- Safety boundary remains unchanged: no production migration/deployment and no LIVE trading.
+- The duplicate unchecked identity task is retired; PR #865 completed it. The current task at the top of this plan is durable lifecycle-event retry/replay, whose additive schema and grants have been applied and whose runtime implementation is under PR #910. Exact-head tests/format and a separate application rollout remain outstanding.
+- Safety boundary remains unchanged for orders and application rollout: owner-directed scoped Supabase schema/grant migrations are documented above; no live order, LIVE-mode enablement, or application release was initiated.
 
 ## Automation continuity correction — 2026-10-21
 
@@ -206,7 +225,7 @@
 
 ## Goal
 
-Standardize runtime ownership and provider/domain/event contracts incrementally. Preserve existing behavior and public API compatibility. Do not enable live order submission, run production migrations, or deploy as part of this refactor.
+Standardize runtime ownership and provider/domain/event contracts incrementally. Preserve existing behavior and public API compatibility. Owner-directed additive schema/grant migrations are recorded above; do not enable live order submission or dispatch an application release as part of this refactor.
 
 ## Phase 0 — Baseline and architecture
 
@@ -266,7 +285,7 @@ Standardize runtime ownership and provider/domain/event contracts incrementally.
 
 ## Phase 5 — Rollout
 
-- [ ] Keep schema change additive and backward compatible; do not apply the migration automatically to production.
+- [x] Keep the schema change additive/backward-compatible; the owner-directed migration was applied through Supabase and source SQL is tracked at the top of this plan. No app release/rollout was performed.
 - [ ] Run event/contract tests, Node and Vitest suites, service/web typecheck, backend build, lint and diff review on each latest PR head.
 - [ ] Open a separate PR per task, with required CI green before squash merge into `master`.
 - [ ] Verify deployments separately after code is merged; this implementation does not deploy or enable LIVE trading.
@@ -313,7 +332,7 @@ Standardize runtime ownership and provider/domain/event contracts incrementally.
 ## Previous task: Monitor event emission
 
 - [x] Add SupabaseRuntimeEventPublisher implementing the shared TceEventPublisherPort.
-- [x] Add an RLS-protected tce_runtime_events outbox migration; grant access only to service_role.
+- [x] Add the RLS-protected `tce_runtime_events` event store; after migration `20261026034559`, grant only SELECT/INSERT to `service_role`.
 - [x] Emit monitor.snapshot.created after snapshot persistence with a deterministic event ID and account/correlation metadata.
 - [x] Register the Monitor module with explicit scheduler opt-in (TCE_MONITOR_SCHEDULER_ENABLED=true) so module registration alone cannot start the legacy scheduler.
 - [x] Backend build/unit tests and Prettier passed on the formatted head before PR #852 merge (runs #1906 and #1409).
@@ -344,7 +363,7 @@ Standardize runtime ownership and provider/domain/event contracts incrementally.
 
 - Migration `202610210002_tce_runtime_events.sql` is additive and has not been applied to production.
 - Monitor scheduling stays off unless `TCE_MONITOR_SCHEDULER_ENABLED=true`; manual invocation remains protected by `TCE_MONITOR_RUN_SECRET`.
-- No live order submission, LIVE-mode enablement, production DB migration, or deployment is authorized by this refactor.
+- No live order submission, LIVE-mode enablement or application deployment was performed by this refactor; owner-directed scoped DB migrations are recorded above.
 - An adapter implementation or Nest provider is not proof of runtime durability until the actual dispatch path injects and uses it.
 - Event envelopes and event-specific payloads are both validated at the publisher and read boundary.
 - DRE lifecycle event publication is best-effort across MongoDB and Supabase; it is not an atomic outbox until durable replay/reconciliation is implemented.
