@@ -34,15 +34,15 @@ export class JwtService {
         iss: process.env.JWT_ISSUER ?? 'https://auth.mrcute.space',
         aud: (process.env.JWT_AUDIENCE ?? 'tce-dashboard,media-generation')
           .split(',')
-          .map((v) => v.trim())
+          .map(v => v.trim())
           .filter(Boolean),
         iat: now,
         exp: now + Number(process.env.JWT_ACCESS_TTL_SECONDS ?? 900),
         jti: randomBytes(16).toString('hex'),
         ...(typeof mfaVerifiedAt === 'number' &&
-          Number.isSafeInteger(mfaVerifiedAt) &&
-          mfaVerifiedAt >= 0 &&
-          mfaVerifiedAt <= now
+        Number.isSafeInteger(mfaVerifiedAt) &&
+        mfaVerifiedAt >= 0 &&
+        mfaVerifiedAt <= now
           ? { mfa_verified_at: mfaVerifiedAt }
           : {}),
       })
@@ -68,7 +68,7 @@ export class JwtService {
       const issuer = process.env.JWT_ISSUER ?? 'https://auth.mrcute.space';
       const audiences = (process.env.JWT_AUDIENCE ?? 'tce-dashboard,media-generation')
         .split(',')
-        .map((v) => v.trim());
+        .map(v => v.trim());
       if (
         !claims.sub ||
         claims.typ !== 'access' ||
@@ -78,7 +78,7 @@ export class JwtService {
         claims.iat > now + 60 ||
         claims.iss !== issuer ||
         !Array.isArray(claims.aud) ||
-        !claims.aud.some((v) => audiences.includes(v)) ||
+        !claims.aud.some(v => audiences.includes(v)) ||
         (claims.mfa_verified_at !== undefined &&
           (!Number.isSafeInteger(claims.mfa_verified_at) ||
             claims.mfa_verified_at < 0 ||
