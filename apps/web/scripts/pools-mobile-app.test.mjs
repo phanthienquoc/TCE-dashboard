@@ -269,6 +269,8 @@ try {
           navBottom: navRect?.bottom ?? null,
           navPosition: style(nav)?.position ?? null,
           poolColumns: new Set(poolCards.map(card => Math.round(card.getBoundingClientRect().left))).size,
+          poolGridDisplay: style(poolGrid)?.display ?? null,
+          poolGridComputedColumns: style(poolGrid)?.gridTemplateColumns ?? '',
           poolCount: poolCards.length,
           poolCardsWithinViewport: poolCards.every(card => {
             const rect = card.getBoundingClientRect();
@@ -276,6 +278,7 @@ try {
           }),
           rotationColumns: new Set(rotationMetrics.map(item => Math.round(item.getBoundingClientRect().left))).size,
           rotationComputedColumns,
+          rotationGridDisplay: style(rotationGrid)?.display ?? null,
           unscopedRotationComputedColumns: style(unscopedRotationGrid)?.gridTemplateColumns ?? '',
           rotationGridIsInsidePoolsView: Boolean(unscopedRotationGrid?.closest('.tce-pools-view')),
           rotationGridMatchesScoped: unscopedRotationGrid === rotationGrid,
@@ -363,11 +366,13 @@ try {
       const cdpRuleDiagnostics = {
         unscoped: await matchedGridRules('.tce-rotation-kpis'),
         scoped: await matchedGridRules('.tce-pools-view .tce-rotation-kpis'),
+        poolGrid: await matchedGridRules('.tce-pools-view .tce-pool-balance-grid'),
       };
       const usedStyleSheetIds = new Set(
         [
           ...(cdpRuleDiagnostics.unscoped.matchedRules ?? []),
           ...(cdpRuleDiagnostics.scoped.matchedRules ?? []),
+        ...(cdpRuleDiagnostics.poolGrid.matchedRules ?? []),
         ]
           .map(rule => rule.styleSheetId)
           .filter(Boolean)
@@ -401,6 +406,11 @@ try {
           `${testCase.name}: pool cards stay within viewport bounds`
         );
         assert.equal(
+          metrics.rotationGridDisplay,
+          'grid',
+          `${testCase.name}: Active Rotation KPIs must use CSS grid`
+        );
+        assert.equal(
           metrics.rotationColumns,
           2,
           `${testCase.name}: active rotation metrics use a two-column grid; see the TCE-UI-003A CSS cascade diagnostic log above`
@@ -426,9 +436,14 @@ try {
 
         if (testCase.landscape) {
           assert.equal(
-            metrics.shortLandscapeQueryMatches,
+            metrics.mediaQueries.shortLandscape.matches,
             true,
             `${testCase.name}: compact landscape media query matches viewport dimensions`
+          );
+          assert.equal(
+            metrics.poolGridDisplay,
+            'grid',
+            `${testCase.name}: Capital Pools balances must use CSS grid`
           );
           assert.equal(
             metrics.poolColumns,
