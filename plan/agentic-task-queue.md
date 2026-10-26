@@ -87,8 +87,8 @@
 
 ### TCE-UI-003 — Compact Pools mobile layout and safe-area spacing
 
-- **Priority/status:** P2 / BLOCKED after repeated implementation attempts; keep PR #902 open and do not merge until the real-browser viewport contract passes.
-- **Evidence:** [PR #902](https://github.com/phanthienquoc/TCE-dashboard/pull/902), head `92d182355032b8a2f253d47c0a786b3f5cb284a0`; [WF-11 run #40234416071](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/40234416071), job `Chromium mobile viewport contract`.
+- **Priority/status:** P2 / BLOCKED after repeated implementation attempts; [PR #902](https://github.com/phanthienquoc/TCE-dashboard/pull/902) remains open, and diagnostic successor [PR #905](https://github.com/phanthienquoc/TCE-dashboard/pull/905) is collecting the missing cascade evidence. Do not merge until the root cause is fixed and WF-11 passes.
+- **Evidence:** [diagnostic PR #905](https://github.com/phanthienquoc/TCE-dashboard/pull/905), [blocked parent PR #902](https://github.com/phanthienquoc/TCE-dashboard/pull/902), and [WF-11 run #40234416071](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/40234416071). The 844×430 case reported three computed grid columns instead of two.
 - **Current behavior:** Chromium passed the 390×844 portrait Pools case and the existing Positions viewport checks, but failed at `apps/web/scripts/pools-mobile-app.test.mjs:243` for 844×430: computed `rotationColumns` was 3 instead of 2. The branch contains a page-scoped `.tce-pools-view .tce-rotation-kpis` two-column override in `apps/web/app/mobile-command-center-fix.css` under the 600–950px width media query, yet the runtime computed style remains three columns. WF-02 Prettier and WF-05 backend unit tests pass on the same PR head.
 - **Desired behavior:** Keep Active Rotation metrics in two columns, with the third metric on the next row; show all three capital pools within the viewport; prevent horizontal overflow and preserve safe-area/bottom-dock spacing.
 - **Acceptance criteria:**
@@ -104,7 +104,7 @@
 
 - **Priority/status:** P1 / IN PROGRESS — diagnostic-only slice; do not add another CSS override until the runtime cascade cause is proven.
 - **Implementation branch:** `feat/tce-ui-003a-pools-cascade-diagnostics-v2-20261026`. The browser harness records computed grid styles for scoped/unscoped KPI elements, media-query state, CDP matched declarations, stylesheet URLs/source locations, and screenshots before assertions; the two-column assertion remains enabled.
-- **Evidence:** [PR #902](https://github.com/phanthienquoc/TCE-dashboard/pull/902), exact head `92d182355032b8a2f253d47c0a786b3f5cb284a0`; [WF-11 run #40234416071](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/40234416071). The 844×430 case reports three computed grid columns instead of two.
+- **Evidence:** [diagnostic PR #905](https://github.com/phanthienquoc/TCE-dashboard/pull/905), [blocked parent PR #902](https://github.com/phanthienquoc/TCE-dashboard/pull/902), and [WF-11 run #40234416071](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/40234416071). The 844×430 case reported three computed grid columns instead of two.
 - **Current behavior:** The diagnostic branch now records computed styles for scoped/unscoped KPI elements, viewport/DPR and media-query state, Chromium DevTools matched `grid-template-columns` declarations with stylesheet/source locations, and screenshots before the existing two-column assertion. Exact-head WF-11 has not run yet, so the root cause is still unverified.
 - **Desired behavior:** Capture enough real-browser evidence at 844×430 to identify the winning `grid-template-columns` declaration and its selector/media query before changing CSS.
 - **Acceptance criteria:**
