@@ -1,5 +1,5 @@
-import { getAccessToken, setAccessToken } from './session-token';
 'use client';
+import { getAccessToken, setAccessToken } from './session-token';
 import { create } from 'zustand';
 import { authApi, dashboardApi } from './api';
 import { useTCEDataStore } from './tce-data-store';
@@ -125,6 +125,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     try {
       await authApi.logout();
     } finally {
+      setAccessToken(null);
       useTCEDataStore.getState().clear();
       useStockEventStore.getState().clear();
       useDashboardStore.getState().clear();
