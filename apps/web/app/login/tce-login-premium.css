@@ -282,7 +282,6 @@
   }
 }
 
-
 /* Optional Keycloak SSO action; only rendered when NEXT_PUBLIC_AUTH_MODE=keycloak. */
 .auth-sso {
   display: flex;
@@ -299,4 +298,4 @@
 .auth-sso:disabled {
   cursor: wait;
   opacity: 0.7;
-} 
+}
