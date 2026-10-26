@@ -1,4 +1,5 @@
-import axios, { type AxiosInstance } from 'axios';
+import { getAccessToken, setAccessToken } from './session-token';
+import axios, { type AxiosInstance, type AxiosError, type InternalAxiosRequestConfig } from 'axios';
 import { encryptCredentialPayload } from './credential-transport';
 
 const baseURL = process.env.NEXT_PUBLIC_API_BASE_URL ?? '/api';
@@ -12,7 +13,57 @@ export const authClient: AxiosInstance = axios.create({
   timeout: 15000,
 });
 
+const attachAccessToken = (config: any) => {
+  const token = getAccessToken();
+  if (token) config.headers.Authorization = `Bearer ${token}`;
+  return config;
+};
+api.interceptors.request.use(attachAccessToken);
+let refreshPromise: Promise<string | null> | null = null;
+
+async function refreshForRetry(): Promise<string | null> {
+  if (!refreshPromise) {
+    refreshPromise = authClient
+      .post('/auth/refresh')
+      .then(response => {
+        const token = response.data?.accessToken;
+        if (typeof token !== 'string' || !token) return null;
+        setAccessToken(token);
+        return token;
+      })
+      .catch(() => {
+        setAccessToken(null);
+        return null;
+      })
+      .finally(() => {
+        refreshPromise = null;
+      });
+  }
+  return refreshPromise;
+}
+
+async function retryAfterUnauthorized(error: AxiosError) {
+  const config = error.config as
+    (InternalAxiosRequestConfig & { __tceRetried?: boolean }) | undefined;
+  const url = config?.url ?? '';
+  const isAuthEntryPoint = /\/auth\/(login|refresh|mfa\/login|mfa\/recovery|passkey\/login)/.test(
+    url
+  );
+  if (error.response?.status !== 401 || !config || config.__tceRetried || isAuthEntryPoint) {
+    throw error;
+  }
+  config.__tceRetried = true;
+  const token = await refreshForRetry();
+  if (!token) throw error;
+  config.headers.Authorization = `Bearer ${token}`;
+  return axios(config);
+}
+
+api.interceptors.response.use(response => response, retryAfterUnauthorized);
+authClient.interceptors.response.use(response => response, retryAfterUnauthorized);
+
 authClient.interceptors.request.use(config => {
+  attachAccessToken(config);
   if (typeof document === 'undefined') return config;
   const csrf = document.cookie
     .split('; ')
@@ -28,16 +79,31 @@ authClient.interceptors.request.use(config => {
 
 export const authApi = {
   status: () => authClient.get('/auth/status'),
-  login: (email: string, password: string) => authClient.post('/auth/login', { email, password }),
-  mfaLogin: (userId: string, code: string) => authClient.post('/auth/mfa/login', { userId, code }),
+  login: async (email: string, password: string) => {
+    const response = await authClient.post('/auth/login', { email, password });
+    if (typeof response.data?.accessToken === 'string') setAccessToken(response.data.accessToken);
+    return response;
+  },
+  mfaLogin: async (userId: string, code: string) => {
+    const response = await authClient.post('/auth/mfa/login', { userId, code });
+    if (typeof response.data?.accessToken === 'string') setAccessToken(response.data.accessToken);
+    return response;
+  },
   recovery: (userId: string, code: string) =>
     authClient.post('/auth/mfa/recovery', { userId, code }),
   me: () => authClient.get('/auth/me'),
-  refresh: () => authClient.post('/auth/refresh'),
+  refresh: async () => {
+    const response = await authClient.post('/auth/refresh');
+    if (typeof response.data?.accessToken === 'string') setAccessToken(response.data.accessToken);
+    return response;
+  },
   logout: () => authClient.post('/auth/logout'),
   passkeyLoginOptions: () => authClient.post('/auth/passkey/login/options'),
-  passkeyLoginVerify: (response: unknown) =>
-    authClient.post('/auth/passkey/login/verify', response),
+  passkeyLoginVerify: async (response: unknown) => {
+    const result = await authClient.post('/auth/passkey/login/verify', response);
+    if (typeof result.data?.accessToken === 'string') setAccessToken(result.data.accessToken);
+    return result;
+  },
   passkeyRegisterOptions: () => authClient.post('/auth/passkey/register/options'),
   passkeyRegisterVerify: (response: unknown) =>
     authClient.post('/auth/passkey/register/verify', response),

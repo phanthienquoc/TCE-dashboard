@@ -21,6 +21,16 @@
 
 ## Active tasks
 
+### TCE-AUTH-002 — Integrate Keycloak SSO into TCE Dashboard
+
+- **Priority/status:** P1 / IMPLEMENTED IN OPEN PR — [TCE PR #922](https://github.com/phanthienquoc/TCE-dashboard/pull/922); depends on [Central Auth PR #69](https://github.com/phanthienquoc/phanthienquoc-authentication/pull/69).
+- **Evidence:** Current TCE web app uses the central Auth origin, while the TCE API verifies app JWTs with its own `JWT_SECRET`. The Keycloak realm template declares the public `tce-dashboard` client, Authorization Code flow and PKCE S256. Central Auth already verifies Keycloak access tokens through JWKS and checks issuer/audience/expiry.
+- **Implementation in PR:** Opt-in browser Authorization Code + PKCE S256, state/nonce validation, ID-token signature/issuer/audience/expiry verification, guarded central Auth session exchange, in-memory app access token, HttpOnly refresh cookie, API bearer injection/one-time refresh retry, and IdP logout redirect. Legacy auth remains default.
+- **Security boundaries:** Session exchange requires exact `azp=tce-dashboard`, `email_verified=true`, and an existing ACTIVE account with the exact email. It does not auto-provision accounts or grant roles. Legacy MFA-enabled accounts fail closed to legacy sign-in until MFA assurance is migrated. No DB migration, secret change, Keycloak realm mutation, deployment, or live trading action is part of this PR.
+- **Acceptance gates:** Central Auth PR #69 must pass and merge; configure `KEYCLOAK_TCE_CLIENT_ID=tce-dashboard`; verify issuer/audience/client redirect settings; verify central Auth and TCE service `JWT_SECRET` equality without printing values; run non-production end-to-end tests for positive/negative token cases, refresh, legacy MFA boundary, logout, CORS/cookies and iOS Safari.
+- **Current rollout:** `NEXT_PUBLIC_AUTH_MODE` defaults to `legacy`; do not enable SSO in a deployed build until all acceptance gates pass. No production traffic cutover is authorized by this task.
+- **Links:** [TCE SSO pilot architecture](../docs/architecture/tce-keycloak-sso-pilot.md), [runtime config contract](../docs/config-key.md).
+
 ### TCE-TEST-001 — Restore unit-test discovery in the root test runner
 
 - **Priority/status:** P0 / MERGED — [PR #915](https://github.com/phanthienquoc/TCE-dashboard/pull/915) squash-merged at `5fd48ee7fa6b73b41e00e9fe89861574075367d8`; default branch verified at the merge SHA.

@@ -1,4 +1,6 @@
 'use client';
+import { getAccessToken, setAccessToken } from './session-token';
+import { keycloakLogoutUrl } from './keycloak-sso';
 import { create } from 'zustand';
 import { authApi, dashboardApi } from './api';
 import { useTCEDataStore } from './tce-data-store';
@@ -13,6 +15,7 @@ type AuthState = {
   initialized: boolean;
   error: string | null;
   init: () => Promise<void>;
+  completeSsoLogin: (accessToken: string) => Promise<void>;
   login: (e: string, p: string) => Promise<{ mfaRequired?: boolean; userId?: string }>;
   loginWithPasskey: () => Promise<{ mfaRequired?: boolean; userId?: string }>;
   mfa: (id: string, c: string) => Promise<void>;
@@ -35,11 +38,33 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     if (get().initialized) return;
     set({ status: 'loading', loading: true, error: null });
     try {
+      if (!getAccessToken()) await authApi.refresh();
       const r = await authApi.me();
       set({ user: r.data.user, status: 'authenticated', initialized: true });
       prefetchAfterAuth();
     } catch {
+      setAccessToken(null);
       set({ user: null, status: 'anonymous', initialized: true });
+    } finally {
+      set({ loading: false });
+    }
+  },
+  completeSsoLogin: async accessToken => {
+    set({ status: 'loading', loading: true, error: null });
+    setAccessToken(accessToken);
+    try {
+      const me = await authApi.me();
+      set({ user: me.data.user, status: 'authenticated', initialized: true });
+      prefetchAfterAuth();
+    } catch (err: any) {
+      setAccessToken(null);
+      set({
+        user: null,
+        status: 'anonymous',
+        error: err?.response?.data?.message ?? 'SSO sign-in failed',
+        initialized: true,
+      });
+      throw err;
     } finally {
       set({ loading: false });
     }
@@ -49,6 +74,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     try {
       const r = await authApi.login(e, p);
       if (r.data.mfaRequired) {
+        setAccessToken(null);
         set({ status: 'anonymous' });
         return r.data;
       }
@@ -69,6 +95,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       const { signInWithPasskey } = await import('./passkey');
       const result = await signInWithPasskey();
       if (result.mfaRequired) {
+        setAccessToken(null);
         set({ status: 'anonymous' });
         return result;
       }
@@ -101,14 +128,19 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
   },
   logout: async () => {
+    const logoutUrl = keycloakLogoutUrl();
     try {
       await authApi.logout();
+    } catch {
+      // Clear local state and continue to the IdP logout even if the app session expired.
     } finally {
+      setAccessToken(null);
       useTCEDataStore.getState().clear();
       useStockEventStore.getState().clear();
       useDashboardStore.getState().clear();
       set({ user: null, status: 'anonymous', initialized: true });
     }
+    if (logoutUrl && typeof window !== 'undefined') window.location.assign(logoutUrl);
   },
 }));
 

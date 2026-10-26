@@ -2,13 +2,15 @@
 
 import { FormEvent, useEffect, useState, type CSSProperties } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowRight, KeyRound } from 'lucide-react';
+import { ArrowRight, KeyRound, ShieldCheck } from 'lucide-react';
 import { useAuthStore } from '../../lib/store';
 import { Button } from '../../components/ui/button';
+import { beginKeycloakLogin, keycloakSsoEnabled } from '../../lib/keycloak-sso';
 import { Input } from '../../components/ui/input';
 
 export default function LoginPage() {
   const router = useRouter();
+  const ssoEnabled = keycloakSsoEnabled();
   const login = useAuthStore(s => s.login);
   const loginWithPasskey = useAuthStore(s => s.loginWithPasskey);
   const mfa = useAuthStore(s => s.mfa);
@@ -80,6 +82,18 @@ export default function LoginPage() {
     } catch (err: any) {
       setError(err?.response?.data?.message ?? 'Unable to sign in');
     } finally {
+      setBusy(false);
+    }
+  };
+
+  const ssoSubmit = async () => {
+    if (busy) return;
+    setBusy(true);
+    setError('');
+    try {
+      await beginKeycloakLogin();
+    } catch (err: any) {
+      setError(err?.message ?? 'Unable to start SSO sign-in');
       setBusy(false);
     }
   };
@@ -182,6 +196,18 @@ export default function LoginPage() {
             )}
           </div>
         </form>
+        {ssoEnabled && (
+          <Button
+            className="auth-sso"
+            type="button"
+            variant="outline"
+            disabled={busy}
+            onClick={() => void ssoSubmit()}
+          >
+            <ShieldCheck size={19} strokeWidth={2} aria-hidden="true" />
+            <span>{busy ? 'Redirecting…' : 'Continue with MrCute ID'}</span>
+          </Button>
+        )}
       </section>
     </main>
   );
