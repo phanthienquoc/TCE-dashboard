@@ -27,6 +27,7 @@ For the current TCE overview, the existing client page and centralized auth/API 
 Rendering choice and data-cache policy are separate concerns. Do not assume dynamic rendering alone guarantees that every underlying source is fresh.
 
 For account balances, positions, engine status and execution-related data:
+
 - define an explicit freshness policy;
 - preserve account/environment scope;
 - validate data at runtime boundaries;
@@ -60,13 +61,13 @@ Do not place API credentials, access tokens, OTPs, private keys or other secrets
 
 ## Senior-level trade-offs
 
-| Decision | Benefit | Trade-off / risk |
-| --- | --- | --- |
-| Server Component for initial data | Keeps suitable logic/data access on server and can reduce client JS | Must design auth/session propagation and freshness correctly |
-| Client Component for chart and live interactions | Supports browser APIs, user interaction and WebSocket lifecycle | Adds client JavaScript and requires cleanup/error handling |
-| Shared layout/shell | Preserves navigation and common UI across routes | Too much state in the shell can cause broad coupling |
-| Explicit cache policy | Makes freshness and reuse intentional | `no-store` reduces cache reuse and does not guarantee backend data is current |
-| Server snapshot + WebSocket | Fast initial view plus live updates | Requires ordering, reconnect and snapshot reconciliation |
+| Decision                                         | Benefit                                                             | Trade-off / risk                                                              |
+| ------------------------------------------------ | ------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| Server Component for initial data                | Keeps suitable logic/data access on server and can reduce client JS | Must design auth/session propagation and freshness correctly                  |
+| Client Component for chart and live interactions | Supports browser APIs, user interaction and WebSocket lifecycle     | Adds client JavaScript and requires cleanup/error handling                    |
+| Shared layout/shell                              | Preserves navigation and common UI across routes                    | Too much state in the shell can cause broad coupling                          |
+| Explicit cache policy                            | Makes freshness and reuse intentional                               | `no-store` reduces cache reuse and does not guarantee backend data is current |
+| Server snapshot + WebSocket                      | Fast initial view plus live updates                                 | Requires ordering, reconnect and snapshot reconciliation                      |
 
 ## Verification checklist for changes
 
