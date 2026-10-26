@@ -1,12 +1,24 @@
-## Current task: Durable retry/replay for lifecycle-event publication — 2026-10-25
+## Current task: Durable retry/replay for lifecycle-event publication — updated 2026-10-26
 
-- [x] Verify PR #884 merge SHA `e3e1e06731fa1dcb4d5703e5dd562509eb16a3df` and exact-head CI evidence on `585172e3166994da4b1e026b0cfb38c7ee5270ea`.
-- [x] Verify documentation follow-up PR #885 merge SHA `5b6f4e94d5b940c83f7f534d57e3d49590d7e013` and exact-head CI on `016cbd2083a6853a07159ef980be2ba708f54b37`; [WF-05 run #2107](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/39567687431) and [WF-02 run #1559](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/39567687358) passed on that exact head.
-- [x] Resolve issue #887's implicit production-release trigger with PRs #888 and #889; current `master` is `a47cc1063354abd2ea58219dd5af570a0a5e2b4a`, and WF-03 has no push trigger.
-- [x] Inspect the monitor snapshot/publisher boundary and read the live snapshot/event catalog without writes; see TCE-RUNTIME-001A in `plan/agentic-task-queue.md`.
-- [ ] Define and validate the additive replay metadata/atomic outbox contract in an approved non-production environment. The live snapshot table lacks `position_id` and `correlation_id`, and the event table/migration is absent from the inspected live catalog/ledger; do not infer that the checked-in migration is deployed.
-- Next dependency-safe implementation task: TCE-RUNTIME-001 — durable retry/replay for failed cross-database lifecycle-event publication. Preserve stable event identity, idempotent consumers, bounded retry/dead-letter behavior, and never turn a monitor signal into a broker command.
-- Safety: no production migration/deployment; LIVE trading remains disabled. Production release requires explicit manual WF-03 dispatch; do not dispatch it without separate release authorization.
+- [x] Verify PR #884/#885 historical merge and CI evidence; the separate identity task remains completed.
+- [x] Inspect the current monitor snapshot/publisher boundary, live snapshot schema and migration ledger.
+- [x] Apply additive Supabase migration `20261026033600 tce_monitor_event_replay_contract` to connected project `gtqovpusfyyvxpeezxlo`; source artifact is `supabase/migrations/20261026033600_tce_monitor_event_replay_contract.sql`.
+- [x] Verify the `tce_runtime_events` event store, `tce_monitor_event_replay` queue, `position_id/correlation_id/event_occurred_at` snapshot columns, RLS/grants and enabled enqueue trigger via read-only catalog queries.
+- [x] Implement durable queue replay with deterministic event IDs, compare-and-set outcome updates, bounded exponential backoff, safe error-code storage and dead-letter status after eight attempts.
+- [x] Add focused unit tests for successful replay, retry timing/redaction, terminal dead-letter state, replay-store query failure, and immediate publish failure.
+- [ ] Run exact-head Prettier, service unit tests, typecheck and build via PR CI; inspect the Supabase integration result after the source migration reaches master.
+- [ ] Verify post-merge default branch at merge SHA and confirm the source migration ledger entry is consistent. Do not dispatch a production release as part of this task.
+
+### Current schema and runtime contract
+
+- The migration is additive and does not change `tce_positions`, `tce_orders`, `tce_strategy_config`, cashout rows, LIVE-mode flags or existing account data.
+- `tce_position_snapshots` stores `position_id`, `correlation_id`, and `event_occurred_at` for new monitor snapshots. An `AFTER INSERT` trigger atomically creates `tce_monitor_event_replay` rows only when all three fields are present; older/legacy inserts without them remain unaffected.
+- `tce_monitor_event_replay` is server-only (RLS enabled, privileges granted only to `service_role`) and stores state/attempts/next-attempt/error-code/delivery/dead-letter timestamps. It does not store raw error messages.
+- The replay worker reads up to 100 due rows on each monitor run. Failed attempts back off from 5 seconds, doubling to a maximum of 15 minutes, and stop automatically after eight attempts in `dead_letter`. If event insertion succeeds but queue-state update fails, replay uses the same stable event ID; the `tce_runtime_events.event_id` primary key makes the duplicate idempotent.
+- Queue-store query failures remain best-effort and do not abort the monitor run. The monitor scheduler remains opt-in through `TCE_MONITOR_SCHEDULER_ENABLED`; this PR does not enable it or dispatch a production deployment.
+- Supabase ledger version `20261026033600` and a read-only `pg_trigger` query confirm the migration and trigger are present. Branch metadata still reports `MIGRATIONS_FAILED`; that status is inconsistent with the observed ledger/catalog result and should be tracked separately, not interpreted as proof the direct migration failed.
+- Schema was applied to the connected shared project at the owner's direction. Its production/non-production classification was not inferred from repo placeholders. No application image was published/deployed, no live order was placed, and no position/order/config rows were read or changed by the migration.
+
 
 ## PR #884 — merged failure-path checklist evidence — 2026-10-21
 
