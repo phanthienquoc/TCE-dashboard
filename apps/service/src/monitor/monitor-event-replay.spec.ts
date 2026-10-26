@@ -4,6 +4,7 @@ import type { TceEventPublisherPort } from '@tce/contracts';
 import {
   publishMonitorSnapshotWithReplay,
   replayPendingMonitorSnapshotEvents,
+  safeReplayErrorCode,
 } from './monitor-event-replay.js';
 
 const now = new Date('2026-10-26T04:00:00.000Z');
@@ -224,4 +225,40 @@ test('records an immediate monitor publish failure in the already-enqueued repla
   assert.equal(calls.updates[0].next_attempt_at, '2026-10-26T04:00:05.000Z');
   assert.equal(calls.updates[0].last_error_code, 'Error');
   assert.equal(JSON.stringify(calls.updates).includes('private transport detail'), false);
+});
+
+
+test('dead-letters an invalid event identity without publishing it', async () => {
+  const invalidRow = { ...row, event_id: 'not-the-snapshot-event' };
+  const { db, calls } = makeDb({ data: [invalidRow], error: null });
+  const { publisher, published } = makePublisher(async () => {});
+  const result = await replayPendingMonitorSnapshotEvents(db, publisher, () => {}, now);
+
+  assert.equal(result.scanned, 1);
+  assert.equal(result.deadLettered, 1);
+  assert.equal(published.length, 0);
+  assert.equal(calls.updates[0].state, 'dead_letter');
+  assert.equal(calls.updates[0].last_error_code, 'INVALID_REPLAY_PAYLOAD');
+});
+
+test('does not claim delivery when compare-and-set loses a concurrent state update', async () => {
+  const { db, calls } = makeDb(
+    { data: [row], error: null },
+    { data: null, error: null }
+  );
+  const { publisher, published } = makePublisher(async () => {});
+  const result = await replayPendingMonitorSnapshotEvents(db, publisher, () => {}, now);
+
+  assert.equal(published.length, 1);
+  assert.equal(result.scanned, 1);
+  assert.equal(result.delivered, 0);
+  assert.equal(result.retried, 0);
+  assert.equal(result.deadLettered, 0);
+  assert.equal(calls.updates.length, 1);
+});
+
+test('sanitizes error codes and never includes arbitrary messages', () => {
+  assert.equal(safeReplayErrorCode({ code: '42501', message: 'private detail' }), '42501');
+  assert.equal(safeReplayErrorCode(new Error('token=secret')), 'Error');
+  assert.equal(safeReplayErrorCode({ code: 'not a code', message: 'private detail' }), 'PUBLISH_FAILED');
 });
