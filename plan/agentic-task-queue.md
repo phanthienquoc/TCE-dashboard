@@ -1,9 +1,9 @@
 # TCE Dashboard — Agent Task Queue
 
-**Last audited:** 2026-10-26 16:13 +07:00  
+**Last audited:** 2026-10-26 19:25 +07:00  
 **Default branch checkpoint:** `master` audited on 2026-10-26. The latest functional/schema merge tracked by this queue is TCE-SEC-001/TCE-RUNTIME-001 at `ccaccb6b6131665e317774dfc8742b480972a316`; subsequent queue-checkpoint commits are documentation-only. Consult Git history for the exact current `master` SHA.  
 **Queue convention:** This repository has a mature `plan/` directory but no existing `docs/agentic/` queue. This file follows the current `plan/` convention and supplements, rather than replaces, canonical phase plans/issues.  
-**Safety:** No production application release, live orders, or LIVE-mode enablement are part of this queue. The owner explicitly classified the shared Supabase project as private production in prior instructions on 2026-10-26. No production migration/deploy, live trading action, or Supabase branch operation is authorized by this task. The only listed Supabase branch is non-persistent main / Git master with MIGRATIONS_FAILED; the GitHub integration target/deploy-to-production toggle remains unverified.
+**Safety:** Owner/admin confirmed on 2026-10-26 that shared project `gtqovpusfyyvxpeezxlo` is non-production and authorized scoped Supabase actions for these two repositories. Historical `env=prod` telemetry and earlier TCE wording are not environment blockers. Project API `ACTIVE_HEALTHY` and default non-persistent branch `MIGRATIONS_FAILED` remain separate diagnostics. No production application release, live orders, LIVE-mode changes, unrelated-repository changes or potentially billable Supabase branch creation without `get_cost` and explicit cost approval.
 
 ## Queue rules
 
@@ -88,6 +88,25 @@
 - **Dependencies:** Product decision on public access, authoritative migration provenance, verified integration/deploy settings and the owner-confirmed non-production target.
 - **Risk:** High — a SECURITY DEFINER view with public SELECT can bypass underlying RLS intent even when its selected columns are market data.
 - **Links:** [Source view migration](../supabase/migrations/202609160003_dividend_current_price_ohlcv_fallback.sql), [service repository](../apps/service/src/stock-events/stock-events.supabase.repository.ts), [Supabase security-definer-view advisor](https://supabase.com/docs/guides/observability/advisors?queryGroups=lint&lint=0010_security_definer_view), [Supabase RLS documentation](https://supabase.com/docs/guides/database/postgres/row-level-security).
+
+### TCE-SEC-004 — Remove public access to account-specific cashout events
+
+- **Priority/status:** P0 / FIX APPLIED TO OWNER-CONFIRMED NON-PRODUCTION; POST-APPLY ACCESS CHECKS PASS; CI PENDING — migration source `supabase/migrations/20261026122224_revoke_public_cashout_event_access.sql` matches Supabase ledger version `20261026122224 revoke_public_cashout_event_access`. Implementation is in [PR #925](https://github.com/phanthienquoc/TCE-dashboard/pull/925).
+- **Evidence:** Pre-change catalog confirmed RLS enabled plus public policy `tce_cashout_events_read` (`roles={public}, cmd=SELECT, qual=true`) and direct grants to `anon`/`authenticated` for SELECT and DML. Repository search found one runtime consumer, the NestJS monitor insert in `apps/service/src/monitor/tce-monitor.service.ts`; no frontend direct query was found.
+- **Current behavior:** The live policy is removed. `anon` and `authenticated` no longer have SELECT/INSERT/UPDATE/DELETE/TRUNCATE. `service_role` and `postgres` keep existing privileges for the monitor/server path. RLS remains enabled. No data rows were queried or changed.
+- **Desired behavior:** Cashout lifecycle rows remain server-owned and browser roles cannot read or mutate account-specific cashflow/P&L data. API access, when needed, must pass through NestJS with explicit authorization and field allowlists.
+- **Acceptance criteria:**
+  - [x] Inspect live policy, grants, table schema, and exact source call sites before changing access.
+  - [x] Add a new idempotent source migration aligned with the live ledger version; do not reconstruct missing historical migration SQL.
+  - [x] Apply the scoped policy/grant migration to the owner-confirmed non-production project `gtqovpusfyyvxpeezxlo` using connected Supabase tools.
+  - [x] Re-query `pg_policies` and role privileges: no cashout policy remains; `anon`/`authenticated` SELECT and DML checks are false; server-role privileges remain.
+  - [x] Add source-level migration contract test at `apps/service/src/monitor/tce-cashout-access-migration.spec.ts`.
+  - [ ] Pass exact-head WF-02/WF-05 and inspect test output.
+  - [ ] Confirm post-merge default branch SHA and re-run catalog/advisor checks.
+- **Validation:** Supabase ledger records `20261026122224 revoke_public_cashout_event_access`. Post-apply catalog returned no policies for `tce_cashout_events`; privileges are false for anon/authenticated SELECT, INSERT, UPDATE, DELETE and TRUNCATE, true for service_role/postgres. Security Advisor now intentionally reports one additional `rls_enabled_no_policy` finding for this server-owned table; do not add a public policy just to silence it. Current auth RPC grants remain server-role-only. No cashout rows, orders, positions, strategy configuration, engine state or LIVE flags were accessed or changed.
+- **Dependencies:** TCE monitor keeps using the existing server-side service-role client. No UI/API redesign is required for the database boundary fix.
+- **Risk:** High before remediation. Public read path is closed on the owner-confirmed non-production project; service-side runtime smoke remains a source/CI acceptance task. No production app release, live trading or order placement occurred.
+- **Links:** [PR #925](https://github.com/phanthienquoc/TCE-dashboard/pull/925), [source migration](../supabase/migrations/20261026122224_revoke_public_cashout_event_access.sql), [migration contract test](../apps/service/src/monitor/tce-cashout-access-migration.spec.ts), [Supabase API security](https://supabase.com/docs/guides/api/securing-your-api).
 
 ### TCE-RUNTIME-001 — Durable retry/replay for lifecycle event publication
 
