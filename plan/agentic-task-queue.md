@@ -3,7 +3,7 @@
 **Last audited:** 2026-10-26 15:22 +07:00  
 **Default branch checkpoint:** `master` audited on 2026-10-26. The latest functional/schema merge tracked by this queue is TCE-SEC-001/TCE-RUNTIME-001 at `ccaccb6b6131665e317774dfc8742b480972a316`; subsequent queue-checkpoint commits are documentation-only. Consult Git history for the exact current `master` SHA.  
 **Queue convention:** This repository has a mature `plan/` directory but no existing `docs/agentic/` queue. This file follows the current `plan/` convention and supplements, rather than replaces, canonical phase plans/issues.  
-**Safety:** No production application release, live orders, or LIVE-mode enablement are part of this queue. The owner explicitly classified the shared Supabase project as private production at 2026-10-26T03:47Z. No production migration/deploy, live trading action, or Supabase branch operation is authorized by this task. The only listed Supabase branch is non-persistent main / Git master with MIGRATIONS_FAILED; the GitHub integration target/deploy-to-production toggle remains unverified.
+**Safety:** No production application release, live orders, or LIVE-mode enablement are part of this queue. The owner explicitly classified the shared Supabase project as private production in prior instructions on 2026-10-26. No production migration/deploy, live trading action, or Supabase branch operation is authorized by this task. The only listed Supabase branch is non-persistent main / Git master with MIGRATIONS_FAILED; the GitHub integration target/deploy-to-production toggle remains unverified.
 
 ## Queue rules
 
