@@ -1,7 +1,7 @@
 # TCE Dashboard — Agent Task Queue
 
 **Last audited:** 2026-10-26  
-**Default branch snapshot:** `master` at `ccaccb6b6131665e317774dfc8742b480972a316` after TCE-RUNTIME-001 merge verification on 2026-10-26.  
+**Default branch snapshot:** `master` at `6e75c0bccee0d992152a7274a117b254c3f36237` after docs PR #911 merged on 2026-10-26; TCE-SEC-001 and TCE-RUNTIME-001 source changes remain merged at `ccaccb6b6131665e317774dfc8742b480972a316`.  
 **Queue convention:** This repository has a mature `plan/` directory but no existing `docs/agentic/` queue. This file follows the current `plan/` convention and supplements, rather than replaces, canonical phase plans/issues.  
 **Safety:** No production application release, live orders, or LIVE-mode enablement are part of this queue. This queue records previously authorized, scoped schema work only; it does not authorize future migration applies, Supabase branch creation/merge, production data/schema changes, app releases, or trading actions. The connected project's environment classification remains unverified and its branch metadata reports `MIGRATIONS_FAILED`.
 
