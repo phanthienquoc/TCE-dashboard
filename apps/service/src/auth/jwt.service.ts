@@ -12,11 +12,17 @@ export interface AccessClaims {
 
 @Injectable()
 export class JwtService {
-  private readonly secret = process.env.JWT_SECRET || 'CHANGE_ME_IN_ENV';
+  private get secret(): string {
+    const value = process.env.JWT_SECRET;
+    if (!value || value === 'CHANGE_ME_IN_ENV' || Buffer.byteLength(value) < 32) {
+      throw new Error('JWT_SECRET must be configured with at least 32 bytes');
+    }
+    return value;
+  }
   private readonly ttl = Number(process.env.JWT_ACCESS_TTL_SECONDS || 900);
 
   issue(userId: string, role: string): string {
-    if (this.secret === 'CHANGE_ME_IN_ENV') throw new Error('JWT_SECRET is required');
+    const secret = this.secret;
     const header = this.b64(JSON.stringify({ alg: 'HS256', typ: 'JWT' }));
     const now = Math.floor(Date.now() / 1000);
     const payload = this.b64(
@@ -30,13 +36,14 @@ export class JwtService {
       })
     );
     const body = `${header}.${payload}`;
-    return `${body}.${this.sign(body)}`;
+    return `${body}.${this.sign(body, secret)}`;
   }
 
   verify(token: string): AccessClaims {
     try {
+      const secret = this.secret;
       const [h, p, s] = token.split('.');
-      if (!h || !p || !s || !this.safeEqual(this.sign(`${h}.${p}`), s))
+      if (!h || !p || !s || !this.safeEqual(this.sign(`${h}.${p}`, secret), s))
         throw new UnauthorizedException('Invalid token');
       const claims = JSON.parse(Buffer.from(p, 'base64url').toString()) as AccessClaims;
       if (
@@ -53,8 +60,8 @@ export class JwtService {
       throw new UnauthorizedException('Invalid token');
     }
   }
-  private sign(value: string) {
-    return createHmac('sha256', this.secret).update(value).digest('base64url');
+  private sign(value: string, secret: string) {
+    return createHmac('sha256', secret).update(value).digest('base64url');
   }
   private b64(value: string) {
     return Buffer.from(value).toString('base64url');
