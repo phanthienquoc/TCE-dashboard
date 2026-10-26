@@ -93,5 +93,6 @@ jobs:
           path: |
             artifacts/mobile-landscape/*.png
             artifacts/mobile-landscape-app/*.png
+            artifacts/pools-mobile/*.png
           if-no-files-found: ignore
           retention-days: 7
