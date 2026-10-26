@@ -4,7 +4,10 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 const migration = readFileSync(
-  join(__dirname, '../../../../supabase/migrations/20261026122224_revoke_public_cashout_event_access.sql'),
+  join(
+    __dirname,
+    '../../../../supabase/migrations/20261026122224_revoke_public_cashout_event_access.sql',
+  ),
   'utf8',
 );
 
@@ -23,6 +26,12 @@ test('TCE-SEC-004 migration removes public policy and browser grants only', () =
   );
 
   const sql = migration.replace(/--[^\n]*/g, '');
-  assert.doesNotMatch(sql, /\b(insert\s+into|update\s+public\.tce_cashout_events|delete\s+from\s+public\.tce_cashout_events|truncate\s+public\.tce_cashout_events)\b/i);
-  assert.doesNotMatch(sql, /\bgrant\s+[^;]*\b(public|anon|authenticated)\b/i);
+  assert.doesNotMatch(
+    sql,
+    /\b(insert\s+into|update\s+public\.tce_cashout_events|delete\s+from\s+public\.tce_cashout_events|truncate\s+public\.tce_cashout_events)\b/i,
+  );
+  assert.doesNotMatch(
+    sql,
+    /\bgrant\s+[^;]*\b(public|anon|authenticated)\b/i,
+  );
 });
