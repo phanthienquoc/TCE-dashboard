@@ -34,7 +34,7 @@
 
 ### TCE-AUTH-003 — Exact-head frontend build gate for Keycloak signature fix
 
-- **Priority/status:** P1 / IMPLEMENTED IN PR #927; exact-head frontend build running.
+- **Priority/status:** P1 / CODE + SECRET-FREE FRONTEND BUILD GATE VALIDATED on code/test/workflow head `83d53ce3446ab7d342274d909630954ebf069d4f`; later queue evidence is documentation-only.
 - **Evidence:** `.github/workflows/wf-01-tce-build-verify.yml` runs on master pushes/manual dispatch and exposes production secrets to its validation step, so it is not appropriate to broaden that job directly to untrusted PR code. The Keycloak signature fix changes `apps/web/lib/keycloak-sso.ts`, and its required frontend build had not run on the PR head.
 - **Current behavior:** PR #927 had passing WF-02/WF-05 checks, but no exact-head Next.js build; the previous production-branch build failed on the TypeScript `BufferSource` mismatch.
 - **Desired behavior:** Validate frontend TypeScript/build on web-affecting PRs without exposing production secrets or publishing/deploying images.
@@ -42,9 +42,9 @@
   - [x] Add a separate `WF-01P TCE Web Pull Request Build` workflow with `contents: read` only.
   - [x] Scope it to web/package/build-workflow paths and `pull_request` to `master`.
   - [x] Run `npm ci` and `npm run build:web` without production secrets, image publication, deployment, migration, or GitOps dispatch.
-  - [ ] Exact-head WF-01P build succeeds for PR #927.
-  - [ ] WF-02 and WF-05 succeed on the final PR head.
-- **Validation:** WF-01P run [#40378604375](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/40378604375), WF-02 [#40378603953](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/40378603953), and WF-05 [#40378604122](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/40378604122) were in progress at the checkpoint. The existing WF-03 release remains `workflow_dispatch`-only and was not dispatched.
+  - [x] WF-01P frontend build succeeded on code/test/workflow head `83d53ce3446ab7d342274d909630954ebf069d4f`.
+  - [x] WF-02 and WF-05 succeeded on code/test/workflow head `83d53ce3446ab7d342274d909630954ebf069d4f`.
+- **Validation:** Exact code/test/workflow head `83d53ce3446ab7d342274d909630954ebf069d4f` passed WF-01P frontend build [#40378704812](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/40378704812), WF-02 Prettier [#40378704809](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/40378704809), and WF-05 backend tests [#40378704830](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/40378704830). The subsequent queue update changes only Markdown; the existing WF-03 release remains `workflow_dispatch`-only and was not dispatched.
 - **Dependencies:** PR #927's Keycloak signature-buffer fix and exact-head CI.
 - **Risk:** Low/medium — additive CI-only workflow; no secret access or production side effects. Supabase GitHub integration target remains a separate merge gate.
 - **Links:** [PR #927](https://github.com/phanthienquoc/TCE-dashboard/pull/927), [WF-01P run](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/40378604375), [WF-03 production workflow](../.github/workflows/wf-03-tce-production-deploy.yml).
