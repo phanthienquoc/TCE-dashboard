@@ -92,13 +92,29 @@
 - **Current behavior:** Chromium passed the 390×844 portrait Pools case and the existing Positions viewport checks, but failed at `apps/web/scripts/pools-mobile-app.test.mjs:243` for 844×430: computed `rotationColumns` was 3 instead of 2. The branch contains a page-scoped `.tce-pools-view .tce-rotation-kpis` two-column override in `apps/web/app/mobile-command-center-fix.css` under the 600–950px width media query, yet the runtime computed style remains three columns. WF-02 Prettier and WF-05 backend unit tests pass on the same PR head.
 - **Desired behavior:** Keep Active Rotation metrics in two columns, with the third metric on the next row; show all three capital pools within the viewport; prevent horizontal overflow and preserve safe-area/bottom-dock spacing.
 - **Acceptance criteria:**
-  - [ ] Capture computed `grid-template-columns`, `matchMedia` state and matched CSS rules at 844×430 before making another CSS change.
-  - [ ] Correct the proven cascade/selector cause without broadening unrelated page styles.
+  - [ ] Correct the proven cascade/selector cause without broadening unrelated page styles, using diagnostics from TCE-UI-003A.
   - [ ] WF-11 passes at 390×844, 844×430 and 844×390; inspect the generated screenshots for the same viewports.
   - [ ] No capital-allocation, API, schema, authentication or trading behavior changes.
 - **Validation:** [WF-11 #40234416071](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/40234416071) failed only at the Pools rotation-column assertion after the portrait case passed. WF-02 and WF-05 passed on PR head `92d1823`. This task records the observed failure; no further blind CSS variants should be tried.
-- **Dependencies:** PR #902 and a focused cascade/matched-rule diagnosis. Existing production-release workflow WF-03 is `workflow_dispatch`-only; ordinary master pushes do not trigger its publish/promotion jobs.
+- **Dependencies:** TCE-UI-003A must capture computed styles, media-query matches and matched CSS rules first. Existing production-release workflow WF-03 is `workflow_dispatch`-only; ordinary master pushes do not trigger its publish/promotion jobs.
 - **Risk:** Low-to-medium UI regression risk; no runtime/trading behavior change intended. Do not merge while WF-11 is failing.
+- **Links:** [PR #902](https://github.com/phanthienquoc/TCE-dashboard/pull/902), [issue #433](https://github.com/phanthienquoc/TCE-dashboard/issues/433), [WF-11 failure](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/40234416071).
+
+### TCE-UI-003A — Diagnose Pools rotation KPI CSS cascade in real Chromium
+
+- **Priority/status:** P1 / OPEN — diagnostic-only slice; do not add another CSS override until the runtime cascade cause is proven.
+- **Evidence:** [PR #902](https://github.com/phanthienquoc/TCE-dashboard/pull/902), exact head `92d182355032b8a2f253d47c0a786b3f5cb284a0`; [WF-11 run #40234416071](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/40234416071). The 844×430 case reports three computed grid columns instead of two.
+- **Current behavior:** `pools-mobile-app.test.mjs` computes the grid and media-query state, but the assertion fails before the media-query state or matched CSS declarations are emitted as useful diagnostics. The page-scoped override is present in `mobile-command-center-fix.css` and that stylesheet is imported by `apps/web/app/layout.tsx`; source inspection alone has not established whether the media query matches, the intended element is targeted, or another declaration wins the cascade.
+- **Desired behavior:** Capture enough real-browser evidence at 844×430 to identify the winning `grid-template-columns` declaration and its selector/media query before changing CSS.
+- **Acceptance criteria:**
+  - [ ] Emit a structured diagnostic before assertions: viewport and DPR, target element/ancestor classes, computed `grid-template-columns`, and `matchMedia` results for the 600–950px and mobile-width queries.
+  - [ ] Use the existing Chromium DevTools Protocol session to record matched CSS rules/declarations for `grid-template-columns` on the actual Active Rotation KPI element; include stylesheet URL and source order where available.
+  - [ ] Preserve the failing two-column assertion; do not weaken or skip it.
+  - [ ] Upload or print diagnostics even when the expected-column assertion fails; keep screenshots for 390×844, 844×430 and 844×390.
+  - [ ] No new dependency, CSS fix, API/schema/auth change, capital-allocation change or trading/order behavior change in this diagnostic slice.
+- **Validation:** Run WF-11 on the diagnostic branch and inspect the exact-head logs/artifacts. The task is complete only when the winning rule and media-query state are evidenced; the visual fix is a separate follow-up.
+- **Dependencies:** Existing TCE-UI-003/PR #902 test contract. No Supabase schema or production environment dependency.
+- **Risk:** Low — test-only diagnostics; avoid logging credentials or real account data.
 - **Links:** [PR #902](https://github.com/phanthienquoc/TCE-dashboard/pull/902), [issue #433](https://github.com/phanthienquoc/TCE-dashboard/issues/433), [WF-11 failure](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/40234416071).
 
 ### TCE-OPS-002 — Make destructive legacy workflow cleanup manual-only
