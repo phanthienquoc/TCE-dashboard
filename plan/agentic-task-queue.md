@@ -1,9 +1,9 @@
 # TCE Dashboard — Agent Task Queue
 
 **Last audited:** 2026-10-26 16:40 +07:00
-**Default branch checkpoint:** `master` audited on 2026-10-26. The latest functional/schema merge tracked by this queue is TCE-SEC-001/TCE-RUNTIME-001 at `ccaccb6b6131665e317774dfc8742b480972a316`; subsequent queue-checkpoint commits are documentation-only. Consult Git history for the exact current `master` SHA.  
+**Default branch checkpoint:** `master` audited on 2026-10-26. The latest schema migration merge tracked by this queue is TCE-SEC-001/TCE-RUNTIME-001 at `ccaccb6b6131665e317774dfc8742b480972a316`; the JWT secret hardening PR #920 merged at `24e972bad13449174d9dde49786303041a1f7a41`. This PR adds a boundary test and queue evidence only; consult Git history for the exact current `master` SHA.  
 **Queue convention:** This repository has a mature `plan/` directory but no existing `docs/agentic/` queue. This file follows the current `plan/` convention and supplements, rather than replaces, canonical phase plans/issues.  
-**Safety:** No production application release, live orders, or LIVE-mode enablement are part of this queue. The owner explicitly classified the shared Supabase project as private production in prior instructions on 2026-10-26. No production migration/deploy, live trading action, or Supabase branch operation is authorized by this task. The only listed Supabase branch is non-persistent main / Git master with MIGRATIONS_FAILED; the GitHub integration target/deploy-to-production toggle remains unverified.
+**Safety:** No production application release, live orders, or LIVE-mode enablement are part of this queue. Environment evidence conflicts: this queue's earlier note said private production, while Authentication's roadmap records owner-confirmed non-production; live logs are tagged `env=prod` on the only listed `main` branch. Treat classification and runtime/integration mapping as unresolved and keep Supabase operations read-only. No production migration/deploy, live trading action, or Supabase branch operation is authorized by this run. The GitHub integration target/deploy-to-production toggle remains unverified.
 
 ## Queue rules
 
