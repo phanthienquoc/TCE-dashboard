@@ -3,7 +3,7 @@
 **Last audited:** 2026-10-26 16:13 +07:00  
 **Default branch checkpoint:** `master` audited on 2026-10-26. The latest functional/schema merge tracked by this queue is TCE-SEC-001/TCE-RUNTIME-001 at `ccaccb6b6131665e317774dfc8742b480972a316`; subsequent queue-checkpoint commits are documentation-only. Consult Git history for the exact current `master` SHA.  
 **Queue convention:** This repository has a mature `plan/` directory but no existing `docs/agentic/` queue. This file follows the current `plan/` convention and supplements, rather than replaces, canonical phase plans/issues.  
-**Safety / environment (latest owner instruction, 2026-10-26):** Treat the shared Supabase project `gtqovpusfyyvxpeezxlo` as non-production. Routine scoped schema/migration work and integration tests may proceed without another user confirmation; do not create a Supabase branch. The only listed branch is non-persistent `main` / Git `master` with `MIGRATIONS_FAILED`, so migration-history drift still requires reconciliation. Production application release, live orders, LIVE-mode enablement, and unrelated destructive operations remain outside this queue.
+**Safety:** No production application release, live orders, or LIVE-mode enablement are part of this queue. The owner explicitly classified the shared Supabase project as private production in prior instructions on 2026-10-26. No production migration/deploy, live trading action, or Supabase branch operation is authorized by this task. The only listed Supabase branch is non-persistent main / Git master with MIGRATIONS_FAILED; the GitHub integration target/deploy-to-production toggle remains unverified.
 
 ## Queue rules
 
@@ -23,24 +23,22 @@
 
 ### TCE-TEST-001 — Restore unit-test discovery in the root test runner
 
-- **Priority/status:** P0 / VALIDATED; **MERGE GATE UPDATED** — the owner-confirmed non-production classification clears the environment gate. Reconcile the unknown GitHub integration/deploy setting and migration-history drift before merging migration-bearing changes; docs-only changes still require workflow side-effect review.
-- **Evidence:** The root package.json matcher was over-escaped and could discover zero ordinary .spec.ts/.test.ts files while exiting successfully. The corrected matcher discovers the intended Node/Vitest files and fails closed on zero discovery. Code/test head `89b73649aecf74de462f6c39d5293a495bc13d37` passed 201 Node tests plus 23 Vitest files / 99 Vitest tests. Latest exact PR head `f43953791a97fbbe374ceb117b876b3108b9e162` passed backend unit tests [#40296128895](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/40296128895) and [#40296135534](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/40296135534); Prettier auto-format passed [#40296135535](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/40296135535). Duplicate jobs are expected from push/PR triggers; all applicable checks on this exact head are green.
-- **Current behavior before fix:** The root test runner could report success without executing tests because both runner groups were empty.
-- **Desired behavior:** Discover intended Node/Vitest tests and fail rather than report success if no test files are discovered.
+- **Priority/status:** P0 / MERGED — [PR #915](https://github.com/phanthienquoc/TCE-dashboard/pull/915) squash-merged at `5fd48ee7fa6b73b41e00e9fe89861574075367d8`; default branch verified at the merge SHA.
+- **Evidence:** `package.json`, this queue, and the exact PR diff. The root test-file matcher was over-escaped and could discover zero ordinary `.spec.ts` / `.test.ts` files while exiting successfully. The corrected matcher discovers the intended Node/Vitest files and fails closed if no tests are found.
+- **Current behavior:** Test discovery is explicit and fails non-zero when discovery is empty; a successful run now requires actual test files.
+- **Desired behavior:** Keep all intended Node and Vitest tests discoverable and prevent false-green empty runs.
 - **Acceptance criteria:**
-  - [x] Correct the filename matcher for .spec.ts and .test.ts.
+  - [x] Correct the filename matcher for `.spec.ts` and `.test.ts`.
   - [x] Fail the test command when no test files are discovered.
   - [x] Validate the root runner: 201 Node tests plus 23 Vitest files / 99 Vitest tests passed on the validated code/test head.
-  - [x] Validate exact PR-head CI: WF-05 backend unit tests and WF-02 Prettier checks succeeded; the latest exact head has passing check runs and skipped duplicate jobs only.
-  - [x] Inspect push-triggered GitHub workflows and confirm WF-03 is workflow_dispatch-only.
-  - [ ] Verify the actual Supabase GitHub integration repository and deploy-to-production setting.
-  - [ ] Reconcile TCE source migration versions against the live ledger from authoritative source before any default-branch push that could invoke Supabase deployment.
-- **Current read-only Supabase evidence (2026-10-26 15:48 +07):** The earlier checkpoint recorded a different environment classification; the latest owner instruction supersedes it and classifies the shared project as non-production. The sole listed project ref is gtqovpusfyyvxpeezxlo (organization jopjvkofwvbnxaajkhlo, region ap-southeast-1), API status ACTIVE_HEALTHY; its only branch is default non-persistent main / Git master with MIGRATIONS_FAILED. The project API does not expose which GitHub repository is connected or whether Deploy to production is enabled. The live ledger now has 77 entries; a new remote version `20261026084506 auth_admin_user_lifecycle_rpcs` is associated with Authentication User Management, not a TCE source migration. TCE master still has 35 migration files, of which 30/35 version prefixes do not exactly match a ledger version (11 same-name migrations have different versions; 19 have no exact name match). Duplicate local prefixes exist for 202609070001 (2), 202609140001 (2), 202609160002 (2), and 202609160003 (4). These mismatches are not proof that any source migration should be applied; do not repair history by guessing. No TCE schema change was performed in this run.
-- **Pre-merge workflow side-effect gate (verified on current master):** WF-03 has only workflow_dispatch and its jobs publish production images and request GitOps promotion, so a merge does not dispatch WF-03. WF-04 runs after WF-03 completion or manual dispatch only. WF-01 matches package.json pushes to master but only builds local images and validates configuration; it does not publish/deploy. WF-05 and WF-02 run tests/formatting. WF-08B is filtered to microfe/** and its own workflow, which this PR does not change; WF-11 path filters also do not match. WF-06/07 are scheduled/manual and not triggered by this merge; the scheduled order integration uses Binance Testnet, while the order job is manual-dispatch-only. These workflow checks do not resolve the separate Supabase GitHub integration risk.
-- **Why merge remains blocked:** Current Supabase documentation states the GitHub integration watches repository commits and automatically runs migrations; if Deploy to production is enabled, pushes/merges can apply migrations to the main project. The connected repository and setting cannot be verified from the available project metadata, while migration drift is significant; the owner has since explicitly classified this target as non-production and authorized scoped operations. Therefore do not merge this PR yet, even though its source diff is limited to package.json and a task queue. No Supabase branch/migration apply, production deploy, or live order was performed.
-- **Validation links:** [WF-05 exact-head #40293119575](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/40293119575), [WF-02 exact-head #40293119549](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/40293119549), [Supabase GitHub integration docs](https://supabase.com/docs/guides/deployment/branching/github-integration), [Supabase branching docs](https://supabase.com/docs/guides/deployment/branching).
-- **Dependencies:** Root test-runner fix; Supabase integration/deploy-target verification; authoritative migration provenance; exact-head CI.
-- **Risk:** Critical — a default-branch push may invoke an external Supabase integration and apply pending source migrations to the owner's non-production project.
+  - [x] Exact-head WF-05 Backend Unit Tests passed: [run #40296297566](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/40296297566).
+  - [x] Exact-head WF-02 Prettier passed: [run #40296297487](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/40296297487).
+  - [x] Inspect push-triggered workflows: WF-03 is `workflow_dispatch`-only and was not dispatched; WF-01 builds local images and validates configuration without publishing or deploying.
+  - [x] Verify default branch at merge SHA `5fd48ee7fa6b73b41e00e9fe89861574075367d8`.
+- **Validation:** Post-merge compare reports `master` identical to merge SHA `5fd48ee7fa6b73b41e00e9fe89861574075367d8`. No application release, production rollout, LIVE-mode change, or order submission was performed.
+- **Dependencies:** None.
+- **Risk:** Low — root test runner and queue only; no trading/runtime logic or Supabase migration source changed. The connected Supabase branch status and migration-history reconciliation remain tracked separately; no Supabase branch was created.
+- **Links:** [PR #915](https://github.com/phanthienquoc/TCE-dashboard/pull/915), [merge commit](https://github.com/phanthienquoc/TCE-dashboard/commit/5fd48ee7fa6b73b41e00e9fe89861574075367d8), [WF-05](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/40296297566), [WF-02](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/40296297487).
 
 ### TCE-SEC-001 — Remove public read and destructive browser grants on position snapshots
 
@@ -54,7 +52,7 @@
   - [x] Recheck `pg_policies` and `has_table_privilege` after the migration; confirm no browser/public privilege remains and service-role access remains.
   - [x] Confirm the migration contains no DML against position/account data and no order/engine/LIVE changes.
   - [x] Verify post-merge backend unit tests, Build+Verify and push-format checks on `ccaccb6b6131665e317774dfc8742b480972a316`.
-  - [ ] Run end-to-end smoke only against an explicitly identified, approved non-production target; the owner has classified the connected project as non-production.
+  - [ ] Run end-to-end smoke only against an explicitly identified, approved non-production target; the connected project is not classified as non-production.
 - **Validation:** Supabase `apply_migration` succeeded; ledger lists `20261026034917 revoke_public_snapshot_access`. Read-only `has_table_privilege` returned false for anon/authenticated SELECT, INSERT, UPDATE, DELETE and TRUNCATE, while service_role/postgres retained privileges. A separate `pg_policies` query returned no policies. The latest read-only security-advisor result reports 34 project-wide `rls_enabled_no_policy` findings. This is a shared-project count across multiple schemas, not a TCE-only count. The scoped post-apply catalog still confirms no public/browser grants or policies on this server-owned snapshot table; do not add a public policy to silence the advisor.
 - **Dependencies:** Current monitor uses the server-side Supabase service-role client. End-to-end service smoke remains part of required CI/integration validation; the app has not been deployed.
 - **Risk:** Previously critical exposure is mitigated at the database grant/policy layer. Remaining risk is an untracked external consumer outside the two authorized repositories that expects browser access; the existing source inventory found none.
@@ -94,7 +92,7 @@
   - [x] Record attempt count, next-attempt time, safe error code, successful delivery time, and dead-letter time; backoff is capped at 15 minutes and auto-replay stops after eight attempts.
   - [x] Keep replay-store query failures best-effort so an unavailable replay queue does not block the monitor run.
   - [x] Verify post-merge backend unit tests, Build+Verify and push-format checks on `ccaccb6b6131665e317774dfc8742b480972a316`; these workflows do not expose a separate typecheck step.
-  - [ ] Run end-to-end replay smoke only against an explicitly identified, approved non-production target; the owner has classified the connected project as non-production.
+  - [ ] Run end-to-end replay smoke only against an explicitly identified, approved non-production target; the connected project is not classified as non-production.
   - [x] Do not modify order dispatch, strategy configuration, positions, cashouts, or LIVE-mode flags; no production app release or live order was initiated.
 - **Validation:** Supabase `apply_migration` succeeded for versions `20261026033600 tce_monitor_event_replay_contract` and `20261026034559 tce_monitor_event_least_privilege`. Read-only catalog queries verified the event/replay tables and snapshot metadata columns; `pg_trigger` shows the enqueue trigger enabled; ACL query confirms `service_role` has SELECT/INSERT on `tce_runtime_events` and SELECT/UPDATE on the replay queue, with no public/anon/authenticated grants. Post-merge checks passed on `master` merge commit `ccaccb6b6131665e317774dfc8742b480972a316`: [backend unit tests](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/40266723683/job/121390638255), [Build+Verify](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/40266723697/job/121390638121), and [push-format check](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/40266723701/job/121390638376). WF-03 was not dispatched; the Supabase main branch remains `MIGRATIONS_FAILED` and environment classification is unresolved.
 - **Dependencies:** Current monitor/event envelope and existing Supabase publisher. The project branch metadata still reports `MIGRATIONS_FAILED`, but the migration ledger, object catalog and trigger query agree that the applied schema exists; track the status inconsistency rather than treating the apply as failed. The service rollout remains separate and is not performed by this PR.
@@ -233,6 +231,24 @@
 - **Sources:** [WF-00 workflow](https://github.com/phanthienquoc/TCE-dashboard/blob/master/.github/workflows/wf-00-tce-legacy-actions-cleanup.yml), [PR #894](https://github.com/phanthienquoc/TCE-dashboard/pull/894), [PR #892](https://github.com/phanthienquoc/TCE-dashboard/pull/892).
 
 ## Completed / resolved audit items
+
+### TCE-SEC-003 — Fail closed when JWT_SECRET is missing or weak
+
+- **Priority/status:** P1 / IMPLEMENTED IN DRAFT PR #920 — exact-head CI pending; default-branch merge remains blocked by the shared private-production Supabase integration gate.
+- **Evidence:** On master `apps/service/src/auth/jwt.service.ts` initializes its signing secret as `process.env.JWT_SECRET || 'CHANGE_ME_IN_ENV'`. `issue()` rejects the placeholder, but `verify()` uses the same signer without validating the configuration. The service's bearer-token consumers call `JwtService.verify`; the platform-session middleware skips cookie introspection when an Authorization header is already present. If `JWT_SECRET` is missing, a valid unexpired JWT signed with the public placeholder can therefore pass signature and claim checks. WF-01 checks secret presence when that workflow runs, but runtime verification must fail closed independently.
+- **Current behavior:** The draft fix replaces the fallback with a validated getter requiring a configured, non-placeholder secret of at least 32 bytes for both issue and verify paths. Missing/placeholder/short-secret verification is normalized to Unauthorized; token issuance refuses invalid configuration. It adds `apps/service/src/auth/jwt.service.spec.ts` coverage for placeholder-signed forgery, missing/weak secrets, and valid issue/verify.
+- **Desired behavior:** Never authenticate a bearer token using a public/default signing key or a weak secret; keep runtime authentication fail-closed even if a deployment validation workflow was skipped.
+- **Acceptance criteria:**
+  - [x] Reproduce the fail-open path from source: placeholder fallback is used by verify while issue alone checks it.
+  - [x] Add a dedicated Node test that proves a placeholder-signed token is rejected when `JWT_SECRET` is missing.
+  - [x] Reject placeholder and secrets shorter than 32 bytes on both issue and verify paths in the draft branch.
+  - [ ] Pass exact-head WF-05 backend tests and applicable type/build checks.
+  - [ ] Inspect full diff and confirm no token format, TTL, cookie, MFA/passkey, trading, database or deployment behavior changed beyond secret validation.
+  - [ ] Keep merge blocked until the private-production Supabase integration/deploy target is independently verified; no production rollout is authorized by this task.
+- **Validation:** Draft [PR #920](https://github.com/phanthienquoc/TCE-dashboard/pull/920) contains only `apps/service/src/auth/jwt.service.ts` and `apps/service/src/auth/jwt.service.spec.ts`. CI is pending at this checkpoint. No secret values were read, emitted or changed; no deployment, migration, account mutation or trading action occurred.
+- **Dependencies:** Exact-head CI, review of all bearer-token call sites, and the shared Supabase integration/deploy gate.
+- **Risk:** High — a missing runtime JWT secret could otherwise permit forged bearer tokens across TCE service routes.
+- **Links:** [PR #920](https://github.com/phanthienquoc/TCE-dashboard/pull/920), [JWT service](../apps/service/src/auth/jwt.service.ts), [JWT regression tests](../apps/service/src/auth/jwt.service.spec.ts), [central Auth JWT secret contract](https://github.com/phanthienquoc/phanthienquoc-authentication/blob/master/src/auth/jwt.service.ts).
 
 ### TCE-OPS-001 — Require explicit manual production release dispatch
 
