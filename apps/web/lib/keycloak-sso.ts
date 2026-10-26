@@ -43,12 +43,68 @@ async function challengeFor(verifier: string): Promise<string> {
     .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
 }
 
-function decodeJwtPayload(token: string): Record<string, unknown> {
-  const part = token.split('.')[1];
-  if (!part) throw new Error('Invalid identity token returned by Keycloak');
-  const base64 = part.replace(/-/g, '+').replace(/_/g, '/');
-  const bytes = Uint8Array.from(atob(base64.padEnd(Math.ceil(base64.length / 4) * 4, '=')), c => c.charCodeAt(0));
-  return JSON.parse(new TextDecoder().decode(bytes)) as Record<string, unknown>;
+function decodeBase64Url(value: string): Uint8Array {
+  const base64 = value.replace(/-/g, '+').replace(/_/g, '/');
+  return Uint8Array.from(
+    atob(base64.padEnd(Math.ceil(base64.length / 4) * 4, '=')),
+    character => character.charCodeAt(0)
+  );
+}
+
+function decodeJwtPart(value: string): Record<string, unknown> {
+  return JSON.parse(new TextDecoder().decode(decodeBase64Url(value))) as Record<string, unknown>;
+}
+
+async function verifyIdToken(token: string, cfg: ReturnType<typeof config>, expectedNonce: string) {
+  const parts = token.split('.');
+  if (parts.length !== 3) throw new Error('Invalid identity token returned by Keycloak');
+  const header = decodeJwtPart(parts[0]);
+  const claims = decodeJwtPart(parts[1]);
+  if (header.alg !== 'RS256' || typeof header.kid !== 'string') {
+    throw new Error('Unsupported Keycloak identity-token signing algorithm');
+  }
+
+  const jwksResponse = await fetch(`${cfg.issuer}/protocol/openid-connect/certs`, {
+    cache: 'no-store',
+  });
+  if (!jwksResponse.ok) throw new Error('Unable to verify the Keycloak identity token');
+  const jwks = await jwksResponse.json() as { keys?: Array<JsonWebKey & { kid?: string; alg?: string; use?: string }> };
+  const key = jwks.keys?.find(candidate =>
+    candidate.kid === header.kid && candidate.kty === 'RSA' &&
+    (!candidate.alg || candidate.alg === 'RS256') && (!candidate.use || candidate.use === 'sig')
+  );
+  if (!key) throw new Error('Unable to verify the Keycloak identity token');
+
+  const publicKey = await crypto.subtle.importKey(
+    'jwk',
+    key,
+    { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' },
+    false,
+    ['verify']
+  );
+  const validSignature = await crypto.subtle.verify(
+    'RSASSA-PKCS1-v1_5',
+    publicKey,
+    decodeBase64Url(parts[2]),
+    new TextEncoder().encode(`${parts[0]}.${parts[1]}`)
+  );
+  const audience = claims.aud;
+  const audienceMatches = audience === cfg.clientId ||
+    (Array.isArray(audience) && audience.includes(cfg.clientId));
+  const now = Math.floor(Date.now() / 1000);
+  if (
+    !validSignature ||
+    claims.iss !== cfg.issuer ||
+    !audienceMatches ||
+    (Array.isArray(audience) && audience.length > 1 && claims.azp !== cfg.clientId) ||
+    (typeof claims.azp === 'string' && claims.azp !== cfg.clientId) ||
+    claims.nonce !== expectedNonce ||
+    typeof claims.sub !== 'string' ||
+    typeof claims.exp !== 'number' || claims.exp <= now ||
+    typeof claims.iat !== 'number' || claims.iat > now + 60
+  ) {
+    throw new Error('Keycloak identity-token validation failed');
+  }
 }
 
 export async function beginKeycloakLogin(): Promise<void> {
@@ -115,8 +171,7 @@ export async function completeKeycloakLogin(search: string): Promise<string> {
     if (!tokenResponse.ok) throw new Error('Unable to exchange the Keycloak authorization code');
     const tokenBody = await tokenResponse.json() as { access_token?: string; id_token?: string };
     if (!tokenBody.access_token || !tokenBody.id_token) throw new Error('Keycloak did not return the required tokens');
-    const idClaims = decodeJwtPayload(tokenBody.id_token);
-    if (idClaims.nonce !== nonce) throw new Error('Invalid SSO nonce');
+    await verifyIdToken(tokenBody.id_token, cfg, nonce);
 
     const sessionResponse = await fetch(`${cfg.authBaseUrl}/api/oidc/session`, {
       method: 'POST',
