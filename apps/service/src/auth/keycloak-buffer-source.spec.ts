@@ -6,17 +6,17 @@ import { test } from 'node:test';
 
 const keycloakSource = readFileSync(
   resolve(dirname(fileURLToPath(import.meta.url)), '../../../web/lib/keycloak-sso.ts'),
-  'utf8'
+  'utf8',
 );
 
 test('production Keycloak verifier copies the signature before WebCrypto verification', () => {
   assert.match(
     keycloakSource,
-    /function toArrayBufferView\(bytes: Uint8Array\): Uint8Array<ArrayBuffer>\s*\{\s*const copy = new Uint8Array\(new ArrayBuffer\(bytes\.byteLength\)\);\s*copy\.set\(bytes\);\s*return copy;\s*\}/
+    /function toArrayBufferView\(bytes: Uint8Array\): Uint8Array<ArrayBuffer>\s*\{\s*const copy = new Uint8Array\(new ArrayBuffer\(bytes\.byteLength\)\);\s*copy\.set\(bytes\);\s*return copy;\s*\}/,
   );
   assert.match(
     keycloakSource,
-    /crypto\.subtle\.verify\([\s\S]*?toArrayBufferView\(decodeBase64Url\(parts\[2\]\)\)/
+    /crypto\.subtle\.verify\([\s\S]*?toArrayBufferView\(decodeBase64Url\(parts\[2\]\)\)/,
   );
 });
 
