@@ -102,7 +102,8 @@
 
 ### TCE-UI-003A — Diagnose Pools rotation KPI CSS cascade in real Chromium
 
-- **Priority/status:** P1 / OPEN — diagnostic-only slice; do not add another CSS override until the runtime cascade cause is proven.
+- **Priority/status:** P1 / IN PROGRESS — diagnostic-only slice; do not add another CSS override until the runtime cascade cause is proven.
+- **Implementation branch:** `feat/tce-ui-003a-pools-cascade-diagnostics-v2-20261026`. The browser harness records computed grid styles for scoped/unscoped KPI elements, media-query state, CDP matched declarations, stylesheet URLs/source locations, and screenshots before assertions; the two-column assertion remains enabled.
 - **Evidence:** [PR #902](https://github.com/phanthienquoc/TCE-dashboard/pull/902), exact head `92d182355032b8a2f253d47c0a786b3f5cb284a0`; [WF-11 run #40234416071](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/40234416071). The 844×430 case reports three computed grid columns instead of two.
 - **Current behavior:** `pools-mobile-app.test.mjs` computes the grid and media-query state, but the assertion fails before the media-query state or matched CSS declarations are emitted as useful diagnostics. The page-scoped override is present in `mobile-command-center-fix.css` and that stylesheet is imported by `apps/web/app/layout.tsx`; source inspection alone has not established whether the media query matches, the intended element is targeted, or another declaration wins the cascade.
 - **Desired behavior:** Capture enough real-browser evidence at 844×430 to identify the winning `grid-template-columns` declaration and its selector/media query before changing CSS.
