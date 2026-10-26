@@ -1,6 +1,6 @@
 # TCE Dashboard — Agent Task Queue
 
-**Last audited:** 2026-10-26 19:25 +07:00  
+**Last audited:** 2026-10-26 20:33 +07:00  
 **Default branch checkpoint:** `master` audited on 2026-10-26. The latest functional/schema merge tracked by this queue is TCE-SEC-001/TCE-RUNTIME-001 at `ccaccb6b6131665e317774dfc8742b480972a316`; subsequent queue-checkpoint commits are documentation-only. Consult Git history for the exact current `master` SHA.  
 **Queue convention:** This repository has a mature `plan/` directory but no existing `docs/agentic/` queue. This file follows the current `plan/` convention and supplements, rather than replaces, canonical phase plans/issues.  
 **Safety:** Owner/admin confirmed on 2026-10-26 that shared project `gtqovpusfyyvxpeezxlo` is non-production and authorized scoped Supabase actions for these two repositories. Historical `env=prod` telemetry and earlier TCE wording are not environment blockers. Project API `ACTIVE_HEALTHY` and default non-persistent branch `MIGRATIONS_FAILED` remain separate diagnostics. No production application release, live orders, LIVE-mode changes, unrelated-repository changes or potentially billable Supabase branch creation without `get_cost` and explicit cost approval.
@@ -63,7 +63,7 @@
   - [x] Recheck `pg_policies` and `has_table_privilege` after the migration; confirm no browser/public privilege remains and service-role access remains.
   - [x] Confirm the migration contains no DML against position/account data and no order/engine/LIVE changes.
   - [x] Verify post-merge backend unit tests, Build+Verify and push-format checks on `ccaccb6b6131665e317774dfc8742b480972a316`.
-  - [ ] Run end-to-end smoke only against an explicitly identified, approved non-production target; the connected project is not classified as non-production.
+  - [ ] Run end-to-end smoke only against the owner-confirmed non-production project; the only listed branch remains non-persistent and MIGRATIONS_FAILED, with migration provenance tracked in TCE-OPS-003.
 - **Validation:** Supabase `apply_migration` succeeded; ledger lists `20261026034917 revoke_public_snapshot_access`. Read-only `has_table_privilege` returned false for anon/authenticated SELECT, INSERT, UPDATE, DELETE and TRUNCATE, while service_role/postgres retained privileges. A separate `pg_policies` query returned no policies. The latest read-only security-advisor result reports 34 project-wide `rls_enabled_no_policy` findings. This is a shared-project count across multiple schemas, not a TCE-only count. The scoped post-apply catalog still confirms no public/browser grants or policies on this server-owned snapshot table; do not add a public policy to silence the advisor.
 - **Dependencies:** Current monitor uses the server-side Supabase service-role client. End-to-end service smoke remains part of required CI/integration validation; the app has not been deployed.
 - **Risk:** Previously critical exposure is mitigated at the database grant/policy layer. Remaining risk is an untracked external consumer outside the two authorized repositories that expects browser access; the existing source inventory found none.
@@ -107,6 +107,25 @@
 - **Dependencies:** TCE monitor keeps using the existing server-side service-role client. No UI/API redesign is required for the database boundary fix.
 - **Risk:** High before remediation. Public read path is closed on the owner-confirmed non-production project; service-side runtime smoke remains a source/CI acceptance task. No production app release, live trading or order placement occurred.
 - **Links:** [PR #925](https://github.com/phanthienquoc/TCE-dashboard/pull/925), [source migration](../supabase/migrations/20261026122224_revoke_public_cashout_event_access.sql), [migration contract test](../apps/service/src/monitor/tce-cashout-access-migration.spec.ts), [Supabase API security](https://supabase.com/docs/guides/api/securing-your-api).
+
+### TCE-OPS-003 — Reconcile shared Supabase migration source/ledger drift
+
+- **Priority/status:** P0 / BLOCKED — the live migration ledger cannot be reconstructed from the current master migration directories in the two authorized repositories. Do not apply/replay migrations or merge migration-bearing PRs based on filename/catalog guesses.
+- **Evidence:** Read-only `list_projects/get_project/list_branches/list_migrations` identifies project `gtqovpusfyyvxpeezxlo`, owner-confirmed non-production, with 78 ledger entries and only one listed non-persistent `main` / Git `master` branch in `MIGRATIONS_FAILED`. GitHub directory inventories show 9 Auth SQL files and 36 TCE SQL files; only 13 ledger versions have an exact version-prefix match in either current master directory. Sixty-five ledger versions lack a matching source file in both directories. Conversely, 32 source-file entries (2 Auth, 30 TCE) have version prefixes absent from the ledger, and TCE has duplicate prefixes `202609070001`, `202609140001`, `202609160002`, and `202609160003`.
+- **Current behavior:** Historical source files have been deleted, renamed, never checked into current master, or belong to other consumers of the shared project; this inventory does not establish which explanation applies. The previously highlighted three Auth-specific remote-only versions are only a subset. The actual GitHub-to-Supabase repository connection/deploy toggle is not exposed by the authorized tools.
+- **Desired behavior:** Build an authoritative ledger-to-source/commit mapping using Git history only within `phanthienquoc/TCE-dashboard` and `phanthienquoc/phanthienquoc-authentication`. Keep the owner-confirmed non-production classification separate from the branch migration-failure diagnostic. Never inspect or modify out-of-scope repositories.
+- **Acceptance criteria:**
+  - [x] Verify project ref, branch list/status and 78-entry remote ledger read-only.
+  - [x] Compare current master migration filenames in both authorized repositories and record matched/missing/source-only counts.
+  - [ ] Recover exact historical SQL/source commits for missing ledger versions from Git history in the two authorized repositories; do not reconstruct from function names/catalog output.
+  - [ ] Reconcile duplicate TCE source version prefixes before any migration workflow uses them.
+  - [ ] Verify the GitHub integration target/deploy toggle and exact merge-triggered migration effects.
+  - [ ] Obtain exact authorization for each future migration/apply operation; do not create a Supabase branch without cost lookup and explicit cost approval.
+- **Validation:** Read-only Supabase project/branch/migration tools plus GitHub contents inventory. No migration, schema/data mutation, Supabase branch operation, release, or trading action was performed.
+- **Dependencies:** Authentication `AUTH-UM-000/AUTH-OPS-002`; current source files and repository Git history; authoritative Supabase integration metadata.
+- **Risk:** Critical — a default-branch push could trigger a connected migration workflow while history is incomplete and branch status is `MIGRATIONS_FAILED`.
+- **Links:** [Authentication migration inventory PR #72](https://github.com/phanthienquoc/phanthienquoc-authentication/pull/72), [Supabase branching docs](https://supabase.com/docs/guides/deployment/branching), [Supabase GitHub integration docs](https://supabase.com/docs/guides/deployment/branching/github-integration).
+
 
 ### TCE-RUNTIME-001 — Durable retry/replay for lifecycle event publication
 
