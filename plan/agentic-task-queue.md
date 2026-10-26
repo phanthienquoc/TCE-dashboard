@@ -23,7 +23,7 @@
 
 ### TCE-TEST-001 — Restore unit-test discovery in the root test runner
 
-- **Priority/status:** P0 / VALIDATED ON FIX BRANCH — the corrected runner passed WF-05 on exact head `3300192c77adaf7b1b53375aba0086cccdb6e8be`; default-branch merge remains blocked by the Supabase deployment side-effect gate.
+- **Priority/status:** P0 / VALIDATED ON FIX BRANCH — current PR head `d1e2f342fddbcd997a2611550cd57c7bf55db3f7` has passing Backend Unit Tests and Prettier/auto-format checks; default-branch merge remains BLOCKED by the Supabase deployment side-effect gate.
 - **Evidence:** In `package.json`, the discovery regex was over-escaped (`/\\\\.(spec|test)\\\\.ts$/`) and matched no normal `.spec.ts` or `.test.ts` filenames. Both runner arrays therefore stayed empty and the test command exited successfully without executing tests. The corrected pattern discovers those files and an explicit zero-discovered-files guard now fails closed.
 - **Current behavior before fix:** WF-05 could report success while running no unit tests; backend build still ran separately.
 - **Desired behavior:** Discover the intended Node/Vitest test files, run both groups, and fail rather than report success if discovery returns zero files.
@@ -33,9 +33,9 @@
   - [x] Verify backend build and the now-enabled unit-test command on the exact fix-branch head.
   - [x] Verify Prettier on the exact fix-branch head.
   - [ ] Merge to `master` only after the connected Supabase GitHub integration target and push-triggered deployment behavior are confirmed safe.
-- **Validation:** [WF-05 Backend Unit Tests](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/40272260507) passed on `3300192c77adaf7b1b53375aba0086cccdb6e8be`; [WF-02 Prettier](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/40272260521) passed on the same SHA. The runner now executes the discovered tests rather than silently skipping them.
+- **Validation:** Latest PR-head checks on `d1e2f342fddbcd997a2611550cd57c7bf55db3f7` passed: [Backend Unit Tests](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/40272501720) and [Prettier/auto-format](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/40272501629). Earlier exact-code test run [WF-05 #40272260507](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/40272260507) also passed. The runner now executes the discovered tests rather than silently skipping them; recheck all required checks on the final PR head before merge.
 - **Dependencies:** None for code/test correctness; default-branch merge depends on Supabase integration-target verification.
-- **Risk:** P0 test-integrity risk. The connected project ref `gtqovpusfyyvxpeezxlo` has a non-persistent `main`/Git `master` branch with `MIGRATIONS_FAILED`; the connected GitHub repository is not exposed by the project metadata. Supabase documentation says connected GitHub commits may run deployment steps and pending migrations, so do not merge this change into the default branch until the target is verified.
+- **Risk:** P0 test-integrity risk. The connected project ref `gtqovpusfyyvxpeezxlo` lists only `main` / Git `master`, with `is_default=true`, `persistent=false`, and `MIGRATIONS_FAILED`; its project and parent refs are identical and no separate development/preview branch is listed. Treat this base/default branch as production-equivalent until proved otherwise. The connected GitHub repository is not exposed by project metadata. Supabase documentation says connected GitHub commits may run deployment steps and pending migrations, so do not merge this change into the default branch until the target is verified.
 - **Links:** [Fix branch](https://github.com/phanthienquoc/TCE-dashboard/tree/fix/tce-test-discovery-20261026), [root test script](../package.json), [WF-05 workflow](../.github/workflows/wf-02-tce-backend-unit-test.yml), [Supabase Branching documentation](https://supabase.com/docs/guides/deployment/branching).
 
 ### TCE-SEC-001 — Remove public read and destructive browser grants on position snapshots
