@@ -1,9 +1,9 @@
 # TCE Dashboard — Agent Task Queue
 
-**Last audited:** 2026-10-26 19:05 +07:00
+**Last audited:** 2026-10-26 19:13 +07:00
 **Default branch checkpoint:** `master` audited on 2026-10-26. The latest functional/schema merge tracked by this queue is TCE-SEC-001/TCE-RUNTIME-001 at `ccaccb6b6131665e317774dfc8742b480972a316`; subsequent queue-checkpoint commits are documentation-only. Consult Git history for the exact current `master` SHA.  
 **Queue convention:** This repository has a mature `plan/` directory but no existing `docs/agentic/` queue. This file follows the current `plan/` convention and supplements, rather than replaces, canonical phase plans/issues.  
-**Safety:** No production application release, live orders, or LIVE-mode enablement are part of this queue. Environment evidence conflicts: TCE previously classified the shared project as private production, while Authentication's roadmap records owner-confirmed non-production; live logs carry `env=prod`. The only listed Supabase branch is non-persistent `main` / Git `master` with `MIGRATIONS_FAILED`. Current [Supabase branching docs](https://supabase.com/docs/guides/deployment/branching) say connected GitHub branch commits run a deployment workflow with a Migrate step; the actual repo/project integration target remains unverified. Treat any default-branch push as a possible migration side effect. No production migration/deploy, live trading action, or Supabase branch operation is authorized by this task.
+**Safety:** Owner/admin confirmed on 2026-10-26 19:13 +07 that shared project `gtqovpusfyyvxpeezxlo` is non-production and authorized scoped Supabase actions needed by the two in-scope repositories. Historical `env=prod` telemetry and prior private-production wording do not override that classification. Project API `ACTIVE_HEALTHY` and default non-persistent branch `MIGRATIONS_FAILED` remain separate platform-state facts. Keep work scoped to TCE and Authentication; no production app release, live orders, LIVE-mode changes, unrelated-repository changes, or potentially billable Supabase branch creation without `get_cost` and explicit cost approval.
 
 ## Queue rules
 
@@ -91,7 +91,7 @@
 
 ### TCE-SEC-004 — Close public read access to account-specific cashout events
 
-- **Priority/status:** P0 / CONFIRMED LIVE ACCESS-CONTROL EXPOSURE; REMEDIATION BLOCKED — catalog policy and grants permit public SELECT on account-specific cashout/financial data. Do not create or apply a migration until the connected project/branch and external migration trigger are authoritatively identified.
+- **Priority/status:** P0 / CONFIRMED LIVE ACCESS-CONTROL EXPOSURE; REMEDIATION BLOCKED — catalog policy and grants permit public SELECT on account-specific cashout/financial data. The owner/admin has confirmed the connected target is non-production and authorized scoped remediation; the environment-label conflict is no longer a blocker. Reconcile migration source provenance and validate exact least-privilege grants before applying the dedicated migration.
 - **Evidence (read-only 2026-10-26 17:03 +07):** `public.tce_cashout_events` has RLS enabled and policy `tce_cashout_events_read` with roles `{public}`, command `SELECT`, and `qual=true`. `anon` and `authenticated` both have SELECT (and broader table privileges) in `information_schema.role_table_grants`. The table schema includes `account_id`, `symbol`, `position_snapshot_id`, `event_type`, `gross_cash`, `tax`, `net_cash`, `capital_released`, `realized_pnl`, and `notes jsonb`. No table rows were read.
 - **Fresh recheck (read-only 2026-10-26 17:29 +07:00):** Live `pg_policies` still returns `tce_cashout_events_read` with roles `{public}`, `cmd=SELECT`, and `qual=true`. `information_schema.role_table_grants` still shows both `anon` and `authenticated` have SELECT plus INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, and TRIGGER on this table. This independently reconfirms the P0 access-control exposure; no rows were read and no schema/grant/policy changes were made.
 - **Source provenance/call sites:** Repository search found the server-side insert in `apps/service/src/monitor/tce-monitor.service.ts` and an account_id backfill reference in `infra/sql/20260823_multi_account_dashboard.sql`; no matching source migration for `tce_cashout_events_read` was found. The architecture doc describes cashout events as dividend/exit lifecycle evidence. No direct frontend query was found in the searched TCE repository paths.
@@ -100,10 +100,10 @@
 - **Acceptance criteria:**
   - [x] Confirm the live policy, table grants, RLS state, schema columns, and service-side call site using read-only catalog/source inspection.
   - [x] Search the two authorized TCE source paths for direct frontend consumers; none was found.
-  - [ ] Confirm the actual connected Supabase project/branch and whether the external GitHub integration runs migrations on this branch; current docs say connected-branch commits include a Migrate step.
+  - [ ] Use owner-confirmed non-production project `gtqovpusfyyvxpeezxlo`; retain the unobservable GitHub integration toggle as a deployment-mechanics caveat, not an environment-classification blocker.
   - [ ] Reconcile source migration provenance without reconstructing missing historical SQL.
-  - [ ] After the target is authoritatively confirmed safe and separately authorized, add a dedicated additive migration plus catalog/contract regression tests; do not apply it from this task.
-  - [ ] Verify anon/authenticated SELECT is denied and service_role access remains, only on an explicitly approved non-production target.
+  - [ ] Add a dedicated additive migration and catalog/contract regression tests. The owner/admin has authorized scoped non-production Supabase work; apply only the exact reviewed source migration, then re-query policy, grants and service-role access. Never read or mutate existing cashout rows.
+  - [ ] Verify anon/authenticated SELECT is denied and the server-side monitor's service_role insert path remains functional against the owner-confirmed non-production project, using catalog checks and synthetic/non-account fixtures only.
 - **Validation:** Read-only `list_tables(verbose=true)`, `list_migrations`, `pg_policies`, `information_schema.role_table_grants`, column metadata, view definitions and repository search. No cashout rows were queried; no policy/grant/schema/data change or Supabase branch operation occurred.
 - **Dependencies:** TCE-RUNTIME-001A environment/integration mapping; migration source provenance; external deployment trigger scope; explicit non-production authorization for any later apply.
 - **Risk:** High — public SELECT exposes account-scoped cashout events and financial amounts. Treat as a security blocker until the public read path is closed safely.
