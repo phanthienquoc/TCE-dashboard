@@ -1,9 +1,9 @@
 # TCE Dashboard — Agent Task Queue
 
-**Last audited:** 2026-10-26 16:43 +07:00
-**Default branch checkpoint:** `master` audited on 2026-10-26. The latest schema migration merge tracked by this queue is TCE-SEC-001/TCE-RUNTIME-001 at `ccaccb6b6131665e317774dfc8742b480972a316`; the JWT secret hardening PR #920 merged at `24e972bad13449174d9dde49786303041a1f7a41`. This PR adds a boundary test and queue evidence only; consult Git history for the exact current `master` SHA.  
+**Last audited:** 2026-10-26 17:00 +07:00  
+**Default branch checkpoint:** Current `master` head observed at `f07062481d2e087e69439445f42e448f8332c3d5` (TCE SSO documentation checkpoint). The latest schema merge tracked by this queue is TCE-SEC-001/TCE-RUNTIME-001 at `ccaccb6b6131665e317774dfc8742b480972a316`; JWT secret hardening PR #920 merged at `24e972bad13449174d9dde49786303041a1f7a41`. PR #921 adds the exact 32-byte test and reconciled queue evidence; its prior head passed WF-02/WF-05, and this master-sync update requires fresh exact-head checks.  
 **Queue convention:** This repository has a mature `plan/` directory but no existing `docs/agentic/` queue. This file follows the current `plan/` convention and supplements, rather than replaces, canonical phase plans/issues.  
-**Safety:** No production application release, live orders, or LIVE-mode enablement are part of this queue. Environment evidence conflicts: this queue's earlier note said private production, while Authentication's roadmap records owner-confirmed non-production; live logs are tagged `env=prod` on the only listed `main` branch. Treat classification and runtime/integration mapping as unresolved and keep Supabase operations read-only. No production migration/deploy, live trading action, or Supabase branch operation is authorized by this run. The GitHub integration target/deploy-to-production toggle remains unverified.
+**Safety:** No production application release, live orders, or LIVE-mode enablement are part of this queue. Environment evidence conflicts: this queue previously said private production, while Authentication's roadmap records owner-confirmed non-production; live logs are tagged `env=prod` on the only listed `main` branch. Treat classification and runtime/integration mapping as unresolved and keep Supabase operations read-only. No production migration/deploy, live trading action, or Supabase branch operation is authorized by this run. The GitHub integration target/deploy-to-production toggle remains unverified.
 
 ## Queue rules
 
@@ -20,6 +20,17 @@
 - **P2** — important maintenance, UI consolidation or tracking hygiene.
 
 ## Active tasks
+
+### TCE-AUTH-002 — Integrate Keycloak SSO into TCE Dashboard
+
+- **Priority/status:** P1 / CODE MERGED; RUNTIME ACCEPTANCE OPEN — [TCE PR #922](https://github.com/phanthienquoc/TCE-dashboard/pull/922) squash-merged at `bb4dedc5ce38f1b19e50362ec6e32270d9ac8ebe`; central Auth [PR #69](https://github.com/phanthienquoc/phanthienquoc-authentication/pull/69) squash-merged at `e475eed94bf08b83a5a9de3364e50dc5aef63ae3`.
+- **Evidence:** TCE web app uses the central Auth origin; the TCE API verifies app JWTs with its own `JWT_SECRET`. The Keycloak realm template declares public client `tce-dashboard`, Authorization Code flow and PKCE S256. Central Auth validates Keycloak access tokens through JWKS and checks issuer/audience/expiry.
+- **Implementation merged:** Opt-in browser Authorization Code + PKCE S256, state/nonce validation, ID-token signature/issuer/audience/expiry validation, guarded central Auth session exchange, in-memory app access token, HttpOnly refresh cookie, API bearer injection/one-time refresh retry, and IdP logout redirect. Legacy auth remains the default.
+- **CI evidence:** TCE Prettier check passed on exact PR head `ae279f1c09ef8f394943ef5861df117026e881a9` in [WF-02 run #40303961614](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/40303961614); backend unit tests passed on the same head in [WF-05 run #40303961551](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/40303961551). These checks do not prove browser OIDC or end-to-end login.
+- **Security boundaries:** Session exchange requires exact `azp=tce-dashboard`, `email_verified=true`, and an existing ACTIVE account with the exact email. It does not auto-provision accounts or grant roles. Legacy MFA-enabled accounts fail closed to legacy sign-in until MFA assurance is migrated. No DB migration, secret change, Keycloak realm mutation, deployment, or live trading action was performed.
+- **Remaining acceptance gates:** Configure central Auth `KEYCLOAK_TCE_CLIENT_ID=tce-dashboard`; verify live issuer/audience/client redirect settings; confirm central Auth and TCE service `JWT_SECRET` equality without printing values; run non-production end-to-end tests for positive/negative token cases, refresh, legacy MFA boundary, logout, CORS/cookies and iOS Safari. The web production build was not run as part of the PR checks.
+- **Current rollout:** `NEXT_PUBLIC_AUTH_MODE` defaults to `legacy`. Do not enable SSO in a deployed build until all runtime and non-production acceptance gates pass. Production traffic cutover requires a separate rollout/rollback review.
+- **Links:** [TCE SSO pilot architecture](../docs/architecture/tce-keycloak-sso-pilot.md), [runtime config contract](../docs/config-key.md).
 
 ### TCE-TEST-001 — Restore unit-test discovery in the root test runner
 
@@ -294,20 +305,20 @@
 
 ### TCE-AUTH-001 — Fail closed when JWT secret is missing or weak
 
-- **Priority/status:** P0 / TEST VERIFIED; MERGE BLOCKED — the security fix and exact 32-byte boundary test are verified on code head `c0799ac12b155810f00ee86cdc1e6be43f9f5789`; the default-branch merge remains blocked by the unresolved shared Supabase integration/migration side-effect gate.
-- **Evidence:** [PR #920](https://github.com/phanthienquoc/TCE-dashboard/pull/920), merged to master at `24e972bad13449174d9dde49786303041a1f7a41`; `apps/service/src/auth/jwt.service.ts` now rejects missing, placeholder and under-32-byte secrets on both issue and verify paths.
-- **Current behavior:** A public `CHANGE_ME_IN_ENV` fallback no longer exists. The merged suite covers missing, placeholder, short and valid secrets; this follow-up now proves exactly 32 ASCII bytes are accepted by issue and verify.
-- **Desired behavior:** Exactly 32 bytes is accepted, while any configured secret shorter than 32 bytes, missing, or equal to the placeholder is rejected; no weaker verification fallback is allowed.
+- **Priority/status:** P0 / TEST VERIFIED; MERGE BLOCKED — exact-head WF-02/WF-05 passed on pre-sync head `db9bf64f88500da48047844535d3918c49cef212`; the queue/master reconciliation requires a fresh exact-head run. The unresolved shared Supabase integration target remains a gate for any push that could invoke its migration executor.
+- **Evidence:** [PR #920](https://github.com/phanthienquoc/TCE-dashboard/pull/920) merged at `24e972bad13449174d9dde49786303041a1f7a41`. `apps/service/src/auth/jwt.service.ts` rejects missing, placeholder and under-32-byte secrets on issue and verify. This follow-up adds a deterministic test proving exactly 32 ASCII bytes are accepted.
+- **Current behavior:** No public `CHANGE_ME_IN_ENV` fallback exists. The suite covers missing, placeholder, short and valid secrets; the follow-up covers the exact minimum boundary.
+- **Desired behavior:** Accept exactly 32 bytes; reject missing, placeholder and shorter secrets on both issuance and verification.
 - **Acceptance criteria:**
-  - [x] Merge fail-closed JWT secret validation and core regression tests.
-  - [x] Verify WF-05 and WF-02 passed on the merged PR head ([WF-05 #40301005041](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/40301005041), [WF-02 #40301005005](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/40301005005)).
-  - [x] Pass the exact 32-byte boundary test on code head `c0799ac12b155810f00ee86cdc1e6be43f9f5789`; verify the current queue-only head `bbe4aece7b4f47eafb6cd2267645880627623cab` also passes WF-05 #40302359011 and WF-02 #40302358819.
-  - [x] Inspect TCE workflow effects: WF-03 is `workflow_dispatch`-only; this test/queue diff can run WF-01 build verification, WF-05 backend tests and WF-02 formatting, but does not change release workflows, migration files, trading logic or order submission.
-  - [ ] Resolve the shared Supabase runtime/integration target and migration-executor side-effect gate before any default-branch merge; keep this PR draft/open meanwhile.
-- **Validation:** On code head `c0799ac12b155810f00ee86cdc1e6be43f9f5789`, exact-head backend unit checks passed (runs [#40301903273](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/40301903273) and [#40301897255](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/40301897255)); Prettier auto-format/commit completed successfully ([#40301903245](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/40301903245)). The later queue-only head `bbe4aece7b4f47eafb6cd2267645880627623cab` also passed WF-05 ([#40302359011](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/40302359011)) and WF-02 ([#40302358819](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/40302358819)). The test uses a synthetic 32-byte secret; no real secret is used.
-- **Dependencies:** None for code/test work; merge safety gate applies independently.
-- **Risk:** P0 authentication boundary. Scope is a unit test and task documentation only; no schema/migration, credential, trading logic, or release workflow change.
-- **Links:** [Merged PR #920](https://github.com/phanthienquoc/TCE-dashboard/pull/920), [JWT implementation](../apps/service/src/auth/jwt.service.ts), [JWT tests](../apps/service/src/auth/jwt.service.spec.ts), [WF-05](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/40301005041), [WF-02](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/40301005005).
+  - [x] Fail-closed implementation and core regression tests are merged.
+  - [x] Exact 32-byte test passes on pre-sync head `db9bf64f88500da48047844535d3918c49cef212`: [WF-05 #40302722930](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/40302722930), [WF-02 #40302722876](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/40302722876).
+  - [x] Inspect repository push effects: WF-01 builds/validates images without publishing; WF-02 is read-only on PRs and may format on branch push; WF-05 runs backend tests; WF-03 is `workflow_dispatch`-only; WF-04 follows successful WF-03 completion.
+  - [x] No migration, secret, trading logic, order submission, or release workflow is changed by this PR.
+  - [ ] Resolve the external shared-Supabase integration/deploy trigger mapping before merging while it remains possible that a default-branch push could invoke a migration executor; do not use `platform-infra` to resolve it.
+- **Validation:** Pre-sync exact-head WF-05 and WF-02 passed as linked above. A fresh exact-head run is required after this queue reconciliation commit; do not treat the pre-sync result as validation of the new head. The test uses a synthetic secret only.
+- **Dependencies:** Fresh exact-head CI; external integration/deploy trigger mapping for the default-branch side-effect gate.
+- **Risk:** Low test/code risk; high uncertainty around default-branch external migration side effects.
+- **Links:** [JWT implementation](../apps/service/src/auth/jwt.service.ts), [JWT tests](../apps/service/src/auth/jwt.service.spec.ts), [WF-05](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/40302722930), [WF-02](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/40302722876).
 
 ## Audit snapshot
 
