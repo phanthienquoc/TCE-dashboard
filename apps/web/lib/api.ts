@@ -23,7 +23,8 @@ let refreshPromise: Promise<string | null> | null = null;
 
 async function refreshForRetry(): Promise<string | null> {
   if (!refreshPromise) {
-    refreshPromise = authClient.post('/auth/refresh')
+    refreshPromise = authClient
+      .post('/auth/refresh')
       .then(response => {
         const token = response.data?.accessToken;
         if (typeof token !== 'string' || !token) return null;
@@ -42,9 +43,12 @@ async function refreshForRetry(): Promise<string | null> {
 }
 
 async function retryAfterUnauthorized(error: AxiosError) {
-  const config = error.config as (InternalAxiosRequestConfig & { __tceRetried?: boolean }) | undefined;
+  const config = error.config as
+    (InternalAxiosRequestConfig & { __tceRetried?: boolean }) | undefined;
   const url = config?.url ?? '';
-  const isAuthEntryPoint = /\/auth\/(login|refresh|mfa\/login|mfa\/recovery|passkey\/login)/.test(url);
+  const isAuthEntryPoint = /\/auth\/(login|refresh|mfa\/login|mfa\/recovery|passkey\/login)/.test(
+    url
+  );
   if (error.response?.status !== 401 || !config || config.__tceRetried || isAuthEntryPoint) {
     throw error;
   }
