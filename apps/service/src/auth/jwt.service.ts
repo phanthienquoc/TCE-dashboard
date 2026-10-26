@@ -14,7 +14,11 @@ export interface AccessClaims {
 export class JwtService {
   private get secret(): string {
     const value = process.env.JWT_SECRET;
-    if (!value || value === 'CHANGE_ME_IN_ENV' || Buffer.byteLength(value) < 32) {
+    if (
+      !value ||
+      value === 'CHANGE_ME_IN_ENV' ||
+      Buffer.byteLength(value) < 32
+    ) {
       throw new Error('JWT_SECRET must be configured with at least 32 bytes');
     }
     return value;
@@ -43,8 +47,14 @@ export class JwtService {
     try {
       const secret = this.secret;
       const [h, p, s] = token.split('.');
-      if (!h || !p || !s || !this.safeEqual(this.sign(`${h}.${p}`, secret), s))
+      if (
+        !h ||
+        !p ||
+        !s ||
+        !this.safeEqual(this.sign(`${h}.${p}`, secret), s)
+      ) {
         throw new UnauthorizedException('Invalid token');
+      }
       const claims = JSON.parse(Buffer.from(p, 'base64url').toString()) as AccessClaims;
       if (
         !claims.sub ||
@@ -60,12 +70,15 @@ export class JwtService {
       throw new UnauthorizedException('Invalid token');
     }
   }
+
   private sign(value: string, secret: string) {
     return createHmac('sha256', secret).update(value).digest('base64url');
   }
+
   private b64(value: string) {
     return Buffer.from(value).toString('base64url');
   }
+
   private safeEqual(a: string, b: string) {
     const aa = Buffer.from(a);
     const bb = Buffer.from(b);
