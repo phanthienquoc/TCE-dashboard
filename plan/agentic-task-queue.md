@@ -1,6 +1,6 @@
 # TCE Dashboard — Agent Task Queue
 
-**Last audited:** 2026-10-26 15:22 +07:00  
+**Last audited:** 2026-10-26 16:13 +07:00  
 **Default branch checkpoint:** `master` audited on 2026-10-26. The latest functional/schema merge tracked by this queue is TCE-SEC-001/TCE-RUNTIME-001 at `ccaccb6b6131665e317774dfc8742b480972a316`; subsequent queue-checkpoint commits are documentation-only. Consult Git history for the exact current `master` SHA.  
 **Queue convention:** This repository has a mature `plan/` directory but no existing `docs/agentic/` queue. This file follows the current `plan/` convention and supplements, rather than replaces, canonical phase plans/issues.  
 **Safety:** No production application release, live orders, or LIVE-mode enablement are part of this queue. The owner explicitly classified the shared Supabase project as private production in prior instructions on 2026-10-26. No production migration/deploy, live trading action, or Supabase branch operation is authorized by this task. The only listed Supabase branch is non-persistent main / Git master with MIGRATIONS_FAILED; the GitHub integration target/deploy-to-production toggle remains unverified.
@@ -60,20 +60,22 @@
 
 ### TCE-SEC-002 — Review public SECURITY DEFINER market-metrics view
 
-- **Priority/status:** P1 / OPEN — read-only security finding confirmed; no schema/privilege change is authorized against the private-production project.
-- **Evidence:** Supabase Security Advisor reports one ERROR, security_definer_view, on public.tce_stock_event_market_metrics. Read-only catalog inspection confirms it is a view with reloptions NULL (no security_invoker=true) and SELECT grants to anon, authenticated, service_role and postgres. Its definition exposes stock-event fields plus latest quote/OHLCV-derived current price, price date, 365-day low/high and dividend yield; it does not select user IDs, password hashes, tokens, MFA or passkey material. The underlying stock_events and tce_market_prices tables have RLS enabled with no policies and SELECT grants to anon/authenticated; tce_market_ohlcv_daily has RLS enabled and an authenticated-only read policy. The SECURITY DEFINER view can bypass those underlying RLS policies for its public readers.
-- **Application contract:** GitHub search finds the view consumed by apps/service/src/stock-events/stock-events.supabase.repository.ts and stock-dividend-pool.service.ts. The current service repository uses the backend Supabase client; no direct frontend call was found in the searched source paths. This suggests the view may not need browser-role access, but public market-data intent must be confirmed before changing it.
-- **Current behavior:** anon/authenticated can SELECT the view; default view-owner privileges can bypass underlying RLS. The view appears to expose market/event data rather than account data, so this is an access-control mismatch requiring confirmation, not proof of a private-data leak.
-- **Desired behavior:** Confirm intended anonymous access. If the NestJS service is the only consumer, prefer an additive migration that sets WITH (security_invoker=on) and revokes SELECT from anon/authenticated while preserving the service_role path; verify the view output and service behavior before any deployment. Do not blindly broaden underlying-table policies or merely suppress the advisor.
+- **Priority/status:** P1 / OPEN — live access-control finding confirmed; scoped non-production schema/privilege remediation may proceed after preserving the intended public-access contract and validating the migration source.
+- **Evidence (read-only 2026-10-26 16:13 +07):** Security Advisor still reports one `security_definer_view` ERROR on `public.tce_stock_event_market_metrics` (observed `2026-10-26T09:13:54Z`). Catalog inspection confirms `relkind='v'`, `reloptions IS NULL` (no `security_invoker=true`), and SELECT grants to `anon`, `authenticated`, and `service_role`. The view definition returns stock-event identifiers/content, symbol and dividend dates/values, latest market price/date, 365-day low/high and calculated dividend yield; it does not select user IDs, credentials, tokens, MFA or passkey material.
+- **Underlying policy/grant evidence:** `stock_events` and `tce_market_prices` have RLS enabled, no policies, and SELECT grants to anon/authenticated. `tce_market_ohlcv_daily` has RLS enabled and an authenticated-only SELECT policy, although table-level SELECT is granted to anon/authenticated. The SECURITY DEFINER view can execute with its owner's privileges and bypass those underlying RLS checks for callers granted SELECT on the view.
+- **Application contract:** The repository inventory finds `apps/service/src/stock-events/stock-events.supabase.repository.ts` and `stock-dividend-pool.service.ts` consuming the view through the backend Supabase client. No direct frontend call was found in the searched source paths. This makes browser-role SELECT potentially unnecessary, but anonymous public-market-data intent has not been confirmed.
+- **Current behavior:** `anon` and `authenticated` can SELECT the view; default view-owner semantics can bypass the underlying RLS policies. The exposed columns appear to be market/event data rather than account data, so this is an access-control mismatch and not proof of a private-data leak. The owner classifies the shared project as non-production; its only listed non-persistent `main` / Git `master` branch still reports `MIGRATIONS_FAILED`.
+- **Desired behavior:** Confirm whether anonymous direct access is a product requirement. If the NestJS service is the only intended consumer, prepare a dedicated additive source migration to set `security_invoker=true` and revoke SELECT from `anon`/`authenticated` while preserving the service-role path; validate service success and browser-role denial only on a separately approved non-production target. Do not blindly broaden underlying policies or merely suppress the advisor.
 - **Acceptance criteria:**
-  - [x] Capture advisor finding, live view definition/options, SELECT grants, underlying RLS/policies and repository call sites read-only.
-  - [ ] Confirm whether anonymous direct access to this market-metrics view is a product requirement.
-  - [ ] Reconcile the migration source/ledger drift and verify the connected Supabase GitHub integration target before preparing a migration.
-  - [ ] Test service_role read success and anon/authenticated denial against a separate explicitly approved non-production target.
-  - [ ] If approved, add an additive migration and regression checks on a dedicated TCE branch; do not merge/apply against private production.
-- **Validation:** No table rows were read; no schema/grant/policy/view change, Supabase branch operation, deployment or trading action occurred. Current target is private production and its only listed branch reports MIGRATIONS_FAILED.
-- **Dependencies:** Product decision on public access, authoritative migration provenance, verified integration/deploy settings, separate safe non-production target.
-- **Risk:** High — a SECURITY DEFINER view with public SELECT can bypass the underlying tables' RLS intent even when the exposed columns are market data.
+  - [x] Capture current advisor finding, live view definition/options, grants, underlying RLS/policies and repository call sites read-only.
+  - [x] Confirm no user/account/credential/MFA/passkey fields are selected by the view definition.
+  - [ ] Confirm whether anonymous direct access to the market-metrics view is a product requirement.
+  - [ ] Reconcile migration source/ledger drift and verify the connected Supabase GitHub integration target before preparing a migration.
+  - [ ] Test service-role read success and anon/authenticated denial against the owner-confirmed non-production target.
+  - [ ] If approved, add an additive migration and regression checks on a dedicated TCE branch; apply only within the owner-confirmed non-production scope and keep production release/live-trading gates intact.
+- **Validation:** Read-only `list_tables(verbose=true)`, `list_migrations`, catalog/RLS/grant SQL and Security/Performance Advisors only. No table rows were read; no schema/grant/policy/view change, Supabase branch operation, deployment, production release or trading action occurred.
+- **Dependencies:** Product decision on public access, authoritative migration provenance, verified integration/deploy settings and the owner-confirmed non-production target.
+- **Risk:** High — a SECURITY DEFINER view with public SELECT can bypass underlying RLS intent even when its selected columns are market data.
 - **Links:** [Source view migration](../supabase/migrations/202609160003_dividend_current_price_ohlcv_fallback.sql), [service repository](../apps/service/src/stock-events/stock-events.supabase.repository.ts), [Supabase security-definer-view advisor](https://supabase.com/docs/guides/observability/advisors?queryGroups=lint&lint=0010_security_definer_view), [Supabase RLS documentation](https://supabase.com/docs/guides/database/postgres/row-level-security).
 
 ### TCE-RUNTIME-001 — Durable retry/replay for lifecycle event publication
@@ -229,6 +231,24 @@
 - **Sources:** [WF-00 workflow](https://github.com/phanthienquoc/TCE-dashboard/blob/master/.github/workflows/wf-00-tce-legacy-actions-cleanup.yml), [PR #894](https://github.com/phanthienquoc/TCE-dashboard/pull/894), [PR #892](https://github.com/phanthienquoc/TCE-dashboard/pull/892).
 
 ## Completed / resolved audit items
+
+### TCE-SEC-003 — Fail closed when JWT_SECRET is missing or weak
+
+- **Priority/status:** P1 / IMPLEMENTED IN DRAFT PR #920 — exact-head CI pending; default-branch merge remains blocked by the shared private-production Supabase integration gate.
+- **Evidence:** On master `apps/service/src/auth/jwt.service.ts` initializes its signing secret as `process.env.JWT_SECRET || 'CHANGE_ME_IN_ENV'`. `issue()` rejects the placeholder, but `verify()` uses the same signer without validating the configuration. The service's bearer-token consumers call `JwtService.verify`; the platform-session middleware skips cookie introspection when an Authorization header is already present. If `JWT_SECRET` is missing, a valid unexpired JWT signed with the public placeholder can therefore pass signature and claim checks. WF-01 checks secret presence when that workflow runs, but runtime verification must fail closed independently.
+- **Current behavior:** The draft fix replaces the fallback with a validated getter requiring a configured, non-placeholder secret of at least 32 bytes for both issue and verify paths. Missing/placeholder/short-secret verification is normalized to Unauthorized; token issuance refuses invalid configuration. It adds `apps/service/src/auth/jwt.service.spec.ts` coverage for placeholder-signed forgery, missing/weak secrets, and valid issue/verify.
+- **Desired behavior:** Never authenticate a bearer token using a public/default signing key or a weak secret; keep runtime authentication fail-closed even if a deployment validation workflow was skipped.
+- **Acceptance criteria:**
+  - [x] Reproduce the fail-open path from source: placeholder fallback is used by verify while issue alone checks it.
+  - [x] Add a dedicated Node test that proves a placeholder-signed token is rejected when `JWT_SECRET` is missing.
+  - [x] Reject placeholder and secrets shorter than 32 bytes on both issue and verify paths in the draft branch.
+  - [ ] Pass exact-head WF-05 backend tests and applicable type/build checks.
+  - [ ] Inspect full diff and confirm no token format, TTL, cookie, MFA/passkey, trading, database or deployment behavior changed beyond secret validation.
+  - [ ] Keep merge blocked until the private-production Supabase integration/deploy target is independently verified; no production rollout is authorized by this task.
+- **Validation:** Draft [PR #920](https://github.com/phanthienquoc/TCE-dashboard/pull/920) contains only `apps/service/src/auth/jwt.service.ts` and `apps/service/src/auth/jwt.service.spec.ts`. CI is pending at this checkpoint. No secret values were read, emitted or changed; no deployment, migration, account mutation or trading action occurred.
+- **Dependencies:** Exact-head CI, review of all bearer-token call sites, and the shared Supabase integration/deploy gate.
+- **Risk:** High — a missing runtime JWT secret could otherwise permit forged bearer tokens across TCE service routes.
+- **Links:** [PR #920](https://github.com/phanthienquoc/TCE-dashboard/pull/920), [JWT service](../apps/service/src/auth/jwt.service.ts), [JWT regression tests](../apps/service/src/auth/jwt.service.spec.ts), [central Auth JWT secret contract](https://github.com/phanthienquoc/phanthienquoc-authentication/blob/master/src/auth/jwt.service.ts).
 
 ### TCE-OPS-001 — Require explicit manual production release dispatch
 
