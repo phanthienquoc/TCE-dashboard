@@ -58,7 +58,12 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       prefetchAfterAuth();
     } catch (err: any) {
       setAccessToken(null);
-      set({ user: null, status: 'anonymous', error: err?.response?.data?.message ?? 'SSO sign-in failed', initialized: true });
+      set({
+        user: null,
+        status: 'anonymous',
+        error: err?.response?.data?.message ?? 'SSO sign-in failed',
+        initialized: true,
+      });
       throw err;
     } finally {
       set({ loading: false });
@@ -276,4 +281,4 @@ export const useDashboardStore = create<DashboardState>(set => ({
     }
     set({ data: null, marketPrices: {}, loading: false, error: null });
   },
-})); 
+}));
