@@ -59,7 +59,8 @@ export function normalizePositionSymbol(symbol: unknown): string {
 
 export function localPositionValidationError(position: LocalPosition): string | undefined {
   if (!position || typeof position !== 'object') return 'Local position is required.';
-  if (typeof position.id !== 'string' || !position.id.trim()) return 'Local position id is required.';
+  if (typeof position.id !== 'string' || !position.id.trim())
+    return 'Local position id is required.';
   if (!normalizePositionSymbol(position.symbol)) return 'Local position symbol is required.';
   if (position.status !== 'OPEN' && position.status !== 'CLOSED') {
     return 'Local position status is invalid.';
@@ -76,18 +77,24 @@ export function localPositionValidationError(position: LocalPosition): string | 
   if (position.status === 'CLOSED' && position.quantity !== 0) {
     return 'Closed local positions must have zero quantity.';
   }
-  if (position.currentPrice !== undefined &&
-      (!Number.isFinite(position.currentPrice) || position.currentPrice <= 0)) {
+  if (
+    position.currentPrice !== undefined &&
+    (!Number.isFinite(position.currentPrice) || position.currentPrice <= 0)
+  ) {
     return 'Local position current price must be positive when supplied.';
   }
-  if (position.targetPrice !== undefined &&
-      (!Number.isFinite(position.targetPrice) || position.targetPrice <= 0)) {
+  if (
+    position.targetPrice !== undefined &&
+    (!Number.isFinite(position.targetPrice) || position.targetPrice <= 0)
+  ) {
     return 'Local position target price must be positive when supplied.';
   }
-  if (position.sellableQuantity !== undefined &&
-      (!Number.isFinite(position.sellableQuantity) ||
-       position.sellableQuantity < 0 ||
-       position.sellableQuantity > position.quantity)) {
+  if (
+    position.sellableQuantity !== undefined &&
+    (!Number.isFinite(position.sellableQuantity) ||
+      position.sellableQuantity < 0 ||
+      position.sellableQuantity > position.quantity)
+  ) {
     return 'Local position sellable quantity is outside its valid range.';
   }
   if (position.pool !== undefined && !(['A', 'B', 'C'] as const).includes(position.pool)) {
@@ -105,14 +112,18 @@ export function providerPositionValidationError(position: ProviderPosition): str
   if (!Number.isFinite(position.averagePrice) || position.averagePrice <= 0) {
     return 'Provider average price must be finite and positive.';
   }
-  if (position.marketPrice !== undefined &&
-      (!Number.isFinite(position.marketPrice) || position.marketPrice <= 0)) {
+  if (
+    position.marketPrice !== undefined &&
+    (!Number.isFinite(position.marketPrice) || position.marketPrice <= 0)
+  ) {
     return 'Provider market price must be positive when supplied.';
   }
-  if (position.sellableQuantity !== undefined &&
-      (!Number.isFinite(position.sellableQuantity) ||
-       position.sellableQuantity < 0 ||
-       position.sellableQuantity > position.quantity)) {
+  if (
+    position.sellableQuantity !== undefined &&
+    (!Number.isFinite(position.sellableQuantity) ||
+      position.sellableQuantity < 0 ||
+      position.sellableQuantity > position.quantity)
+  ) {
     return 'Provider sellable quantity is outside its valid range.';
   }
   return undefined;
@@ -129,10 +140,7 @@ function addToGroup<T>(groups: Map<string, T[]>, symbol: string, position: T): v
   groups.set(symbol, group);
 }
 
-function exitDataIsComplete(
-  local: LocalPosition,
-  provider: ProviderPosition
-): boolean {
+function exitDataIsComplete(local: LocalPosition, provider: ProviderPosition): boolean {
   return Boolean(
     local.slotId?.trim() &&
     local.pool &&
@@ -260,8 +268,8 @@ export function reconcilePositionState(
     });
   }
 
-  items.sort((a, b) =>
-    a.symbol.localeCompare(b.symbol) || a.disposition.localeCompare(b.disposition)
+  items.sort(
+    (a, b) => a.symbol.localeCompare(b.symbol) || a.disposition.localeCompare(b.disposition)
   );
   const complete = items.every(item => item.disposition === 'CONVERGED');
   const missingProviderSymbols = items

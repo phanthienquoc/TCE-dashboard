@@ -1,4 +1,8 @@
-import { assertValidLocalPosition, normalizePositionSymbol, type LocalPosition } from './position-state-reconciler';
+import {
+  assertValidLocalPosition,
+  normalizePositionSymbol,
+  type LocalPosition,
+} from './position-state-reconciler';
 
 export type PositionRecoverySnapshot = Readonly<{
   recordedAt: string;

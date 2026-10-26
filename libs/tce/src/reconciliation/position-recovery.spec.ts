@@ -39,14 +39,11 @@ describe('position recovery', () => {
   });
 
   it('fails closed for invalid positions and duplicate normalized symbols', () => {
-    expect(() => rebuildPositionOwnership([
-      { ...position, quantity: 0 },
-    ])).toThrow(/quantity/i);
+    expect(() => rebuildPositionOwnership([{ ...position, quantity: 0 }])).toThrow(/quantity/i);
 
-    expect(() => rebuildPositionOwnership([
-      position,
-      { ...position, id: 'slot-2', symbol: ' dpm ' },
-    ])).toThrow(/duplicate/i);
+    expect(() =>
+      rebuildPositionOwnership([position, { ...position, id: 'slot-2', symbol: ' dpm ' }])
+    ).toThrow(/duplicate/i);
   });
 
   it('does not treat a missing recovery snapshot as an empty account', async () => {
@@ -56,9 +53,11 @@ describe('position recovery', () => {
 
   it('rejects invalid snapshot timestamps instead of silently ignoring a save', async () => {
     const persistence = new InMemoryPositionRecoveryPersistence();
-    await expect(persistence.save({
-      recordedAt: 'not-a-timestamp',
-      positions: [position],
-    })).rejects.toThrow(/timestamp/i);
+    await expect(
+      persistence.save({
+        recordedAt: 'not-a-timestamp',
+        positions: [position],
+      })
+    ).rejects.toThrow(/timestamp/i);
   });
 });

@@ -39,15 +39,15 @@ test('converges normalized local/provider holdings and marks complete exit data'
 });
 
 test('reports missing and unexpected holdings without auto-closing or auto-adopting', () => {
-  const result = reconcilePositionState(
-    [local()],
-    [provider({ symbol: 'VNM' })]
-  );
+  const result = reconcilePositionState([local()], [provider({ symbol: 'VNM' })]);
 
   assert.equal(result.complete, false);
   assert.deepEqual(result.missingProviderSymbols, ['DPM']);
   assert.deepEqual(result.unexpectedProviderSymbols, ['VNM']);
-  assert.equal(result.positions.every(item => item.disposition !== 'CONVERGED'), true);
+  assert.equal(
+    result.positions.every(item => item.disposition !== 'CONVERGED'),
+    true
+  );
 });
 
 test('fails closed when quantity or average price differs', () => {
@@ -58,10 +58,7 @@ test('fails closed when quantity or average price differs', () => {
   assert.equal(quantityMismatch.positions[0]?.disposition, 'MISMATCH');
   assert.equal(quantityMismatch.positions[0]?.quantityDelta, -10);
 
-  const priceMismatch = reconcilePositionState(
-    [local()],
-    [provider({ averagePrice: 31000 })]
-  );
+  const priceMismatch = reconcilePositionState([local()], [provider({ averagePrice: 31000 })]);
   assert.equal(priceMismatch.positions[0]?.disposition, 'MISMATCH');
   assert.equal(priceMismatch.positions[0]?.averagePriceDelta, 1000);
 });
@@ -83,14 +80,14 @@ test('fails closed on duplicate normalized symbols from either source', () => {
 });
 
 test('invalid provider quantities are reconciliation-required and never exit-complete', () => {
-  const result = reconcilePositionState(
-    [local()],
-    [provider({ quantity: Number.NaN })]
-  );
+  const result = reconcilePositionState([local()], [provider({ quantity: Number.NaN })]);
 
   assert.equal(result.complete, false);
   assert.deepEqual(result.invalidSymbols, ['DPM']);
-  assert.equal(result.positions.some(item => item.disposition === 'RECONCILIATION_REQUIRED'), true);
+  assert.equal(
+    result.positions.some(item => item.disposition === 'RECONCILIATION_REQUIRED'),
+    true
+  );
   assert.equal(result.exitDataComplete, false);
 });
 
@@ -102,17 +99,11 @@ test('missing sellability, target or market price blocks exit data readiness', (
   assert.equal(noSellability.complete, true);
   assert.equal(noSellability.exitDataComplete, false);
 
-  const noTarget = reconcilePositionState(
-    [local({ targetPrice: undefined })],
-    [provider()]
-  );
+  const noTarget = reconcilePositionState([local({ targetPrice: undefined })], [provider()]);
   assert.equal(noTarget.complete, true);
   assert.equal(noTarget.exitDataComplete, false);
 
-  const noMarketPrice = reconcilePositionState(
-    [local()],
-    [provider({ marketPrice: undefined })]
-  );
+  const noMarketPrice = reconcilePositionState([local()], [provider({ marketPrice: undefined })]);
   assert.equal(noMarketPrice.complete, true);
   assert.equal(noMarketPrice.exitDataComplete, false);
 });
@@ -125,7 +116,10 @@ test('returns deterministic symbol ordering without mutating either input', () =
 
   const result = reconcilePositionState(locals, providers);
 
-  assert.deepEqual(result.positions.map(item => item.symbol), ['DPM', 'VNM']);
+  assert.deepEqual(
+    result.positions.map(item => item.symbol),
+    ['DPM', 'VNM']
+  );
   assert.deepEqual(locals, localsBefore);
   assert.deepEqual(providers, providersBefore);
 });
