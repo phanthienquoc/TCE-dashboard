@@ -1,5 +1,6 @@
 'use client';
 import { getAccessToken, setAccessToken } from './session-token';
+import { keycloakLogoutUrl } from './keycloak-sso';
 import { create } from 'zustand';
 import { authApi, dashboardApi } from './api';
 import { useTCEDataStore } from './tce-data-store';
@@ -122,8 +123,11 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
   },
   logout: async () => {
+    const logoutUrl = keycloakLogoutUrl();
     try {
       await authApi.logout();
+    } catch {
+      // Clear local state and continue to the IdP logout even if the app session expired.
     } finally {
       setAccessToken(null);
       useTCEDataStore.getState().clear();
@@ -131,6 +135,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       useDashboardStore.getState().clear();
       set({ user: null, status: 'anonymous', initialized: true });
     }
+    if (logoutUrl && typeof window !== 'undefined') window.location.assign(logoutUrl);
   },
 }));
 
