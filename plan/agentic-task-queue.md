@@ -21,6 +21,23 @@
 
 ## Active tasks
 
+### TCE-TEST-001 — Restore unit-test discovery in the root test runner
+
+- **Priority/status:** P0 / VALIDATED ON FIX BRANCH — the corrected runner passed WF-05 on exact head `3300192c77adaf7b1b53375aba0086cccdb6e8be`; default-branch merge remains blocked by the Supabase deployment side-effect gate.
+- **Evidence:** In `package.json`, the discovery regex was over-escaped (`/\\\\.(spec|test)\\\\.ts$/`) and matched no normal `.spec.ts` or `.test.ts` filenames. Both runner arrays therefore stayed empty and the test command exited successfully without executing tests. The corrected pattern discovers those files and an explicit zero-discovered-files guard now fails closed.
+- **Current behavior before fix:** WF-05 could report success while running no unit tests; backend build still ran separately.
+- **Desired behavior:** Discover the intended Node/Vitest test files, run both groups, and fail rather than report success if discovery returns zero files.
+- **Acceptance criteria:**
+  - [x] Correct the filename matcher for `.spec.ts` and `.test.ts`.
+  - [x] Fail the test command when no test files are discovered.
+  - [x] Verify backend build and the now-enabled unit-test command on the exact fix-branch head.
+  - [x] Verify Prettier on the exact fix-branch head.
+  - [ ] Merge to `master` only after the connected Supabase GitHub integration target and push-triggered deployment behavior are confirmed safe.
+- **Validation:** [WF-05 Backend Unit Tests](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/40272260507) passed on `3300192c77adaf7b1b53375aba0086cccdb6e8be`; [WF-02 Prettier](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/40272260521) passed on the same SHA. The runner now executes the discovered tests rather than silently skipping them.
+- **Dependencies:** None for code/test correctness; default-branch merge depends on Supabase integration-target verification.
+- **Risk:** P0 test-integrity risk. The connected project ref `gtqovpusfyyvxpeezxlo` has a non-persistent `main`/Git `master` branch with `MIGRATIONS_FAILED`; the connected GitHub repository is not exposed by the project metadata. Supabase documentation says connected GitHub commits may run deployment steps and pending migrations, so do not merge this change into the default branch until the target is verified.
+- **Links:** [Fix branch](https://github.com/phanthienquoc/TCE-dashboard/tree/fix/tce-test-discovery-20261026), [root test script](../package.json), [WF-05 workflow](../.github/workflows/wf-02-tce-backend-unit-test.yml), [Supabase Branching documentation](https://supabase.com/docs/guides/deployment/branching).
+
 ### TCE-SEC-001 — Remove public read and destructive browser grants on position snapshots
 
 - **Priority/status:** P0 / MERGED — source migration `20261026034917_revoke_public_snapshot_access.sql` is on `master` at merge commit `ccaccb6b6131665e317774dfc8742b480972a316`. Post-merge backend unit tests, Build+Verify and the push-format check passed; no production release was dispatched. Non-production end-to-end smoke remains gated on explicit environment classification.
