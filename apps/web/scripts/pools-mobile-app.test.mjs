@@ -238,7 +238,7 @@ try {
               insidePoolsView: Boolean(element.closest('.tce-pools-view')),
               display: computed?.display ?? null,
               gridTemplateColumns: columns,
-              columnCount: columns.trim().split(/\\s+/).filter(Boolean).length,
+              columnCount: columns.trim().split(/\s+/).filter(Boolean).length,
               rect: { left: rect.left, top: rect.top, right: rect.right, bottom: rect.bottom },
             };
           }
@@ -261,16 +261,16 @@ try {
           navTop: navRect?.top ?? null,
           navBottom: navRect?.bottom ?? null,
           navPosition: style(nav)?.position ?? null,
-          poolColumns: style(poolGrid)?.gridTemplateColumns.trim().split(/\\s+/).length ?? 0,
+          poolColumns: style(poolGrid)?.gridTemplateColumns.trim().split(/\s+/).length ?? 0,
           poolCount: poolCards.length,
           poolCardsWithinViewport: poolCards.every(card => {
             const rect = card.getBoundingClientRect();
             return rect.left >= -1 && rect.right <= window.innerWidth + 1;
           }),
-          rotationColumns: rotationComputedColumns.trim().split(/\\s+/).filter(Boolean).length,
+          rotationColumns: rotationComputedColumns.trim().split(/\s+/).filter(Boolean).length,
           rotationComputedColumns,
           rotationGridIsInsidePoolsView: Boolean(rotationGrid?.closest('.tce-pools-view')),
-          scopedRotationColumns: scopedRotationComputedColumns.trim().split(/\\s+/).filter(Boolean)
+          scopedRotationColumns: scopedRotationComputedColumns.trim().split(/\s+/).filter(Boolean)
             .length,
           scopedRotationComputedColumns,
           rotationGridCandidates,
