@@ -21,14 +21,16 @@ function withSecret<T>(secret: string | undefined, run: () => T): T {
 function signedToken(secret: string): string {
   const now = Math.floor(Date.now() / 1000);
   const header = Buffer.from(JSON.stringify({ alg: 'HS256', typ: 'JWT' })).toString('base64url');
-  const payload = Buffer.from(JSON.stringify({
-    sub: 'test-user',
-    role: 'ADMIN',
-    typ: 'access',
-    iat: now,
-    exp: now + 60,
-    jti: 'test-jti',
-  })).toString('base64url');
+  const payload = Buffer.from(
+    JSON.stringify({
+      sub: 'test-user',
+      role: 'ADMIN',
+      typ: 'access',
+      iat: now,
+      exp: now + 60,
+      jti: 'test-jti',
+    })
+  ).toString('base64url');
   const body = `${header}.${payload}`;
   const signature = createHmac('sha256', secret).update(body).digest('base64url');
   return `${body}.${signature}`;
@@ -44,10 +46,16 @@ test('rejects a placeholder-signed bearer token when JWT_SECRET is missing', () 
 
 test('rejects placeholder and short JWT secrets during verification', () => {
   withSecret('CHANGE_ME_IN_ENV', () => {
-    assert.throws(() => new JwtService().verify(signedToken('CHANGE_ME_IN_ENV')), UnauthorizedException);
+    assert.throws(
+      () => new JwtService().verify(signedToken('CHANGE_ME_IN_ENV')),
+      UnauthorizedException
+    );
   });
   withSecret('short-secret', () => {
-    assert.throws(() => new JwtService().verify(signedToken('short-secret')), UnauthorizedException);
+    assert.throws(
+      () => new JwtService().verify(signedToken('short-secret')),
+      UnauthorizedException
+    );
   });
 });
 
