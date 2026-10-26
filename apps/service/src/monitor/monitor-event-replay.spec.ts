@@ -45,7 +45,6 @@ function makeDb(
         },
         update(values: Record<string, unknown>) {
           action = 'update';
-          currentUpdate = values;
           calls.updates.push(values);
           return builder;
         },
