@@ -67,6 +67,12 @@ test('issues and verifies with a strong secret', () => {
   });
 });
 
+test('refuses issuance with a short secret', () => {
+  withSecret('short-secret', () => {
+    assert.throws(() => new JwtService().issue('user-1', 'USER'), /JWT_SECRET/);
+  });
+});
+
 test('refuses issuance when the secret is missing', () => {
   withSecret(undefined, () => {
     assert.throws(() => new JwtService().issue('user-1', 'USER'), /JWT_SECRET/);
