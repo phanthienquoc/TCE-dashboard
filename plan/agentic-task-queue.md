@@ -126,7 +126,6 @@
 - **Risk:** Critical — a default-branch push could trigger a connected migration workflow while history is incomplete and branch status is `MIGRATIONS_FAILED`.
 - **Links:** [Authentication migration inventory PR #72](https://github.com/phanthienquoc/phanthienquoc-authentication/pull/72), [Supabase branching docs](https://supabase.com/docs/guides/deployment/branching), [Supabase GitHub integration docs](https://supabase.com/docs/guides/deployment/branching/github-integration).
 
-
 ### TCE-RUNTIME-001 — Durable retry/replay for lifecycle event publication
 
 - **Priority/status:** P1 / MERGED — source migration, enqueue trigger, replay worker and focused tests are on `master` at merge commit `ccaccb6b6131665e317774dfc8742b480972a316`; post-merge backend unit tests, Build+Verify and push-format checks passed. The service image is not deployed.
