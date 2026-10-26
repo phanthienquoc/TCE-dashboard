@@ -1,7 +1,11 @@
 import { Inject, Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import { CONTRACT_TOKENS, type TceEventPublisherPort } from '@tce/contracts';
 import { SupabaseClientService } from '../db/supabase.client';
-import { createMonitorSnapshotEvent, publishMonitorSnapshotBestEffort } from './monitor-event';
+import { createMonitorSnapshotEvent } from './monitor-event';
+import {
+  publishMonitorSnapshotWithReplay,
+  replayPendingMonitorSnapshotEvents,
+} from './monitor-event-replay';
 
 const DEFAULT_TZ = 'Asia/Ho_Chi_Minh';
 const INTERVAL_MS = 60 * 60 * 1000;
@@ -66,6 +70,17 @@ export class TceMonitorService implements OnModuleInit, OnModuleDestroy {
     const result = { skipped: false, monitored: 0, signals: [] as string[] };
 
     try {
+      const replay = await replayPendingMonitorSnapshotEvents(
+        this.supabase.db,
+        this.eventPublisher,
+        message => this.logger.warn(`Monitor event replay: ${message}`)
+      );
+      if (replay.scanned > 0) {
+        this.logger.log(
+          `Monitor event replay: scanned=${replay.scanned} delivered=${replay.delivered} retried=${replay.retried} deadLettered=${replay.deadLettered}`
+        );
+      }
+
       const { data: configs, error: configError } = await this.supabase.db
         .from('tce_strategy_config')
         .select(
@@ -108,7 +123,14 @@ export class TceMonitorService implements OnModuleInit, OnModuleDestroy {
         let accountMonitored = 0;
 
         for (const position of (positions ?? []) as Position[]) {
-          const snapshot = this.buildSnapshot(position, true);
+          const occurredAt = new Date().toISOString();
+          const correlationId = `monitor-run:${config.account_id}:${started}`;
+          const snapshot = {
+            ...this.buildSnapshot(position, true),
+            position_id: position.id,
+            correlation_id: correlationId,
+            event_occurred_at: occurredAt,
+          };
           const { data: inserted, error: snapshotError } = await this.supabase.db
             .from('tce_position_snapshots')
             .insert(snapshot)
@@ -117,21 +139,23 @@ export class TceMonitorService implements OnModuleInit, OnModuleDestroy {
           if (snapshotError) throw snapshotError;
 
           if (inserted?.id) {
-            const occurredAt = new Date().toISOString();
+            const snapshotId = String(inserted.id);
             const event = createMonitorSnapshotEvent({
-              snapshotId: String(inserted.id),
+              snapshotId,
               positionId: position.id,
               accountId: config.account_id,
               symbol: position.symbol,
               signal: snapshot.signal,
               occurredAt,
-              correlationId: `monitor-run:${config.account_id}:${started}`,
+              correlationId,
             });
-            await publishMonitorSnapshotBestEffort(this.eventPublisher, event, error => {
-              this.logger.warn(
-                `Unable to publish monitor snapshot event for ${position.symbol}; persisted snapshot remains authoritative: ${error instanceof Error ? error.message : String(error)}`
-              );
-            });
+            await publishMonitorSnapshotWithReplay(
+              this.supabase.db,
+              this.eventPublisher,
+              snapshotId,
+              event,
+              message => this.logger.warn(`Monitor event replay: ${message}`)
+            );
           }
 
           accountMonitored += 1;
