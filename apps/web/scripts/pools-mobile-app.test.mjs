@@ -206,7 +206,9 @@ try {
         const rotationGrid = poolsView?.querySelector('.tce-rotation-kpis') ?? null;
         const scopedRotationGrid = poolsView?.querySelector('.tce-rotation-kpis') ?? null;
         const poolCards = [...document.querySelectorAll('.tce-pools-view .tce-pool-balance')];
-        const rotationMetrics = [...document.querySelectorAll('.tce-pools-view .tce-rotation-kpis > div')];
+        const rotationMetrics = [
+          ...document.querySelectorAll('.tce-pools-view .tce-rotation-kpis > div'),
+        ];
         const scopedRotationMetrics = [
           ...(poolsView?.querySelectorAll('.tce-rotation-kpis > div') ?? []),
         ];
@@ -268,7 +270,10 @@ try {
           navTop: navRect?.top ?? null,
           navBottom: navRect?.bottom ?? null,
           navPosition: style(nav)?.position ?? null,
-          poolColumns: new Set(poolCards.map(card => Math.round(card.getBoundingClientRect().left))).size,
+          // Count rendered x positions; computed grid-template strings can retain repeat() syntax.
+          poolColumns: new Set(
+            poolCards.map(card => Math.round(card.getBoundingClientRect().left)),
+          ).size,
           poolGridDisplay: style(poolGrid)?.display ?? null,
           poolGridComputedColumns: style(poolGrid)?.gridTemplateColumns ?? '',
           poolCount: poolCards.length,
@@ -276,13 +281,17 @@ try {
             const rect = card.getBoundingClientRect();
             return rect.left >= -1 && rect.right <= window.innerWidth + 1;
           }),
-          rotationColumns: new Set(rotationMetrics.map(item => Math.round(item.getBoundingClientRect().left))).size,
+          rotationColumns: new Set(
+            rotationMetrics.map(item => Math.round(item.getBoundingClientRect().left)),
+          ).size,
           rotationComputedColumns,
           rotationGridDisplay: style(rotationGrid)?.display ?? null,
           unscopedRotationComputedColumns: style(unscopedRotationGrid)?.gridTemplateColumns ?? '',
           rotationGridIsInsidePoolsView: Boolean(unscopedRotationGrid?.closest('.tce-pools-view')),
           rotationGridMatchesScoped: unscopedRotationGrid === rotationGrid,
-          scopedRotationColumns: new Set(scopedRotationMetrics.map(item => Math.round(item.getBoundingClientRect().left))).size,
+          scopedRotationColumns: new Set(
+            scopedRotationMetrics.map(item => Math.round(item.getBoundingClientRect().left)),
+          ).size,
           scopedRotationComputedColumns,
           rotationGridCandidates,
           rotationMetricTops,
@@ -413,7 +422,7 @@ try {
         assert.equal(
           metrics.rotationColumns,
           2,
-          `${testCase.name}: active rotation metrics use a two-column grid; see the TCE-UI-003A CSS cascade diagnostic log above`
+          `${testCase.name}: active rotation metrics use a two-column grid; see TCE-UI-003A diagnostics`
         );
         assert.equal(
           metrics.rotationMetricCount,
