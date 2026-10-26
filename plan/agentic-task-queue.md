@@ -60,6 +60,24 @@
 - **Risk:** Previously critical exposure is mitigated at the database grant/policy layer. Remaining risk is an untracked external consumer outside the two authorized repositories that expects browser access; the existing source inventory found none.
 - **Links:** [applied migration](../supabase/migrations/20261026034917_revoke_public_snapshot_access.sql), [runtime boundary architecture](https://github.com/phanthienquoc/TCE-dashboard/blob/master/docs/architecture/runtime-boundaries.md), [Supabase API security](https://supabase.com/docs/guides/api/securing-your-api), [PostgreSQL row security](https://www.postgresql.org/docs/current/ddl-rowsecurity.html).
 
+### TCE-SEC-002 — Review public SECURITY DEFINER market-metrics view
+
+- **Priority/status:** P1 / OPEN — read-only security finding confirmed; no schema/privilege change is authorized against the private-production project.
+- **Evidence:** Supabase Security Advisor reports one ERROR, security_definer_view, on public.tce_stock_event_market_metrics. Read-only catalog inspection confirms it is a view with reloptions NULL (no security_invoker=true) and SELECT grants to anon, authenticated, service_role and postgres. Its definition exposes stock-event fields plus latest quote/OHLCV-derived current price, price date, 365-day low/high and dividend yield; it does not select user IDs, password hashes, tokens, MFA or passkey material. The underlying stock_events and tce_market_prices tables have RLS enabled with no policies and SELECT grants to anon/authenticated; tce_market_ohlcv_daily has RLS enabled and an authenticated-only read policy. The SECURITY DEFINER view can bypass those underlying RLS policies for its public readers.
+- **Application contract:** GitHub search finds the view consumed by apps/service/src/stock-events/stock-events.supabase.repository.ts and stock-dividend-pool.service.ts. The current service repository uses the backend Supabase client; no direct frontend call was found in the searched source paths. This suggests the view may not need browser-role access, but public market-data intent must be confirmed before changing it.
+- **Current behavior:** anon/authenticated can SELECT the view; default view-owner privileges can bypass underlying RLS. The view appears to expose market/event data rather than account data, so this is an access-control mismatch requiring confirmation, not proof of a private-data leak.
+- **Desired behavior:** Confirm intended anonymous access. If the NestJS service is the only consumer, prefer an additive migration that sets security_invoker=true and revokes SELECT from anon/authenticated while preserving the service_role path; verify the view output and service behavior before any deployment. Do not blindly broaden underlying-table policies or merely suppress the advisor.
+- **Acceptance criteria:**
+  - [x] Capture advisor finding, live view definition/options, SELECT grants, underlying RLS/policies and repository call sites read-only.
+  - [ ] Confirm whether anonymous direct access to this market-metrics view is a product requirement.
+  - [ ] Reconcile the migration source/ledger drift and verify the connected Supabase GitHub integration target before preparing a migration.
+  - [ ] Test service_role read success and anon/authenticated denial against a separate explicitly approved non-production target.
+  - [ ] If approved, add an additive migration and regression checks on a dedicated TCE branch; do not merge/apply against private production.
+- **Validation:** No table rows were read; no schema/grant/policy/view change, Supabase branch operation, deployment or trading action occurred. Current target is private production and its only listed branch reports MIGRATIONS_FAILED.
+- **Dependencies:** Product decision on public access, authoritative migration provenance, verified integration/deploy settings, separate safe non-production target.
+- **Risk:** High — a SECURITY DEFINER view with public SELECT can bypass the underlying tables' RLS intent even when the exposed columns are market data.
+- **Links:** [Source view migration](../supabase/migrations/202609160003_dividend_current_price_ohlcv_fallback.sql), [service repository](../apps/service/src/stock-events/stock-events.supabase.repository.ts), [Supabase security-definer-view advisor](https://supabase.com/docs/guides/database/database-linter?lint=0010_security_definer_view), [Supabase RLS documentation](https://supabase.com/docs/guides/database/postgres/row-level-security).
+
 ### TCE-RUNTIME-001 — Durable retry/replay for lifecycle event publication
 
 - **Priority/status:** P1 / MERGED — source migration, enqueue trigger, replay worker and focused tests are on `master` at merge commit `ccaccb6b6131665e317774dfc8742b480972a316`; post-merge backend unit tests, Build+Verify and push-format checks passed. The service image is not deployed.
