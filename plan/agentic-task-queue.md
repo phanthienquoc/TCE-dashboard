@@ -1,6 +1,6 @@
 # TCE Dashboard — Agent Task Queue
 
-**Last audited:** 2026-10-26 19:25 +07:00  
+**Last audited:** 2026-10-26 19:13 +07:00  
 **Default branch checkpoint:** `master` audited on 2026-10-26. The latest functional/schema merge tracked by this queue is TCE-SEC-001/TCE-RUNTIME-001 at `ccaccb6b6131665e317774dfc8742b480972a316`; subsequent queue-checkpoint commits are documentation-only. Consult Git history for the exact current `master` SHA.  
 **Queue convention:** This repository has a mature `plan/` directory but no existing `docs/agentic/` queue. This file follows the current `plan/` convention and supplements, rather than replaces, canonical phase plans/issues.  
 **Safety:** Owner/admin confirmed on 2026-10-26 that shared project `gtqovpusfyyvxpeezxlo` is non-production and authorized scoped Supabase actions for these two repositories. Historical `env=prod` telemetry and earlier TCE wording are not environment blockers. Project API `ACTIVE_HEALTHY` and default non-persistent branch `MIGRATIONS_FAILED` remain separate diagnostics. No production application release, live orders, LIVE-mode changes, unrelated-repository changes or potentially billable Supabase branch creation without `get_cost` and explicit cost approval.
@@ -20,6 +20,21 @@
 - **P2** — important maintenance, UI consolidation or tracking hygiene.
 
 ## Active tasks
+
+### TCE-AUTH-003 — Verify the exact 32-byte JWT secret boundary
+
+- **Priority/status:** P2 / TEST SYNCED TO CURRENT MASTER; EXACT-HEAD CI PENDING.
+- **Current behavior:** `JwtService` rejects absent, placeholder and shorter-than-32-byte secrets; the prior test PR added an exact-32-byte acceptance boundary but was based on an outdated master and carried stale environment-blocker wording.
+- **Desired behavior:** Preserve the strict minimum-length boundary and prove exactly 32 bytes is accepted using a deterministic synthetic secret.
+- **Acceptance criteria:**
+  - [x] Reuse the synthetic exact-32-byte test from prior PR #921.
+  - [x] Sync task evidence to current master `6036c65629e1aec482fcc62321ea72b8ce38a57e`; preserve the current TCE-SEC-004 remediation record and owner-confirmed non-production scope.
+  - [ ] Exact-head WF-02 Prettier and WF-05 backend tests pass.
+  - [ ] Confirm production release workflow is not triggered by merge; WF-03 is `workflow_dispatch`-only.
+- **Validation:** Prior PR #921 exact-head checks passed before TCE-SEC-004 merged; this synchronized branch requires fresh exact-head checks.
+- **Dependencies:** JWT fail-closed implementation merged at `24e972bad13449174d9dde49786303041a1f7a41`.
+- **Risk:** Low; test and queue only, no secrets or live tokens.
+- **Links:** [Superseded PR #921](https://github.com/phanthienquoc/TCE-dashboard/pull/921), [JWT service](../apps/service/src/auth/jwt.service.ts), [boundary test](../apps/service/src/auth/jwt.service.spec.ts).
 
 ### TCE-AUTH-002 — Integrate Keycloak SSO into TCE Dashboard
 
