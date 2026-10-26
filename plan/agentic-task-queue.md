@@ -94,7 +94,7 @@
 - **Acceptance criteria:**
   - [x] Correct the proven cascade/selector cause without broadening unrelated page styles, using diagnostics from TCE-UI-003A.
   - [x] WF-11 passes at 390×844, 844×430 and 844×390; inspect the generated screenshots for the same viewports.
-  - [ ] No capital-allocation, API, schema, authentication or trading behavior changes.
+  - [x] No capital-allocation, API, schema, authentication or trading behavior changes.
 - **Validation:** Superseded attempts #902 and #905 were closed. PR #906 exact head `b831fe274d394e8e892aab4c79dab7eea8ce150b` passed Chromium viewport contract [run #40256640973](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/40256640973), backend unit tests [run #40256640970](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/40256640970), and Prettier [run #40256640985](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/40256640985). Post-merge checks on `deeedfe704b3c1cfe522768d15fd13f4e79df6ea` passed build/verify [run #40256743522](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/40256743522) and backend tests [run #40256743579](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/40256743579). WF-03 remains manual-dispatch-only; no release was dispatched.
 - **Dependencies:** TCE-UI-003A diagnostics are complete and the dependency is satisfied. Existing production-release workflow WF-03 is `workflow_dispatch`-only; ordinary master pushes do not trigger its publish/promotion jobs.
 - **Risk:** Low UI regression risk; page-scoped CSS and browser assertions only. No runtime/trading behavior change intended.
