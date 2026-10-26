@@ -87,8 +87,8 @@
 
 ### TCE-UI-003 — Compact Pools mobile layout and safe-area spacing
 
-- **Priority/status:** P2 / IN PROGRESS — WF-11 diagnostic evidence established the missing landscape grid display; branch `feat/tce-ui-003b-pools-landscape-grid-fix-20261026` applies the narrow fix and changes column assertions to use rendered geometry. Do not merge until exact-head WF-11 passes.
-- **Evidence:** [diagnostic PR #905](https://github.com/phanthienquoc/TCE-dashboard/pull/905), [blocked parent PR #902](https://github.com/phanthienquoc/TCE-dashboard/pull/902), and [WF-11 run #40234416071](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/40234416071). The 844×430 case reported three computed grid columns instead of two.
+- **Priority/status:** P2 / IN PROGRESS — [PR #906](https://github.com/phanthienquoc/TCE-dashboard/pull/906) applies the evidence-based landscape grid fix and geometry assertions. Do not merge until exact-head WF-02, WF-05 and WF-11 pass.
+- **Evidence:** [diagnostic PR #905](https://github.com/phanthienquoc/TCE-dashboard/pull/905), [fix PR #906](https://github.com/phanthienquoc/TCE-dashboard/pull/906), [WF-11 root-cause run #40255671708](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/40255671708), and [follow-up run #40255940553](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/40255940553).
 - **Current behavior:** Chromium passed the 390×844 portrait Pools case and the existing Positions viewport checks, but failed at `apps/web/scripts/pools-mobile-app.test.mjs:243` for 844×430: computed `rotationColumns` was 3 instead of 2. The branch contains a page-scoped `.tce-pools-view .tce-rotation-kpis` two-column override in `apps/web/app/mobile-command-center-fix.css` under the 600–950px width media query, yet the runtime computed style remains three columns. WF-02 Prettier and WF-05 backend unit tests pass on the same PR head.
 - **Desired behavior:** Keep Active Rotation metrics in two columns, with the third metric on the next row; show all three capital pools within the viewport; prevent horizontal overflow and preserve safe-area/bottom-dock spacing.
 - **Acceptance criteria:**
@@ -102,18 +102,18 @@
 
 ### TCE-UI-003A — Diagnose Pools rotation KPI CSS cascade in real Chromium
 
-- **Priority/status:** P1 / IN PROGRESS — root cause proven; verifying that all viewport screenshots and diagnostics survive a failing assertion.
+- **Priority/status:** P1 / IN PROGRESS — root cause proven; finishing artifact upload and exact-head validation for all three viewports.
 - **Implementation branch:** `feat/tce-ui-003a-pools-cascade-diagnostics-v2-20261026`. The browser harness records computed grid styles for scoped/unscoped KPI elements, media-query state, CDP matched declarations, stylesheet URLs/source locations, and screenshots before assertions; the two-column assertion remains enabled.
 - **Evidence:** [diagnostic PR #905](https://github.com/phanthienquoc/TCE-dashboard/pull/905), [blocked parent PR #902](https://github.com/phanthienquoc/TCE-dashboard/pull/902), and [WF-11 run #40234416071](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/40234416071). The 844×430 case reported three computed grid columns instead of two.
-- **Current behavior / evidence:** WF-11 run [#40255671708](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/40255671708) confirms that at 844×430 the short-landscape media query matches and the scoped rule declares `grid-template-columns: repeat(2, minmax(0, 1fr))`, but computed `display` is `block`; all three KPI children stack vertically. The shared `.tce-rotation-kpis { display: grid; }` rule is inside the `max-width: 767px` media query, so it does not apply at 844px. Portrait 390×844 computes `display: grid` and two columns. The initial diagnostic parser bug was corrected before this evidence was captured.
+- **Current behavior / evidence:** WF-11 run [#40255671708](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/40255671708) confirms that at 844×430 the short-landscape media query matches and the scoped rule declares `grid-template-columns: repeat(2, minmax(0, 1fr))`, but computed `display` is `block`; all three KPI children stack vertically. The shared `.tce-rotation-kpis { display: grid; }` rule is inside the `max-width: 767px` media query, so it does not apply at 844px. Portrait 390×844 computes `display: grid` and two columns. The initial diagnostic parser bug was corrected before this evidence was captured. Run #40255940553 then showed that the KPI grid computes to two columns with display:grid, while the pool-balance grid still had one rendered column; the test now asserts both displays and records the pool-grid matched rule.
 - **Desired behavior:** Capture enough real-browser evidence at 844×430 to identify the winning `grid-template-columns` declaration and its selector/media query before changing CSS.
 - **Acceptance criteria:**
-  - [ ] Emit a structured diagnostic before assertions: viewport and DPR, target element/ancestor classes, computed `grid-template-columns`, and `matchMedia` results for the 600–950px and mobile-width queries.
-  - [ ] Use the existing Chromium DevTools Protocol session to record matched CSS rules/declarations for `grid-template-columns` on the actual Active Rotation KPI element; include stylesheet URL and source order where available.
-  - [ ] Preserve the failing two-column assertion; do not weaken or skip it.
-  - [ ] Upload or print diagnostics even when the expected-column assertion fails; keep screenshots for 390×844, 844×430 and 844×390.
-  - [ ] No new dependency, CSS fix, API/schema/auth change, capital-allocation change or trading/order behavior change in this diagnostic slice.
-- **Validation:** Run WF-11 on the diagnostic branch and inspect the exact-head logs/artifacts. The task is complete only when the winning rule and media-query state are evidenced; the visual fix is a separate follow-up.
+  - [x] Emit a structured diagnostic before assertions: viewport and DPR, target element/ancestor classes, computed `grid-template-columns`, and `matchMedia` results for the 600–950px and mobile-width queries.
+  - [x] Use the existing Chromium DevTools Protocol session to record matched CSS rules/declarations for `grid-template-columns` on the actual Active Rotation KPI element; include stylesheet URL and source order where available.
+  - [x] Preserve the failing two-column assertion; do not weaken or skip it.
+  - [ ] Upload the Pools screenshots to the workflow artifact and verify 390×844, 844×430 and 844×390 artifacts on the next exact-head run.
+  - [x] No new dependency, CSS fix, API/schema/auth change, capital-allocation change or trading/order behavior change in this diagnostic slice.
+- **Validation:** WF-11 #40255671708 proves the missing display:grid rule; #40255940553 emits diagnostics for all three viewports but its artifact path did not include `artifacts/pools-mobile/*.png`. The workflow artifact path now includes that directory; verify it on the next exact-head run. The visual fix is a separate follow-up.
 - **Dependencies:** Existing TCE-UI-003/PR #902 test contract. No Supabase schema or production environment dependency.
 - **Risk:** Low — test-only diagnostics; avoid logging credentials or real account data.
 - **Links:** [PR #902](https://github.com/phanthienquoc/TCE-dashboard/pull/902), [issue #433](https://github.com/phanthienquoc/TCE-dashboard/issues/433), [WF-11 failure](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/40234416071).
@@ -121,11 +121,12 @@
 ### TCE-UI-003B — Restore Pools KPI grid display in short landscape
 
 - **Priority/status:** P1 / IN PROGRESS — evidence-based follow-up to TCE-UI-003A.
-- **Evidence:** [WF-11 diagnostic run #40255671708](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/40255671708), [diagnostic PR #905](https://github.com/phanthienquoc/TCE-dashboard/pull/905), and branch `feat/tce-ui-003b-pools-landscape-grid-fix-20261026`.
-- **Current behavior:** At 844×430, the scoped two-column template rule matches, but the element's computed display is block. The three metric children therefore stack vertically. The shared display:grid rule only applies at widths up to 767px.
-- **Desired behavior:** Apply display:grid within the page-scoped 600–950px Pools media query and verify actual child geometry rather than counting tokens in the computed grid-template string.
+- **Evidence:** [WF-11 diagnostic run #40255671708](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/40255671708), [follow-up run #40255940553](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/40255940553), [diagnostic PR #905](https://github.com/phanthienquoc/TCE-dashboard/pull/905), and [fix PR #906](https://github.com/phanthienquoc/TCE-dashboard/pull/906).
+- **Current behavior:** At 844×430, the KPI grid's display:grid fix now yields two visible columns, but the pool-balance grid still had one column in run #40255940553 because its landscape rule also lacked display:grid. The current branch adds display:grid to both grids, asserts both computed display values, uses rendered child positions for column counts, fixes the media-query assertion to read the nested metrics object, and adds the Pools screenshot directory to the artifact upload.
+- **Desired behavior:** Apply display:grid to both page-scoped Pools balance and Active Rotation KPI grids within the 600–950px media query and verify actual child geometry rather than counting tokens in the computed grid-template string.
 - **Acceptance criteria:**
   - [ ] Active Rotation KPI grid is display:grid and visibly has two columns at 844×430; the third metric wraps to row two.
+  - [ ] Capital Pools balance grid is display:grid and visibly has three columns at 844×430 and 844×390.
   - [ ] Portrait 390×844 and short landscape 844×390 remain correct; all three screenshots are captured even if one viewport assertion fails.
   - [ ] Pool-column assertions use rendered child positions, not whitespace parsing of CSS declarations.
   - [ ] WF-02, WF-05 and WF-11 pass on the exact PR head.
