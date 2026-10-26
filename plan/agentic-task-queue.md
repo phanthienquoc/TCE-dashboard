@@ -1,9 +1,9 @@
 # TCE Dashboard — Agent Task Queue
 
-**Last audited:** 2026-10-26 20:38 +07:00  
-**Default branch checkpoint:** `master` verified at `6036c65629e1aec482fcc62321ea72b8ce38a57e`. TCE-SEC-004 cashout-access remediation squash-merged at `6036c65629e1aec482fcc62321ea72b8ce38a57e`; post-merge WF-02 and WF-05 passed. WF-01 post-merge frontend build failure is tracked separately below.  
+**Last audited:** 2026-10-26 19:25 +07:00  
+**Default branch checkpoint:** `master` audited on 2026-10-26. The latest functional/schema merge tracked by this queue is TCE-SEC-001/TCE-RUNTIME-001 at `ccaccb6b6131665e317774dfc8742b480972a316`; subsequent queue-checkpoint commits are documentation-only. Consult Git history for the exact current `master` SHA.  
 **Queue convention:** This repository has a mature `plan/` directory but no existing `docs/agentic/` queue. This file follows the current `plan/` convention and supplements, rather than replaces, canonical phase plans/issues.  
-**Safety:** Owner/admin previously classified shared project `gtqovpusfyyvxpeezxlo` as non-production. Current repository configuration still does not independently prove runtime URL-to-ref or GitHub/Supabase integration target mapping. Project API `ACTIVE_HEALTHY` and default non-persistent branch `MIGRATIONS_FAILED` are separate diagnostics. No exact future migration/write/deploy is authorized by this checkpoint; no production release, live orders, LIVE-mode changes, unrelated-repository changes or potentially billable Supabase branch creation without `get_cost` and explicit cost approval.
+**Safety:** Owner/admin confirmed on 2026-10-26 that shared project `gtqovpusfyyvxpeezxlo` is non-production and authorized scoped Supabase actions for these two repositories. Historical `env=prod` telemetry and earlier TCE wording are not environment blockers. Project API `ACTIVE_HEALTHY` and default non-persistent branch `MIGRATIONS_FAILED` remain separate diagnostics. No production application release, live orders, LIVE-mode changes, unrelated-repository changes or potentially billable Supabase branch creation without `get_cost` and explicit cost approval.
 
 ## Queue rules
 
@@ -20,22 +20,6 @@
 - **P2** — important maintenance, UI consolidation or tracking hygiene.
 
 ## Active tasks
-
-### TCE-AUTH-003 — Verify the exact 32-byte JWT secret boundary
-
-- **Priority/status:** P2 / CODE+TEST VALIDATED — code/test head `eace87ed93abbe1011bf035bc50611c1368a6488` passed exact-head WF-02 [run #40333770835](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/40333770835) and WF-05 [run #40333770733](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/40333770733). The latest queue-only update is documentation; do not infer that WF-01 frontend build ran.
-- **Current behavior:** `JwtService` rejects absent, placeholder and shorter-than-32-byte secrets; the prior test PR added an exact-32-byte acceptance boundary but was based on an outdated master and carried stale environment-blocker wording.
-- **Desired behavior:** Preserve the strict minimum-length boundary and prove exactly 32 bytes is accepted using a deterministic synthetic secret.
-- **Acceptance criteria:**
-  - [x] Reuse the synthetic exact-32-byte test from prior PR #921.
-  - [x] Sync task evidence to current master `6036c65629e1aec482fcc62321ea72b8ce38a57e`; preserve the current TCE-SEC-004 remediation record and owner-confirmed non-production scope.
-  - [x] Re-run WF-02 Prettier and WF-05 backend tests on code/test head `eace87ed93abbe1011bf035bc50611c1368a6488`.
-  - [x] Confirm production release workflow is not triggered by an ordinary merge; WF-03 is `workflow_dispatch`-only.
-  - [ ] Resolve the separate GitHub-to-Supabase integration target/merge side-effect gate before any merge.
-- **Validation:** Prior PR #921 checks passed before TCE-SEC-004 merged. Synchronized code/test head `9ac8b2cc6ad22e3635b8223078e4bd879ef74914` passed WF-02 [#40324768793](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/40324768793) and WF-05 [#40324768747](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/40324768747). The current documentation-only update requires a fresh exact-head check before merge.
-- **Dependencies:** JWT fail-closed implementation merged at `24e972bad13449174d9dde49786303041a1f7a41`.
-- **Risk:** Low; test and queue only, no secrets or live tokens.
-- **Links:** [Superseded PR #921](https://github.com/phanthienquoc/TCE-dashboard/pull/921), [JWT service](../apps/service/src/auth/jwt.service.ts), [boundary test](../apps/service/src/auth/jwt.service.spec.ts).
 
 ### TCE-AUTH-002 — Integrate Keycloak SSO into TCE Dashboard
 
@@ -105,25 +89,9 @@
 - **Risk:** High — a SECURITY DEFINER view with public SELECT can bypass underlying RLS intent even when its selected columns are market data.
 - **Links:** [Source view migration](../supabase/migrations/202609160003_dividend_current_price_ohlcv_fallback.sql), [service repository](../apps/service/src/stock-events/stock-events.supabase.repository.ts), [Supabase security-definer-view advisor](https://supabase.com/docs/guides/observability/advisors?queryGroups=lint&lint=0010_security_definer_view), [Supabase RLS documentation](https://supabase.com/docs/guides/database/postgres/row-level-security).
 
-### TCE-AUTH-004 — Fix frontend production-build BufferSource type error
-
-- **Priority/status:** P1 / IMPLEMENTED IN DRAFT PR #927; exact-head WF-02 [run #40333207215](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/40333207215) and WF-05 [run #40333207185](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/40333207185) passed on code/test head `3208d0ca53889a06bed29f9fe17167f0902e446e`. The source-contract test now verifies the production verifier uses the safe-copy helper. Frontend build/typecheck validation remains BLOCKED because WF-01 is push-to-master/workflow_dispatch-only and the prior local clone attempt failed DNS resolution. Do not merge until exact-head frontend build validation is available.
-- **Evidence:** After TCE-SEC-004 merge SHA `6036c65629e1aec482fcc62321ea72b8ce38a57e`, WF-01 [run #40324008328](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/40324008328) failed during `Dockerfile:13 RUN npm run build:web`, after bundling passed and during TypeScript validation at `apps/web/lib/keycloak-sso.ts:108`. Error: `Uint8Array<ArrayBufferLike>` passed to `crypto.subtle.verify` is not assignable to `BufferSource` because its buffer may be `SharedArrayBuffer`. The changed migration/test/queue files do not touch this code; this is a pre-existing SSO build defect exposed by post-merge validation.
-- **Current behavior:** OIDC signature verification passes a decoded `Uint8Array` directly as the signature argument. Current TypeScript DOM crypto types reject that type.
-- **Desired behavior:** Preserve the cryptographic verification and claim checks while supplying a byte view backed by a concrete `ArrayBuffer`, without unsafe type assertions or weakened verification.
-- **Acceptance criteria:**
-  - [x] Capture the exact-head failure from WF-01 logs.
-  - [x] Add a small type-safe conversion that copies signature bytes to an `ArrayBuffer`-backed view; preserve `crypto.subtle.verify` and all claim checks.
-  - [ ] Run web typecheck/build and TCE WF-01/WF-02/WF-05 on a dedicated branch.
-  - [x] Inspect workflow side effects: current WF-03 is `workflow_dispatch`-only and has image-publish/GitOps-promotion effects only when explicitly dispatched; no release was dispatched. [ ] Validate the exact PR head with a frontend typecheck/build before merge.
-- **Dependencies:** Existing Keycloak SSO flow in `apps/web/lib/keycloak-sso.ts`; no schema/migration dependency.
-- **Risk:** Medium — OIDC signature validation must remain byte-for-byte correct; do not bypass `crypto.subtle.verify` or change claim checks.
-- **Validation:** The prior PR-head WF-02 run [#40332694494](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/40332694494) failed at Prettier on `apps/service/src/auth/keycloak-buffer-source.spec.ts`; backend tests passed on that head [#40332694414](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/40332694414). A formatting-only correction was pushed at `9562798a0a5743dc31e8ebfcdfbb5d5b5a364f92`; current WF-02/WF-05 runs are pending. Direct local verification was attempted via a shallow Git clone but failed because the runtime cannot resolve `github.com`. No workflow dispatch capability is exposed by the connected GitHub tools, so frontend build/typecheck remains unverified and is a merge blocker.
-- **Links:** [failed post-merge WF-01](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/40324008328), [OIDC implementation](../apps/web/lib/keycloak-sso.ts), [TCE-SEC-004 merge](https://github.com/phanthienquoc/TCE-dashboard/pull/925), [draft fix PR #927](https://github.com/phanthienquoc/TCE-dashboard/pull/927).
-
 ### TCE-SEC-004 — Remove public access to account-specific cashout events
 
-- **Priority/status:** P0 / MERGED AND VERIFIED — source migration `supabase/migrations/20261026122224_revoke_public_cashout_event_access.sql` matches Supabase ledger version `20261026122224 revoke_public_cashout_event_access`; [PR #925](https://github.com/phanthienquoc/TCE-dashboard/pull/925) squash-merged to master at `6036c65629e1aec482fcc62321ea72b8ce38a57e`.
+- **Priority/status:** P0 / FIX APPLIED TO OWNER-CONFIRMED NON-PRODUCTION; POST-APPLY ACCESS CHECKS PASS; CI PENDING — migration source `supabase/migrations/20261026122224_revoke_public_cashout_event_access.sql` matches Supabase ledger version `20261026122224 revoke_public_cashout_event_access`. Implementation is in [PR #925](https://github.com/phanthienquoc/TCE-dashboard/pull/925).
 - **Evidence:** Pre-change catalog confirmed RLS enabled plus public policy `tce_cashout_events_read` (`roles={public}, cmd=SELECT, qual=true`) and direct grants to `anon`/`authenticated` for SELECT and DML. Repository search found one runtime consumer, the NestJS monitor insert in `apps/service/src/monitor/tce-monitor.service.ts`; no frontend direct query was found.
 - **Current behavior:** The live policy is removed. `anon` and `authenticated` no longer have SELECT/INSERT/UPDATE/DELETE/TRUNCATE. `service_role` and `postgres` keep existing privileges for the monitor/server path. RLS remains enabled. No data rows were queried or changed.
 - **Desired behavior:** Cashout lifecycle rows remain server-owned and browser roles cannot read or mutate account-specific cashflow/P&L data. API access, when needed, must pass through NestJS with explicit authorization and field allowlists.
@@ -133,12 +101,9 @@
   - [x] Apply the scoped policy/grant migration to the owner-confirmed non-production project `gtqovpusfyyvxpeezxlo` using connected Supabase tools.
   - [x] Re-query `pg_policies` and role privileges: no cashout policy remains; `anon`/`authenticated` SELECT and DML checks are false; server-role privileges remain.
   - [x] Add source-level migration contract test at `apps/service/src/monitor/tce-cashout-access-migration.spec.ts`.
-  - [x] Exact-head WF-02 Prettier passed: [run #40323855950](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/40323855950).
-  - [x] Exact-head WF-05 backend build/tests passed: [run #40323855949](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/40323855949).
-  - [x] Merge SHA verified on default branch `master`: `6036c65629e1aec482fcc62321ea72b8ce38a57e`.
-  - [x] Post-merge WF-02 passed: [run #40324008260](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/40324008260); WF-05 passed: [run #40324008428](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/40324008428).
-  - [x] Re-ran post-apply catalog/grant checks and security advisor. No policy remains; anon/authenticated have no table privileges; server roles retain privileges. Advisor reports the expected server-owned RLS-without-policy finding.
-- **Validation:** Supabase ledger records `20261026122224 revoke_public_cashout_event_access`. Post-apply catalog returns no policies for `tce_cashout_events`; anon/authenticated SELECT, INSERT, UPDATE, DELETE and TRUNCATE checks are false, while service_role/postgres checks are true. Security Advisor reports the expected `rls_enabled_no_policy` finding for this server-owned table; do not add a public policy to silence it. No cashout rows, orders, positions, strategy configuration, engine state or LIVE flags were read or changed. Post-merge WF-01 failed on unrelated existing frontend TypeScript at `apps/web/lib/keycloak-sso.ts:108`: `Uint8Array<ArrayBufferLike>` is not assignable to `BufferSource` under production Next build; see TCE-AUTH-004.
+  - [ ] Pass exact-head WF-02/WF-05 and inspect test output.
+  - [ ] Confirm post-merge default branch SHA and re-run catalog/advisor checks.
+- **Validation:** Supabase ledger records `20261026122224 revoke_public_cashout_event_access`. Post-apply catalog returned no policies for `tce_cashout_events`; privileges are false for anon/authenticated SELECT, INSERT, UPDATE, DELETE and TRUNCATE, true for service_role/postgres. Security Advisor now intentionally reports one additional `rls_enabled_no_policy` finding for this server-owned table; do not add a public policy just to silence it. Current auth RPC grants remain server-role-only. No cashout rows, orders, positions, strategy configuration, engine state or LIVE flags were accessed or changed.
 - **Dependencies:** TCE monitor keeps using the existing server-side service-role client. No UI/API redesign is required for the database boundary fix.
 - **Risk:** High before remediation. Public read path is closed on the owner-confirmed non-production project; service-side runtime smoke remains a source/CI acceptance task. No production app release, live trading or order placement occurred.
 - **Links:** [PR #925](https://github.com/phanthienquoc/TCE-dashboard/pull/925), [source migration](../supabase/migrations/20261026122224_revoke_public_cashout_event_access.sql), [migration contract test](../apps/service/src/monitor/tce-cashout-access-migration.spec.ts), [Supabase API security](https://supabase.com/docs/guides/api/securing-your-api).
@@ -354,12 +319,3 @@
 - **Open runtime issues:** #845 (architecture umbrella) and #848 (implementation tracker). Exact duplicate #849 is closed.
 - **Recent workflow state:** scheduled healthcheck, integration-check and backup runs audited on 2026-10-24/25 are green. Historical 2026-10-21 formatter failure is classified above.
 - **Next implementation task:** TCE-RUNTIME-001 durable retry/replay for lifecycle-event publication. Continue independently of auth user-management work; do not touch repositories outside this queue's scope.
-
-## Latest scheduled recheck — 2026-10-26 20:38 +07:00
-
-- **Default-branch side effects:** TCE `.github/workflows/wf-03-tce-production-deploy.yml` currently has only `workflow_dispatch`; it publishes ARM64 images and dispatches a GitOps promotion request when explicitly run. Ordinary pushes do not trigger WF-03. WF-01 is a build/verification workflow on master paths and `workflow_dispatch`, not a release workflow. No production workflow was dispatched.
-- **TCE-AUTH-003 / PR #926:** The exact code/test head `9ac8b2cc6ad22e3635b8223078e4bd879ef74914` passed WF-02 [#40324768793](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/40324768793) and WF-05 [#40324768747](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/40324768747). The PR branch's queue audit timestamp and evidence are now being reconciled; checks must pass on the resulting head. The change adds only a deterministic exact-32-byte JWT secret boundary test and task evidence.
-- **TCE-AUTH-004 / PR #927:** Current code copies decoded OIDC signature bytes into a concrete `ArrayBuffer`-backed `Uint8Array<ArrayBuffer>` before `crypto.subtle.verify`; signature verification and claim checks remain intact. The prior head passed WF-05 but failed WF-02 only because the new test file needed Prettier formatting. The correction was committed at `9562798a0a5743dc31e8ebfcdfbb5d5b5a364f92`; current WF-02/WF-05 were in progress at the time of this checkpoint. Frontend typecheck/build remains unverified: WF-01 does not run on PRs, the connected GitHub tools do not expose a workflow-dispatch operation, and a local clone failed because DNS resolution for `github.com` is unavailable. Keep PR #927 open until a safe exact-head frontend build is available.
-- **Supabase:** Read-only discovery identifies organization `jopjvkofwvbnxaajkhlo`, project ref `gtqovpusfyyvxpeezxlo`, region `ap-southeast-1`, PostgreSQL 17.6.1, API `ACTIVE_HEALTHY`; only non-persistent default `main` / Git `master` is listed and reports `MIGRATIONS_FAILED`. Ledger count is 78 through `20261026122224`. Runtime `SUPABASE_URL` is blank in `apps/service/.env.auth.example`; `docs/config-key.md` points to hidden GitHub Actions/runtime config, so repository-to-project binding and GitHub integration target are not independently verified. No migration, schema/data write, branch operation, function deployment, or production action occurred.
-- **Advisors/logs:** Project-wide advisor counts: 35 RLS-enabled/no-policy findings, 1 security-definer view, 8 mutable search paths, 42 anon and 42 authenticated GraphQL exposure findings each, leaked-password protection disabled; performance reports 15 unindexed foreign keys, 1 table without a primary key and 134 unused indexes. A bounded six-hour UTC log query found 10 migration-history errors and zero PostgREST timeout-manager events. These findings span shared TCE/Auth/Keycloak/media schemas; no unrelated objects were modified.
-- **Supabase docs:** Current official [branching](https://supabase.com/docs/guides/deployment/branching) and [GitHub integration](https://supabase.com/docs/guides/deployment/branching/github-integration) docs were searched. A connected GitHub integration can run Migrate/Deploy on commits, but the actual project/repository link is not exposed by the connected tools. No Supabase branch was created; no production release, live trading/order action, or platform-infra change occurred.
