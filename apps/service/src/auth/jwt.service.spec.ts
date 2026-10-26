@@ -78,3 +78,21 @@ test('refuses issuance when the secret is missing', () => {
     assert.throws(() => new JwtService().issue('user-1', 'USER'), /JWT_SECRET/);
   });
 });
+
+test('rejects a secret exactly one byte below the minimum', () => {
+  withSecret('x'.repeat(31), () => {
+    assert.throws(
+      () => new JwtService().issue('user-1', 'USER'),
+      /JWT_SECRET must be configured with at least 32 bytes/
+    );
+  });
+});
+
+test('accepts a secret exactly 32 bytes long', () => {
+  const boundarySecret = 'x'.repeat(32);
+  withSecret(boundarySecret, () => {
+    const jwt = new JwtService();
+    const token = jwt.issue('user-1', 'USER');
+    assert.equal(jwt.verify(token).sub, 'user-1');
+  });
+});
