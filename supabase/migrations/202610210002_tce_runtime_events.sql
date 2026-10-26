@@ -1,5 +1,5 @@
--- Durable, provider-neutral event outbox used by the shared TCE publisher.
--- Do not apply to production until the transport rollout is approved.
+-- Base durable, provider-neutral event store used by the shared TCE publisher.
+-- Idempotent schema artifact; application rollout and any production release remain separately controlled.
 create table if not exists public.tce_runtime_events (
   event_id text primary key,
   event_type text not null,
