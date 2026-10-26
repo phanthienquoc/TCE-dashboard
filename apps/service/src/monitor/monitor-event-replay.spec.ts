@@ -142,7 +142,7 @@ test('records bounded exponential retry without persisting error messages', asyn
   assert.equal(result.retried, 1);
   assert.equal(calls.updates[0].state, 'pending');
   assert.equal(calls.updates[0].attempt_count, 3);
-  assert.equal(calls.updates[0].next_attempt_at, '2026-10-26T04:00:10.000Z');
+  assert.equal(calls.updates[0].next_attempt_at, '2026-10-26T04:00:20.000Z');
   assert.equal(calls.updates[0].last_error_code, '08006');
   assert.equal(JSON.stringify(calls.updates).includes('never-persist-this-private-detail'), false);
   assert.ok(warnings.includes('monitor_event_replay_failed:08006'));
