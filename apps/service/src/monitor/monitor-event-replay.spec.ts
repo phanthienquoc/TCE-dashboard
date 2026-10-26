@@ -226,7 +226,6 @@ test('records an immediate monitor publish failure in the already-enqueued repla
   assert.equal(JSON.stringify(calls.updates).includes('private transport detail'), false);
 });
 
-
 test('dead-letters an invalid event identity without publishing it', async () => {
   const invalidRow = { ...row, event_id: 'not-the-snapshot-event' };
   const { db, calls } = makeDb({ data: [invalidRow], error: null });
@@ -241,10 +240,7 @@ test('dead-letters an invalid event identity without publishing it', async () =>
 });
 
 test('does not claim delivery when compare-and-set loses a concurrent state update', async () => {
-  const { db, calls } = makeDb(
-    { data: [row], error: null },
-    { data: null, error: null }
-  );
+  const { db, calls } = makeDb({ data: [row], error: null }, { data: null, error: null });
   const { publisher, published } = makePublisher(async () => {});
   const result = await replayPendingMonitorSnapshotEvents(db, publisher, () => {}, now);
 
@@ -259,5 +255,8 @@ test('does not claim delivery when compare-and-set loses a concurrent state upda
 test('sanitizes error codes and never includes arbitrary messages', () => {
   assert.equal(safeReplayErrorCode({ code: '42501', message: 'private detail' }), '42501');
   assert.equal(safeReplayErrorCode(new Error('token=secret')), 'Error');
-  assert.equal(safeReplayErrorCode({ code: 'not a code', message: 'private detail' }), 'PUBLISH_FAILED');
+  assert.equal(
+    safeReplayErrorCode({ code: 'not a code', message: 'private detail' }),
+    'PUBLISH_FAILED'
+  );
 });
