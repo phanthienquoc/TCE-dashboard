@@ -182,23 +182,12 @@
 - This closes the one-provider-to-multiple-local identity ambiguity task. The next safe task should continue reconciliation reliability (for example, ensure ambiguous shared provider IDs cannot also produce a duplicate ORPHAN disposition, and cover that behavior with regression tests) or another earliest unblocked unchecked runtime-contract task.
 - Automation remains enabled and must not be paused on blockers. No production migration/deployment and no LIVE trading.
 
-## Automation checkpoint — PR #865 verification blocker — 2026-10-21
+## Historical checkpoint — PR #865 blocker resolved — 2026-10-26
 
-- PR [#865](https://github.com/phanthienquoc/TCE-dashboard/pull/865) is open on dedicated branch `fix/reconciliation-provider-local-one-to-many`.
-- Implementation and regression test have been pushed to the branch. The intended fix makes one provider identity matching multiple local orders return `RECONCILIATION_REQUIRED` for all affected local orders.
-- Latest observed PR head from GitHub metadata was `1c381efdbe60417f23a776cd46182ca4135d54d0`; Actions returned zero runs for that SHA. Earlier runs on `06c36107fac5b9ad3e7dbf5b106c6a8a00ea3bee` were still in progress and do not verify any later formatter-generated head.
-- Merge is prohibited until backend build/unit tests and Prettier complete green on the exact latest head. Do not claim this PR is verified or merged before new evidence exists.
-- Blocker: GitHub Actions currently exposes no runs for the observed latest PR head. Next cycle must inspect the PR and Actions again, diagnose any missing trigger, and retry safely.
-- Automation must remain enabled. No production migration/deployment and no LIVE trading.
-
-## Current task: Reject one-to-many provider/local identity matches — 2026-10-21
-
-- [x] Build the full local/provider identity mapping before classification.
-- [x] Fail closed with `RECONCILIATION_REQUIRED` when a single provider order identity matches multiple local orders.
-- [x] Add regression coverage for a provider order matched through providerOrderId by one local order and clientRequestId by another.
-- [ ] Verify backend build/unit tests and Prettier on the exact latest PR head, including any formatter-generated commit.
-- [ ] Merge only after required checks pass on the exact latest head and all enforced review/branch-protection requirements are satisfied.
-- Safety: no production migration/deployment and no LIVE trading changes.
+- The 2026-10-21 checkpoint claiming PR #865 was open and had no CI for its latest head is superseded. GitHub now confirms PR [#865](https://github.com/phanthienquoc/TCE-dashboard/pull/865) is closed and squash-merged at `d4ff9a4ae469e8c4124927e11d13046ef6ec77fd`, from exact head `5f865d751dbfa695c8439f8a5a21d836274deb46`.
+- Backend build/unit tests passed on the exact head: [run #39539207470](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/39539207470). Prettier passed on that head: [run #39539207463](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/39539207463).
+- The duplicate unchecked `Current task: Reject one-to-many provider/local identity matches` block is retired; its acceptance criteria were completed by PR #865. The current task remains durable lifecycle-event retry/replay at the top of this plan and is blocked pending an approved non-production schema/atomic-outbox contract.
+- Safety boundary remains unchanged: no production migration/deployment and no LIVE trading.
 
 ## Automation continuity correction — 2026-10-21
 
