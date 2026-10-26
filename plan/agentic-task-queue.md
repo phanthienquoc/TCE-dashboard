@@ -23,14 +23,15 @@
 
 ### TCE-AUTH-003 — Verify the exact 32-byte JWT secret boundary
 
-- **Priority/status:** P2 / TEST SYNCED TO CURRENT MASTER; code/test head `9ac8b2cc6ad22e3635b8223078e4bd879ef74914` passed WF-02 and WF-05, but a queue-only checkpoint changes the PR head and requires fresh exact-head checks.
+- **Priority/status:** P2 / CODE+TEST VALIDATED — code/test head `eace87ed93abbe1011bf035bc50611c1368a6488` passed exact-head WF-02 [run #40333770835](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/40333770835) and WF-05 [run #40333770733](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/40333770733). The latest queue-only update is documentation; do not infer that WF-01 frontend build ran.
 - **Current behavior:** `JwtService` rejects absent, placeholder and shorter-than-32-byte secrets; the prior test PR added an exact-32-byte acceptance boundary but was based on an outdated master and carried stale environment-blocker wording.
 - **Desired behavior:** Preserve the strict minimum-length boundary and prove exactly 32 bytes is accepted using a deterministic synthetic secret.
 - **Acceptance criteria:**
   - [x] Reuse the synthetic exact-32-byte test from prior PR #921.
   - [x] Sync task evidence to current master `6036c65629e1aec482fcc62321ea72b8ce38a57e`; preserve the current TCE-SEC-004 remediation record and owner-confirmed non-production scope.
-  - [ ] Re-run WF-02 Prettier and WF-05 backend tests on the latest PR head after this queue update.
-  - [ ] Confirm production release workflow is not triggered by merge; WF-03 is `workflow_dispatch`-only.
+  - [x] Re-run WF-02 Prettier and WF-05 backend tests on code/test head `eace87ed93abbe1011bf035bc50611c1368a6488`.
+  - [x] Confirm production release workflow is not triggered by an ordinary merge; WF-03 is `workflow_dispatch`-only.
+  - [ ] Resolve the separate GitHub-to-Supabase integration target/merge side-effect gate before any merge.
 - **Validation:** Prior PR #921 checks passed before TCE-SEC-004 merged. Synchronized code/test head `9ac8b2cc6ad22e3635b8223078e4bd879ef74914` passed WF-02 [#40324768793](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/40324768793) and WF-05 [#40324768747](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/40324768747). The current documentation-only update requires a fresh exact-head check before merge.
 - **Dependencies:** JWT fail-closed implementation merged at `24e972bad13449174d9dde49786303041a1f7a41`.
 - **Risk:** Low; test and queue only, no secrets or live tokens.
@@ -106,7 +107,7 @@
 
 ### TCE-AUTH-004 — Fix frontend production-build BufferSource type error
 
-- **Priority/status:** P1 / IMPLEMENTED IN DRAFT PR #927; previous WF-02 failed only on formatting of the new regression test. The test was formatted in commit `9562798a0a5743dc31e8ebfcdfbb5d5b5a364f92`; current WF-02/WF-05 are rerunning. Frontend build/typecheck validation remains BLOCKED because WF-01 is push-to-master/workflow_dispatch-only and a local clone attempt failed DNS resolution. Do not merge until exact-head frontend build validation is available.
+- **Priority/status:** P1 / IMPLEMENTED IN DRAFT PR #927; exact-head WF-02 [run #40333207215](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/40333207215) and WF-05 [run #40333207185](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/40333207185) passed on code/test head `3208d0ca53889a06bed29f9fe17167f0902e446e`. The source-contract test now verifies the production verifier uses the safe-copy helper. Frontend build/typecheck validation remains BLOCKED because WF-01 is push-to-master/workflow_dispatch-only and the prior local clone attempt failed DNS resolution. Do not merge until exact-head frontend build validation is available.
 - **Evidence:** After TCE-SEC-004 merge SHA `6036c65629e1aec482fcc62321ea72b8ce38a57e`, WF-01 [run #40324008328](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/40324008328) failed during `Dockerfile:13 RUN npm run build:web`, after bundling passed and during TypeScript validation at `apps/web/lib/keycloak-sso.ts:108`. Error: `Uint8Array<ArrayBufferLike>` passed to `crypto.subtle.verify` is not assignable to `BufferSource` because its buffer may be `SharedArrayBuffer`. The changed migration/test/queue files do not touch this code; this is a pre-existing SSO build defect exposed by post-merge validation.
 - **Current behavior:** OIDC signature verification passes a decoded `Uint8Array` directly as the signature argument. Current TypeScript DOM crypto types reject that type.
 - **Desired behavior:** Preserve the cryptographic verification and claim checks while supplying a byte view backed by a concrete `ArrayBuffer`, without unsafe type assertions or weakened verification.
