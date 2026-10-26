@@ -1,7 +1,7 @@
 # TCE Dashboard — Agent Task Queue
 
 **Last audited:** 2026-10-26  
-**Default branch snapshot:** `master` at `61ccdaabb14a5d18b7e2722edadd1ec9162603ce` when TCE-UI-001 was revalidated  
+**Default branch snapshot:** `master` at `deeedfe704b3c1cfe522768d15fd13f4e79df6ea` after PR #906 merge verification on 2026-10-26.  
 **Queue convention:** This repository has a mature `plan/` directory but no existing `docs/agentic/` queue. This file follows the current `plan/` convention and supplements, rather than replaces, canonical phase plans/issues.  
 **Safety:** No production changes, migrations, live orders, or LIVE-mode enablement are part of this queue.
 
@@ -87,40 +87,40 @@
 
 ### TCE-UI-003 — Compact Pools mobile layout and safe-area spacing
 
-- **Priority/status:** P2 / READY TO MERGE — [PR #906](https://github.com/phanthienquoc/TCE-dashboard/pull/906) supersedes the blocked implementation attempts; exact-head code checks passed, and the final status-only queue update will be revalidated before merge.
+- **Priority/status:** P2 / DONE — [PR #906](https://github.com/phanthienquoc/TCE-dashboard/pull/906) squash-merged at `deeedfe704b3c1cfe522768d15fd13f4e79df6ea`; `master` verified at the merge SHA.
 - **Evidence:** [diagnostic PR #905](https://github.com/phanthienquoc/TCE-dashboard/pull/905), [fix PR #906](https://github.com/phanthienquoc/TCE-dashboard/pull/906), [WF-11 root-cause run #40255671708](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/40255671708), and [follow-up run #40255940553](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/40255940553).
-- **Current behavior:** Chromium passed the 390×844 portrait Pools case and the existing Positions viewport checks, but failed at `apps/web/scripts/pools-mobile-app.test.mjs:243` for 844×430: computed `rotationColumns` was 3 instead of 2. The branch contains a page-scoped `.tce-pools-view .tce-rotation-kpis` two-column override in `apps/web/app/mobile-command-center-fix.css` under the 600–950px width media query, yet the runtime computed style remains three columns. WF-02 Prettier and WF-05 backend unit tests pass on the same PR head.
+- **Current behavior:** The merged page-scoped CSS explicitly restores `display: grid` for both Pools balance and Active Rotation KPI grids in the 600–950px landscape range. Real Chromium confirms two KPI columns at 844×430 and 844×390, three pool columns in landscape, and two pool columns at 390×844; the third KPI wraps to row two.
 - **Desired behavior:** Keep Active Rotation metrics in two columns, with the third metric on the next row; show all three capital pools within the viewport; prevent horizontal overflow and preserve safe-area/bottom-dock spacing.
 - **Acceptance criteria:**
-  - [ ] Correct the proven cascade/selector cause without broadening unrelated page styles, using diagnostics from TCE-UI-003A.
-  - [ ] WF-11 passes at 390×844, 844×430 and 844×390; inspect the generated screenshots for the same viewports.
-  - [ ] No capital-allocation, API, schema, authentication or trading behavior changes.
-- **Validation:** [WF-11 #40234416071](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/40234416071) failed only at the Pools rotation-column assertion after the portrait case passed. WF-02 and WF-05 passed on PR head `92d1823`. This task records the observed failure; no further blind CSS variants should be tried.
-- **Dependencies:** TCE-UI-003A must capture computed styles, media-query matches and matched CSS rules first. Existing production-release workflow WF-03 is `workflow_dispatch`-only; ordinary master pushes do not trigger its publish/promotion jobs.
-- **Risk:** Low-to-medium UI regression risk; no runtime/trading behavior change intended. Do not merge while WF-11 is failing.
-- **Links:** [PR #902](https://github.com/phanthienquoc/TCE-dashboard/pull/902), [issue #433](https://github.com/phanthienquoc/TCE-dashboard/issues/433), [WF-11 failure](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/40234416071).
+  - [x] Correct the proven cascade/selector cause without broadening unrelated page styles, using diagnostics from TCE-UI-003A.
+  - [x] WF-11 passes at 390×844, 844×430 and 844×390; inspect the generated screenshots for the same viewports.
+  - [x] No capital-allocation, API, schema, authentication or trading behavior changes.
+- **Validation:** Superseded attempts #902 and #905 were closed. PR #906 exact head `b831fe274d394e8e892aab4c79dab7eea8ce150b` passed Chromium viewport contract [run #40256640973](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/40256640973), backend unit tests [run #40256640970](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/40256640970), and Prettier [run #40256640985](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/40256640985). Post-merge checks on `deeedfe704b3c1cfe522768d15fd13f4e79df6ea` passed build/verify [run #40256743522](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/40256743522) and backend tests [run #40256743579](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/40256743579). WF-03 remains manual-dispatch-only; no release was dispatched.
+- **Dependencies:** TCE-UI-003A diagnostics are complete and the dependency is satisfied. Existing production-release workflow WF-03 is `workflow_dispatch`-only; ordinary master pushes do not trigger its publish/promotion jobs.
+- **Risk:** Low UI regression risk; page-scoped CSS and browser assertions only. No runtime/trading behavior change intended.
+- **Links:** [merged PR #906](https://github.com/phanthienquoc/TCE-dashboard/pull/906), [issue #433](https://github.com/phanthienquoc/TCE-dashboard/issues/433), [WF-11 success](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/40256640973).
 
 ### TCE-UI-003A — Diagnose Pools rotation KPI CSS cascade in real Chromium
 
-- **Priority/status:** P1 / DONE — the winning rules/media state are evidenced and the follow-up WF-11 run uploaded all three Pools screenshots; root-cause evidence is complete.
+- **Priority/status:** P1 / DONE — root-cause evidence is complete and all three viewport screenshots were uploaded by WF-11 run #40256118218.
 - **Implementation branch:** `feat/tce-ui-003a-pools-cascade-diagnostics-v2-20261026`. The browser harness records computed grid styles for scoped/unscoped KPI elements, media-query state, CDP matched declarations, stylesheet URLs/source locations, and screenshots before assertions; the two-column assertion remains enabled.
 - **Evidence:** [diagnostic PR #905](https://github.com/phanthienquoc/TCE-dashboard/pull/905), [fix PR #906](https://github.com/phanthienquoc/TCE-dashboard/pull/906), [root-cause run #40255671708](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/40255671708), and [successful diagnostic/artifact run #40256118218](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/40256118218).
-- **Current behavior / evidence:** WF-11 run #40256118218 emitted structured CDP diagnostics for all three viewports, passed the geometry assertions on its pre-format head, and uploaded 11 files including `artifacts/pools-mobile/*.png`. The diagnostic task is complete; the final fix PR still needs exact-head checks after the Prettier-format commit.
+- **Current behavior / evidence:** WF-11 run #40256118218 emitted structured CDP diagnostics for all three viewports, passed geometry assertions and uploaded 11 files including `artifacts/pools-mobile/*.png`. The exact-head follow-up was completed in PR #906.
 - **Desired behavior:** Capture enough real-browser evidence at 844×430 to identify the winning `grid-template-columns` declaration and its selector/media query before changing CSS.
 - **Acceptance criteria:**
   - [x] Emit a structured diagnostic before assertions: viewport and DPR, target element/ancestor classes, computed `grid-template-columns`, and `matchMedia` results for the 600–950px and mobile-width queries.
   - [x] Use the existing Chromium DevTools Protocol session to record matched CSS rules/declarations for `grid-template-columns` on the actual Active Rotation KPI element; include stylesheet URL and source order where available.
   - [x] Preserve the failing two-column assertion; do not weaken or skip it.
-  - [ ] Upload the Pools screenshots to the workflow artifact and verify 390×844, 844×430 and 844×390 artifacts on the next exact-head run.
+  - [x] Upload the Pools screenshots to the workflow artifact and verify 390×844, 844×430 and 844×390 artifacts on WF-11 run #40256118218 (11 artifact files).
   - [x] No new dependency, CSS fix, API/schema/auth change, capital-allocation change or trading/order behavior change in this diagnostic slice.
-- **Validation:** WF-11 run #40256118218 emitted structured CDP diagnostics for all three viewports, passed the geometry assertions, and uploaded 11 files including the Pools screenshots. The missing display:grid declarations are evidenced; the visual fix is tracked in TCE-UI-003B.
+- **Validation:** WF-11 run #40256118218 emitted structured CDP diagnostics for all three viewports and uploaded 11 screenshot/artifact files. PR #906 then fixed the two page-scoped grid declarations and passed all three viewport assertions on its exact head.
 - **Dependencies:** Existing TCE-UI-003/PR #902 test contract. No Supabase schema or production environment dependency.
 - **Risk:** Low — test-only diagnostics; avoid logging credentials or real account data.
 - **Links:** [PR #902](https://github.com/phanthienquoc/TCE-dashboard/pull/902), [issue #433](https://github.com/phanthienquoc/TCE-dashboard/issues/433), [WF-11 failure](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/40234416071).
 
 ### TCE-UI-003B — Restore Pools KPI grid display in short landscape
 
-- **Priority/status:** P1 / READY TO MERGE — code commit `5ebb8e17a18d1e8bfdbe6b71b6d8f25f78b6af45` passed WF-02, WF-05 and WF-11; rerun checks on this status-only queue update before merge.
+- **Priority/status:** P1 / DONE — implemented in [PR #906](https://github.com/phanthienquoc/TCE-dashboard/pull/906), squash-merged at `deeedfe704b3c1cfe522768d15fd13f4e79df6ea`.
 - **Evidence:** [root-cause run #40255671708](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/40255671708), [successful viewport run #40256118218](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/40256118218), [diagnostic PR #905](https://github.com/phanthienquoc/TCE-dashboard/pull/905), and [fix PR #906](https://github.com/phanthienquoc/TCE-dashboard/pull/906).
 - **Current behavior:** WF-11 run #40256118218 passed all three viewports: portrait 390×844 reports two rendered pool columns and two KPI columns; 844×430 and 844×390 report three pool columns and two KPI columns, with the third KPI on row two. Both grids compute `display: grid`, the landscape media query matches, and 11 artifact files were uploaded. The subsequent Prettier formatter commit was followed by successful exact-code checks; this queue update changes documentation only.
 - **Desired behavior:** Apply display:grid to both page-scoped Pools balance and Active Rotation KPI grids within the 600–950px media query and verify actual child geometry rather than counting tokens in the computed grid-template string.
@@ -129,9 +129,9 @@
   - [x] Capital Pools balance grid is display:grid and visibly has three columns at 844×430 and 844×390.
   - [x] Portrait 390×844 and short landscape 844×390 remain correct; all three screenshots are captured even if one viewport assertion fails.
   - [x] Pool-column assertions use rendered child positions, not whitespace parsing of CSS declarations.
-  - [ ] WF-02, WF-05 and WF-11 pass on the exact PR head after this task-status update.
+  - [x] WF-02, WF-05 and WF-11 passed on the exact PR head `b831fe274d394e8e892aab4c79dab7eea8ce150b` before merge; post-merge build/verify and backend tests passed on the merge SHA.
   - [x] No unrelated layout, capital-allocation, API, schema, auth, order or LIVE-mode behavior changes.
-- **Validation:** Code commit `5ebb8e17a18d1e8bfdbe6b71b6d8f25f78b6af45` passed WF-02 run #40256501112, WF-05 run #40256501105, and WF-11 run #40256501117. WF-11 artifact #12622232810 uploaded 11 files including all Pools screenshots. Revalidate all three checks on the exact new head before merge.
+- **Validation:** PR #906 exact head `b831fe274d394e8e892aab4c79dab7eea8ce150b` passed WF-02 run #40256640985, WF-05 run #40256640970, and WF-11 run #40256640973. WF-11 uploaded 11 artifacts including all Pools screenshots. Post-merge build/verify [#40256743522](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/40256743522) and backend tests [#40256743579](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/40256743579) passed on `deeedfe704b3c1cfe522768d15fd13f4e79df6ea`.
 - **Dependencies:** TCE-UI-003A diagnostics; no schema or service dependency.
 - **Risk:** Low UI regression risk; page-scoped CSS and test assertions only.
 - **Links:** [diagnostic PR #905](https://github.com/phanthienquoc/TCE-dashboard/pull/905), [blocked parent PR #902](https://github.com/phanthienquoc/TCE-dashboard/pull/902), [WF-11 evidence](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/40255671708).
