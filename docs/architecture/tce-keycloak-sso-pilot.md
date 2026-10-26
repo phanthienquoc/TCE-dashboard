@@ -72,4 +72,4 @@ Central Auth requires server-side `KEYCLOAK_TCE_CLIENT_ID=tce-dashboard`. Its ex
 
 ## Not yet proven
 
-A passing build does not prove the runtime Keycloak client, central Auth environment variables, JWT-secret equality, browser CORS/cookie behavior, or end-to-end SSO/logout. No deployment or live realm changes are performed by this code change.
+A passing build does not prove the runtime Keycloak client, central Auth environment variables, JWT-secret equality, browser CORS/cookie behavior, or end-to-end SSO/logout. No deployment or live realm changes are performed by this code change. 
