@@ -1,6 +1,6 @@
 # TCE Dashboard — Agent Task Queue
 
-**Last audited:** 2026-10-26 16:40 +07:00
+**Last audited:** 2026-10-26 16:43 +07:00
 **Default branch checkpoint:** `master` audited on 2026-10-26. The latest schema migration merge tracked by this queue is TCE-SEC-001/TCE-RUNTIME-001 at `ccaccb6b6131665e317774dfc8742b480972a316`; the JWT secret hardening PR #920 merged at `24e972bad13449174d9dde49786303041a1f7a41`. This PR adds a boundary test and queue evidence only; consult Git history for the exact current `master` SHA.  
 **Queue convention:** This repository has a mature `plan/` directory but no existing `docs/agentic/` queue. This file follows the current `plan/` convention and supplements, rather than replaces, canonical phase plans/issues.  
 **Safety:** No production application release, live orders, or LIVE-mode enablement are part of this queue. Environment evidence conflicts: this queue's earlier note said private production, while Authentication's roadmap records owner-confirmed non-production; live logs are tagged `env=prod` on the only listed `main` branch. Treat classification and runtime/integration mapping as unresolved and keep Supabase operations read-only. No production migration/deploy, live trading action, or Supabase branch operation is authorized by this run. The GitHub integration target/deploy-to-production toggle remains unverified.
@@ -294,16 +294,17 @@
 
 ### TCE-AUTH-001 — Fail closed when JWT secret is missing or weak
 
-- **Priority/status:** P0 / FOLLOW-UP TEST IN PROGRESS — the security fix is merged; this PR adds exact minimum-length boundary coverage and updates the canonical task queue.
+- **Priority/status:** P0 / TEST VERIFIED; MERGE BLOCKED — the security fix and exact 32-byte boundary test are verified on code head `c0799ac12b155810f00ee86cdc1e6be43f9f5789`; the default-branch merge remains blocked by the unresolved shared Supabase integration/migration side-effect gate.
 - **Evidence:** [PR #920](https://github.com/phanthienquoc/TCE-dashboard/pull/920), merged to master at `24e972bad13449174d9dde49786303041a1f7a41`; `apps/service/src/auth/jwt.service.ts` now rejects missing, placeholder and under-32-byte secrets on both issue and verify paths.
-- **Current behavior:** A public `CHANGE_ME_IN_ENV` fallback no longer exists. Tests cover missing, placeholder, short and valid secrets; the merged test suite did not explicitly prove the exact 32-byte boundary.
+- **Current behavior:** A public `CHANGE_ME_IN_ENV` fallback no longer exists. The merged suite covers missing, placeholder, short and valid secrets; this follow-up now proves exactly 32 ASCII bytes are accepted by issue and verify.
 - **Desired behavior:** Exactly 32 bytes is accepted, while any configured secret shorter than 32 bytes, missing, or equal to the placeholder is rejected; no weaker verification fallback is allowed.
 - **Acceptance criteria:**
   - [x] Merge fail-closed JWT secret validation and core regression tests.
   - [x] Verify WF-05 and WF-02 passed on the merged PR head ([WF-05 #40301005041](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/40301005041), [WF-02 #40301005005](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/40301005005)).
-  - [ ] Pass the exact 32-byte boundary test on this follow-up PR's exact head.
-  - [ ] Inspect merge effects before merging; keep open while the shared Supabase main-branch migration executor and integration target remain unresolved.
-- **Validation:** The merged PR head passed 201 Node tests plus 23 Vitest files / 99 Vitest tests and Prettier. The follow-up adds one deterministic test using a 32-byte synthetic secret; no real secret is used.
+  - [x] Pass the exact 32-byte boundary test on code head `c0799ac12b155810f00ee86cdc1e6be43f9f5789`; require a fresh exact-head rerun after the queue-only commit below.
+  - [x] Inspect TCE workflow effects: WF-03 is `workflow_dispatch`-only; this test/queue diff can run WF-01 build verification, WF-05 backend tests and WF-02 formatting, but does not change release workflows, migration files, trading logic or order submission.
+  - [ ] Resolve the shared Supabase runtime/integration target and migration-executor side-effect gate before any default-branch merge; keep this PR draft/open meanwhile.
+- **Validation:** On code head `c0799ac12b155810f00ee86cdc1e6be43f9f5789`, exact-head backend unit checks passed (runs [#40301903273](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/40301903273) and [#40301897255](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/40301897255)); Prettier auto-format/commit completed successfully ([#40301903245](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/40301903245)). This queue-only commit should trigger fresh branch checks; do not treat the earlier green checks as exact-head validation of the new queue commit. The test uses a synthetic 32-byte secret; no real secret is used.
 - **Dependencies:** None for code/test work; merge safety gate applies independently.
 - **Risk:** P0 authentication boundary. Scope is a unit test and task documentation only; no schema/migration, credential, trading logic, or release workflow change.
 - **Links:** [Merged PR #920](https://github.com/phanthienquoc/TCE-dashboard/pull/920), [JWT implementation](../apps/service/src/auth/jwt.service.ts), [JWT tests](../apps/service/src/auth/jwt.service.spec.ts), [WF-05](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/40301005041), [WF-02](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/40301005005).
