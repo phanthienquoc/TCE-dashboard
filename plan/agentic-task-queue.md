@@ -116,6 +116,7 @@
 - **Desired behavior:** Build an authoritative ledger-to-source/commit mapping using Git history only within `phanthienquoc/TCE-dashboard` and `phanthienquoc/phanthienquoc-authentication`. Keep the owner-confirmed non-production classification separate from the branch migration-failure diagnostic. Never inspect or modify out-of-scope repositories.
 - **Acceptance criteria:**
   - [x] Verify project ref, branch list/status and 78-entry remote ledger read-only.
+  - [x] Record owner-confirmed non-production classification separately from MIGRATIONS_FAILED and per-operation migration authorization.
   - [x] Compare current master migration filenames in both authorized repositories and record matched/missing/source-only counts.
   - [ ] Recover exact historical SQL/source commits for missing ledger versions from Git history in the two authorized repositories; do not reconstruct from function names/catalog output.
   - [ ] Reconcile duplicate TCE source version prefixes before any migration workflow uses them.
