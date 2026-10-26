@@ -318,22 +318,15 @@
 
 ### TCE-SEC-003 — Fail closed when JWT_SECRET is missing or weak
 
-- **Priority/status:** P1 / IMPLEMENTED IN DRAFT PR #920 — exact-head CI pending; default-branch merge remains blocked by the shared private-production Supabase integration gate.
-- **Evidence:** On master `apps/service/src/auth/jwt.service.ts` initializes its signing secret as `process.env.JWT_SECRET || 'CHANGE_ME_IN_ENV'`. `issue()` rejects the placeholder, but `verify()` uses the same signer without validating the configuration. The service's bearer-token consumers call `JwtService.verify`; the platform-session middleware skips cookie introspection when an Authorization header is already present. If `JWT_SECRET` is missing, a valid unexpired JWT signed with the public placeholder can therefore pass signature and claim checks. WF-01 checks secret presence when that workflow runs, but runtime verification must fail closed independently.
-- **Current behavior:** The draft fix replaces the fallback with a validated getter requiring a configured, non-placeholder secret of at least 32 bytes for both issue and verify paths. Missing/placeholder/short-secret verification is normalized to Unauthorized; token issuance refuses invalid configuration. It adds `apps/service/src/auth/jwt.service.spec.ts` coverage for placeholder-signed forgery, missing/weak secrets, and valid issue/verify.
-- **Desired behavior:** Never authenticate a bearer token using a public/default signing key or a weak secret; keep runtime authentication fail-closed even if a deployment validation workflow was skipped.
-- **Acceptance criteria:**
-  - [x] Reproduce the fail-open path from source: placeholder fallback is used by verify while issue alone checks it.
-  - [x] Add a dedicated Node test that proves a placeholder-signed token is rejected when `JWT_SECRET` is missing.
-  - [x] Reject placeholder and secrets shorter than 32 bytes on both issue and verify paths in the draft branch.
-  - [ ] Pass exact-head WF-05 backend tests and applicable type/build checks.
-  - [ ] Inspect full diff and confirm no token format, TTL, cookie, MFA/passkey, trading, database or deployment behavior changed beyond secret validation.
-  - [ ] Keep merge blocked until the private-production Supabase integration/deploy target is independently verified; no production rollout is authorized by this task.
-- **Validation:** Draft [PR #920](https://github.com/phanthienquoc/TCE-dashboard/pull/920) contains only `apps/service/src/auth/jwt.service.ts` and `apps/service/src/auth/jwt.service.spec.ts`. CI is pending at this checkpoint. No secret values were read, emitted or changed; no deployment, migration, account mutation or trading action occurred.
-- **Dependencies:** Exact-head CI, review of all bearer-token call sites, and the shared Supabase integration/deploy gate.
-- **Risk:** High — a missing runtime JWT secret could otherwise permit forged bearer tokens across TCE service routes.
-- **Links:** [PR #920](https://github.com/phanthienquoc/TCE-dashboard/pull/920), [JWT service](../apps/service/src/auth/jwt.service.ts), [JWT regression tests](../apps/service/src/auth/jwt.service.spec.ts), [central Auth JWT secret contract](https://github.com/phanthienquoc/phanthienquoc-authentication/blob/master/src/auth/jwt.service.ts).
-
+- **Priority/status:** P1 / DONE — [PR #920](https://github.com/phanthienquoc/TCE-dashboard/pull/920) squash-merged at `24e972bad13449174d9dde49786303041a1f7a41` from tested head `3a8a027c6cfb380f65e90f7db7ec9038a645bb1f`.
+- **Evidence:** On the previous implementation, `apps/service/src/auth/jwt.service.ts` used `process.env.JWT_SECRET || 'CHANGE_ME_IN_ENV'`; `issue()` rejected the placeholder but `verify()` could still validate a caller-forged unexpired token signed with that public fallback.
+- **Current behavior:** A shared secret getter rejects missing, placeholder and shorter-than-32-byte secrets for both signing and verification. Tests cover placeholder-signed forgery, missing/placeholder/short values, and valid issue/verify.
+- **Desired behavior:** Bearer-token verification must fail closed independently of whether deployment validation workflows ran.
+- **Acceptance criteria:** [x] Remove the public fallback; [x] validate the secret on both issue and verify paths; [x] add regression tests; [x] exact tested head passed WF-02 [#40301005005](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/40301005005) and WF-05 [#40301005041](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/40301005041); [x] verify squash merge SHA `24e972bad13449174d9dde49786303041a1f7a41`.
+- **Validation/safety:** PR metadata confirms merged state and merge SHA. No Supabase schema/data/migration, secret value, trading logic, release workflow or production deployment was changed by this slice. Runtime rollout remains subject to the repository's normal release gates.
+- **Dependencies:** None for the source fix; production rollout remains separate and is not part of this task.
+- **Risk:** High severity root cause, now fixed in source; retain regression tests and do not weaken secret validation.
+- **Links:** [PR #920](https://github.com/phanthienquoc/TCE-dashboard/pull/920), [merge commit](https://github.com/phanthienquoc/TCE-dashboard/commit/24e972bad13449174d9dde49786303041a1f7a41), [JWT service](../apps/service/src/auth/jwt.service.ts), [JWT regression tests](../apps/service/src/auth/jwt.service.spec.ts), [central Auth JWT secret contract](https://github.com/phanthienquoc/phanthienquoc-authentication/blob/master/src/auth/jwt.service.ts).
 ### TCE-OPS-001 — Require explicit manual production release dispatch
 
 - **Priority/status:** P0 / DONE on 2026-10-25.
