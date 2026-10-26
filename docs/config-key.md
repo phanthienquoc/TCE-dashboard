@@ -52,3 +52,17 @@ The staging deployment workflow provisions/updates the `tce-auth` Kubernetes Sec
 - `libs/db/src/supabase.credentials.adapter.ts`
 - `infra/k3s/service-stg.yaml`
 - `.github/workflows/wf-04-tce-staging-deploy.yml`
+
+
+## Optional Keycloak SSO pilot
+
+| Key | Purpose | Source | Notes |
+| --- | --- | --- | --- |
+| `NEXT_PUBLIC_AUTH_MODE` | Opt-in SSO switch | Web build environment | Set to `keycloak` only after non-production acceptance gates pass; default is legacy auth. |
+| `NEXT_PUBLIC_KEYCLOAK_URL` | Public Keycloak base URL | Web build environment | Expected pilot value: `https://sso.mrcute.space`. |
+| `NEXT_PUBLIC_KEYCLOAK_REALM` | OIDC realm | Web build environment | Expected pilot value: `mrcute`; verify live issuer before enabling. |
+| `NEXT_PUBLIC_KEYCLOAK_CLIENT_ID` | Public browser OIDC client | Web build environment | Expected value: `tce-dashboard`; never add a client secret to browser config. |
+| `KEYCLOAK_TCE_CLIENT_ID` | Allowed `azp` for session exchange | Central Auth runtime configuration | Must be `tce-dashboard`; session exchange fails closed if missing or mismatched. |
+| `JWT_SECRET` | HS256 app access-token signing/verification | Central Auth and TCE Service runtime secrets | Must be identical in both services for the current shared-token bridge. Verify equality without printing either value. |
+
+Do not enable `NEXT_PUBLIC_AUTH_MODE=keycloak` in production until central Auth runtime configuration, JWT secret compatibility, live Keycloak client settings, cookie/CORS behavior, refresh, MFA boundaries, and logout have been validated in non-production. This pilot does not change any runtime secret or deploy a workload.
