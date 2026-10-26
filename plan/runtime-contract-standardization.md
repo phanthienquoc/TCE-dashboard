@@ -19,7 +19,6 @@
 - Supabase ledger version `20261026033600` and a read-only `pg_trigger` query confirm the migration and trigger are present. Branch metadata still reports `MIGRATIONS_FAILED`; that status is inconsistent with the observed ledger/catalog result and should be tracked separately, not interpreted as proof the direct migration failed.
 - Schema was applied to the connected shared project at the owner's direction. Its production/non-production classification was not inferred from repo placeholders. No application image was published/deployed, no live order was placed, and no position/order/config rows were read or changed by the migration.
 
-
 ## PR #884 — merged failure-path checklist evidence — 2026-10-21
 
 - PR [#884](https://github.com/phanthienquoc/TCE-dashboard/pull/884) was squash-merged at `e3e1e06731fa1dcb4d5703e5dd562509eb16a3df`; verified against current `master`.
