@@ -38,6 +38,24 @@
 - **Risk:** P0 test-integrity risk. The connected project ref `gtqovpusfyyvxpeezxlo` has a non-persistent `main`/Git `master` branch with `MIGRATIONS_FAILED`; the connected GitHub repository is not exposed by the project metadata. Supabase documentation says connected GitHub commits may run deployment steps and pending migrations, so do not merge this change into the default branch until the target is verified.
 - **Links:** [Fix branch](https://github.com/phanthienquoc/TCE-dashboard/tree/fix/tce-test-discovery-20261026), [root test script](../package.json), [WF-05 workflow](../.github/workflows/wf-02-tce-backend-unit-test.yml), [Supabase Branching documentation](https://supabase.com/docs/guides/deployment/branching).
 
+### TCE-PHASE8-001 — Deterministic provider-neutral position reconciliation core
+
+- **Priority/status:** P1 / IN PROGRESS — pure reconciliation and fail-closed recovery are on the dedicated Phase 8 task branch; provider adapter/persistence integration remains outstanding.
+- **Evidence:** `libs/tce/src/reconciliation/position-recovery.ts` imported a missing `position-state-reconciler` module. Existing recovery silently skipped invalid/duplicate ownership and treated a missing snapshot as an empty account. Phase 8 issue [#496](https://github.com/phanthienquoc/TCE-dashboard/issues/496) requires authoritative, restart-safe position truth before Phase 10 exits.
+- **Current behavior:** Local/provider reconciliation was not implemented; recovery could hide ambiguous state by dropping rows or returning an empty list.
+- **Desired behavior:** Deterministically classify converged, local-only, provider-only, mismatched, ambiguous and invalid holdings. No automatic adoption/closure, persistence side effects or order submission from the pure core.
+- **Acceptance criteria:**
+  - [x] Add provider-neutral position types and deterministic reconciliation with normalized symbols and numeric validation.
+  - [x] Require provider sellability/current price and local target/slot/pool data before marking exit data complete.
+  - [x] Fail closed for missing recovery snapshots, invalid timestamps/positions and duplicate ownership.
+  - [ ] Pass exact-head WF-05 and WF-02 after the corrected test discovery runs the actual suite.
+  - [ ] Wire provider holdings and persisted slot/capital state into reconciliation.
+  - [ ] Run integration smoke only against an explicitly identified, approved non-production target.
+- **Validation:** Regression tests are added in `libs/tce/src/reconciliation/position-state-reconciler.spec.ts` and updated `position-recovery.spec.ts`. The source commit passed WF-05 and WF-02 before WF-02 emitted formatting-only commit `de68ad36be3d73b49bf1d7c6fe30217aaa974b9d`; require both workflows green on the final task-branch head before merging into the phase branch. The separate test-runner integrity fix is tracked as TCE-TEST-001 and [PR #915](https://github.com/phanthienquoc/TCE-dashboard/pull/915).
+- **Dependencies:** Existing `AccountPosition` provider-neutral contract, `TcePosition` lifecycle contract, and Phase 7 reconciliation boundaries. Provider adapter and persistence wiring are the next dependency-safe slice.
+- **Risk:** High for downstream exits if ambiguous state is treated as authoritative. This slice is pure/report-only and does not place orders, mutate positions, apply migrations or enable LIVE mode.
+- **Links:** [Phase 8 plan](.phase8-position-reconciliation.md), [Task #496](https://github.com/phanthienquoc/TCE-dashboard/issues/496), [reconciler source](../libs/tce/src/reconciliation/position-state-reconciler.ts), [recovery source](../libs/tce/src/reconciliation/position-recovery.ts).
+
 ### TCE-SEC-001 — Remove public read and destructive browser grants on position snapshots
 
 - **Priority/status:** P0 / MERGED — source migration `20261026034917_revoke_public_snapshot_access.sql` is on `master` at merge commit `ccaccb6b6131665e317774dfc8742b480972a316`. Post-merge backend unit tests, Build+Verify and the push-format check passed; no production release was dispatched. Non-production end-to-end smoke remains gated on explicit environment classification.
