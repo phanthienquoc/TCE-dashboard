@@ -31,6 +31,7 @@
 - **Remaining acceptance gates:** Configure central Auth `KEYCLOAK_TCE_CLIENT_ID=tce-dashboard`; verify live issuer/audience/client redirect settings; confirm central Auth and TCE service `JWT_SECRET` equality without printing values; run non-production end-to-end tests for positive/negative token cases, refresh, legacy MFA boundary, logout, CORS/cookies and iOS Safari. The web production build was not run as part of the PR checks.
 - **Current rollout:** `NEXT_PUBLIC_AUTH_MODE` defaults to `legacy`. Do not enable SSO in a deployed build until all runtime and non-production acceptance gates pass. Production traffic cutover requires a separate rollout/rollback review.
 - **Links:** [TCE SSO pilot architecture](../docs/architecture/tce-keycloak-sso-pilot.md), [runtime config contract](../docs/config-key.md).
+
 ### TCE-TEST-001 — Restore unit-test discovery in the root test runner
 
 - **Priority/status:** P0 / MERGED — [PR #915](https://github.com/phanthienquoc/TCE-dashboard/pull/915) squash-merged at `5fd48ee7fa6b73b41e00e9fe89861574075367d8`; default branch verified at the merge SHA.
