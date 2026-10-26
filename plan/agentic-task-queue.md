@@ -1,6 +1,6 @@
 # TCE Dashboard — Agent Task Queue
 
-**Last audited:** 2026-10-26 20:38 +07:00  
+**Last audited:** 2026-10-26 20:52 +07:00  
 **Default branch checkpoint:** `master` verified at `6036c65629e1aec482fcc62321ea72b8ce38a57e`. TCE-SEC-004 cashout-access remediation squash-merged at that SHA; post-merge WF-02 and WF-05 passed. WF-01 post-merge frontend build failure is tracked under TCE-AUTH-004.  
 **Queue convention:** This repository has a mature `plan/` directory but no existing `docs/agentic/` queue. This file follows the current `plan/` convention and supplements, rather than replaces, canonical phase plans/issues.  
 **Safety:** Owner/admin previously classified shared project `gtqovpusfyyvxpeezxlo` as non-production. Repository config still does not prove runtime URL-to-ref or GitHub/Supabase integration target mapping. Project API `ACTIVE_HEALTHY` and default non-persistent branch `MIGRATIONS_FAILED` are separate diagnostics. No exact future migration/write/deploy is authorized by this checkpoint; no production release, live orders, LIVE-mode changes, unrelated-repository changes or potentially billable Supabase branch creation without `get_cost` and explicit cost approval.
