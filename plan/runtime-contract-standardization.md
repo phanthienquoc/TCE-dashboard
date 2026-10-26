@@ -1,4 +1,4 @@
-## Current task: Durable retry/replay for lifecycle-event publication — updated 2026-10-26
+## Current task: Durable retry/replay for lifecycle-event publication — merged 2026-10-26; non-production smoke gated
 
 - [x] Verify PR #884/#885 historical merge and CI evidence; the separate identity task remains completed.
 - [x] Inspect the current monitor snapshot/publisher boundary, live snapshot schema and migration ledger.
@@ -6,8 +6,10 @@
 - [x] Apply migration `20261026034559 tce_monitor_event_least_privilege`; `service_role` is narrowed to event SELECT/INSERT and queue SELECT/UPDATE, with no browser/public table privileges.
 - [x] Implement durable queue replay with deterministic event IDs, compare-and-set outcome updates, bounded exponential backoff, safe error-code storage and dead-letter status after eight attempts.
 - [x] Add focused unit tests for successful replay, retry timing/redaction, terminal dead-letter state, replay-store query failure, and immediate publish failure.
-- [ ] Run exact-head Prettier, service unit tests, typecheck and build via PR CI; inspect the Supabase integration result after the source migration reaches master.
-- [ ] Verify post-merge default branch at merge SHA and confirm the source migration ledger entry is consistent. Do not dispatch a production release as part of this task.
+- [x] Verify post-merge backend unit tests, Build+Verify and push-format checks on `master` merge SHA `ccaccb6b6131665e317774dfc8742b480972a316`; no separate typecheck step is exposed by these workflows.
+- [x] Verify the source migrations are on the default branch and ledger/catalog entries exist for `20261026033600`, `20261026034559`, and `20261026034917`.
+- [x] Verify `.github/workflows/wf-03-tce-production-deploy.yml` currently has only `workflow_dispatch`; no production deploy, GitOps promotion, or live order was triggered by this merge.
+- [ ] Run end-to-end replay smoke only against an explicitly identified, approved non-production target. Project environment classification remains unknown and branch metadata still reports `MIGRATIONS_FAILED`; do not apply further migrations or dispatch a release as part of this task.
 
 ### Current schema and runtime contract
 
@@ -24,8 +26,8 @@
 - Source inventory found the monitor as the only direct runtime table consumer of `tce_position_snapshots`; `apps/service/src/db/supabase.client.ts` uses the server-side `SUPABASE_SERVICE_ROLE_KEY`. Repository search found no browser Supabase client or direct web query of this table.
 - Migration `20261026034917_revoke_public_snapshot_access` dropped `tce_position_snapshots_read` (previously `roles={public}`, `cmd=SELECT`, `qual=true`) and revoked table privileges from `PUBLIC`, `anon`, and `authenticated`.
 - Post-apply checks: `pg_policies` returned no policies for `tce_position_snapshots`; `has_table_privilege` is false for `anon`/`authenticated` SELECT/INSERT/UPDATE/DELETE/TRUNCATE and true for `service_role`/`postgres`. No row data was queried or changed.
-- The Supabase security advisor now reports 32 project-wide `rls_enabled_no_policy` findings, including this intentionally server-only table. This is expected deny-by-default behavior when all browser grants and the permissive policy are absent; do not add a public read policy to silence the advisor.
-- This migration did not release/deploy the TCE service and did not change positions, orders, strategy config, cashouts, LIVE-mode flags or event scheduler state. Application rollout and CI remain separate.
+- The latest read-only security-advisor result reports 34 project-wide `rls_enabled_no_policy` findings across the shared project. This is not a TCE-only count; the scoped catalog still confirms no public/browser grants or policies on this server-owned snapshot table. Do not add a public read policy to silence the advisor.
+- This migration did not release/deploy the TCE service and did not change positions, orders, strategy config, cashouts, LIVE-mode flags or event scheduler state. Post-merge code checks passed, but application rollout and end-to-end non-production smoke remain separate and gated. The actual WF-03 workflow is manual-only; no release dispatch was performed.
 
 ## PR #884 — merged failure-path checklist evidence — 2026-10-21
 
