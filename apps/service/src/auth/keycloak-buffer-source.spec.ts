@@ -28,4 +28,7 @@ test('ArrayBuffer-backed signature copy preserves bytes without aliasing input',
   assert.notEqual(copy.buffer, source.buffer);
   assert.equal(copy.buffer instanceof ArrayBuffer, true);
   assert.deepEqual([...copy], [1, 2, 3]);
+
+  source[0] = 99;
+  assert.deepEqual([...copy], [1, 2, 3]);
 });
