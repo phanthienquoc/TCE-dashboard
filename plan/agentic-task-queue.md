@@ -373,7 +373,6 @@
 - **Recent workflow state:** scheduled healthcheck, integration-check and backup runs audited on 2026-10-24/25 are green. Historical 2026-10-21 formatter failure is classified above.
 - **Next implementation task:** TCE-RUNTIME-001 durable retry/replay for lifecycle-event publication. Continue independently of auth user-management work; do not touch repositories outside this queue's scope.
 
-
 ## Latest scheduled recheck — 2026-10-26 20:38 +07:00
 
 - **Default-branch effects:** Verified current `.github/workflows/wf-03-tce-production-deploy.yml` is `workflow_dispatch`-only. It publishes ARM64 images and dispatches GitOps promotion only when manually invoked. WF-01 is build/verification on master paths and manual dispatch, not a release workflow. No production workflow was dispatched.
