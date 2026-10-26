@@ -70,6 +70,8 @@ const browser = await puppeteer.launch({
 });
 
 try {
+  const caseFailures = [];
+
   for (const testCase of cases) {
     const context = await browser.createBrowserContext();
     const page = await context.newPage();
@@ -200,10 +202,11 @@ try {
         const content = query('.dashboard-layout > .app-content');
         const nav = query('.tce-bottom-tabs');
         const poolGrid = query('.tce-pools-view .tce-pool-balance-grid');
-        const rotationGrid = query('.tce-rotation-kpis');
+        const unscopedRotationGrid = query('.tce-rotation-kpis');
+        const rotationGrid = poolsView?.querySelector('.tce-rotation-kpis') ?? null;
         const scopedRotationGrid = poolsView?.querySelector('.tce-rotation-kpis') ?? null;
         const poolCards = [...document.querySelectorAll('.tce-pools-view .tce-pool-balance')];
-        const rotationMetrics = [...document.querySelectorAll('.tce-rotation-kpis > div')];
+        const rotationMetrics = [...document.querySelectorAll('.tce-pools-view .tce-rotation-kpis > div')];
         const scopedRotationMetrics = [
           ...(poolsView?.querySelectorAll('.tce-rotation-kpis > div') ?? []),
         ];
@@ -231,6 +234,9 @@ try {
             const computed = style(element);
             const rect = element.getBoundingClientRect();
             const columns = computed?.gridTemplateColumns ?? '';
+            const metricLefts = [...element.querySelectorAll(':scope > div')].map(item =>
+              Math.round(item.getBoundingClientRect().left)
+            );
             return {
               index,
               className: String(element.className),
@@ -238,7 +244,8 @@ try {
               insidePoolsView: Boolean(element.closest('.tce-pools-view')),
               display: computed?.display ?? null,
               gridTemplateColumns: columns,
-              columnCount: columns.trim().split(/\s+/).filter(Boolean).length,
+              columnCount: new Set(metricLefts).size,
+              metricLefts,
               rect: { left: rect.left, top: rect.top, right: rect.right, bottom: rect.bottom },
             };
           }
@@ -261,17 +268,18 @@ try {
           navTop: navRect?.top ?? null,
           navBottom: navRect?.bottom ?? null,
           navPosition: style(nav)?.position ?? null,
-          poolColumns: style(poolGrid)?.gridTemplateColumns.trim().split(/\s+/).length ?? 0,
+          poolColumns: new Set(poolCards.map(card => Math.round(card.getBoundingClientRect().left))).size,
           poolCount: poolCards.length,
           poolCardsWithinViewport: poolCards.every(card => {
             const rect = card.getBoundingClientRect();
             return rect.left >= -1 && rect.right <= window.innerWidth + 1;
           }),
-          rotationColumns: rotationComputedColumns.trim().split(/\s+/).filter(Boolean).length,
+          rotationColumns: new Set(rotationMetrics.map(item => Math.round(item.getBoundingClientRect().left))).size,
           rotationComputedColumns,
-          rotationGridIsInsidePoolsView: Boolean(rotationGrid?.closest('.tce-pools-view')),
-          scopedRotationColumns: scopedRotationComputedColumns.trim().split(/\s+/).filter(Boolean)
-            .length,
+          unscopedRotationComputedColumns: style(unscopedRotationGrid)?.gridTemplateColumns ?? '',
+          rotationGridIsInsidePoolsView: Boolean(unscopedRotationGrid?.closest('.tce-pools-view')),
+          rotationGridMatchesScoped: unscopedRotationGrid === rotationGrid,
+          scopedRotationColumns: new Set(scopedRotationMetrics.map(item => Math.round(item.getBoundingClientRect().left))).size,
           scopedRotationComputedColumns,
           rotationGridCandidates,
           rotationMetricTops,
@@ -382,86 +390,94 @@ try {
         fullPage: false,
       });
 
-      assert.ok(
-        metrics.documentWidth <= testCase.width + 1,
-        `${testCase.name}: no page-level horizontal overflow (${metrics.documentWidth}px)`
-      );
-      assert.equal(metrics.poolCount, 3, `${testCase.name}: all three capital pools render`);
-      assert.ok(
-        metrics.poolCardsWithinViewport,
-        `${testCase.name}: pool cards stay within viewport bounds`
-      );
-      assert.equal(
-        metrics.rotationColumns,
-        2,
-        `${testCase.name}: active rotation metrics use a two-column grid; see the TCE-UI-003A CSS cascade diagnostic log above`
-      );
-      assert.equal(
-        metrics.rotationMetricCount,
-        3,
-        `${testCase.name}: all three active-rotation metrics render`
-      );
-      assert.equal(
-        metrics.rotationMetricTops[0],
-        metrics.rotationMetricTops[1],
-        `${testCase.name}: first two rotation metrics share a row`
-      );
-      assert.ok(
-        metrics.rotationMetricTops[2] > metrics.rotationMetricTops[0],
-        `${testCase.name}: third rotation metric wraps to the next row`
-      );
-      assert.ok(
-        metrics.statusTop >= metrics.contentPaddingTop - 1,
-        `${testCase.name}: summary card clears the shared safe-area/top chrome`
-      );
-
-      if (testCase.landscape) {
-        assert.equal(
-          metrics.shortLandscapeQueryMatches,
-          true,
-          `${testCase.name}: compact landscape media query matches viewport dimensions`
-        );
-        assert.equal(
-          metrics.poolColumns,
-          3,
-          `${testCase.name}: three pool cards fit across landscape`
-        );
-        assert.equal(metrics.navPosition, 'fixed', `${testCase.name}: navigation remains fixed`);
+      try {
         assert.ok(
-          metrics.headerTop >= metrics.navBottom - 1,
-          `${testCase.name}: page header clears the top navigation`
+          metrics.documentWidth <= testCase.width + 1,
+          `${testCase.name}: no page-level horizontal overflow (${metrics.documentWidth}px)`
         );
-      } else {
+        assert.equal(metrics.poolCount, 3, `${testCase.name}: all three capital pools render`);
+        assert.ok(
+          metrics.poolCardsWithinViewport,
+          `${testCase.name}: pool cards stay within viewport bounds`
+        );
         assert.equal(
-          metrics.poolColumns,
+          metrics.rotationColumns,
           2,
-          `${testCase.name}: pools use a compact two-column grid`
+          `${testCase.name}: active rotation metrics use a two-column grid; see the TCE-UI-003A CSS cascade diagnostic log above`
+        );
+        assert.equal(
+          metrics.rotationMetricCount,
+          3,
+          `${testCase.name}: all three active-rotation metrics render`
+        );
+        assert.equal(
+          metrics.rotationMetricTops[0],
+          metrics.rotationMetricTops[1],
+          `${testCase.name}: first two rotation metrics share a row`
         );
         assert.ok(
-          metrics.contentPaddingBottom >= 128,
-          'portrait: scroll content reserves space for the bottom dock and safe area'
+          metrics.rotationMetricTops[2] > metrics.rotationMetricTops[0],
+          `${testCase.name}: third rotation metric wraps to the next row`
         );
-        await page.evaluate(() => {
-          const content = document.querySelector('.dashboard-layout > .app-content');
-          content.scrollTop = content.scrollHeight;
-        });
-        const bottomMetrics = await page.evaluate(() => {
-          const nav = document.querySelector('.tce-bottom-tabs').getBoundingClientRect();
-          const lastSection = [...document.querySelectorAll('.tce-pools-view .tce-section')]
-            .at(-1)
-            .getBoundingClientRect();
-          return { navTop: nav.top, lastSectionBottom: lastSection.bottom };
-        });
         assert.ok(
-          bottomMetrics.lastSectionBottom <= bottomMetrics.navTop - 40,
-          `${testCase.name}: bottom dock does not cover the final section (${JSON.stringify(bottomMetrics)})`
+          metrics.statusTop >= metrics.contentPaddingTop - 1,
+          `${testCase.name}: summary card clears the shared safe-area/top chrome`
         );
-      }
 
-      console.log(`PASS POOLS ${testCase.name}: ${JSON.stringify(metrics)}`);
+        if (testCase.landscape) {
+          assert.equal(
+            metrics.shortLandscapeQueryMatches,
+            true,
+            `${testCase.name}: compact landscape media query matches viewport dimensions`
+          );
+          assert.equal(
+            metrics.poolColumns,
+            3,
+            `${testCase.name}: three pool cards fit across landscape`
+          );
+          assert.equal(metrics.navPosition, 'fixed', `${testCase.name}: navigation remains fixed`);
+          assert.ok(
+            metrics.headerTop >= metrics.navBottom - 1,
+            `${testCase.name}: page header clears the top navigation`
+          );
+        } else {
+          assert.equal(
+            metrics.poolColumns,
+            2,
+            `${testCase.name}: pools use a compact two-column grid`
+          );
+          assert.ok(
+            metrics.contentPaddingBottom >= 128,
+            'portrait: scroll content reserves space for the bottom dock and safe area'
+          );
+          await page.evaluate(() => {
+            const content = document.querySelector('.dashboard-layout > .app-content');
+            content.scrollTop = content.scrollHeight;
+          });
+          const bottomMetrics = await page.evaluate(() => {
+            const nav = document.querySelector('.tce-bottom-tabs').getBoundingClientRect();
+            const lastSection = [...document.querySelectorAll('.tce-pools-view .tce-section')]
+              .at(-1)
+              .getBoundingClientRect();
+            return { navTop: nav.top, lastSectionBottom: lastSection.bottom };
+          });
+          assert.ok(
+            bottomMetrics.lastSectionBottom <= bottomMetrics.navTop - 40,
+            `${testCase.name}: bottom dock does not cover the final section (${JSON.stringify(bottomMetrics)})`
+          );
+        }
+
+        console.log(`PASS POOLS ${testCase.name}: ${JSON.stringify(metrics)}`);
+      } catch (error) {
+        caseFailures.push({ name: testCase.name, error: String(error) });
+        console.error(`FAIL POOLS ${testCase.name}: ${String(error)}`);
+      }
     } finally {
       await context.close();
     }
+  }
+  if (caseFailures.length) {
+    throw new Error(`Pools viewport contract failed: ${JSON.stringify(caseFailures)}`);
   }
 } finally {
   await browser.close();
