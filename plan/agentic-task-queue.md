@@ -50,14 +50,18 @@
 
 ### TCE-PLAN-001 — Reconcile stale runtime-plan frontier and exact-head evidence
 
-- **Priority/status:** P2 / DONE on 2026-10-25.
-- **Evidence paths:** `plan/runtime-contract-standardization.md`, `docs/architecture/runtime-boundaries.md`, `plan/agentic-task-queue.md`.
-- **Verified evidence:** PR #884 merged at `e3e1e06731fa1dcb4d5703e5dd562509eb16a3df` from tested head `585172e3166994da4b1e026b0cfb38c7ee5270ea`. PR #885 merged at `5b6f4e94d5b940c83f7f534d57e3d49590d7e013` from tested head `016cbd2083a6853a07159ef980be2ba708f54b37`; [WF-05 #2107](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/39567687431) and [WF-02 #1559](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/39567687358) passed on that exact head.
-- **Result:** The stale verify/merge checklist is reconciled; durable lifecycle-event replay remains the next implementation task. Issue #887's production-trigger gate is also resolved by PRs #888/#889 and recorded in the runtime plan.
-- **Validation:** Re-read merged PR metadata, exact-head check runs, current `master` SHA and the manual-only WF-03 trigger. No production workflow ran for the workflow-only merge SHA.
-- **Dependencies:** None for documentation; TCE-RUNTIME-001 still requires an additive schema design and non-production validation before any migration rollout.
-- **Risk:** Low; stale status can cause duplicate work or false completion claims.
-- **Sources:** [PR #884](https://github.com/phanthienquoc/TCE-dashboard/pull/884), [PR #885](https://github.com/phanthienquoc/TCE-dashboard/pull/885), [PR #888](https://github.com/phanthienquoc/TCE-dashboard/pull/888), [PR #889](https://github.com/phanthienquoc/TCE-dashboard/pull/889), [runtime contract plan](https://github.com/phanthienquoc/TCE-dashboard/blob/master/plan/runtime-contract-standardization.md).
+- **Priority/status:** P2 / DONE — follow-up stale PR #865 checkpoint reconciled on 2026-10-26.
+- **Evidence:** `plan/runtime-contract-standardization.md`, `docs/architecture/runtime-boundaries.md`, and this queue. GitHub confirms [PR #865](https://github.com/phanthienquoc/TCE-dashboard/pull/865) is merged at `d4ff9a4ae469e8c4124927e11d13046ef6ec77fd`, from exact head `5f865d751dbfa695c8439f8a5a21d836274deb46`.
+- **Current behavior:** The runtime plan retained a stale checkpoint saying PR #865 was open, its latest head had no CI runs, and merge was prohibited; it also repeated the completed identity-matching task as the current task.
+- **Desired behavior:** Keep one authoritative current frontier. PR #865's identity ambiguity task is historical/completed; durable lifecycle-event retry/replay remains the next task and stays blocked on approved non-production schema/atomic-outbox validation.
+- **Acceptance criteria:**
+  - [x] Remove stale open-PR/no-CI claims for PR #865 and preserve the completed exact-head evidence.
+  - [x] Retire the duplicate unchecked task block without deleting the completed PR history.
+  - [x] Preserve the TCE-RUNTIME-001 non-production migration gate and LIVE-trading safety boundary.
+- **Validation:** Exact-head backend build/unit tests passed [run #39539207470](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/39539207470); Prettier passed [run #39539207463](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/39539207463). Current `master` was verified at `32b0c45b1fe2fb79aaa8c68b73d4240ab41546d0`; WF-03 remains `workflow_dispatch`-only. No production workflow was dispatched.
+- **Dependencies:** None for documentation; TCE-RUNTIME-001 still requires approved non-production validation before any schema migration or runtime rollout.
+- **Risk:** Low; stale task status can cause duplicate work or false completion claims.
+- **Links:** [PR #865](https://github.com/phanthienquoc/TCE-dashboard/pull/865), [runtime contract plan](https://github.com/phanthienquoc/TCE-dashboard/blob/master/plan/runtime-contract-standardization.md), [PR #907](https://github.com/phanthienquoc/TCE-dashboard/pull/907).
 
 ### TCE-UI-001 — Consolidate overlapping mobile-landscape PRs
 
