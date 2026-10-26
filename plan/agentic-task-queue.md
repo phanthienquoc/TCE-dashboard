@@ -1,7 +1,7 @@
 # TCE Dashboard — Agent Task Queue
 
 **Last audited:** 2026-10-26 19:13 +07:00  
-**Default branch checkpoint:** `master` audited on 2026-10-26. The latest functional/schema merge tracked by this queue is TCE-SEC-001/TCE-RUNTIME-001 at `ccaccb6b6131665e317774dfc8742b480972a316`; subsequent queue-checkpoint commits are documentation-only. Consult Git history for the exact current `master` SHA.  
+**Default branch checkpoint:** `master` verified at `6036c65629e1aec482fcc62321ea72b8ce38a57e`. TCE-SEC-004 cashout-access remediation squash-merged at `6036c65629e1aec482fcc62321ea72b8ce38a57e`; post-merge WF-02 and WF-05 passed. WF-01 post-merge frontend build failure is tracked separately below.  
 **Queue convention:** This repository has a mature `plan/` directory but no existing `docs/agentic/` queue. This file follows the current `plan/` convention and supplements, rather than replaces, canonical phase plans/issues.  
 **Safety:** Owner/admin confirmed on 2026-10-26 that shared project `gtqovpusfyyvxpeezxlo` is non-production and authorized scoped Supabase actions for these two repositories. Historical `env=prod` telemetry and earlier TCE wording are not environment blockers. Project API `ACTIVE_HEALTHY` and default non-persistent branch `MIGRATIONS_FAILED` remain separate diagnostics. No production application release, live orders, LIVE-mode changes, unrelated-repository changes or potentially billable Supabase branch creation without `get_cost` and explicit cost approval.
 
@@ -104,9 +104,24 @@
 - **Risk:** High — a SECURITY DEFINER view with public SELECT can bypass underlying RLS intent even when its selected columns are market data.
 - **Links:** [Source view migration](../supabase/migrations/202609160003_dividend_current_price_ohlcv_fallback.sql), [service repository](../apps/service/src/stock-events/stock-events.supabase.repository.ts), [Supabase security-definer-view advisor](https://supabase.com/docs/guides/observability/advisors?queryGroups=lint&lint=0010_security_definer_view), [Supabase RLS documentation](https://supabase.com/docs/guides/database/postgres/row-level-security).
 
+### TCE-AUTH-004 — Fix frontend production-build BufferSource type error
+
+- **Priority/status:** P1 / REPRODUCED POST-MERGE CI FAILURE; FIX PLAN RECORDED.
+- **Evidence:** After TCE-SEC-004 merge SHA `6036c65629e1aec482fcc62321ea72b8ce38a57e`, WF-01 [run #40324008328](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/40324008328) failed during `Dockerfile:13 RUN npm run build:web`, after bundling passed and during TypeScript validation at `apps/web/lib/keycloak-sso.ts:108`. Error: `Uint8Array<ArrayBufferLike>` passed to `crypto.subtle.verify` is not assignable to `BufferSource` because its buffer may be `SharedArrayBuffer`. The changed migration/test/queue files do not touch this code; this is a pre-existing SSO build defect exposed by post-merge validation.
+- **Current behavior:** OIDC signature verification passes a decoded `Uint8Array` directly as the signature argument. Current TypeScript DOM crypto types reject that type.
+- **Desired behavior:** Preserve the cryptographic verification and claim checks while supplying a byte view backed by a concrete `ArrayBuffer`, without unsafe type assertions or weakened verification.
+- **Acceptance criteria:**
+  - [x] Capture the exact-head failure from WF-01 logs.
+  - [ ] Add a small type-safe conversion that copies signature bytes to an `ArrayBuffer`-backed view (or equivalent accepted BufferSource type).
+  - [ ] Run web typecheck/build and TCE WF-01/WF-02/WF-05 on a dedicated branch.
+  - [ ] Inspect workflow side effects; keep WF-03 `workflow_dispatch`-only and do not deploy or dispatch production.
+- **Dependencies:** Existing Keycloak SSO flow in `apps/web/lib/keycloak-sso.ts`; no schema/migration dependency.
+- **Risk:** Medium — OIDC signature validation must remain byte-for-byte correct; do not bypass `crypto.subtle.verify` or change claim checks.
+- **Links:** [failed post-merge WF-01](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/40324008328), [OIDC implementation](../apps/web/lib/keycloak-sso.ts), [TCE-SEC-004 merge](https://github.com/phanthienquoc/TCE-dashboard/pull/925).
+
 ### TCE-SEC-004 — Remove public access to account-specific cashout events
 
-- **Priority/status:** P0 / FIX APPLIED TO OWNER-CONFIRMED NON-PRODUCTION; POST-APPLY ACCESS CHECKS PASS; CI PENDING — migration source `supabase/migrations/20261026122224_revoke_public_cashout_event_access.sql` matches Supabase ledger version `20261026122224 revoke_public_cashout_event_access`. Implementation is in [PR #925](https://github.com/phanthienquoc/TCE-dashboard/pull/925).
+- **Priority/status:** P0 / MERGED AND VERIFIED — source migration `supabase/migrations/20261026122224_revoke_public_cashout_event_access.sql` matches Supabase ledger version `20261026122224 revoke_public_cashout_event_access`; [PR #925](https://github.com/phanthienquoc/TCE-dashboard/pull/925) squash-merged to master at `6036c65629e1aec482fcc62321ea72b8ce38a57e`.
 - **Evidence:** Pre-change catalog confirmed RLS enabled plus public policy `tce_cashout_events_read` (`roles={public}, cmd=SELECT, qual=true`) and direct grants to `anon`/`authenticated` for SELECT and DML. Repository search found one runtime consumer, the NestJS monitor insert in `apps/service/src/monitor/tce-monitor.service.ts`; no frontend direct query was found.
 - **Current behavior:** The live policy is removed. `anon` and `authenticated` no longer have SELECT/INSERT/UPDATE/DELETE/TRUNCATE. `service_role` and `postgres` keep existing privileges for the monitor/server path. RLS remains enabled. No data rows were queried or changed.
 - **Desired behavior:** Cashout lifecycle rows remain server-owned and browser roles cannot read or mutate account-specific cashflow/P&L data. API access, when needed, must pass through NestJS with explicit authorization and field allowlists.
@@ -116,9 +131,12 @@
   - [x] Apply the scoped policy/grant migration to the owner-confirmed non-production project `gtqovpusfyyvxpeezxlo` using connected Supabase tools.
   - [x] Re-query `pg_policies` and role privileges: no cashout policy remains; `anon`/`authenticated` SELECT and DML checks are false; server-role privileges remain.
   - [x] Add source-level migration contract test at `apps/service/src/monitor/tce-cashout-access-migration.spec.ts`.
-  - [ ] Pass exact-head WF-02/WF-05 and inspect test output.
-  - [ ] Confirm post-merge default branch SHA and re-run catalog/advisor checks.
-- **Validation:** Supabase ledger records `20261026122224 revoke_public_cashout_event_access`. Post-apply catalog returned no policies for `tce_cashout_events`; privileges are false for anon/authenticated SELECT, INSERT, UPDATE, DELETE and TRUNCATE, true for service_role/postgres. Security Advisor now intentionally reports one additional `rls_enabled_no_policy` finding for this server-owned table; do not add a public policy just to silence it. Current auth RPC grants remain server-role-only. No cashout rows, orders, positions, strategy configuration, engine state or LIVE flags were accessed or changed.
+  - [x] Exact-head WF-02 Prettier passed: [run #40323855950](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/40323855950).
+  - [x] Exact-head WF-05 backend build/tests passed: [run #40323855949](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/40323855949).
+  - [x] Merge SHA verified on default branch `master`: `6036c65629e1aec482fcc62321ea72b8ce38a57e`.
+  - [x] Post-merge WF-02 passed: [run #40324008260](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/40324008260); WF-05 passed: [run #40324008428](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/40324008428).
+  - [x] Re-ran post-apply catalog/grant checks and security advisor. No policy remains; anon/authenticated have no table privileges; server roles retain privileges. Advisor reports the expected server-owned RLS-without-policy finding.
+- **Validation:** Supabase ledger records `20261026122224 revoke_public_cashout_event_access`. Post-apply catalog returns no policies for `tce_cashout_events`; anon/authenticated SELECT, INSERT, UPDATE, DELETE and TRUNCATE checks are false, while service_role/postgres checks are true. Security Advisor reports the expected `rls_enabled_no_policy` finding for this server-owned table; do not add a public policy to silence it. No cashout rows, orders, positions, strategy configuration, engine state or LIVE flags were read or changed. Post-merge WF-01 failed on unrelated existing frontend TypeScript at `apps/web/lib/keycloak-sso.ts:108`: `Uint8Array<ArrayBufferLike>` is not assignable to `BufferSource` under production Next build; see TCE-AUTH-004.
 - **Dependencies:** TCE monitor keeps using the existing server-side service-role client. No UI/API redesign is required for the database boundary fix.
 - **Risk:** High before remediation. Public read path is closed on the owner-confirmed non-production project; service-side runtime smoke remains a source/CI acceptance task. No production app release, live trading or order placement occurred.
 - **Links:** [PR #925](https://github.com/phanthienquoc/TCE-dashboard/pull/925), [source migration](../supabase/migrations/20261026122224_revoke_public_cashout_event_access.sql), [migration contract test](../apps/service/src/monitor/tce-cashout-access-migration.spec.ts), [Supabase API security](https://supabase.com/docs/guides/api/securing-your-api).
