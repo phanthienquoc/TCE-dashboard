@@ -1,6 +1,6 @@
 # TCE Dashboard — Agent Task Queue
 
-**Last audited:** 2026-10-26 16:13 +07:00  
+**Last audited:** 2026-10-26 16:40 +07:00
 **Default branch checkpoint:** `master` audited on 2026-10-26. The latest functional/schema merge tracked by this queue is TCE-SEC-001/TCE-RUNTIME-001 at `ccaccb6b6131665e317774dfc8742b480972a316`; subsequent queue-checkpoint commits are documentation-only. Consult Git history for the exact current `master` SHA.  
 **Queue convention:** This repository has a mature `plan/` directory but no existing `docs/agentic/` queue. This file follows the current `plan/` convention and supplements, rather than replaces, canonical phase plans/issues.  
 **Safety:** No production application release, live orders, or LIVE-mode enablement are part of this queue. The owner explicitly classified the shared Supabase project as private production in prior instructions on 2026-10-26. No production migration/deploy, live trading action, or Supabase branch operation is authorized by this task. The only listed Supabase branch is non-persistent main / Git master with MIGRATIONS_FAILED; the GitHub integration target/deploy-to-production toggle remains unverified.
@@ -101,13 +101,22 @@
 
 ### TCE-RUNTIME-001A — Read-only schema and replay-contract discovery
 
-- **Priority/status:** P1 / DONE — live schema/migration/grant evidence refreshed read-only on 2026-10-26; environment safety remains unresolved.
-- **Evidence:** Connected project ref `gtqovpusfyyvxpeezxlo` discovered via `list_projects/get_project`; `list_branches` reports only non-persistent `main` tracking Git `master`, with status `MIGRATIONS_FAILED`. Current migration ledger includes `20261026033600 tce_monitor_event_replay_contract`, but does not include the existing master source migration `202610210002_tce_runtime_events`. It also includes Auth-specific `20261026030920` and `20261026032152` versions that are absent from this TCE repo, plus three older remote-only versions `20261014024759`, `20261014130516`, and `20261014131151`; the live ledger is shared across the TCE and Authentication workspaces.
-- **Verified live facts:** `public.tce_position_snapshots` has the three replay metadata columns and an enabled AFTER INSERT trigger `trg_tce_monitor_snapshot_enqueue_event`. `public.tce_runtime_events` and `public.tce_monitor_event_replay` exist with RLS enabled. `enqueue_tce_monitor_snapshot_event()` is `SECURITY DEFINER` with fixed `search_path` and EXECUTE for `postgres`/`service_role`. After migration `20261026034559`, event table privileges for `service_role` are SELECT/INSERT; replay table privileges are SELECT/UPDATE; public/anon/authenticated have none. Pre-hardening all-privileges state is historical and no longer current.
-- **Separate P0 security observation (remediated at the DB layer):** The pre-migration public `USING (true)` policy and browser-role SELECT/INSERT/UPDATE/DELETE/TRUNCATE grants were removed by migration `20261026034917_revoke_public_snapshot_access`. Post-apply `pg_policies` is empty for this server-owned table; post-apply `has_table_privilege` confirms anon/authenticated have none of those privileges. See TCE-SEC-001 evidence above.
-- **Environment caveat:** Project `ACTIVE_HEALTHY`; the listed non-persistent `main`/Git `master` branch metadata still says `MIGRATIONS_FAILED`, despite four successful owner-directed scoped migrations and catalog verification. This remains a metadata/integration reconciliation task, not evidence that those observed migrations failed. Repo placeholders do not identify the connected project as production vs preview; app releases remain separate.
-- **Actions in the initial discovery audit:** That checkpoint was read-only. Later scoped TCE schema/grant migrations were applied and verified under TCE-RUNTIME-001 and TCE-SEC-001. No Supabase branch operation, application deployment, live order, or trading-mode change was performed.
-- **Sources:** [runtime contract plan](https://github.com/phanthienquoc/TCE-dashboard/blob/master/plan/runtime-contract-standardization.md), [replay schema migration](../supabase/migrations/20261026033600_tce_monitor_event_replay_contract.sql), [least-privilege replay grants](../supabase/migrations/20261026034559_tce_monitor_event_least_privilege.sql), [snapshot access revocation](../supabase/migrations/20261026034917_revoke_public_snapshot_access.sql), [Supabase branching docs](https://supabase.com/docs/guides/deployment/branching).
+- **Priority/status:** P1 / DONE (DISCOVERY); deployment/merge safety gate BLOCKED — live schema, migration, grant and replay-contract evidence is documented, but environment classification and migration integration remain unresolved.
+- **Evidence:** `list_projects/get_project` identifies shared ref `gtqovpusfyyvxpeezxlo`; `list_branches` returns only non-persistent default `main` / Git `master`, branch ID `5132b831-8223-4dc4-8f39-707415c96f1b`, status `MIGRATIONS_FAILED`. The same branch ID appears in recent migration-executor logs. Auth roadmap records owner-confirmed non-production; this TCE queue previously said private production; current logs are tagged `env=prod`. The repo placeholders do not establish the deployed runtime URL or GitHub integration target.
+- **Verified live facts:** `public.tce_position_snapshots` has replay metadata columns and enabled AFTER INSERT trigger `trg_tce_monitor_snapshot_enqueue_event`. `public.tce_runtime_events` and `public.tce_monitor_event_replay` exist with RLS enabled. `enqueue_tce_monitor_snapshot_event()` is SECURITY DEFINER with fixed search_path and EXECUTE for `postgres`/`service_role`. After migration `20261026034559`, event table privileges for `service_role` are SELECT/INSERT; replay table privileges are SELECT/UPDATE; public/anon/authenticated have none. The pre-hardening all-privileges state is historical.
+- **Separate P0 security observation (DB-layer remediation already merged):** The pre-migration public `USING (true)` policy and browser-role SELECT/INSERT/UPDATE/DELETE/TRUNCATE grants were removed by `20261026034917_revoke_public_snapshot_access`. Post-apply `pg_policies` is empty for this server-owned table; post-apply privilege checks confirm anon/authenticated have none of those privileges. See TCE-SEC-001.
+- **Migration integration evidence:** The live ledger contains `20261026033600 tce_monitor_event_replay_contract`, but not the checked-in source migration `202610210002_tce_runtime_events`. It also contains Auth versions `20261026030920` and `20261026032152` absent from this TCE repo, plus remote-only versions `20261014024759`, `20261014130516`, and `20261014131151`. Bounded logs after recent master merges still show `Remote migration versions not found in local migrations directory.` on the listed `main` branch.
+- **Current behavior:** Schema and privilege discovery is complete, but production/non-production classification and repository-to-project integration remain unresolved. Project API status `ACTIVE_HEALTHY` does not override the branch's `MIGRATIONS_FAILED` state or `env=prod` log tags.
+- **Desired behavior:** Keep TCE's DB contracts and migration source aligned, and prove the exact integration target/merge effects before any further master merge or migration. Do not reconstruct missing migration SQL or create a Supabase branch without the required cost check and explicit approval.
+- **Acceptance criteria:**
+  - [x] Record live replay tables, trigger, RPC signature, RLS and least-privilege grants read-only.
+  - [x] Record the shared project/branch identity and current migration drift.
+  - [ ] Reconcile environment classification and GitHub integration target through authoritative configuration.
+  - [ ] Recover authoritative source history for missing remote migration versions before any migration-bearing merge.
+- **Validation:** Supabase read-only schema/catalog/ACL/migration/advisor/log inspection; source searches in both authorized repositories. No Supabase branch was created, and no migration or application deployment occurred in this task.
+- **Dependencies:** Authoritative Supabase integration/environment configuration; migration provenance.
+- **Risk:** High — a master push may invoke a migration executor on the branch tagged `env=prod`; no further merge is safe until its exact side effects are verified.
+- **Links:** [TCE runtime contract plan](https://github.com/phanthienquoc/TCE-dashboard/blob/master/plan/runtime-contract-standardization.md), [replay migration](../supabase/migrations/20261026033600_tce_monitor_event_replay_contract.sql), [least-privilege replay grants](../supabase/migrations/20261026034559_tce_monitor_event_least_privilege.sql), [snapshot access revocation](../supabase/migrations/20261026034917_revoke_public_snapshot_access.sql), [Supabase branching docs](https://supabase.com/docs/guides/deployment/branching).
 
 ### TCE-PLAN-001 — Reconcile stale runtime-plan frontier and exact-head evidence
 
@@ -282,6 +291,22 @@
 - **Dependencies:** None.
 - **Risk:** Low; workflow-only behavior change. PR runs lose write permission, and automatic formatting remains available on push/dispatch.
 - **Sources:** [failed formatter job logs](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/40224363153), [canonical UI PR #892](https://github.com/phanthienquoc/TCE-dashboard/pull/892), [prior race evidence](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/39567566629).
+
+### TCE-AUTH-001 — Fail closed when JWT secret is missing or weak
+
+- **Priority/status:** P0 / FOLLOW-UP TEST IN PROGRESS — the security fix is merged; this PR adds exact minimum-length boundary coverage and updates the canonical task queue.
+- **Evidence:** [PR #920](https://github.com/phanthienquoc/TCE-dashboard/pull/920), merged to master at `24e972bad13449174d9dde49786303041a1f7a41`; `apps/service/src/auth/jwt.service.ts` now rejects missing, placeholder and under-32-byte secrets on both issue and verify paths.
+- **Current behavior:** A public `CHANGE_ME_IN_ENV` fallback no longer exists. Tests cover missing, placeholder, short and valid secrets; the merged test suite did not explicitly prove the exact 32-byte boundary.
+- **Desired behavior:** Exactly 32 bytes is accepted, while any configured secret shorter than 32 bytes, missing, or equal to the placeholder is rejected; no weaker verification fallback is allowed.
+- **Acceptance criteria:**
+  - [x] Merge fail-closed JWT secret validation and core regression tests.
+  - [x] Verify WF-05 and WF-02 passed on the merged PR head ([WF-05 #40301005041](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/40301005041), [WF-02 #40301005005](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/40301005005)).
+  - [ ] Pass the exact 32-byte boundary test on this follow-up PR's exact head.
+  - [ ] Inspect merge effects before merging; keep open while the shared Supabase main-branch migration executor and integration target remain unresolved.
+- **Validation:** The merged PR head passed 201 Node tests plus 23 Vitest files / 99 Vitest tests and Prettier. The follow-up adds one deterministic test using a 32-byte synthetic secret; no real secret is used.
+- **Dependencies:** None for code/test work; merge safety gate applies independently.
+- **Risk:** P0 authentication boundary. Scope is a unit test and task documentation only; no schema/migration, credential, trading logic, or release workflow change.
+- **Links:** [Merged PR #920](https://github.com/phanthienquoc/TCE-dashboard/pull/920), [JWT implementation](../apps/service/src/auth/jwt.service.ts), [JWT tests](../apps/service/src/auth/jwt.service.spec.ts), [WF-05](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/40301005041), [WF-02](https://github.com/phanthienquoc/TCE-dashboard/actions/runs/40301005005).
 
 ## Audit snapshot
 
