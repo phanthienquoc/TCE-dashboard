@@ -8,10 +8,19 @@ function required(name: string, value: string | undefined): string {
 }
 
 function config() {
-  const baseUrl = required('NEXT_PUBLIC_KEYCLOAK_URL', process.env.NEXT_PUBLIC_KEYCLOAK_URL).replace(/\/+$/, '');
+  const baseUrl = required(
+    'NEXT_PUBLIC_KEYCLOAK_URL',
+    process.env.NEXT_PUBLIC_KEYCLOAK_URL
+  ).replace(/\/+$/, '');
   const realm = required('NEXT_PUBLIC_KEYCLOAK_REALM', process.env.NEXT_PUBLIC_KEYCLOAK_REALM);
-  const clientId = required('NEXT_PUBLIC_KEYCLOAK_CLIENT_ID', process.env.NEXT_PUBLIC_KEYCLOAK_CLIENT_ID);
-  const authBaseUrl = required('NEXT_PUBLIC_AUTH_BASE_URL', process.env.NEXT_PUBLIC_AUTH_BASE_URL).replace(/\/+$/, '');
+  const clientId = required(
+    'NEXT_PUBLIC_KEYCLOAK_CLIENT_ID',
+    process.env.NEXT_PUBLIC_KEYCLOAK_CLIENT_ID
+  );
+  const authBaseUrl = required(
+    'NEXT_PUBLIC_AUTH_BASE_URL',
+    process.env.NEXT_PUBLIC_AUTH_BASE_URL
+  ).replace(/\/+$/, '');
   return {
     baseUrl,
     realm,
@@ -23,31 +32,37 @@ function config() {
 }
 
 export function keycloakSsoEnabled(): boolean {
-  return process.env.NEXT_PUBLIC_AUTH_MODE === 'keycloak' &&
+  return (
+    process.env.NEXT_PUBLIC_AUTH_MODE === 'keycloak' &&
     Boolean(
       process.env.NEXT_PUBLIC_KEYCLOAK_URL &&
       process.env.NEXT_PUBLIC_KEYCLOAK_REALM &&
       process.env.NEXT_PUBLIC_KEYCLOAK_CLIENT_ID &&
       process.env.NEXT_PUBLIC_AUTH_BASE_URL
-    );
+    )
+  );
 }
 
 function randomUrlSafe(bytes = 32): string {
   const data = crypto.getRandomValues(new Uint8Array(bytes));
-  return btoa(String.fromCharCode(...data)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
+  return btoa(String.fromCharCode(...data))
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=+$/g, '');
 }
 
 async function challengeFor(verifier: string): Promise<string> {
   const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(verifier));
   return btoa(String.fromCharCode(...new Uint8Array(digest)))
-    .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=+$/g, '');
 }
 
 function decodeBase64Url(value: string): Uint8Array {
   const base64 = value.replace(/-/g, '+').replace(/_/g, '/');
-  return Uint8Array.from(
-    atob(base64.padEnd(Math.ceil(base64.length / 4) * 4, '=')),
-    character => character.charCodeAt(0)
+  return Uint8Array.from(atob(base64.padEnd(Math.ceil(base64.length / 4) * 4, '=')), character =>
+    character.charCodeAt(0)
   );
 }
 
@@ -68,10 +83,15 @@ async function verifyIdToken(token: string, cfg: ReturnType<typeof config>, expe
     cache: 'no-store',
   });
   if (!jwksResponse.ok) throw new Error('Unable to verify the Keycloak identity token');
-  const jwks = await jwksResponse.json() as { keys?: Array<JsonWebKey & { kid?: string; alg?: string; use?: string }> };
-  const key = jwks.keys?.find(candidate =>
-    candidate.kid === header.kid && candidate.kty === 'RSA' &&
-    (!candidate.alg || candidate.alg === 'RS256') && (!candidate.use || candidate.use === 'sig')
+  const jwks = (await jwksResponse.json()) as {
+    keys?: Array<JsonWebKey & { kid?: string; alg?: string; use?: string }>;
+  };
+  const key = jwks.keys?.find(
+    candidate =>
+      candidate.kid === header.kid &&
+      candidate.kty === 'RSA' &&
+      (!candidate.alg || candidate.alg === 'RS256') &&
+      (!candidate.use || candidate.use === 'sig')
   );
   if (!key) throw new Error('Unable to verify the Keycloak identity token');
 
@@ -89,8 +109,8 @@ async function verifyIdToken(token: string, cfg: ReturnType<typeof config>, expe
     new TextEncoder().encode(`${parts[0]}.${parts[1]}`)
   );
   const audience = claims.aud;
-  const audienceMatches = audience === cfg.clientId ||
-    (Array.isArray(audience) && audience.includes(cfg.clientId));
+  const audienceMatches =
+    audience === cfg.clientId || (Array.isArray(audience) && audience.includes(cfg.clientId));
   const now = Math.floor(Date.now() / 1000);
   if (
     !validSignature ||
@@ -100,8 +120,10 @@ async function verifyIdToken(token: string, cfg: ReturnType<typeof config>, expe
     (typeof claims.azp === 'string' && claims.azp !== cfg.clientId) ||
     claims.nonce !== expectedNonce ||
     typeof claims.sub !== 'string' ||
-    typeof claims.exp !== 'number' || claims.exp <= now ||
-    typeof claims.iat !== 'number' || claims.iat > now + 60
+    typeof claims.exp !== 'number' ||
+    claims.exp <= now ||
+    typeof claims.iat !== 'number' ||
+    claims.iat > now + 60
   ) {
     throw new Error('Keycloak identity-token validation failed');
   }
@@ -150,7 +172,14 @@ export async function completeKeycloakLogin(search: string): Promise<string> {
     clearTransaction();
     throw new Error('Keycloak sign-in was cancelled or rejected');
   }
-  if (!code || !returnedState || !expectedState || returnedState !== expectedState || !nonce || !verifier) {
+  if (
+    !code ||
+    !returnedState ||
+    !expectedState ||
+    returnedState !== expectedState ||
+    !nonce ||
+    !verifier
+  ) {
     clearTransaction();
     throw new Error('Invalid or expired SSO login transaction');
   }
@@ -169,8 +198,9 @@ export async function completeKeycloakLogin(search: string): Promise<string> {
       }),
     });
     if (!tokenResponse.ok) throw new Error('Unable to exchange the Keycloak authorization code');
-    const tokenBody = await tokenResponse.json() as { access_token?: string; id_token?: string };
-    if (!tokenBody.access_token || !tokenBody.id_token) throw new Error('Keycloak did not return the required tokens');
+    const tokenBody = (await tokenResponse.json()) as { access_token?: string; id_token?: string };
+    if (!tokenBody.access_token || !tokenBody.id_token)
+      throw new Error('Keycloak did not return the required tokens');
     await verifyIdToken(tokenBody.id_token, cfg, nonce);
 
     const sessionResponse = await fetch(`${cfg.authBaseUrl}/api/oidc/session`, {
@@ -185,15 +215,18 @@ export async function completeKeycloakLogin(search: string): Promise<string> {
     });
     if (!sessionResponse.ok) {
       if (sessionResponse.status === 403) {
-        throw new Error('This account still requires legacy MFA sign-in. Use the existing sign-in method while MFA migration is completed.');
+        throw new Error(
+          'This account still requires legacy MFA sign-in. Use the existing sign-in method while MFA migration is completed.'
+        );
       }
       if (sessionResponse.status === 401) {
         throw new Error('SSO identity is not eligible. Verify your email and TCE account access.');
       }
       throw new Error('Unable to create a TCE session from the SSO identity');
     }
-    const session = await sessionResponse.json() as { accessToken?: string };
-    if (!session.accessToken) throw new Error('Authentication service returned no app access token');
+    const session = (await sessionResponse.json()) as { accessToken?: string };
+    if (!session.accessToken)
+      throw new Error('Authentication service returned no app access token');
     return session.accessToken;
   } finally {
     clearTransaction();
