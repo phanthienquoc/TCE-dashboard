@@ -38,7 +38,6 @@
 - **Risk:** Critical — public data exposure and destructive browser-role privileges.
 - **Links:** [runtime boundary architecture](https://github.com/phanthienquoc/TCE-dashboard/blob/master/docs/architecture/runtime-boundaries.md), [Supabase API security](https://supabase.com/docs/guides/api/securing-your-api), [PostgreSQL row security](https://www.postgresql.org/docs/current/ddl-rowsecurity.html).
 
-
 ### TCE-RUNTIME-001 — Durable retry/replay for lifecycle event publication
 
 - **Priority/status:** P1 / IMPLEMENTED IN PR — connected Supabase schema version `20261026033600 tce_monitor_event_replay_contract` was applied and catalog-verified on 2026-10-26; source migration, enqueue trigger, replay worker, tests and this evidence update are on `feat/tce-runtime-001-snapshot-event-replay`. The service image is not deployed.
@@ -68,6 +67,7 @@
 - **Environment caveat:** The project status is `ACTIVE_HEALTHY`, but the only listed branch has status `MIGRATIONS_FAILED` and the repository/CI config does not prove production vs preview. Treat it as unsafe for further schema writes.
 - **Actions in this audit:** Read-only inspection only; no Supabase SQL write, migration apply, branch operation, live order, or runtime deployment was performed.
 - **Sources:** [runtime contract plan](https://github.com/phanthienquoc/TCE-dashboard/blob/master/plan/runtime-contract-standardization.md), [migration artifact on the working branch](https://github.com/phanthienquoc/TCE-dashboard/blob/feat/tce-runtime-001-snapshot-event-replay/supabase/migrations/20261026033600_tce_monitor_event_replay_contract.sql), [Supabase branching docs](https://supabase.com/docs/guides/deployment/branching).
+
 ### TCE-PLAN-001 — Reconcile stale runtime-plan frontier and exact-head evidence
 
 - **Priority/status:** P2 / DONE — follow-up stale PR #865 checkpoint reconciled on 2026-10-26.
