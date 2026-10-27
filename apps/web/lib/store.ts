@@ -3,6 +3,7 @@ import { getAccessToken, setAccessToken } from './session-token';
 import { keycloakLogoutUrl } from './keycloak-sso';
 import { create } from 'zustand';
 import { authApi, dashboardApi } from './api';
+import { isApiRequestCancelled, normalizeApiError } from './api-errors';
 import { useTCEDataStore } from './tce-data-store';
 import { useStockEventStore } from './stock-event-store';
 import { startAppDataWorker } from './app-data-worker';
@@ -156,6 +157,9 @@ type DashboardState = {
 };
 
 let marketPriceTimer: ReturnType<typeof setInterval> | null = null;
+let dashboardLoadController: AbortController | null = null;
+let dashboardLoadVersion = 0;
+let marketPriceSyncController: AbortController | null = null;
 
 const normalizeDashboard = (snapshot: any) => {
   if (!snapshot) return snapshot;
@@ -226,13 +230,25 @@ export const useDashboardStore = create<DashboardState>(set => ({
   loading: false,
   error: null,
   load: async () => {
+    dashboardLoadController?.abort();
+    marketPriceSyncController?.abort();
+    marketPriceSyncController = null;
+
+    const controller = new AbortController();
+    dashboardLoadController = controller;
+    const requestVersion = ++dashboardLoadVersion;
     set({ loading: true, error: null });
+
     try {
-      const r = await dashboardApi.all('WATCHING');
+      const r = await dashboardApi.all('WATCHING', controller.signal);
+      if (controller.signal.aborted || requestVersion !== dashboardLoadVersion) return;
+
       const next = normalizeDashboard(r.data);
       useTCEDataStore.setState({ dashboard: next });
       set(state => ({ data: mergeMarketPrices(next, state.marketPrices) }));
       await useDashboardStore.getState().syncMarketPrices(next);
+
+      if (controller.signal.aborted || requestVersion !== dashboardLoadVersion) return;
       if (!marketPriceTimer) {
         marketPriceTimer = setInterval(
           () => {
@@ -241,19 +257,33 @@ export const useDashboardStore = create<DashboardState>(set => ({
           15 * 60 * 1000
         );
       }
-    } catch (e: any) {
-      set({ error: e?.response?.data?.message ?? 'Unable to load dashboard' });
+    } catch (error) {
+      if (controller.signal.aborted || isApiRequestCancelled(error)) return;
+      if (requestVersion === dashboardLoadVersion) {
+        set({ error: normalizeApiError(error, 'Unable to load dashboard').message });
+      }
     } finally {
-      set({ loading: false });
+      if (requestVersion === dashboardLoadVersion) {
+        set({ loading: false });
+        if (dashboardLoadController === controller) dashboardLoadController = null;
+      }
     }
   },
   syncMarketPrices: async (snapshot?: any) => {
+    marketPriceSyncController?.abort();
+    marketPriceSyncController = null;
+
     const current = snapshot ?? useDashboardStore.getState().data;
     const symbols = stockSymbols(current);
     if (!symbols.length) return;
+
+    const controller = new AbortController();
+    marketPriceSyncController = controller;
     try {
-      const response = await dashboardApi.marketPrices(symbols);
+      const response = await dashboardApi.marketPrices(symbols, controller.signal);
+      if (controller.signal.aborted || marketPriceSyncController !== controller) return;
       if (response.data?.ok === false) return;
+
       const prices = (response.data?.data ?? []).reduce(
         (acc: Record<string, MarketPrice>, quote: MarketPrice) => {
           const symbol = String(quote.symbol ?? '')
@@ -271,10 +301,25 @@ export const useDashboardStore = create<DashboardState>(set => ({
         data: mergeMarketPrices(state.data, prices),
       }));
     } catch (error) {
-      console.error('[FE_MARKET_PRICE_SYNC]', error);
+      if (!controller.signal.aborted && !isApiRequestCancelled(error)) {
+        const failure = normalizeApiError(error, 'Market price sync failed');
+        console.error('[FE_MARKET_PRICE_SYNC]', {
+          kind: failure.kind,
+          status: failure.status,
+          message: failure.message,
+        });
+      }
+    } finally {
+      if (marketPriceSyncController === controller) marketPriceSyncController = null;
     }
   },
   clear: () => {
+    dashboardLoadVersion += 1;
+    dashboardLoadController?.abort();
+    dashboardLoadController = null;
+    marketPriceSyncController?.abort();
+    marketPriceSyncController = null;
+
     if (marketPriceTimer) {
       clearInterval(marketPriceTimer);
       marketPriceTimer = null;
