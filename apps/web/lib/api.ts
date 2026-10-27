@@ -115,13 +115,17 @@ export const passkeyApi = {
   remove: (id: string) => authClient.delete(`/auth/passkeys/${encodeURIComponent(id)}`),
 };
 export const dashboardApi = {
-  all: (status?: string) => api.get('/dashboard', { params: status ? { status } : undefined }),
+  all: (status?: string, signal?: AbortSignal) =>
+    api.get('/dashboard', { params: status ? { status } : undefined, signal }),
   account: () => api.get('/dashboard/account'),
   positions: () => api.get('/dashboard/positions'),
-  marketPrices: (symbols: string[]) =>
-    api.get('/dashboard/market-prices', { params: { symbols: symbols.join(',') } }),
-  priceHistory: (symbol: string, days = 365) =>
-    api.get('/dashboard/price-history', { params: { symbol, days } }),
+  marketPrices: (symbols: string[], signal?: AbortSignal) =>
+    api.get('/dashboard/market-prices', {
+      params: { symbols: symbols.join(',') },
+      signal,
+    }),
+  priceHistory: (symbol: string, days = 365, signal?: AbortSignal) =>
+    api.get('/dashboard/price-history', { params: { symbol, days }, signal }),
   orders: () => api.get('/dashboard/orders'),
   pools: (status?: string) =>
     api.get('/dashboard/pools', { params: status ? { status } : undefined }),
