@@ -215,7 +215,7 @@ try {
 }
 ```
 
-The real implementation also aborts an in-flight market-price synchronization when a newer dashboard load starts. On logout/clear, it aborts both controllers, invalidates the current request version, clears the interval, and resets state.
+The real implementation also aborts an in-flight market-price synchronization when a newer dashboard load starts. On logout/clear, it aborts both controllers, invalidates the current request version, clears the interval, and resets state. The API error normalizer has focused Node tests, and `apps/web/lib` is included in root `npm test` discovery.
 
 ### Step 4 — Do not treat cancellation as a visible error
 
