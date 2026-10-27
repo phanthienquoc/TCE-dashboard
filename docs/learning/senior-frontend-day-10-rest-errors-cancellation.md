@@ -15,13 +15,13 @@ By the end of the session, you should be able to:
 
 ## Minute plan
 
-| Time | Activity | Outcome |
-| --- | --- | --- |
-| 0–10 min | Theory from first principles | Understand request lifecycle and trade-offs |
-| 10–30 min | TypeScript/React code | Implement typed errors and cancellation |
-| 30–45 min | TCE architecture | Protect dashboard snapshot and market-price updates |
-| 45–55 min | English interview practice | Explain decisions clearly |
-| 55–60 min | Review and quiz | Check understanding |
+| Time      | Activity                     | Outcome                                             |
+| --------- | ---------------------------- | --------------------------------------------------- |
+| 0–10 min  | Theory from first principles | Understand request lifecycle and trade-offs         |
+| 10–30 min | TypeScript/React code        | Implement typed errors and cancellation             |
+| 30–45 min | TCE architecture             | Protect dashboard snapshot and market-price updates |
+| 45–55 min | English interview practice   | Explain decisions clearly                           |
+| 55–60 min | Review and quiz              | Check understanding                                 |
 
 ---
 
@@ -49,13 +49,13 @@ Normalize result -> Update UI state
 
 A request can fail in different ways, and those failures should not all produce the same behavior.
 
-| Failure | Example | Recommended UI behavior |
-| --- | --- | --- |
-| HTTP error | API returns 403 or 500 | Show a safe, useful message; preserve context where possible |
-| Network error | Offline, DNS or connection failure | Explain that the service could not be reached |
-| Timeout | Server does not respond within the configured limit | Offer an explicit retry when appropriate |
-| Cancellation | User changes symbol or a newer request supersedes the old one | Usually silent; it is control flow, not a failure |
-| Invalid payload | HTTP 200 but response data is malformed | Validate at runtime and reject the payload |
+| Failure         | Example                                                       | Recommended UI behavior                                      |
+| --------------- | ------------------------------------------------------------- | ------------------------------------------------------------ |
+| HTTP error      | API returns 403 or 500                                        | Show a safe, useful message; preserve context where possible |
+| Network error   | Offline, DNS or connection failure                            | Explain that the service could not be reached                |
+| Timeout         | Server does not respond within the configured limit           | Offer an explicit retry when appropriate                     |
+| Cancellation    | User changes symbol or a newer request supersedes the old one | Usually silent; it is control flow, not a failure            |
+| Invalid payload | HTTP 200 but response data is malformed                       | Validate at runtime and reject the payload                   |
 
 A fulfilled HTTP transport does not guarantee valid business data. A TypeScript assertion such as `response.data as MarketSnapshot` does not validate the JSON at runtime.
 
@@ -203,8 +203,7 @@ const requestVersion = ++dashboardLoadVersion;
 try {
   const response = await dashboardApi.all('WATCHING', controller.signal);
 
-  if (controller.signal.aborted ||
-      requestVersion !== dashboardLoadVersion) {
+  if (controller.signal.aborted || requestVersion !== dashboardLoadVersion) {
     return;
   }
 
@@ -331,15 +330,15 @@ Apply only if this price-sync request is still current
 
 ### Error policy
 
-| Situation | Expected handling |
-| --- | --- |
-| Intentional cancellation | Silent; no error banner |
-| Network failure | Show a safe message; keep last known data only if the UI clearly marks it stale |
-| Timeout | Explain the timeout; allow a deliberate retry where appropriate |
-| 401 after centralized refresh behavior | Follow the existing authentication/session flow |
-| 403 | Show an authorization message; do not retry blindly |
-| 429 / 5xx | Treat as potentially transient, but do not create an uncontrolled retry loop |
-| Invalid quote payload | Reject or quarantine invalid data; do not calculate P/L from malformed values |
+| Situation                              | Expected handling                                                               |
+| -------------------------------------- | ------------------------------------------------------------------------------- |
+| Intentional cancellation               | Silent; no error banner                                                         |
+| Network failure                        | Show a safe message; keep last known data only if the UI clearly marks it stale |
+| Timeout                                | Explain the timeout; allow a deliberate retry where appropriate                 |
+| 401 after centralized refresh behavior | Follow the existing authentication/session flow                                 |
+| 403                                    | Show an authorization message; do not retry blindly                             |
+| 429 / 5xx                              | Treat as potentially transient, but do not create an uncontrolled retry loop    |
+| Invalid quote payload                  | Reject or quarantine invalid data; do not calculate P/L from malformed values   |
 
 **Trading safety note:** cancelling a client request does not roll back an operation already received by the backend. For order placement, use server-authoritative status, idempotency keys where supported, and reconciliation. Never interpret a browser timeout as proof that an order failed; the server may have accepted it before the connection timed out.
 
@@ -412,5 +411,3 @@ The browser times out while submitting an order. Can the UI safely report “the
 A Senior Frontend Engineer does not merely call an endpoint. They define the request lifecycle, error semantics, cancellation ownership, stale-response policy, and the boundary between client uncertainty and authoritative server state.
 
 Next: **Day 11 — WebSocket/SSE, reconnection and backpressure**, using the TCE realtime contract and keeping correctness separate from rendering optimizations.
-
-

@@ -44,24 +44,13 @@ test('maps HTTP errors to safe messages instead of exposing response bodies', ()
     config,
     data: { message: 'internal database detail' },
   };
-  const error = new axios.AxiosError(
-    'Forbidden',
-    'ERR_BAD_REQUEST',
-    config,
-    undefined,
-    response
-  );
+  const error = new axios.AxiosError('Forbidden', 'ERR_BAD_REQUEST', config, undefined, response);
 
   const failure = normalizeApiError(error);
 
   assert.equal(failure.kind, 'http');
   assert.equal(failure.status, 403);
   assert.equal(failure.retryable, false);
-  assert.equal(
-    failure.message,
-    'You do not have permission to perform this action.'
-  );
+  assert.equal(failure.message, 'You do not have permission to perform this action.');
   assert.equal(failure.message.includes('internal database detail'), false);
 });
-
-

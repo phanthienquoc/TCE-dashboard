@@ -14,10 +14,7 @@ export type ApiFailure = {
  * Treat both AbortSignal cancellations and Axios cancellation errors consistently.
  */
 export function isApiRequestCancelled(error: unknown): boolean {
-  return (
-    axios.isCancel(error) ||
-    (axios.isAxiosError(error) && error.code === 'ERR_CANCELED')
-  );
+  return axios.isCancel(error) || (axios.isAxiosError(error) && error.code === 'ERR_CANCELED');
 }
 
 /**
@@ -85,5 +82,3 @@ export function normalizeApiError(
     retryable: status === 408 || status === 429 || status >= 500,
   };
 }
-
-
