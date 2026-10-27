@@ -63,3 +63,5 @@ test('maps HTTP errors to safe messages instead of exposing response bodies', ()
   );
   assert.equal(failure.message.includes('internal database detail'), false);
 });
+
+
