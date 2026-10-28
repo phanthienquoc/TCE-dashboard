@@ -16,13 +16,13 @@ By the end of the session, you should be able to:
 
 ## Minute plan
 
-| Time | Activity | Outcome |
-| --- | --- | --- |
-| 0–10 min | Theory from first principles | Understand push transports, reconnection and event ordering |
-| 10–30 min | TypeScript code practice | Implement a small event consumer with dedupe, gap detection and backoff |
-| 30–45 min | TCE architecture | Map the lesson to existing runtime events, SSE and WebSocket boundaries |
-| 45–55 min | English interview practice | Explain resilience and data correctness |
-| 55–60 min | Review and quiz | Check understanding |
+| Time      | Activity                     | Outcome                                                                 |
+| --------- | ---------------------------- | ----------------------------------------------------------------------- |
+| 0–10 min  | Theory from first principles | Understand push transports, reconnection and event ordering             |
+| 10–30 min | TypeScript code practice     | Implement a small event consumer with dedupe, gap detection and backoff |
+| 30–45 min | TCE architecture             | Map the lesson to existing runtime events, SSE and WebSocket boundaries |
+| 45–55 min | English interview practice   | Explain resilience and data correctness                                 |
+| 55–60 min | Review and quiz              | Check understanding                                                     |
 
 ---
 
@@ -36,11 +36,11 @@ Think of a dashboard asking for updates:
 - **SSE:** the client opens an HTTP stream; the server sends events in one direction.
 - **WebSocket:** client and server establish a persistent, bidirectional connection. The protocol supports two-way messaging, even if a particular application intentionally makes its channel read-only.
 
-| Transport | Direction | Strengths | Trade-offs |
-| --- | --- | --- | --- |
-| REST polling | Client asks repeatedly | Simple, easy to retry and inspect | Repeated requests; freshness is limited by poll interval |
-| SSE | Server → client | HTTP-based, event IDs, browser reconnect support | One-way; native EventSource cannot set arbitrary Authorization headers |
-| WebSocket | Both directions | Persistent, low-overhead messaging, supports interactive protocols | Connection lifecycle, auth, reconnect, ordering and queueing are application responsibilities |
+| Transport    | Direction              | Strengths                                                          | Trade-offs                                                                                    |
+| ------------ | ---------------------- | ------------------------------------------------------------------ | --------------------------------------------------------------------------------------------- |
+| REST polling | Client asks repeatedly | Simple, easy to retry and inspect                                  | Repeated requests; freshness is limited by poll interval                                      |
+| SSE          | Server → client        | HTTP-based, event IDs, browser reconnect support                   | One-way; native EventSource cannot set arbitrary Authorization headers                        |
+| WebSocket    | Both directions        | Persistent, low-overhead messaging, supports interactive protocols | Connection lifecycle, auth, reconnect, ordering and queueing are application responsibilities |
 
 A WebSocket connection being open does not prove that the client has every event. A disconnected client may miss events, and a connection may be alive while the application is no longer making progress. **Connection health and data completeness are different properties.**
 
@@ -48,12 +48,12 @@ A WebSocket connection being open does not prove that the client has every event
 
 Suppose the client receives events 41 and 42, loses its connection, then reconnects.
 
-~~~text
+```text
 Server: 41 ---- 42 ---- 43 ---- 44 ---- 45
 Client: 41 ---- 42     DISCONNECTED
                          reconnect
 Client:                         45
-~~~
+```
 
 If the server only starts sending new events after reconnect, events 43 and 44 are lost from the client's view.
 
@@ -68,7 +68,7 @@ TCE's canonical runtime event API supports a durable cursor using the **after** 
 
 TCE's canonical event envelope lives in **libs/contracts/src/tce-event.contract.ts** and contains:
 
-~~~ts
+```ts
 type TceEventEnvelope<TType extends string, TData> = Readonly<{
   eventId: string;
   eventType: TType;
@@ -81,7 +81,7 @@ type TceEventEnvelope<TType extends string, TData> = Readonly<{
   sequence?: number;
   data: TData;
 }>;
-~~~
+```
 
 Important distinctions:
 
@@ -98,15 +98,15 @@ Important distinctions:
 
 Networks and reconnects can cause repeated delivery. A consumer should be idempotent where possible:
 
-~~~ts
+```ts
 if (seenEventIds.has(event.eventId)) {
   return; // already applied
 }
-~~~
+```
 
 If a sequence is guaranteed per aggregate, track the last sequence by aggregate:
 
-~~~ts
+```ts
 const key = event.aggregateId;
 const previous = lastSequenceByAggregate.get(key);
 
@@ -119,7 +119,7 @@ if (previous !== undefined && event.sequence !== undefined) {
     return; // stale or duplicate for this aggregate
   }
 }
-~~~
+```
 
 This is illustrative: the exact sequence policy must match the producer contract. Some event types may have no sequence, and a gap should trigger recovery—not an invented event or a silent assumption that state is complete.
 
@@ -129,11 +129,11 @@ This is illustrative: the exact sequence policy must match the producer contract
 
 A client that reconnects every 100 ms can overload a service during an outage. Exponential backoff increases the delay after repeated failures:
 
-~~~ts
+```ts
 const base = Math.min(30_000, 500 * 2 ** attempt++);
 const jitter = Math.floor(Math.random() * Math.max(100, base * 0.25));
 const delay = base + jitter;
-~~~
+```
 
 - Base delay grows: 500 ms, 1 s, 2 s, 4 s … up to a cap.
 - Jitter randomizes clients' retry times so thousands of clients do not reconnect together.
@@ -154,7 +154,7 @@ For example, a market quote may update dozens of times per second while React re
 
 The browser's classic WebSocket API does not provide automatic application-level backpressure. A callback that queues every message in an unbounded array can exhaust memory. Conversely, blindly dropping messages may corrupt domain state.
 
-**Key distinction:** it can be acceptable to skip intermediate *renders* while retaining every required *domain transition*. Rendering optimization must not become data loss.
+**Key distinction:** it can be acceptable to skip intermediate _renders_ while retaining every required _domain transition_. Rendering optimization must not become data loss.
 
 ---
 
@@ -164,7 +164,7 @@ The following is a teaching exercise, not a replacement for TCE's existing trans
 
 ### Step 1 — Define a minimal typed event
 
-~~~ts
+```ts
 type RuntimeEvent<T = unknown> = Readonly<{
   eventId: string;
   eventType: string;
@@ -180,13 +180,13 @@ type EventCursor = Readonly<{
   after: string;
   afterEventId: string;
 }>;
-~~~
+```
 
 Why use **unknown** for data? A JSON message starts as untrusted runtime input. A TypeScript type annotation does not validate bytes received over a socket. Parse the JSON, validate the envelope and event-specific payload at the boundary, then narrow the type before applying it.
 
 ### Step 2 — Make event application idempotent
 
-~~~ts
+```ts
 class EventConsumer {
   private readonly seen = new Set<string>();
   private readonly lastSequenceByAggregate = new Map<string, number>();
@@ -214,7 +214,7 @@ class EventConsumer {
     return 'applied';
   }
 }
-~~~
+```
 
 Discussion:
 
@@ -225,14 +225,14 @@ Discussion:
 
 ### Step 3 — Calculate a reconnect delay
 
-~~~ts
+```ts
 function reconnectDelay(attempt: number, random = Math.random): number {
   const safeAttempt = Math.max(0, Math.min(attempt, 16));
   const base = Math.min(30_000, 500 * 2 ** safeAttempt);
   const jitter = Math.floor(random() * Math.max(100, base * 0.25));
   return base + jitter;
 }
-~~~
+```
 
 The optional random function makes the calculation testable. For example, with **random = () => 0**, the first delay is 500 ms. With production randomness, clients spread their retry attempts over a range.
 
@@ -240,7 +240,7 @@ The optional random function makes the calculation testable. For example, with *
 
 Pseudocode for the owner of a stream:
 
-~~~ts
+```ts
 async function onDisconnected() {
   markConnection('reconnecting');
 
@@ -260,7 +260,7 @@ async function onDisconnected() {
     scheduleAnotherAttempt();
   }
 }
-~~~
+```
 
 This is deliberately pseudocode: **openTransport**, cursor persistence, snapshot reconciliation and cancellation depend on the selected transport and auth model. Do not paste this as a complete production client.
 
@@ -291,7 +291,7 @@ The runtime event stream currently polls the persisted event query every two sec
 
 ### 3.2 Canonical architecture
 
-~~~text
+```text
 Persisted TCE runtime events
           |
           v
@@ -314,7 +314,7 @@ REST replay             SSE / WebSocket
           reducer / normalized state
                     |
           UI snapshot + freshness state
-~~~
+```
 
 REST, SSE and WebSocket are transport adapters over the same semantic event envelope. They should not invent different domain payloads for the same event. The client derives account scope from the authenticated session; it must not trust a client-supplied account ID to choose another account.
 
@@ -322,10 +322,10 @@ REST, SSE and WebSocket are transport adapters over the same semantic event enve
 
 Imagine the dashboard is connected and last applied:
 
-~~~text
+```text
 occurredAt   = 2026-10-28T09:00:00.000Z
 afterEventId = evt-abc
-~~~
+```
 
 Then the browser goes offline for 20 seconds.
 
@@ -344,13 +344,13 @@ Never advance the durable cursor just because a frame was received. Advance it a
 
 ### 3.4 Backpressure policy for TCE
 
-| Data category | Safe policy | Never do |
-| --- | --- | --- |
-| Display-only quote tiles | Coalesce latest value per symbol for render batching; preserve freshness timestamp | Present old quotes as current |
-| Chart redraws | Batch rendering on animation frames; maintain correct candle aggregation | Drop ticks before authoritative OHLC calculation if that changes candle correctness |
-| Account snapshot | Apply validated snapshot atomically or by a documented merge contract | Mix account scopes or partially apply malformed payloads |
-| Execution result / reconciliation | Durable replay, idempotent reducer and server reconciliation | Drop a required transition because the UI is busy |
-| Transport error / auth expiry | Mark degraded and follow session/recovery flow | Retry forever with invalid credentials |
+| Data category                     | Safe policy                                                                        | Never do                                                                            |
+| --------------------------------- | ---------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| Display-only quote tiles          | Coalesce latest value per symbol for render batching; preserve freshness timestamp | Present old quotes as current                                                       |
+| Chart redraws                     | Batch rendering on animation frames; maintain correct candle aggregation           | Drop ticks before authoritative OHLC calculation if that changes candle correctness |
+| Account snapshot                  | Apply validated snapshot atomically or by a documented merge contract              | Mix account scopes or partially apply malformed payloads                            |
+| Execution result / reconciliation | Durable replay, idempotent reducer and server reconciliation                       | Drop a required transition because the UI is busy                                   |
+| Transport error / auth expiry     | Mark degraded and follow session/recovery flow                                     | Retry forever with invalid credentials                                              |
 
 ### 3.5 Senior-level trade-offs
 
