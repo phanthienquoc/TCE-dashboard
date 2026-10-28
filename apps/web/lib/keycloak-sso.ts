@@ -66,6 +66,12 @@ function decodeBase64Url(value: string): Uint8Array {
   );
 }
 
+function toArrayBufferView(bytes: Uint8Array): Uint8Array<ArrayBuffer> {
+  const copy = new Uint8Array(new ArrayBuffer(bytes.byteLength));
+  copy.set(bytes);
+  return copy;
+}
+
 function decodeJwtPart(value: string): Record<string, unknown> {
   return JSON.parse(new TextDecoder().decode(decodeBase64Url(value))) as Record<string, unknown>;
 }
@@ -105,7 +111,7 @@ async function verifyIdToken(token: string, cfg: ReturnType<typeof config>, expe
   const validSignature = await crypto.subtle.verify(
     'RSASSA-PKCS1-v1_5',
     publicKey,
-    decodeBase64Url(parts[2]),
+    toArrayBufferView(decodeBase64Url(parts[2])),
     new TextEncoder().encode(`${parts[0]}.${parts[1]}`)
   );
   const audience = claims.aud;
