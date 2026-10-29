@@ -1,5 +1,4 @@
 import { isTceRuntimeEvent, type TceRuntimeEvent } from '@tce/contracts/tce-event.contract';
-import type { MarketQuote } from '@tce/contracts/platform.contract';
 import { api } from './api';
 
 type QuoteEvent = TceRuntimeEvent<'market.quote.updated'>;
