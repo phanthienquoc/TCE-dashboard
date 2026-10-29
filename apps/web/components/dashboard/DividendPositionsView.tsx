@@ -80,7 +80,7 @@ export function DividendPositionsView({ data, actions }: ViewProps) {
           </div>
         </div>
         <span
-          className={marketPricesFreshness === 'fresh' ? 'tce-live-pill' : 'tce-muted text-xs'}
+          className="tce-live-pill"
           aria-live="polite"
           title={
             marketPricesUpdatedAt
