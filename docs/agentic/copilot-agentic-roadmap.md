@@ -1,54 +1,55 @@
-# Copilot Agentic Roadmap — TCE Dashboard
+# GitHub Copilot Agentic Roadmap — TCE Dashboard
 
 ## Goal
+Enable repository-aware planning, implementation, validation, and independent review while preserving financial correctness, data integrity, security, and production stability.
 
-Establish a repository-aware agent workflow that can analyze, implement, validate, and review bounded tasks while preserving TCE's financial, database, and production invariants.
+## Phase 0 — Foundation
+- [x] Repository-wide Copilot instructions and task lifecycle.
+- [x] Path-specific frontend, backend, database, testing, and infrastructure guidance.
+- [x] Planner, Developer, and Reviewer role definitions.
+- [x] Reusable repository-analysis, implementation, validation, and database-migration skills.
+- [x] Explicit safety boundaries and an incremental rollout plan.
 
-## Phase 0 — Foundation (this change)
+## Phase 1 — Compatibility and low-risk proof
+- [ ] Validate agent and skill frontmatter against the Copilot features available to this repository's users.
+- [ ] Confirm instructions are picked up in the supported GitHub Copilot surfaces.
+- [ ] Select one documentation-only or isolated non-production task.
+- [ ] Run Planner → Developer → Validation → Reviewer and retain the evidence.
+- [ ] Record false positives, missed constraints, and instruction gaps; update files based on evidence.
+- [ ] Confirm the standard branch, PR, and squash-merge flow remains intact.
 
-- [x] Repository-wide Copilot instructions
-- [x] Path-specific instructions for frontend, backend, database, testing, and infrastructure
-- [x] Planner, developer, and reviewer role definitions
-- [x] Reusable skills for analysis, implementation, validation, and migrations
-- [x] Agentic foundation and operating boundaries documented
+## Phase 2 — Safe PR assistance
+- [ ] Audit existing workflows before adding any new workflow; reuse existing CI where possible.
+- [ ] Start with advisory issue triage, failure summaries, or review assistance.
+- [ ] Use least-privilege permissions, pinned actions where practical, timeouts, concurrency controls, and explicit triggers.
+- [ ] Treat issue/PR text and artifacts as untrusted; do not pass arbitrary content into privileged shell commands.
+- [ ] Keep privileged jobs isolated from untrusted fork PR code.
+- [ ] Ensure no automatic production writes, database migrations, live trading, or deployment are introduced by this phase.
 
-## Phase 1 — Prove in a low-risk task
+## Phase 3 — Controlled implementation automation
+- [ ] Define allowed task categories, protected paths, and explicit stop conditions.
+- [ ] Require branch isolation, tests, diff review, and clear PR summaries.
+- [ ] Prevent agents from changing their own guardrails or bypassing required checks as part of ordinary tasks.
+- [ ] Make failures observable and distinguish code failures from permissions/environment/external dependency failures.
+- [ ] Track task success, review findings, escaped defects, and time saved.
 
-- [ ] Choose one documentation-only or isolated non-production task.
-- [ ] Have Planner produce an evidence-backed plan.
-- [ ] Have Developer implement on a dedicated branch.
-- [ ] Run real repository checks and record results.
-- [ ] Have Reviewer independently assess the diff.
-- [ ] Capture gaps in instructions before expanding automation.
+## Phase 4 — Controlled delivery
+- [ ] Document branch protection, required checks, reviewer requirements, and squash-merge policy.
+- [ ] Verify protected environments and approval requirements for production operations.
+- [ ] Define deployment target identity, rollback/recovery, and authoritative runtime health checks.
+- [ ] Keep build, artifact publication, deployment, and runtime verification as separate statuses.
+- [ ] Only automate high-impact actions after explicit authorization, target verification, and tested recovery procedures.
 
-## Phase 2 — PR automation
+## Definition of done for agentic tasks
+- Acceptance criteria are explicit and mapped to evidence.
+- Changes are scoped, reviewed, and tested with real repository commands.
+- Risks, failed/blocked checks, and remaining uncertainty are disclosed.
+- No secrets or unrelated files are introduced.
+- Delivery status is accurate; merge/deploy/runtime claims are independently supported.
 
-- [ ] Add or adapt workflows only after auditing existing workflow conventions.
-- [ ] Limit permissions to the minimum required.
-- [ ] Use explicit concurrency, timeouts, and fail-closed behavior for privileged operations.
-- [ ] Start with informational triage/review, not automatic production writes.
-- [ ] Ensure untrusted issue/PR text cannot directly grant permissions or execute arbitrary commands.
-
-## Phase 3 — Controlled delivery
-
-- [ ] Define branch protection, required checks, reviewer policy, and squash-merge policy.
-- [ ] Define environment protections for deployment and database migrations.
-- [ ] Automate deployment only where the target, rollback, and runtime verification are explicit.
-- [ ] Separate image/build success from production health confirmation.
-
-## Acceptance criteria
-
-- Copilot has clear repository-level constraints and scoped instructions.
-- Role definitions separate planning, implementation, and review responsibilities.
-- Reusable skills define repeatable analysis and validation procedures.
-- No workflow with production-writing capability is introduced in this foundation change.
-- Documentation states that these files configure agent guidance, not permissions or autonomous execution by themselves.
-
-## Non-goals
-
-- No application code changes.
-- No Supabase schema or data changes.
-- No secret/credential changes.
-- No live trading or order execution.
-- No production deployment or market-scan schedule changes.
-- No claim that CI, tests, runtime, or agent capabilities have been verified by this documentation-only change.
+## Non-goals for the foundation
+- No application behavior or trading strategy changes.
+- No Supabase schema/data mutation.
+- No credential or permission changes.
+- No live orders, production deployment, or market-scan schedule changes.
+- No claim that CI, tests, Copilot compatibility, or production runtime have passed without evidence.
