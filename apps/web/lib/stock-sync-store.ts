@@ -128,9 +128,18 @@ export const useStockSyncStore = create<StockSyncState>((set, get) => ({
     set({ loading: true, message: null });
     try {
       const [settings, telegram, runs] = await Promise.all([
-        api.get<StockSyncConfig>('/stock-events-cron/settings?_ts=' + Date.now(), { ...noCache, signal: controller.signal }),
-        api.get<StockSyncTelegramBot[]>('/platform/telegram/bots?_ts=' + Date.now(), { ...noCache, signal: controller.signal }),
-        api.get<StockSyncRun[]>('/stock-events-cron/runs?limit=20&_ts=' + Date.now(), { ...noCache, signal: controller.signal }),
+        api.get<StockSyncConfig>('/stock-events-cron/settings?_ts=' + Date.now(), {
+          ...noCache,
+          signal: controller.signal,
+        }),
+        api.get<StockSyncTelegramBot[]>('/platform/telegram/bots?_ts=' + Date.now(), {
+          ...noCache,
+          signal: controller.signal,
+        }),
+        api.get<StockSyncRun[]>('/stock-events-cron/runs?limit=20&_ts=' + Date.now(), {
+          ...noCache,
+          signal: controller.signal,
+        }),
       ]);
       if (controller.signal.aborted || version !== readVersion) return;
       set({
@@ -145,7 +154,9 @@ export const useStockSyncStore = create<StockSyncState>((set, get) => ({
       set({
         initialized: true,
         loading: false,
-        message: isApiRequestCancelled(error) ? null : normalizeApiError(error, 'Unable to load stock events cron data').message,
+        message: isApiRequestCancelled(error)
+          ? null
+          : normalizeApiError(error, 'Unable to load stock events cron data').message,
       });
     } finally {
       if (readController === controller) readController = null;
@@ -165,7 +176,17 @@ export const useStockSyncStore = create<StockSyncState>((set, get) => ({
     mutationVersion += 1;
     readController?.abort();
     readController = null;
-    set({ config: defaultConfig, bots: [], runs: [], loading: false, saving: false, triggering: false, message: null, tab: 'runs', initialized: false });
+    set({
+      config: defaultConfig,
+      bots: [],
+      runs: [],
+      loading: false,
+      saving: false,
+      triggering: false,
+      message: null,
+      tab: 'runs',
+      initialized: false,
+    });
   },
 
   save: async () => {
@@ -182,10 +203,11 @@ export const useStockSyncStore = create<StockSyncState>((set, get) => ({
       await get().refresh();
       if (version === mutationVersion) set({ message: 'Saved' });
     } catch (error) {
-      if (version === mutationVersion) set({
-        saving: false,
-        message: normalizeApiError(error, 'Unable to save').message,
-      });
+      if (version === mutationVersion)
+        set({
+          saving: false,
+          message: normalizeApiError(error, 'Unable to save').message,
+        });
     } finally {
       if (version === mutationVersion) set({ saving: false });
     }
@@ -197,17 +219,24 @@ export const useStockSyncStore = create<StockSyncState>((set, get) => ({
     try {
       const response = await api.post<StockSyncRun>('/stock-events-cron/trigger', {});
       if (version !== mutationVersion) return;
-      await get().refreshRuns().catch(() => undefined);
-      if (version === mutationVersion) set({
-        triggering: false,
-        message: response.data.status === 'RUNNING' ? null : `Sync ${response.data.status.toLowerCase()}`,
-        tab: 'runs',
-      });
+      await get()
+        .refreshRuns()
+        .catch(() => undefined);
+      if (version === mutationVersion)
+        set({
+          triggering: false,
+          message:
+            response.data.status === 'RUNNING'
+              ? null
+              : `Sync ${response.data.status.toLowerCase()}`,
+          tab: 'runs',
+        });
     } catch (error) {
-      if (version === mutationVersion) set({
-        triggering: false,
-        message: normalizeApiError(error, 'Unable to trigger sync').message,
-      });
+      if (version === mutationVersion)
+        set({
+          triggering: false,
+          message: normalizeApiError(error, 'Unable to trigger sync').message,
+        });
     } finally {
       if (version === mutationVersion) set({ triggering: false });
     }
