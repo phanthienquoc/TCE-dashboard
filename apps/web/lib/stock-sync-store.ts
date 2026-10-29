@@ -2,6 +2,7 @@
 
 import { create } from 'zustand';
 import { api } from './api';
+import { isApiRequestCancelled, normalizeApiError } from './api-errors';
 
 export type StockSyncConfig = {
   enabled: boolean;
@@ -93,6 +94,10 @@ const noCache = {
   headers: { 'Cache-Control': 'no-cache', Pragma: 'no-cache' },
 };
 
+let readController: AbortController | null = null;
+let readVersion = 0;
+let mutationVersion = 0;
+
 export const useStockSyncStore = create<StockSyncState>((set, get) => ({
   config: defaultConfig,
   bots: [],
@@ -105,34 +110,46 @@ export const useStockSyncStore = create<StockSyncState>((set, get) => ({
   initialized: false,
 
   refreshRuns: async () => {
+    const controller = readController ?? new AbortController();
+    const version = readVersion;
     const response = await api.get<StockSyncRun[]>(
       '/stock-events-cron/runs?limit=20&_ts=' + Date.now(),
-      noCache
+      { ...noCache, signal: controller.signal }
     );
+    if (controller.signal.aborted || version !== readVersion) return;
     set({ runs: Array.isArray(response.data) ? response.data : [] });
   },
 
   refresh: async () => {
     if (get().loading) return;
+    const controller = new AbortController();
+    readController = controller;
+    const version = ++readVersion;
     set({ loading: true, message: null });
     try {
-      const [settings, telegram] = await Promise.all([
-        api.get<StockSyncConfig>('/stock-events-cron/settings?_ts=' + Date.now(), noCache),
-        api.get<StockSyncTelegramBot[]>('/platform/telegram/bots?_ts=' + Date.now(), noCache),
-        get().refreshRuns(),
+      const [settings, telegram, runs] = await Promise.all([
+        api.get<StockSyncConfig>('/stock-events-cron/settings?_ts=' + Date.now(), { ...noCache, signal: controller.signal }),
+        api.get<StockSyncTelegramBot[]>('/platform/telegram/bots?_ts=' + Date.now(), { ...noCache, signal: controller.signal }),
+        api.get<StockSyncRun[]>('/stock-events-cron/runs?limit=20&_ts=' + Date.now(), { ...noCache, signal: controller.signal }),
       ]);
+      if (controller.signal.aborted || version !== readVersion) return;
       set({
         config: { ...defaultConfig, ...settings.data },
         bots: telegram.data ?? [],
+        runs: Array.isArray(runs.data) ? runs.data : [],
         initialized: true,
         loading: false,
       });
     } catch (error) {
+      if (controller.signal.aborted || version !== readVersion) return;
       set({
         initialized: true,
         loading: false,
-        message: error instanceof Error ? error.message : 'Unable to load stock events cron data',
+        message: isApiRequestCancelled(error) ? null : normalizeApiError(error, 'Unable to load stock events cron data').message,
       });
+    } finally {
+      if (readController === controller) readController = null;
+      if (version === readVersion) set({ loading: false });
     }
   },
 
@@ -143,43 +160,56 @@ export const useStockSyncStore = create<StockSyncState>((set, get) => ({
 
   clearMessage: () => set({ message: null }),
 
+  clear: () => {
+    readVersion += 1;
+    mutationVersion += 1;
+    readController?.abort();
+    readController = null;
+    set({ config: defaultConfig, bots: [], runs: [], loading: false, saving: false, triggering: false, message: null, tab: 'runs', initialized: false });
+  },
+
   save: async () => {
+    const version = ++mutationVersion;
     set({ saving: true, message: null });
     try {
       const response = await api.post<StockSyncConfig>('/stock-events-cron/settings', get().config);
+      if (version !== mutationVersion) return;
       set(state => ({
         config: { ...state.config, ...response.data },
         saving: false,
         message: 'Saved',
       }));
       await get().refresh();
-      set({ message: 'Saved' });
+      if (version === mutationVersion) set({ message: 'Saved' });
     } catch (error) {
-      set({
+      if (version === mutationVersion) set({
         saving: false,
-        message: error instanceof Error ? error.message : 'Unable to save',
+        message: normalizeApiError(error, 'Unable to save').message,
       });
+    } finally {
+      if (version === mutationVersion) set({ saving: false });
     }
   },
 
   trigger: async () => {
+    const version = ++mutationVersion;
     set({ triggering: true, message: null });
     try {
       const response = await api.post<StockSyncRun>('/stock-events-cron/trigger', {});
-      await get()
-        .refreshRuns()
-        .catch(() => undefined);
-      set({
+      if (version !== mutationVersion) return;
+      await get().refreshRuns().catch(() => undefined);
+      if (version === mutationVersion) set({
         triggering: false,
-        message:
-          response.data.status === 'RUNNING' ? null : `Sync ${response.data.status.toLowerCase()}`,
+        message: response.data.status === 'RUNNING' ? null : `Sync ${response.data.status.toLowerCase()}`,
         tab: 'runs',
       });
     } catch (error) {
-      set({
+      if (version === mutationVersion) set({
         triggering: false,
-        message: error instanceof Error ? error.message : 'Unable to trigger sync',
+        message: normalizeApiError(error, 'Unable to trigger sync').message,
       });
+    } finally {
+      if (version === mutationVersion) set({ triggering: false });
     }
   },
 }));
