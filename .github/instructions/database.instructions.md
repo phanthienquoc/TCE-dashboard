@@ -4,11 +4,26 @@ applyTo: "**/*.{sql,prisma}"
 
 # Database and Supabase Instructions
 
-- Inspect existing migrations, schema, queries, generated types, and callers before changing the data model.
-- Keep migrations sequential, reproducible, and compatible with the repository's migration process.
-- Prefer additive changes; explicitly flag destructive changes, backfills, locks, and data-loss risks.
-- Verify the target project/ref using authoritative configured metadata; never rely on placeholders or guess from naming.
-- Never expose secrets or copy production data into tests, documentation, logs, or commits.
-- Do not run migrations against production unless the task explicitly authorizes it and the target is confirmed.
-- Update relevant generated types and dependent queries when the repository's workflow requires it.
-- Provide the exact validation performed; creating a migration file does not mean it was applied.
+## Discovery
+- Read the migration history, current schema/types, relevant queries, RLS policies, triggers, indexes, and application consumers.
+- Establish the migration tool and naming/order convention from the repository; do not invent a parallel migration path.
+- Verify the target project/ref from authoritative configuration before any remote action. A placeholder, branch name, or guessed URL is not evidence.
+
+## Schema design
+- Prefer additive, backward-compatible expand/migrate/contract changes for rolling deployments.
+- Define appropriate constraints, foreign keys, indexes, nullability, defaults, and ownership semantics.
+- Review query plans and index tradeoffs for high-volume paths where relevant.
+- Enable and verify RLS for exposed tables and write policies that express least privilege. Do not assume service-role access is equivalent to user authorization.
+- Consider lock duration, table size, backfill strategy, transaction semantics, replication/realtime effects, and rollback feasibility.
+- Avoid destructive changes until all callers and data dependencies have been accounted for.
+- Keep generated database types and query code synchronized when the project workflow requires it.
+
+## Execution safety
+- Never print or commit database credentials, access tokens, service-role keys, or production rows.
+- Do not apply migrations or mutate production data unless the user explicitly authorizes it and the exact target is independently verified.
+- Distinguish writing a migration, validating it locally, applying it remotely, and verifying the deployed schema; these are different states.
+- If migration history has drift, inspect actual remote/local state and propose a reconciled migration plan rather than blindly overwriting history.
+
+## Evidence
+- Report migration filename, checks performed, target identity evidence (without secrets), execution result, and any destructive/rollback limitations.
+- Do not claim a migration was applied based only on file creation or a successful local diff.
