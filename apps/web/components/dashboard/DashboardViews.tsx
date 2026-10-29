@@ -235,20 +235,33 @@ export function PositionsView({ data, actions }: ViewProps) {
   const [tab, setTab] = useState<'current' | 'dividend' | 'history'>('current');
   const events = useStockEventStore(s => s.events);
   const marketQuoteKeys = useMemo(
-    () => [...new Set(events.map(event => String(event.ticker ?? '').trim().toUpperCase()).filter(Boolean).map(symbol => marketQuoteKey('ssi', symbol)))],
+    () => [
+      ...new Set(
+        events
+          .map(event =>
+            String(event.ticker ?? '')
+              .trim()
+              .toUpperCase()
+          )
+          .filter(Boolean)
+          .map(symbol => marketQuoteKey('ssi', symbol))
+      ),
+    ],
     [events]
   );
   const loading = useStockEventStore(s => s.loading);
   const error = useStockEventStore(s => s.error);
   const load = useStockEventStore(s => s.load);
-  const marketPrices = useDashboardStore(useShallow(state => {
-    const selected: typeof state.marketPrices = {};
-    for (const key of marketQuoteKeys) {
-      const quote = state.marketPrices[key];
-      if (quote) selected[key] = quote;
-    }
-    return selected;
-  }));
+  const marketPrices = useDashboardStore(
+    useShallow(state => {
+      const selected: typeof state.marketPrices = {};
+      for (const key of marketQuoteKeys) {
+        const quote = state.marketPrices[key];
+        if (quote) selected[key] = quote;
+      }
+      return selected;
+    })
+  );
   const syncMarketPrices = useDashboardStore(s => s.syncMarketPrices);
   const [expandedDividend, setExpandedDividend] = useState<string | null>(null);
   const [collapsedDividendMonths, setCollapsedDividendMonths] = useState<Set<string>>(new Set());
