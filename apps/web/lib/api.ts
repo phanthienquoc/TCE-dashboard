@@ -109,7 +109,7 @@ export const authApi = {
     authClient.post('/auth/passkey/register/verify', response),
 };
 export const passkeyApi = {
-  list: () => authClient.get('/auth/passkeys'),
+  list: (signal?: AbortSignal) => authClient.get('/auth/passkeys', { signal }),
   rename: (id: string, friendlyName: string) =>
     authClient.patch(`/auth/passkeys/${encodeURIComponent(id)}`, { friendlyName }),
   remove: (id: string) => authClient.delete(`/auth/passkeys/${encodeURIComponent(id)}`),
