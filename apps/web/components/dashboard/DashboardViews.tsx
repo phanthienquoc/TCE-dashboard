@@ -19,6 +19,7 @@ import PlatformConfigTab from '../config/PlatformConfigTab';
 import { useStockEventStore, type StockEvent } from '../../lib/stock-event-store';
 import { useDashboardStore } from '../../lib/store';
 import { marketQuoteKey } from '../../lib/market-quote-key';
+import { useShallow } from 'zustand/react/shallow';
 import type { DashboardActions, DashboardData } from './DashboardShell';
 
 type ViewProps = { data: DashboardData; actions: DashboardActions };
@@ -233,10 +234,21 @@ export function PoolsView({ data, actions }: ViewProps) {
 export function PositionsView({ data, actions }: ViewProps) {
   const [tab, setTab] = useState<'current' | 'dividend' | 'history'>('current');
   const events = useStockEventStore(s => s.events);
+  const marketQuoteKeys = useMemo(
+    () => [...new Set(events.map(event => String(event.ticker ?? '').trim().toUpperCase()).filter(Boolean).map(symbol => marketQuoteKey('ssi', symbol)))],
+    [events]
+  );
   const loading = useStockEventStore(s => s.loading);
   const error = useStockEventStore(s => s.error);
   const load = useStockEventStore(s => s.load);
-  const marketPrices = useDashboardStore(s => s.marketPrices);
+  const marketPrices = useDashboardStore(useShallow(state => {
+    const selected: typeof state.marketPrices = {};
+    for (const key of marketQuoteKeys) {
+      const quote = state.marketPrices[key];
+      if (quote) selected[key] = quote;
+    }
+    return selected;
+  }));
   const syncMarketPrices = useDashboardStore(s => s.syncMarketPrices);
   const [expandedDividend, setExpandedDividend] = useState<string | null>(null);
   const [collapsedDividendMonths, setCollapsedDividendMonths] = useState<Set<string>>(new Set());
