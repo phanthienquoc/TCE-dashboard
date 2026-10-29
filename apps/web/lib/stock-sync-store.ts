@@ -75,6 +75,7 @@ type StockSyncState = {
   setConfig: (config: StockSyncConfig | ((current: StockSyncConfig) => StockSyncConfig)) => void;
   setTab: (tab: 'runs' | 'config') => void;
   clearMessage: () => void;
+  clear: () => void;
 };
 
 const defaultConfig: StockSyncConfig = {
@@ -170,6 +171,14 @@ export const useStockSyncStore = create<StockSyncState>((set, get) => ({
   setTab: tab => set({ tab }),
 
   clearMessage: () => set({ message: null }),
+
+  clear: () => {
+    readVersion += 1;
+    mutationVersion += 1;
+    readController?.abort();
+    readController = null;
+    set({ config: defaultConfig, bots: [], runs: [], loading: false, saving: false, triggering: false, message: null, tab: 'runs', initialized: false });
+  },
 
   clear: () => {
     readVersion += 1;
