@@ -8,6 +8,10 @@ import { useTCEDataStore } from './tce-data-store';
 import { useStockEventStore } from './stock-event-store';
 import { startAppDataWorker } from './app-data-worker';
 import { useEngineRuntimeStore } from './engine-runtime-store';
+import { useStockDividendPoolStore } from './stock-dividend-pool-store';
+import { useStockSyncStore } from './stock-sync-store';
+import { usePasskeyStore } from './passkey-store';
+import { useAppDataWorkerStore } from './app-data-worker';
 
 type User = { id: string; email: string; role: string; mfaEnabled: boolean };
 type AuthState = {
@@ -23,6 +27,19 @@ type AuthState = {
   mfa: (id: string, c: string) => Promise<void>;
   logout: () => Promise<void>;
 };
+
+
+/** Clears account-scoped client state and invalidates its outstanding reads. */
+function clearAuthenticatedCaches() {
+  useAppDataWorkerStore.getState().clear();
+  useTCEDataStore.getState().clear();
+  useStockEventStore.getState().clear();
+  useStockDividendPoolStore.getState().clear();
+  useStockSyncStore.getState().clear();
+  usePasskeyStore.getState().clear();
+  useEngineRuntimeStore.getState().clear();
+  useDashboardStore.getState().clear();
+}
 
 const prefetchAfterAuth = () => {
   void useTCEDataStore.getState().prefetch();
@@ -131,17 +148,15 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
   logout: async () => {
     const logoutUrl = keycloakLogoutUrl();
+    clearAuthenticatedCaches();
+    set({ user: null, status: 'anonymous', loading: false, initialized: true, error: null });
     try {
       await authApi.logout();
     } catch {
-      // Clear local state and continue to the IdP logout even if the app session expired.
+      // Continue local/IdP logout if the server session has already expired.
     } finally {
       setAccessToken(null);
-      useTCEDataStore.getState().clear();
-      useStockEventStore.getState().clear();
-      useDashboardStore.getState().clear();
-      useEngineRuntimeStore.getState().clear();
-      set({ user: null, status: 'anonymous', initialized: true });
+      clearAuthenticatedCaches();
     }
     if (logoutUrl && typeof window !== 'undefined') window.location.assign(logoutUrl);
   },
