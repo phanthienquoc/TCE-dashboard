@@ -570,3 +570,13 @@ What must happen when a user logs out while a request is still in flight?
 Normalization solves duplicated entity state. Cache policy solves ownership and freshness. Version/watermark-aware merging solves the race between snapshots and realtime events. These are related problems, but none can replace the others.
 
 Next: **Day 13 — Performance profiling**, focusing on measuring React renders, identifying expensive selectors and list rendering, and optimizing only after locating the actual bottleneck.
+
+## Implementation status — reviewed 2026-10-29
+
+- [x] Reviewed current Zustand/API/runtime-event foundations; the repository is not yet fully normalized and the existing resource-specific ownership has been preserved rather than broadly rewritten.
+- [x] TCE data prefetch and engine-runtime stores now invalidate in-flight responses and abort owned requests when cleared.
+- [x] Logout clears the engine-runtime store along with dashboard, prefetch and stock-event caches.
+- [x] Runtime event contract tests now verify known payload validation rejects malformed timestamps and unknown event types.
+- [x] Runtime-event query tests cover invalid event type and missing account scope before database access.
+- [ ] A complete normalized entity graph, authoritative snapshot watermark/replay handshake, and cross-resource cache ownership policy are not implemented by these learning notes alone. Existing backend contract does not establish a global snapshot watermark for all resources, so no fake client-side ordering guarantee was added.
+- [ ] Run tests/typecheck/build in a checked-out repository environment before release.

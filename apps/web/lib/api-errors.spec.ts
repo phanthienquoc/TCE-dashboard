@@ -54,3 +54,36 @@ test('maps HTTP errors to safe messages instead of exposing response bodies', ()
   assert.equal(failure.message, 'You do not have permission to perform this action.');
   assert.equal(failure.message.includes('internal database detail'), false);
 });
+
+
+test('normalizes unknown errors without leaking exception details', () => {
+  const failure = normalizeApiError(new Error('private database host and query'));
+
+  assert.deepEqual(failure, {
+    kind: 'unknown',
+    message: 'The request could not be completed.',
+    retryable: false,
+  });
+  assert.equal(failure.message.includes('private database host'), false);
+});
+
+test('normalizes rate limits as retryable without trusting server response text', () => {
+  const config = {
+    headers: new axios.AxiosHeaders(),
+  } as InternalAxiosRequestConfig;
+  const response = {
+    status: 429,
+    statusText: 'Too Many Requests',
+    headers: new axios.AxiosHeaders(),
+    config,
+    data: { message: 'provider credential xxx' },
+  };
+  const error = new axios.AxiosError('Too Many Requests', 'ERR_BAD_REQUEST', config, undefined, response);
+  const failure = normalizeApiError(error);
+
+  assert.equal(failure.kind, 'http');
+  assert.equal(failure.status, 429);
+  assert.equal(failure.retryable, true);
+  assert.equal(failure.message, 'Too many requests. Wait briefly and try again.');
+  assert.equal(failure.message.includes('provider credential'), false);
+});

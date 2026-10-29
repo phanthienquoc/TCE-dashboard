@@ -430,3 +430,15 @@ When is it safe to coalesce incoming events?
 A reliable realtime frontend is not just a socket with a reconnect timer. It needs a transport lifecycle, authentication policy, event identity, cursor-based recovery, ordering guarantees, bounded memory, and an explicit rule for which data can be coalesced.
 
 Next: **Day 12 — Data normalization and cache design**, including how to merge REST snapshots and realtime events without duplicating or corrupting TCE state.
+
+
+## Implementation status — reviewed 2026-10-29
+
+- [x] Kept the existing shared event envelope and transport boundaries; no separate event domain contract was introduced.
+- [x] The legacy micro-frontend WebSocket client now validates message identity/timestamps and sequence metadata before dispatch.
+- [x] A sequence gap no longer advances the local sequence cursor; it invokes the existing gap callback and a new optional resync callback so the owner can request authoritative recovery.
+- [x] Reconnect invokes the optional resync callback for active subscriptions; callers that do not supply the callback remain source-compatible.
+- [x] Stale connection lifecycle events are ignored, reconnect backoff is capped, and heartbeat shutdown is guarded against stale sockets.
+- [ ] Backpressure/coalescing policy remains event-domain-specific. Do not coalesce order/execution/audit events; add bounded queues or latest-value coalescing only for explicitly lossy quote/display channels.
+- [ ] No owner was found wiring the new optional resync callback in the frontend during this pass. Until a caller supplies it, the client exposes the signal but does not itself fetch a snapshot/replay.
+- [ ] Tests, typecheck and build must still run in a checked-out environment before release.

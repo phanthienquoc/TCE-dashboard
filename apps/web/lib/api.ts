@@ -137,16 +137,16 @@ export const dashboardApi = {
     api.post(`/dashboard/next-positions/${encodeURIComponent(candidateId)}/return-to-pool`),
   strategy: () => api.get('/dashboard/strategy'),
   sources: () => api.get('/dashboard/sources'),
-  engines: () => api.get('/dashboard/engines'),
-  engineRuntime: () => api.get('/dashboard/engine-runtime'),
+  engines: (signal?: AbortSignal) => api.get('/dashboard/engines', { signal }),
+  engineRuntime: (signal?: AbortSignal) => api.get('/dashboard/engine-runtime', { signal }),
   setEngineStatus: (engineId: string, status: 'ACTIVE' | 'INACTIVE') =>
     api.patch(`/dashboard/engines/${engineId}/status`, { status }),
-  engineConfig: () => api.get('/dashboard/engine-config'),
+  engineConfig: (signal?: AbortSignal) => api.get('/dashboard/engine-config', { signal }),
   setEngineConfig: (config: Record<string, unknown>) =>
     api.patch('/dashboard/engine-config', { config }),
 };
 export const platformApi = {
-  credentials: () => api.get('/platform/credentials'),
+  credentials: (signal?: AbortSignal) => api.get('/platform/credentials', { signal }),
   save: (provider: string, environment: string, credentials: Record<string, unknown>) =>
     api.post(`/platform/credentials/${provider}`, { environment, credentials }),
   remove: (provider: string, environment: string) =>
@@ -161,7 +161,7 @@ export const platformApi = {
     api.post('/platform/credentials/binance/close', body),
   geminiTest: (body: { environment: string; credentials: { apiKey: string; text: string } }) =>
     api.post('/platform/credentials/gemini/test', body),
-  telegramBots: () => api.get('/platform/telegram/bots'),
+  telegramBots: (signal?: AbortSignal) => api.get('/platform/telegram/bots', { signal }),
   telegramSave: (body: { token: string; chatId?: string; environment?: string; name?: string }) =>
     api.post('/platform/telegram/save', body),
   telegramTest: (token: string) => api.post('/platform/telegram/test', { token }),
@@ -171,7 +171,8 @@ export const platformApi = {
     api.post('/platform/telegram/resume', body),
   telegramRemove: (body: { environment?: string; name?: string }) =>
     api.delete('/platform/telegram', { data: body }),
-  telegramDebugAssignments: () => api.get('/platform/telegram/debug/assignments'),
+  telegramDebugAssignments: (signal?: AbortSignal) =>
+    api.get('/platform/telegram/debug/assignments', { signal }),
   telegramAssignDebug: (body: {
     telegramCredentialId: string;
     serviceName: string;

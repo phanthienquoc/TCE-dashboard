@@ -83,4 +83,24 @@ describe('RuntimeEventsQueryService', () => {
       ServiceUnavailableException
     );
   });
+
+  it('rejects an unsupported event type before querying the database', async () => {
+    const { db } = makeDb({ data: [], error: null });
+    const service = new RuntimeEventsQueryService({ db } as any);
+
+    await expect(service.listForAccount('account-1', { eventType: 'unknown.event' })).rejects.toThrow(
+      'Unsupported runtime event type'
+    );
+    expect(db.from).not.toHaveBeenCalled();
+  });
+
+  it('rejects empty account scope before querying the database', async () => {
+    const { db } = makeDb({ data: [], error: null });
+    const service = new RuntimeEventsQueryService({ db } as any);
+
+    await expect(service.listForAccount('   ')).rejects.toThrow(
+      'Authenticated account is required'
+    );
+    expect(db.from).not.toHaveBeenCalled();
+  });
 });

@@ -7,6 +7,7 @@ import { isApiRequestCancelled, normalizeApiError } from './api-errors';
 import { useTCEDataStore } from './tce-data-store';
 import { useStockEventStore } from './stock-event-store';
 import { startAppDataWorker } from './app-data-worker';
+import { useEngineRuntimeStore } from './engine-runtime-store';
 
 type User = { id: string; email: string; role: string; mfaEnabled: boolean };
 type AuthState = {
@@ -139,6 +140,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       useTCEDataStore.getState().clear();
       useStockEventStore.getState().clear();
       useDashboardStore.getState().clear();
+      useEngineRuntimeStore.getState().clear();
       set({ user: null, status: 'anonymous', initialized: true });
     }
     if (logoutUrl && typeof window !== 'undefined') window.location.assign(logoutUrl);

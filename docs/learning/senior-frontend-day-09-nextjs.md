@@ -76,3 +76,12 @@ Do not place API credentials, access tokens, OTPs, private keys or other secrets
 - Update `docs/fe-feats` for user-visible frontend behavior changes.
 - Run the relevant typecheck, tests and build where available; state clearly if a check could not be run.
 - Avoid unrelated schema migrations, credential changes, live execution enablement or changes to trading strategy.
+
+
+## Implementation status — reviewed 2026-10-29
+
+- [x] Preserve the established App Router shell, centralized Axios/auth layer, and small client boundaries. No parallel route shell or client-side secret exposure was introduced.
+- [x] Preserve the current server snapshot/event envelope and account scope. Existing route composition and centralized auth remain the source of truth.
+- [x] Request cancellation is now propagated through the dashboard, engine-runtime and TCE prefetch endpoints where these stores own the request.
+- [x] Engine-runtime cache is cleared on logout alongside dashboard and prefetch state.
+- [ ] A full local typecheck/build and end-to-end UI run still needs to be executed against the checked-out repository environment; GitHub connector writes do not run these commands.

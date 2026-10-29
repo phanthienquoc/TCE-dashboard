@@ -411,3 +411,13 @@ The browser times out while submitting an order. Can the UI safely report “the
 A Senior Frontend Engineer does not merely call an endpoint. They define the request lifecycle, error semantics, cancellation ownership, stale-response policy, and the boundary between client uncertainty and authoritative server state.
 
 Next: **Day 11 — WebSocket/SSE, reconnection and backpressure**, using the TCE realtime contract and keeping correctness separate from rendering optimizations.
+
+
+## Implementation status — reviewed 2026-10-29
+
+- [x] Existing shared Axios instance and auth-refresh behavior preserved.
+- [x] Dashboard and market-price reads already pass AbortSignal and use request-version guards; retained this behavior.
+- [x] Engine-runtime and TCE prefetch reads now accept and pass AbortSignal; logout clears these caches and invalidates in-flight responses.
+- [x] API failure messages stay normalized and do not expose raw response bodies; tests now cover unknown errors and retryable HTTP 429 responses.
+- [x] Intentional cancellation does not set a user-facing error for engine-runtime and TCE prefetch.
+- [ ] Run repository test/typecheck/build commands in a checked-out environment before marking verification complete; connector API updates do not execute CI or local commands.

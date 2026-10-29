@@ -71,3 +71,26 @@ describe('TceEventEnvelope', () => {
     assert.equal(decoded.eventId, event.eventId);
   });
 });
+
+
+describe('TceRuntimeEvent payload validation', () => {
+  it('rejects payloads that do not satisfy the known event schema', async () => {
+    const { isTceRuntimeEvent } = await import('./tce-event.contract');
+    const event = {
+      eventId: 'evt-456',
+      eventType: 'monitor.snapshot.created',
+      schemaVersion: TCE_EVENT_SCHEMA_VERSION,
+      occurredAt: '2026-10-29T03:00:00.000Z',
+      producer: 'tce-monitor',
+      correlationId: 'corr-456',
+      accountId: 'account-1',
+      aggregateId: 'position-1',
+      sequence: 1,
+      data: { symbol: 'DPM', observedAt: '2026-10-29T03:00:00.000Z' },
+    };
+
+    assert.equal(isTceRuntimeEvent(event), true);
+    assert.equal(isTceRuntimeEvent({ ...event, data: { symbol: 'DPM', observedAt: 'invalid' } }), false);
+    assert.equal(isTceRuntimeEvent({ ...event, eventType: 'unknown.event' }), false);
+  });
+});
