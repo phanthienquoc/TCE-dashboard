@@ -3,6 +3,7 @@ import { WalletCards, CircleDot } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { useStockEventStore, type StockEvent } from '../../lib/stock-event-store';
 import { useDashboardStore } from '../../lib/store';
+import { marketQuoteKey } from '../../lib/market-quote-key';
 import { usePositionFilterStore } from '../../lib/position-filter-store';
 import type { DashboardActions, DashboardData } from './DashboardShell';
 import { DividendOneYearCandleChart } from './DividendOneYearCandleChart';
@@ -83,7 +84,7 @@ export function DividendPositionsView({ data, actions }: ViewProps) {
                       p => String(p.symbol ?? p.code ?? '').toUpperCase() === item.symbol
                     );
                     const event = item.events[0];
-                    const livePrice = marketPrices[item.symbol]?.price;
+                    const livePrice = marketPrices[marketQuoteKey('ssi', item.symbol)]?.price;
                     const price =
                       Number(livePrice) > 0
                         ? livePrice
@@ -232,7 +233,7 @@ function buildFutureMonthGroups(
       .toUpperCase();
     if (!date || !symbol || date.getTime() < today) continue;
 
-    const live = marketPrices[symbol]?.price;
+    const live = marketPrices[marketQuoteKey('ssi', symbol)]?.price;
     const price = Number(live) > 0 ? Number(live) : Number(event.currentPrice ?? event.price ?? 0);
     if (price <= 0 || price < minPrice || price > maxPrice) continue;
 
