@@ -9,6 +9,7 @@ import { Label } from '../ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { useDashboardStore } from '../../lib/store';
 import { marketQuoteKey } from '../../lib/market-quote-key';
+import { useShallow } from 'zustand/react/shallow';
 import {
   usePositionFilterStore,
   DEFAULT_POSITION_MIN_PRICE,
@@ -30,7 +31,18 @@ type Props = {
 
 export function DividendPositionsFilter({ className = '' }: Props) {
   const events = useStockEventStore(s => s.events);
-  const marketPrices = useDashboardStore(s => s.marketPrices);
+  const marketQuoteKeys = useMemo(
+    () => [...new Set(events.map(event => String(event.ticker ?? '').trim().toUpperCase()).filter(Boolean).map(symbol => marketQuoteKey('ssi', symbol)))],
+    [events]
+  );
+  const marketPrices = useDashboardStore(useShallow(state => {
+    const selected: typeof state.marketPrices = {};
+    for (const key of marketQuoteKeys) {
+      const quote = state.marketPrices[key];
+      if (quote) selected[key] = quote;
+    }
+    return selected;
+  }));
   const { selectedMonth, minPrice, maxPrice, minYield, maxYield, setFilters } =
     usePositionFilterStore();
   const [hydrated, setHydrated] = useState(false);
