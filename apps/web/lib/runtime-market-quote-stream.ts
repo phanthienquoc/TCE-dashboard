@@ -32,7 +32,8 @@ function readCursor(accountId: string): Cursor | null {
       !Number.isFinite(Date.parse(value.occurredAt)) ||
       typeof value.eventId !== 'string' ||
       !value.eventId
-    ) return null;
+    )
+      return null;
     return { occurredAt: value.occurredAt, eventId: value.eventId };
   } catch {
     return null;
@@ -243,7 +244,9 @@ export class RuntimeMarketQuoteStream {
           continue;
         }
         if (
-          value && typeof value === 'object' && !Array.isArray(value) &&
+          value &&
+          typeof value === 'object' &&
+          !Array.isArray(value) &&
           (value as Record<string, unknown>).type === 'transport.error'
         ) {
           // The server failed to read durable storage; retry through its cursor.
@@ -324,10 +327,12 @@ export class RuntimeMarketQuoteStream {
           const event = value as QuoteEvent;
           if (event.accountId && event.accountId !== this.options.accountId) continue;
           if (this.seenIds.has(event.eventId)) continue;
-          if (this.cursor && compareCursor(
-            { occurredAt: event.occurredAt, eventId: event.eventId },
-            this.cursor
-          ) <= 0) continue;
+          if (
+            this.cursor &&
+            compareCursor({ occurredAt: event.occurredAt, eventId: event.eventId }, this.cursor) <=
+              0
+          )
+            continue;
           if (this.hasSequenceGap(event)) {
             this.halt('sequence-gap-unresolved-by-replay');
             return;
