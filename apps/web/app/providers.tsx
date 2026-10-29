@@ -3,7 +3,7 @@ import { useEffect } from 'react';
 import { useUIStore } from '../lib/ui-store';
 import { ToastProvider, useToast } from '../components/ui/toast';
 import { ThemeProvider } from '../shareComponent/theme-provider';
-import { useAuthStore } from '../lib/store';
+import { useAuthStore, useDashboardStore } from '../lib/store';
 import {
   checkLatestSystemUpdate,
   registerSystemServiceWorker,
@@ -12,6 +12,8 @@ import {
 import { rememberSystemUpdate } from '../lib/system-updates';
 import { startAppDataWorker } from '../lib/app-data-worker';
 import { microfeWs } from '../lib/microfe-ws';
+import { RuntimeMarketQuoteStream } from '../lib/runtime-market-quote-stream';
+import { marketQuoteKey } from '../lib/market-quote-key';
 import { useRouter } from 'next/navigation';
 
 function MicrofeWebSocketBridge() {
@@ -38,6 +40,49 @@ function MicrofeWebSocketBridge() {
   }, [authStatus]);
   return null;
 }
+
+function RuntimeMarketQuoteBridge() {
+  const authStatus = useAuthStore(state => state.status);
+  const accountId = useAuthStore(state => state.user?.id);
+  useEffect(() => {
+    if (authStatus !== 'authenticated' || !accountId) return;
+    const stream = new RuntimeMarketQuoteStream({
+      accountId,
+      onAuthRequired: () => void useAuthStore.getState().logout(),
+      onRecoveryRequired: reason => {
+        // Recovery warnings intentionally exclude event payloads and credentials.
+        console.warn('[TCE_RUNTIME_QUOTES] recovery required', { reason });
+      },
+      onQuote: event => {
+        const quote = event.data;
+        const symbol = quote.symbol.trim().toUpperCase();
+        const price = Number(quote.price);
+        if (!symbol || !Number.isFinite(price) || price <= 0) return;
+        const key = marketQuoteKey(quote.source, symbol);
+        useDashboardStore.setState(state => ({
+          marketPrices: {
+            ...state.marketPrices,
+            [key]: {
+              symbol,
+              price,
+              tradingDate: quote.timestamp,
+            },
+          },
+          ...(quote.source === 'ssi'
+            ? {
+                marketPricesUpdatedAt: new Date().toISOString(),
+                marketPricesFreshness: 'fresh' as const,
+              }
+            : {}),
+        }));
+      },
+    });
+    stream.start();
+    return () => stream.stop();
+  }, [authStatus, accountId]);
+  return null;
+}
+
 function SystemUpdateBridge() {
   const authStatus = useAuthStore(state => state.status);
   const toast = useToast();
@@ -88,6 +133,7 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
     <ThemeProvider defaultTheme="tce">
       <ToastProvider>
         <MicrofeWebSocketBridge />
+        <RuntimeMarketQuoteBridge />
         <SystemUpdateBridge />
         {children}
       </ToastProvider>
