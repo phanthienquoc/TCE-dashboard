@@ -41,18 +41,33 @@ const staticTasks = (): Task[] => [
     key: 'dashboard.pools',
     run: signal => api.get('/dashboard/pools', { params: { status: 'WATCHING' }, signal }),
   },
-  { key: 'dashboard.nextPositions', run: signal => api.get('/dashboard/next-positions', { signal }) },
+  {
+    key: 'dashboard.nextPositions',
+    run: signal => api.get('/dashboard/next-positions', { signal }),
+  },
   { key: 'dashboard.strategy', run: signal => api.get('/dashboard/strategy', { signal }) },
   { key: 'dashboard.sources', run: signal => api.get('/dashboard/sources', { signal }) },
   { key: 'dashboard.dreCampaigns', run: signal => api.get('/dre/dashboard/campaigns', { signal }) },
   { key: 'platform.fastApiConfig', run: signal => api.get('/platform/config/fastapi', { signal }) },
-  { key: 'platform.binanceXauConfig', run: signal => api.get('/tce/engine/binance/config', { signal }) },
-  { key: 'platform.binanceXauPositions', run: signal => api.get('/tce/engine/binance/positions', { signal }) },
-  { key: 'platform.binanceXauOrders', run: signal => api.get('/tce/engine/binance/orders', { signal }) },
+  {
+    key: 'platform.binanceXauConfig',
+    run: signal => api.get('/tce/engine/binance/config', { signal }),
+  },
+  {
+    key: 'platform.binanceXauPositions',
+    run: signal => api.get('/tce/engine/binance/positions', { signal }),
+  },
+  {
+    key: 'platform.binanceXauOrders',
+    run: signal => api.get('/tce/engine/binance/orders', { signal }),
+  },
   { key: 'systemUpdates.config', run: signal => api.get('/tce/system-updates/config', { signal }) },
   { key: 'systemUpdates.latest', run: signal => api.get('/tce/system-updates/latest', { signal }) },
   { key: 'auth.passkeys', run: signal => api.get('/auth/passkeys', { signal }) },
-  { key: 'stockEventsCron.settings', run: signal => api.get('/stock-events-cron/settings', { signal }) },
+  {
+    key: 'stockEventsCron.settings',
+    run: signal => api.get('/stock-events-cron/settings', { signal }),
+  },
   {
     key: 'stockEventsCron.runs',
     run: signal => api.get('/stock-events-cron/runs', { params: { limit: 20 }, signal }),
