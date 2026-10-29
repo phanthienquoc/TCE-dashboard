@@ -190,24 +190,6 @@ export const useStockSyncStore = create<StockSyncState>((set, get) => ({
     });
   },
 
-  clear: () => {
-    readVersion += 1;
-    mutationVersion += 1;
-    readController?.abort();
-    readController = null;
-    set({
-      config: defaultConfig,
-      bots: [],
-      runs: [],
-      loading: false,
-      saving: false,
-      triggering: false,
-      message: null,
-      tab: 'runs',
-      initialized: false,
-    });
-  },
-
   save: async () => {
     const version = ++mutationVersion;
     set({ saving: true, message: null });
