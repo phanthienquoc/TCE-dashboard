@@ -2,6 +2,7 @@
 
 import { create } from 'zustand';
 import { api } from './api';
+import { isApiRequestCancelled, normalizeApiError } from './api-errors';
 
 export type StockEvent = {
   id: string;
@@ -35,6 +36,8 @@ type StockEventState = {
 
 let inFlight: Promise<void> | null = null;
 let inFlightKey: string | null = null;
+let requestController: AbortController | null = null;
+let requestVersion = 0;
 
 export const useStockEventStore = create<StockEventState>((set, get) => ({
   events: [],
@@ -51,11 +54,16 @@ export const useStockEventStore = create<StockEventState>((set, get) => ({
       return get().load(limit, true, month);
     }
 
+    requestController?.abort();
+    const controller = new AbortController();
+    requestController = controller;
+    const version = ++requestVersion;
     set({ loading: true, error: null });
     inFlightKey = requestKey;
     inFlight = api
-      .get<StockEvent[]>('/stock-events', { params: { limit } })
+      .get<StockEvent[]>('/stock-events', { params: { limit }, signal: controller.signal })
       .then(response => {
+        if (controller.signal.aborted || version !== requestVersion) return;
         const rawEvents = Array.isArray(response.data) ? response.data : [];
         const events = rawEvents
           .map(event => ({
@@ -70,21 +78,34 @@ export const useStockEventStore = create<StockEventState>((set, get) => ({
         set({ events, initialized: true, loading: false, error: null });
       })
       .catch(error => {
+        if (controller.signal.aborted || version !== requestVersion) return;
         set({
           loading: false,
           initialized: true,
-          error: error instanceof Error ? error.message : 'Unable to load stock events',
+          error: isApiRequestCancelled(error)
+            ? null
+            : normalizeApiError(error, 'Unable to load stock events').message,
         });
       })
       .finally(() => {
-        inFlight = null;
-        inFlightKey = null;
+        if (requestController === controller) requestController = null;
+        if (version === requestVersion) {
+          inFlight = null;
+          inFlightKey = null;
+        }
       });
 
     return inFlight;
   },
 
-  clear: () => set({ events: [], loading: false, initialized: false, error: null }),
+  clear: () => {
+    requestVersion += 1;
+    requestController?.abort();
+    requestController = null;
+    inFlight = null;
+    inFlightKey = null;
+    set({ events: [], loading: false, initialized: false, error: null });
+  },
 }));
 
 function currentMonthKey(): string {
