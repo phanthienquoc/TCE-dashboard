@@ -18,6 +18,7 @@ import { useEffect, useMemo, useState } from 'react';
 import PlatformConfigTab from '../config/PlatformConfigTab';
 import { useStockEventStore, type StockEvent } from '../../lib/stock-event-store';
 import { useDashboardStore } from '../../lib/store';
+import { marketQuoteKey } from '../../lib/market-quote-key';
 import type { DashboardActions, DashboardData } from './DashboardShell';
 
 type ViewProps = { data: DashboardData; actions: DashboardActions };
@@ -364,7 +365,7 @@ export function PositionsView({ data, actions }: ViewProps) {
                           key={key}
                           item={item}
                           pool={pool}
-                          marketPrice={marketPrices[item.symbol]?.price}
+                          marketPrice={marketPrices[marketQuoteKey('ssi', item.symbol)]?.price}
                           expanded={expandedDividend === key}
                           onToggle={() =>
                             setExpandedDividend(current => (current === key ? null : key))
@@ -374,7 +375,7 @@ export function PositionsView({ data, actions }: ViewProps) {
                               ...pool,
                               symbol: item.symbol,
                               currentPrice:
-                                marketPrices[item.symbol]?.price ??
+                                marketPrices[marketQuoteKey('ssi', item.symbol)]?.price ??
                                 pool?.currentPrice ??
                                 pool?.current_price,
                               side: 'BUY',
