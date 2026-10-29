@@ -412,7 +412,6 @@ A Senior Frontend Engineer does not merely call an endpoint. They define the req
 
 Next: **Day 11 — WebSocket/SSE, reconnection and backpressure**, using the TCE realtime contract and keeping correctness separate from rendering optimizations.
 
-
 ## Implementation status — reviewed 2026-10-29
 
 - [x] Existing shared Axios instance and auth-refresh behavior preserved.

@@ -77,7 +77,6 @@ Do not place API credentials, access tokens, OTPs, private keys or other secrets
 - Run the relevant typecheck, tests and build where available; state clearly if a check could not be run.
 - Avoid unrelated schema migrations, credential changes, live execution enablement or changes to trading strategy.
 
-
 ## Implementation status — reviewed 2026-10-29
 
 - [x] Preserve the established App Router shell, centralized Axios/auth layer, and small client boundaries. No parallel route shell or client-side secret exposure was introduced.

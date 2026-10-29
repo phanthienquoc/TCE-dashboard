@@ -431,7 +431,6 @@ A reliable realtime frontend is not just a socket with a reconnect timer. It nee
 
 Next: **Day 12 — Data normalization and cache design**, including how to merge REST snapshots and realtime events without duplicating or corrupting TCE state.
 
-
 ## Implementation status — reviewed 2026-10-29
 
 - [x] Kept the existing shared event envelope and transport boundaries; no separate event domain contract was introduced.

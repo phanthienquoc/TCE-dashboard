@@ -65,7 +65,12 @@ class MicrofeWebSocket {
   }
 
   private connect() {
-    if (this.stopped || this.socket?.readyState === WebSocket.OPEN || this.socket?.readyState === WebSocket.CONNECTING) return;
+    if (
+      this.stopped ||
+      this.socket?.readyState === WebSocket.OPEN ||
+      this.socket?.readyState === WebSocket.CONNECTING
+    )
+      return;
     const generation = ++this.connectionGeneration.value;
     const socket = new WebSocket(wsUrl);
     this.socket = socket;
@@ -80,11 +85,13 @@ class MicrofeWebSocket {
       this.startHeartbeat();
       for (const channel of this.subscriptions) this.send({ type: 'subscribe', channel });
       if (reconnected) {
-        for (const channel of this.subscriptions) this.options.onResyncRequired?.(channel, 'reconnected');
+        for (const channel of this.subscriptions)
+          this.options.onResyncRequired?.(channel, 'reconnected');
       }
     });
     socket.addEventListener('message', event => {
-      if (generation === this.connectionGeneration.value && this.socket === socket) this.handleMessage(event.data);
+      if (generation === this.connectionGeneration.value && this.socket === socket)
+        this.handleMessage(event.data);
     });
     socket.addEventListener('close', event => {
       if (this.socket !== socket || generation !== this.connectionGeneration.value) return;
@@ -119,12 +126,18 @@ class MicrofeWebSocket {
       return;
     }
     if (
-      typeof record.id !== 'string' || !record.id ||
-      typeof record.channel !== 'string' || !record.channel ||
-      typeof record.event !== 'string' || !record.event ||
-      typeof record.timestamp !== 'string' || !Number.isFinite(Date.parse(record.timestamp)) ||
-      (record.sequence !== undefined && (!Number.isSafeInteger(record.sequence) || (record.sequence as number) < 0))
-    ) return;
+      typeof record.id !== 'string' ||
+      !record.id ||
+      typeof record.channel !== 'string' ||
+      !record.channel ||
+      typeof record.event !== 'string' ||
+      !record.event ||
+      typeof record.timestamp !== 'string' ||
+      !Number.isFinite(Date.parse(record.timestamp)) ||
+      (record.sequence !== undefined &&
+        (!Number.isSafeInteger(record.sequence) || (record.sequence as number) < 0))
+    )
+      return;
 
     const item: MicrofeEvent = record as unknown as MicrofeEvent;
     const seen = this.seen.get(item.channel) ?? new Set<string>();
@@ -162,9 +175,9 @@ class MicrofeWebSocket {
       this.send({ type: 'ping', timestamp: new Date().toISOString() });
       if (this.heartbeatTimeout) clearTimeout(this.heartbeatTimeout);
       this.heartbeatTimeout = setTimeout(() => {
-      const socket = this.socket;
-      if (socket?.readyState === WebSocket.OPEN) socket.close(4000, 'heartbeat_timeout');
-    }, 10000);
+        const socket = this.socket;
+        if (socket?.readyState === WebSocket.OPEN) socket.close(4000, 'heartbeat_timeout');
+      }, 10000);
     }, 25000);
   }
 

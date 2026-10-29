@@ -72,7 +72,6 @@ describe('TceEventEnvelope', () => {
   });
 });
 
-
 describe('TceRuntimeEvent payload validation', () => {
   it('rejects payloads that do not satisfy the known event schema', async () => {
     const { isTceRuntimeEvent } = await import('./tce-event.contract');
@@ -90,7 +89,10 @@ describe('TceRuntimeEvent payload validation', () => {
     };
 
     assert.equal(isTceRuntimeEvent(event), true);
-    assert.equal(isTceRuntimeEvent({ ...event, data: { symbol: 'DPM', observedAt: 'invalid' } }), false);
+    assert.equal(
+      isTceRuntimeEvent({ ...event, data: { symbol: 'DPM', observedAt: 'invalid' } }),
+      false
+    );
     assert.equal(isTceRuntimeEvent({ ...event, eventType: 'unknown.event' }), false);
   });
 });

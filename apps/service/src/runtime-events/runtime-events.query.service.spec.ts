@@ -88,9 +88,9 @@ describe('RuntimeEventsQueryService', () => {
     const { db } = makeDb({ data: [], error: null });
     const service = new RuntimeEventsQueryService({ db } as any);
 
-    await expect(service.listForAccount('account-1', { eventType: 'unknown.event' })).rejects.toThrow(
-      'Unsupported runtime event type'
-    );
+    await expect(
+      service.listForAccount('account-1', { eventType: 'unknown.event' })
+    ).rejects.toThrow('Unsupported runtime event type');
     expect(db.from).not.toHaveBeenCalled();
   });
 

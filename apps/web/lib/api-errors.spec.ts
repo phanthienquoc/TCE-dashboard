@@ -55,7 +55,6 @@ test('maps HTTP errors to safe messages instead of exposing response bodies', ()
   assert.equal(failure.message.includes('internal database detail'), false);
 });
 
-
 test('normalizes unknown errors without leaking exception details', () => {
   const failure = normalizeApiError(new Error('private database host and query'));
 
@@ -78,7 +77,13 @@ test('normalizes rate limits as retryable without trusting server response text'
     config,
     data: { message: 'provider credential xxx' },
   };
-  const error = new axios.AxiosError('Too Many Requests', 'ERR_BAD_REQUEST', config, undefined, response);
+  const error = new axios.AxiosError(
+    'Too Many Requests',
+    'ERR_BAD_REQUEST',
+    config,
+    undefined,
+    response
+  );
   const failure = normalizeApiError(error);
 
   assert.equal(failure.kind, 'http');
