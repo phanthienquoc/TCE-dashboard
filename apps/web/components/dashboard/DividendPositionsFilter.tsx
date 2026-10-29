@@ -8,6 +8,7 @@ import { Input } from '../ui/input';
 import { Label } from '../ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { useDashboardStore } from '../../lib/store';
+import { marketQuoteKey } from '../../lib/market-quote-key';
 import {
   usePositionFilterStore,
   DEFAULT_POSITION_MIN_PRICE,
@@ -438,7 +439,7 @@ function buildFutureMonthGroups(
       .trim()
       .toUpperCase();
     if (!date || !symbol || date.getTime() < today) continue;
-    const live = marketPrices[symbol]?.price;
+    const live = marketPrices[marketQuoteKey('ssi', symbol)]?.price;
     const price = Number(live) > 0 ? Number(live) : Number(event.currentPrice ?? event.price ?? 0);
     if (price < minPrice || price > maxPrice) continue;
     const yieldPct = Number(event.dividendYieldPct);
