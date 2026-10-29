@@ -12,6 +12,7 @@ import { useStockDividendPoolStore } from './stock-dividend-pool-store';
 import { useStockSyncStore } from './stock-sync-store';
 import { usePasskeyStore } from './passkey-store';
 import { useAppDataWorkerStore } from './app-data-worker';
+import { marketQuoteKey } from './market-quote-key';
 
 type User = { id: string; email: string; role: string; mfaEnabled: boolean };
 type AuthState = {
@@ -168,9 +169,12 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 }));
 
 type MarketPrice = { symbol: string; price: number; tradingDate?: string };
+export type MarketPriceFreshness = 'unknown' | 'fresh' | 'stale';
 type DashboardState = {
   data: any;
   marketPrices: Record<string, MarketPrice>;
+  marketPricesUpdatedAt: string | null;
+  marketPricesFreshness: MarketPriceFreshness;
   loading: boolean;
   error: string | null;
   load: () => Promise<void>;
@@ -230,7 +234,7 @@ const mergeMarketPrices = (snapshot: any, prices: Record<string, MarketPrice>) =
     const symbol = String(row?.symbol ?? row?.code ?? '')
       .trim()
       .toUpperCase();
-    const quote = prices[symbol];
+    const quote = prices[marketQuoteKey('ssi', symbol)];
     if (!quote) return row;
     return { ...row, marketPrice: quote.price, market_price: quote.price };
   };
@@ -249,6 +253,8 @@ const mergeMarketPrices = (snapshot: any, prices: Record<string, MarketPrice>) =
 export const useDashboardStore = create<DashboardState>(set => ({
   data: null,
   marketPrices: {},
+  marketPricesUpdatedAt: null,
+  marketPricesFreshness: 'unknown',
   loading: false,
   error: null,
   load: async () => {
@@ -304,7 +310,10 @@ export const useDashboardStore = create<DashboardState>(set => ({
     try {
       const response = await dashboardApi.marketPrices(symbols, controller.signal);
       if (controller.signal.aborted || marketPriceSyncController !== controller) return;
-      if (response.data?.ok === false) return;
+      if (response.data?.ok === false) {
+        set(state => ({ marketPricesFreshness: state.marketPricesUpdatedAt ? 'stale' : 'unknown' }));
+        return;
+      }
 
       const prices = (response.data?.data ?? []).reduce(
         (acc: Record<string, MarketPrice>, quote: MarketPrice) => {
@@ -312,19 +321,25 @@ export const useDashboardStore = create<DashboardState>(set => ({
             .trim()
             .toUpperCase();
           if (symbol && Number.isFinite(Number(quote.price)))
-            acc[symbol] = { ...quote, symbol, price: Number(quote.price) };
+            acc[marketQuoteKey('ssi', symbol)] = { ...quote, symbol, price: Number(quote.price) };
           return acc;
         },
         {}
       );
-      if (!Object.keys(prices).length) return;
+      if (!Object.keys(prices).length) {
+        set(state => ({ marketPricesFreshness: state.marketPricesUpdatedAt ? 'stale' : 'unknown' }));
+        return;
+      }
       set(state => ({
         marketPrices: { ...state.marketPrices, ...prices },
+        marketPricesUpdatedAt: new Date().toISOString(),
+        marketPricesFreshness: 'fresh',
         data: mergeMarketPrices(state.data, prices),
       }));
     } catch (error) {
       if (!controller.signal.aborted && !isApiRequestCancelled(error)) {
         const failure = normalizeApiError(error, 'Market price sync failed');
+        set(state => ({ marketPricesFreshness: state.marketPricesUpdatedAt ? 'stale' : 'unknown' }));
         console.error('[FE_MARKET_PRICE_SYNC]', {
           kind: failure.kind,
           status: failure.status,
@@ -346,6 +361,13 @@ export const useDashboardStore = create<DashboardState>(set => ({
       clearInterval(marketPriceTimer);
       marketPriceTimer = null;
     }
-    set({ data: null, marketPrices: {}, loading: false, error: null });
+    set({
+      data: null,
+      marketPrices: {},
+      marketPricesUpdatedAt: null,
+      marketPricesFreshness: 'unknown',
+      loading: false,
+      error: null,
+    });
   },
 }));
