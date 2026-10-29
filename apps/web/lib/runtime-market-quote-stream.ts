@@ -272,6 +272,7 @@ export class RuntimeMarketQuoteStream {
         }
         try {
           await this.options.onQuote(event);
+          if (!this.isCurrent(generation) || this.socket !== socket) return;
         } catch {
           // Leave the durable cursor behind and replay rather than skipping an event.
           this.options.onRecoveryRequired?.('quote-apply-failed');
@@ -344,6 +345,7 @@ export class RuntimeMarketQuoteStream {
             return;
           }
           await this.options.onQuote(event);
+          if (!this.isCurrent(generation) || controller.signal.aborted) return;
           this.commit(event);
         }
         if (batch.length < BATCH_SIZE) return;
