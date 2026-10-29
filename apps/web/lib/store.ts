@@ -55,6 +55,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   error: null,
   init: async () => {
     if (get().initialized) return;
+    clearAuthenticatedCaches();
     set({ status: 'loading', loading: true, error: null });
     try {
       if (!getAccessToken()) await authApi.refresh();
@@ -69,6 +70,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
   },
   completeSsoLogin: async accessToken => {
+    clearAuthenticatedCaches();
     set({ status: 'loading', loading: true, error: null });
     setAccessToken(accessToken);
     try {
@@ -89,6 +91,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
   },
   login: async (e, p) => {
+    clearAuthenticatedCaches();
     set({ status: 'loading', loading: true, error: null });
     try {
       const r = await authApi.login(e, p);
@@ -109,6 +112,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
   },
   loginWithPasskey: async () => {
+    clearAuthenticatedCaches();
     set({ status: 'loading', loading: true, error: null });
     try {
       const { signInWithPasskey } = await import('./passkey');
@@ -133,6 +137,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
   },
   mfa: async (id, c) => {
+    clearAuthenticatedCaches();
     set({ status: 'loading', loading: true, error: null });
     try {
       const r = await authApi.mfaLogin(id, c);
