@@ -20,7 +20,8 @@
       "@lib/*": ["./lib/*"],
       "@hooks/*": ["./hooks/*"],
       "@services/*": ["./services/*"],
-      "@features/*": ["./features/*"]
+      "@features/*": ["./features/*"],
+      "@tce/contracts/*": ["../../libs/contracts/src/*"]
     }
   },
   "include": [
