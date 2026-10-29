@@ -24,6 +24,8 @@ export function DividendPositionsView({ data, actions }: ViewProps) {
   const error = useStockEventStore(s => s.error);
   const load = useStockEventStore(s => s.load);
   const marketPrices = useDashboardStore(s => s.marketPrices);
+  const marketPricesUpdatedAt = useDashboardStore(s => s.marketPricesUpdatedAt);
+  const marketPricesFreshness = useDashboardStore(s => s.marketPricesFreshness);
   const syncMarketPrices = useDashboardStore(s => s.syncMarketPrices);
 
   useEffect(() => {
@@ -65,8 +67,21 @@ export function DividendPositionsView({ data, actions }: ViewProps) {
             <span>Live exposure</span>
           </div>
         </div>
-        <span className="tce-live-pill">
-          <CircleDot className="size-3" /> LIVE
+        <span
+          className={marketPricesFreshness === 'fresh' ? 'tce-live-pill' : 'tce-muted text-xs'}
+          aria-live="polite"
+          title={
+            marketPricesUpdatedAt
+              ? `Lần cập nhật giá thành công: ${new Date(marketPricesUpdatedAt).toLocaleString('vi-VN')}`
+              : 'Chưa có lần cập nhật giá thành công trong phiên này'
+          }
+        >
+          <CircleDot className="size-3 inline-block" />{' '}
+          {marketPricesFreshness === 'fresh' && marketPricesUpdatedAt
+            ? `GIÁ ${new Date(marketPricesUpdatedAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}`
+            : marketPricesFreshness === 'stale'
+              ? 'GIÁ CŨ'
+              : 'CHƯA CÓ GIÁ'}
         </span>
       </header>
       <div className="tce-positions-content">
