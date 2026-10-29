@@ -261,7 +261,13 @@ export class RuntimeMarketQuoteStream {
         if (this.cursor && compareCursor(nextCursor, this.cursor) <= 0) continue;
 
         if (this.hasSequenceGap(event)) {
+          const cursorBeforeReplay = this.cursor;
           await this.replayFromCursor(generation);
+          if (!this.isCurrent(generation)) return;
+          if (this.cursor === cursorBeforeReplay || this.hasSequenceGap(event)) {
+            this.halt('sequence-gap-unresolved-by-replay');
+            return;
+          }
           continue;
         }
         try {
