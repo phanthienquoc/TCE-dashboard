@@ -16,13 +16,13 @@ By the end of this session, you should be able to:
 
 ## Minute plan
 
-| Time | Activity | Outcome |
-| --- | --- | --- |
-| 0–10 min | Theory from first principles | Understand entities, identity, cache freshness, and trade-offs |
-| 10–30 min | TypeScript/React code | Normalize positions and quotes; reject stale updates |
-| 30–45 min | TCE architecture | Design snapshot/event merging and cache boundaries |
-| 45–55 min | English interview practice | Explain correctness, invalidation, and trade-offs |
-| 55–60 min | Review and quiz | Check understanding |
+| Time      | Activity                     | Outcome                                                        |
+| --------- | ---------------------------- | -------------------------------------------------------------- |
+| 0–10 min  | Theory from first principles | Understand entities, identity, cache freshness, and trade-offs |
+| 10–30 min | TypeScript/React code        | Normalize positions and quotes; reject stale updates           |
+| 30–45 min | TCE architecture             | Design snapshot/event merging and cache boundaries             |
+| 45–55 min | English interview practice   | Explain correctness, invalidation, and trade-offs              |
+| 55–60 min | Review and quiz              | Check understanding                                            |
 
 ---
 
@@ -32,7 +32,7 @@ By the end of this session, you should be able to:
 
 Imagine a dashboard response contains positions, orders, and a summary:
 
-~~~ts
+```ts
 const dashboard = {
   positions: [
     { id: 'pos-1', symbol: 'DPM', quantity: 100, marketPrice: 42.5 },
@@ -43,7 +43,7 @@ const dashboard = {
     { symbol: 'GAS', marketPrice: 67.1 },
   ],
 };
-~~~
+```
 
 DPM appears in more than one place. A realtime quote arrives and changes DPM to 42.8. If the application copied DPM into five nested objects, it must remember to update all five copies. Missing one creates contradictory UI: the watchlist says 42.8 while the position card says 42.5.
 
@@ -53,7 +53,7 @@ This is a state duplication problem.
 
 A normalized representation separates entities from the lists and relationships that refer to them:
 
-~~~ts
+```ts
 type Quote = {
   symbol: string;
   price: number;
@@ -73,17 +73,17 @@ const quotes: NormalizedQuotes = {
   },
   allSymbols: ['DPM', 'SSI', 'GAS'],
 };
-~~~
+```
 
 Components store or receive an ID, then select the canonical entity from the map.
 
-~~~text
+```text
 Watchlist ───────┐
                  v
             quotesByKey
                  ^
 Position card ───┘
-~~~
+```
 
 Now one quote update changes one canonical record. Every component reading that record sees the same value after the store update.
 
@@ -102,7 +102,7 @@ Do not assume symbol alone identifies a position. An account may hold multiple l
 
 A safe key builder makes scope explicit:
 
-~~~ts
+```ts
 type QuoteKeyInput = {
   venue: string;
   symbol: string;
@@ -111,7 +111,7 @@ type QuoteKeyInput = {
 function quoteKey(input: QuoteKeyInput): string {
   return `${input.venue.trim().toUpperCase()}:${input.symbol.trim().toUpperCase()}`;
 }
-~~~
+```
 
 For production, use the exact canonical identity defined by the backend contract. Do not invent a composite key that conflicts with server identity.
 
@@ -119,12 +119,12 @@ For production, use the exact canonical identity defined by the backend contract
 
 Normalized state often has two pieces:
 
-~~~ts
+```ts
 type EntityState<T> = {
   byId: Record<string, T>;
   ids: string[];
 };
-~~~
+```
 
 - **byId** answers: “Give me entity X.”
 - **ids** answers: “Which entities are in this view, and in what order?”
@@ -150,11 +150,11 @@ These are expected average costs for JavaScript object/Map lookups, not a hard r
 
 Do not put every kind of data into one global store.
 
-| State category | Examples | Typical owner |
-| --- | --- | --- |
-| Server state | Positions, orders, balances, runtime events | Query/cache layer or domain store with explicit freshness/recovery |
-| UI state | Selected symbol, open drawer, active tab, temporary filter | React state or Zustand UI store |
-| Derived state | Unrealized P/L, filtered position IDs, totals | Selector or calculation from canonical data |
+| State category | Examples                                                   | Typical owner                                                      |
+| -------------- | ---------------------------------------------------------- | ------------------------------------------------------------------ |
+| Server state   | Positions, orders, balances, runtime events                | Query/cache layer or domain store with explicit freshness/recovery |
+| UI state       | Selected symbol, open drawer, active tab, temporary filter | React state or Zustand UI store                                    |
+| Derived state  | Unrealized P/L, filtered position IDs, totals              | Selector or calculation from canonical data                        |
 
 Derived values should usually not be stored independently if they can be calculated reliably from canonical data. Otherwise, the base value can change while a cached total remains stale.
 
@@ -171,13 +171,13 @@ A stale-while-revalidate UI may display the last snapshot while fetching a newer
 
 Useful cache metadata can include:
 
-~~~ts
+```ts
 type CacheMeta = {
   fetchedAt: number;
   status: 'fresh' | 'stale' | 'loading' | 'error';
   source: 'rest' | 'replay' | 'stream';
 };
-~~~
+```
 
 A timestamp alone does not prove ordering. Browser clocks can differ, and a response can contain data created before a newer event. Prefer server-provided version, cursor, sequence, or an explicit snapshot watermark where the contract supports it.
 
@@ -185,11 +185,11 @@ A timestamp alone does not prove ordering. Browser clocks can differ, and a resp
 
 This is the central realtime cache problem.
 
-~~~text
+```text
 t0  REST snapshot request starts
 t1  Stream delivers DPM quote version 12
 t2  REST response arrives containing older DPM quote version 11
-~~~
+```
 
 If the client blindly replaces its state with the REST response, version 11 overwrites version 12. The UI moves backward.
 
@@ -210,7 +210,7 @@ The examples below are teaching exercises. Adapt them to the real TCE contract a
 
 ### Step 1 — Define a canonical quote and normalized state
 
-~~~ts
+```ts
 type Quote = Readonly<{
   key: string;
   venue: string;
@@ -238,7 +238,7 @@ function normalizeQuotes(items: readonly Quote[]): QuoteState {
 
   return { byKey, ids };
 }
-~~~
+```
 
 Walkthrough:
 
@@ -253,17 +253,14 @@ The function assumes each input quote has already passed runtime validation and 
 
 ### Step 2 — Merge a quote without moving state backward
 
-~~~ts
+```ts
 type MergeResult =
   | { kind: 'inserted'; state: QuoteState }
   | { kind: 'updated'; state: QuoteState }
   | { kind: 'ignored-stale'; state: QuoteState }
   | { kind: 'needs-resync'; state: QuoteState };
 
-function mergeQuote(
-  state: QuoteState,
-  incoming: Quote
-): MergeResult {
+function mergeQuote(state: QuoteState, incoming: Quote): MergeResult {
   const current = state.byKey[incoming.key];
 
   if (!current) {
@@ -276,10 +273,7 @@ function mergeQuote(
     };
   }
 
-  if (
-    current.sequence !== undefined &&
-    incoming.sequence !== undefined
-  ) {
+  if (current.sequence !== undefined && incoming.sequence !== undefined) {
     if (incoming.sequence < current.sequence) {
       return { kind: 'ignored-stale', state };
     }
@@ -303,7 +297,7 @@ function mergeQuote(
     },
   };
 }
-~~~
+```
 
 Important trade-offs:
 
@@ -317,15 +311,15 @@ Important trade-offs:
 
 An event ID identifies a message. An entity key identifies the object being updated. They solve different problems.
 
-~~~ts
+```ts
 type QuoteUpdatedEvent = {
-  eventId: string;      // dedupe the event
+  eventId: string; // dedupe the event
   eventType: 'market.quote.updated';
   aggregateId?: string; // event contract identity, if supplied
-  sequence?: number;    // order only within its guaranteed scope
+  sequence?: number; // order only within its guaranteed scope
   data: Quote;
 };
-~~~
+```
 
 If the same event is delivered twice, dedupe by eventId. If a newer event updates the same quote, merge by the quote's canonical key and version policy. Never use eventId as the quote's entity key.
 
@@ -333,7 +327,7 @@ If the same event is delivered twice, dedupe by eventId. If a newer event update
 
 A broad selector can rerender every quote row when any quote changes. Prefer selecting the one entity needed by a row.
 
-~~~tsx
+```tsx
 'use client';
 
 import { useDashboardStore } from '@/lib/store';
@@ -343,9 +337,7 @@ type QuoteRowProps = {
 };
 
 export function QuoteRow({ quoteKey }: QuoteRowProps) {
-  const quote = useDashboardStore(
-    state => state.marketPrices[quoteKey]
-  );
+  const quote = useDashboardStore(state => state.marketPrices[quoteKey]);
 
   if (!quote) return <div>Waiting for quote…</div>;
 
@@ -356,7 +348,7 @@ export function QuoteRow({ quoteKey }: QuoteRowProps) {
     </div>
   );
 }
-~~~
+```
 
 This snippet illustrates the selector principle. Verify the actual store key and exported hook in the target TCE module before copying it verbatim; current TCE code may key market prices by symbol rather than venue + symbol.
 
@@ -366,7 +358,7 @@ Why it helps: a component subscribes to the smallest state slice it needs. Wheth
 
 A request generation is useful when requests are superseded:
 
-~~~ts
+```ts
 let snapshotRequestVersion = 0;
 
 async function refreshSnapshot() {
@@ -379,7 +371,7 @@ async function refreshSnapshot() {
 
   applySnapshot(snapshot);
 }
-~~~
+```
 
 This protects against overlapping requests, but it does not by itself solve the snapshot/event race. A response can be the latest request and still contain an older domain version than a stream event.
 
@@ -415,7 +407,7 @@ These are useful foundations, but they do not mean every response in the applica
 
 ### 3.2 Recommended data flow
 
-~~~text
+```text
 REST snapshot ─────────────┐
                            v
 Runtime events ──> Validate contract
@@ -438,7 +430,7 @@ Runtime events ──> Validate contract
                            |
                            v
                    React dashboard UI
-~~~
+```
 
 Responsibilities:
 
@@ -468,14 +460,14 @@ If the backend does not currently return a suitable snapshot watermark, do not p
 
 ### 3.4 Invalidation policy by resource
 
-| Resource | Typical policy | Reason |
-| --- | --- | --- |
-| Market quote | Stream update plus periodic resync/freshness check | High update frequency; latest value matters for display |
-| Positions | Snapshot plus validated account/execution events and reconciliation | Incorrect position state is financially significant |
-| Orders/executions | Stable IDs, idempotent updates, replay/reconciliation | Duplicate or missing transitions are dangerous |
-| Engine configuration | Refetch/invalidate after a successful config mutation | Low frequency, explicit user changes |
-| Historical price series | Cache by symbol + interval + date range; invalidate on known correction | Repeated queries are expensive; ranges differ |
-| UI tab/filter/drawer | Local UI state; usually no network cache | Not server-owned data |
+| Resource                | Typical policy                                                          | Reason                                                  |
+| ----------------------- | ----------------------------------------------------------------------- | ------------------------------------------------------- |
+| Market quote            | Stream update plus periodic resync/freshness check                      | High update frequency; latest value matters for display |
+| Positions               | Snapshot plus validated account/execution events and reconciliation     | Incorrect position state is financially significant     |
+| Orders/executions       | Stable IDs, idempotent updates, replay/reconciliation                   | Duplicate or missing transitions are dangerous          |
+| Engine configuration    | Refetch/invalidate after a successful config mutation                   | Low frequency, explicit user changes                    |
+| Historical price series | Cache by symbol + interval + date range; invalidate on known correction | Repeated queries are expensive; ranges differ           |
+| UI tab/filter/drawer    | Local UI state; usually no network cache                                | Not server-owned data                                   |
 
 These are design recommendations, not assertions that every resource currently implements this exact policy.
 
