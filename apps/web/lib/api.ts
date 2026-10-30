@@ -207,11 +207,15 @@ export const platformApi = {
   }) => api.post('/platform/credentials/ssi/order', body),
   fastApiConfig: () => api.get('/platform/config/fastapi'),
   saveFastApi: (body: Record<string, string>) => api.post('/platform/config/fastapi', body),
-  binanceXauConfig: () => api.get('/tce/engine/binance/config'),
+  binanceXauConfig: (signal?: AbortSignal) =>
+    api.get('/tce/engine/binance/config', { signal }),
   saveBinanceXauConfig: (body: Record<string, unknown>) =>
     api.patch('/tce/engine/binance/config', body),
-  binanceXauPositions: (environment = 'production') =>
-    api.get('/tce/engine/binance/positions', { headers: { 'x-environment': environment } }),
+  binanceXauPositions: (environment = 'production', signal?: AbortSignal) =>
+    api.get('/tce/engine/binance/positions', {
+      headers: { 'x-environment': environment },
+      signal,
+    }),
   binanceXauOrders: (environment = 'production') =>
     api.get('/tce/engine/binance/orders', { headers: { 'x-environment': environment } }),
 };
