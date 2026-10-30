@@ -126,6 +126,7 @@ sequenceDiagram
 2. **Database provenance is not verified by reading the service query.** The query code demonstrates the intended table and account filter, but does not prove current production schema, RLS policy, migration provenance or operational availability. Use `CURR-DATA-04` and the existing Supabase migration-provenance work before persistence changes.
 3. **Verify the actual auth transport across the HTTP and WebSocket boundaries.** `apps/web/lib/session-token.ts` keeps the short-lived access token in memory; `apps/web/lib/api.ts` attaches a Bearer header and also enables credentials, while refresh credentials are HttpOnly. This does not prove the browser WebSocket upgrade carries a credential accepted by the server. Verify cookie host/path/SameSite and the real upgrade handshake under `CURR-AUTH-07`; do not change auth behavior in this architecture-mapping task.
 4. **Day 13 has no verified performance baseline.** The current backlog explicitly requires component/selector mapping and a reproducible profile before a runtime optimization.
+5. **Quote validation is display-boundary validation only.** `market-price-validation.ts` protects the dashboard store from malformed or unrequested quote rows; it is not an order/risk/execution gate and does not replace backend validation or server-authoritative reconciliation.
 
 ## 5. Task ordering after CURR-ARCH-01
 
