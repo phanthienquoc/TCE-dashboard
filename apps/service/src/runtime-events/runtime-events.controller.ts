@@ -9,7 +9,7 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { isTceRuntimeEventType } from '@tce/contracts';
-import { catchError, exhaustMap, from, interval, map, of, startWith } from 'rxjs';
+import { catchError, exhaustMap, from, interval, map, of, startWith, switchMap, throwError } from 'rxjs';
 import { JwtService } from '../auth/jwt.service';
 import { RuntimeEventsQueryService } from './runtime-events.query.service';
 
@@ -93,7 +93,8 @@ export class RuntimeEventsController {
     @Headers('authorization') authorization?: string,
     @Query('after') after?: string,
     @Query('eventType') eventType?: string,
-    @Query('afterEventId') afterEventId?: string
+    @Query('afterEventId') afterEventId?: string,
+    @Headers('last-event-id') lastEventId?: string
   ) {
     const accountId = this.accountId(authorization);
     if (eventType && !isTceRuntimeEventType(eventType)) {
@@ -115,57 +116,95 @@ export class RuntimeEventsController {
       });
     }
 
-    let cursor = after;
-    let cursorEventId = afterEventId;
-    const sent = new Set<string>();
-    return interval(2000).pipe(
-      startWith(0),
-      exhaustMap(() =>
-        from(
-          this.events.listForAccount(accountId, {
-            ...(cursor ? { after: cursor } : {}),
-            ...(cursorEventId ? { afterEventId: cursorEventId } : {}),
-            limit: 200,
-            ...(eventType ? { eventType } : {}),
-          })
-        ).pipe(
-          map(events => {
-            const fresh = events.filter(event => !sent.has(event.eventId));
-            for (const event of events) {
-              sent.add(event.eventId);
-              cursor = event.occurredAt;
-              cursorEventId = event.eventId;
-            }
-            while (sent.size > 1000) {
-              sent.delete(sent.values().next().value as string);
-            }
-            return fresh.map(
-              event =>
-                ({
-                  id: event.eventId,
-                  type: event.eventType,
-                  data: event,
-                }) satisfies MessageEvent
-            );
-          }),
-          catchError(() =>
-            of([
-              {
-                type: 'transport.error',
-                data: {
-                  type: 'transport.error',
-                  error: {
-                    code: 'RUNTIME_EVENT_STORE_UNAVAILABLE',
-                    message: 'Runtime event store is temporarily unavailable',
-                    retryable: true,
-                  },
-                },
-              } satisfies MessageEvent,
-            ])
+    if (lastEventId && !/^[A-Za-z0-9._:-]{1,256}$/.test(lastEventId)) {
+      throw new BadRequestException({
+        ok: false,
+        error: { code: 'INVALID_CURSOR', message: 'Last-Event-ID is invalid' },
+      });
+    }
+
+    // Last-Event-ID takes precedence on reconnect. Resolve its timestamp under
+    // the authenticated account so events sharing that timestamp are not lost.
+    const initialCursor$ = lastEventId
+      ? from(this.events.findCursorForAccountEvent(accountId, lastEventId)).pipe(
+          switchMap(cursor =>
+            cursor
+              ? of({ after: cursor.occurredAt, afterEventId: cursor.eventId })
+              : throwError(
+                  () =>
+                    new BadRequestException({
+                      ok: false,
+                      error: {
+                        code: 'INVALID_CURSOR',
+                        message: 'Last-Event-ID was not found for the authenticated account',
+                      },
+                    })
+                )
           )
         )
-      ),
-      exhaustMap(messages => from(messages))
+      : of({
+          after: after ?? new Date(Date.now() - 2000).toISOString(),
+          afterEventId,
+        });
+
+    return initialCursor$.pipe(
+      switchMap(initialCursor => {
+        let cursor = initialCursor.after;
+        let cursorEventId = initialCursor.afterEventId;
+        const sent = new Set<string>();
+
+        return interval(2000).pipe(
+          startWith(0),
+          exhaustMap(() =>
+            from(
+              this.events.listForAccount(accountId, {
+                ...(cursor ? { after: cursor } : {}),
+                ...(cursorEventId ? { afterEventId: cursorEventId } : {}),
+                limit: 200,
+                ...(eventType ? { eventType } : {}),
+              })
+            ).pipe(
+              map(events => {
+                const fresh = events.filter(event => !sent.has(event.eventId));
+                for (const event of events) {
+                  sent.add(event.eventId);
+                  cursor = event.occurredAt;
+                  cursorEventId = event.eventId;
+                }
+                while (sent.size > 1000) {
+                  sent.delete(sent.values().next().value as string);
+                }
+                return fresh.map(
+                  event =>
+                    ({
+                      // Keep the canonical event ID as the SSE ID; on reconnect
+                      // the server resolves it to the composite timestamp+ID cursor.
+                      id: event.eventId,
+                      type: event.eventType,
+                      data: event,
+                    }) satisfies MessageEvent
+                );
+              }),
+              catchError(() =>
+                of([
+                  {
+                    type: 'transport.error',
+                    data: {
+                      type: 'transport.error',
+                      error: {
+                        code: 'RUNTIME_EVENT_STORE_UNAVAILABLE',
+                        message: 'Runtime event store is temporarily unavailable',
+                        retryable: true,
+                      },
+                    },
+                  } satisfies MessageEvent,
+                ])
+              )
+            )
+          ),
+          exhaustMap(messages => from(messages))
+        );
+      })
     );
   }
 }
