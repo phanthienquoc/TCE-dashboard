@@ -715,3 +715,5 @@ sequenceDiagram
 ```
 
 **Explicit limitation:** aborting the browser request prevents obsolete client state commits; it does not prove that the service or Binance has stopped processing an already received read request.
+
+**Implementation evidence (PR #965, pending CI/review):** the branch adds optional signals to the existing config/position GET methods in `apps/web/lib/api.ts`, centralizes position selection in `apps/web/lib/binance-xau-position-data.ts`, and scopes the panel's config/bot reads to authenticated account lifecycle and its position poll to account/environment lifecycle in `apps/web/app/engines/BinanceXauTradingPanel.tsx`. Regression coverage is proposed in `apps/web/lib/binance-xau-position-data.spec.ts` and `apps/web/lib/dashboard-cancellation.spec.ts`. These changes are not yet merged or production-verified.
