@@ -6,6 +6,6 @@ Environment:
 
 - `STOCK_EVENTS_API_URL` (default: `http://stock-backend:8080/api/stocks`)
 
-API: `GET /stock-events?limit=100` with the normal dashboard bearer token.
+API: `GET /stock-events?limit=100` with the normal dashboard bearer token. The default is 100 and the service caps requests at 200 events.
 
 A ticker can legitimately have multiple dividend events in the same year (including 2–3 payments). The UI therefore does **not** deduplicate by ticker. It only collapses an exact duplicate of ticker + ex-date + event content.
