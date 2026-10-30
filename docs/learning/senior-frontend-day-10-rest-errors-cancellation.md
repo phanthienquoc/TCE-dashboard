@@ -369,6 +369,31 @@ Apply only if this price-sync request is still current
 
 ---
 
+### Implementation evidence — market-price payload validation
+
+- `apps/web/lib/market-price-validation.ts` validates the untrusted response before it enters the Zustand store.
+- Only finite positive numeric prices for symbols requested by the current sync are accepted. Malformed rows, non-positive/non-finite prices, invalid optional field types, and unrequested symbols are rejected.
+- `apps/web/lib/store.ts` applies only accepted rows and logs aggregate counts for rejected rows; it does not log the raw payload or credential-bearing request config.
+- Unit and store-level regression coverage lives in `apps/web/lib/market-price-validation.spec.ts` and `apps/web/lib/dashboard-cancellation.spec.ts`.
+- This validates the client boundary; the backend SSI adapter also filters non-positive market prices. It does not replace server-side validation or prove production behavior before deployment.
+
+```mermaid
+sequenceDiagram
+  participant Store as Dashboard Zustand store
+  participant API as Central Axios client
+  participant Validator as Market-price validator
+  Store->>API: Request prices for current symbols with AbortSignal
+  API-->>Store: Untrusted response payload
+  Store->>Validator: Payload + allowed symbol set
+  Validator-->>Store: Accepted prices + rejected row counts
+  alt At least one valid quote
+    Store->>Store: Merge only accepted quotes
+  else No valid quotes
+    Store->>Store: Preserve existing market-price state
+  end
+  Note over Store,Validator: Diagnostics contain counts only; raw payload values are not logged.
+```
+
 ## 4. English interview practice (10 minutes)
 
 ### Question 1: How do you prevent race conditions in frontend data fetching?
