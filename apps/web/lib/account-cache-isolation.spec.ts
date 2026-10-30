@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { AxiosHeaders, type AxiosResponse, type InternalAxiosRequestConfig } from 'axios';
 
-import { api, authApi } from './api';
+import { authApi } from './api';
 import { useAppDataWorkerStore } from './app-data-worker';
 import { useStockEventStore } from './stock-event-store';
 import { useStockSyncStore, type StockSyncRun } from './stock-sync-store';
