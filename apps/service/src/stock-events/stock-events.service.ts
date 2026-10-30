@@ -4,6 +4,7 @@ import { MongoDbClient } from '../db/mongodb.client';
 import { StockEventsSupabaseRepository, StockEvent } from './stock-events.supabase.repository';
 
 const DEFAULT_LIMIT = 100;
+const MAX_LIMIT = 200;
 const DEFAULT_COLLECTION = 'events';
 type ReadSource = 'mongo' | 'supabase' | 'shadow';
 
@@ -32,7 +33,7 @@ export class StockEventsService {
   ) {}
 
   async getUpcoming(limit = DEFAULT_LIMIT) {
-    const safeLimit = Math.min(Math.max(Number(limit) || DEFAULT_LIMIT, 1), 200);
+    const safeLimit = Math.min(Math.max(Number(limit) || DEFAULT_LIMIT, 1), MAX_LIMIT);
     const source = readSource();
     try {
       if (source === 'supabase') return this.supabaseEvents.getUpcoming(safeLimit);
