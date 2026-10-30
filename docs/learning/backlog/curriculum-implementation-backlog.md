@@ -17,14 +17,14 @@ Use the shared contract in [Implementation Readiness Gate](../IMPLEMENTATION_REA
 
 - **Priority:** P0
 - **Status:** VERIFIED — source mapping completed for the five Day 9–13 lesson files present in `docs/learning/`
-- **Last source recheck:** 2026-10-30 after Day 10 pool-read lifecycle PR #953 merged at `2434a27510044e08ae1b0ba6ce5501bbc163b5cf`.
-- **Evidence:** [TCE Dashboard learning-to-source architecture map](../architecture-map.md), refreshed against master `2434a27510044e08ae1b0ba6ce5501bbc163b5cf`; Day 10 quote validation is in `apps/web/lib/market-price-validation.ts`, and pool-read cancellation/stale-response protection is in `apps/web/lib/stock-dividend-pool-store.ts` plus `apps/web/lib/app-data-worker.ts`.
+- **Last source recheck:** 2026-10-30 against master `d79404ec62250ddf2762620f6819318daf029412` after PR #955 merged.
+- **Evidence:** [TCE Dashboard learning-to-source architecture map](../architecture-map.md), refreshed against current master; Day 10 quote validation is in `apps/web/lib/market-price-validation.ts`, pool-read cancellation is in `apps/web/lib/stock-dividend-pool-store.ts`, and stock-event cancellation is in `apps/web/lib/stock-event-store.ts` plus `apps/web/lib/app-data-worker.ts`.
 - **Boundary:** This verifies source-path/ownership mapping only. It does not mark Day 10–13 runtime requirements complete, and explicitly leaves WebSocket auth (`CURR-AUTH-07`), live schema/RLS/migration provenance (`CURR-DATA-04`), infra deployment details, and Day 13 profiling as unresolved.
 - **Affected lessons:** Day 9–13 currently present in `docs/learning/`; link other curriculum days when their files are added/found.
 - **Verified result:** The architecture map traces each existing Day 9–13 lesson to actual routes/components, API/store owners, service/event boundaries, and explicit N/A or unresolved layers. Missing Day 1–8 files remain tracked separately under `CURR-CATALOG-06`.
 - **Maintenance:** Update the map when a source owner, route, API contract, event cursor, or readiness decision changes; re-verify every referenced path against the current base branch.
 - **Acceptance:** MET for the five existing Day 9–13 files only: each lesson has source-backed entry points and affected layers, irrelevant layers are marked N/A with a reason, and unresolved contracts are explicit. Day 1–8 are not claimed reviewed.
-- **Verification:** Referenced paths/symbols, the Day 9 architecture-map link, the Day 10 validator, and the pool-read lifecycle paths were checked against current master. PR #953 exact-head frontend build, Prettier, and root unit-suite checks passed; separate post-merge status records were not surfaced.
+- **Verification:** Referenced paths/symbols, the Day 9 architecture-map link, Day 10 validator, pool-read lifecycle and stock-event lifecycle were checked against master `d79404e`. PR #955 exact-head frontend build, Prettier and backend/root unit-suite checks passed; master backend tests, image/config verification and auto-format checks also passed. Duplicate post-merge runs were cancelled/skipped.
 
 ### CURR-INFRA-02 — Verify infrastructure prerequisites for service-level exercises
 
@@ -42,7 +42,7 @@ Use the shared contract in [Implementation Readiness Gate](../IMPLEMENTATION_REA
 - **Status:** NEEDS AUDIT
 - **Affected lessons:** Day 10 REST cancellation; Day 11 realtime/recovery; Day 12 snapshot/event merge; Day 13 performance diagnosis.
 - **Gap to verify:** Confirm actual endpoint and event producers/consumers, auth scope, versioning, timeout/retry behavior, cancellation semantics, event identity/order/cursor, and recovery source before modifying clients.
-- **Verified slice (2026-10-30; not full acceptance):** PR #953 merged at `2434a275` implements client-side dividend-pool read cancellation, request-generation stale-response guards, normalized safe errors, and app-data-worker signal forwarding. Exact-head WF-01P run 41012494912, WF-02 run 41012494814, and WF-05 run 41012494856 passed on `39abde7`; tests are in `apps/web/lib/stock-dividend-pool-store.spec.ts` and `apps/web/lib/app-data-worker.spec.ts`. This does not complete `CURR-SVC-03`; the broader API/event contract audit remains open.
+- **Verified slices (2026-10-30; not full acceptance):** PR #953 merged dividend-pool cancellation, generation guards, safe errors and worker signal forwarding. PR #955 merged stock-event cancellation, stale-response protection, safe errors and worker signal forwarding at `d79404e`. PR #955 exact-head frontend build run 41013983958, Prettier run 41013984089 and backend/root tests run 41013983940 passed; master checks 41014092643, 41014092714 and 41014092678 also passed. Tests are in `stock-dividend-pool-store.spec.ts`, `stock-event-store.spec.ts` and `app-data-worker.spec.ts`. `CURR-SVC-03` remains open because every API/event caller and end-to-end contract has not been audited.
 - **Work:** Trace existing service handlers and frontend consumers; write down contract gaps only where source evidence demonstrates them.
 - **Acceptance:** No lesson claims end-to-end behavior based only on a client hook, mock, type, or unit test. Required service changes have an identified owner and integration test path.
 - **Unblock condition:** Relevant producer and consumer contracts are located and the intended behavior is agreed/documented.
@@ -103,5 +103,5 @@ sequenceDiagram
 
 ## Day-specific follow-up
 
-- **Day 13 performance:** Continue using [Day 13 performance implementation backlog](day13-performance-profiling-implementation-backlog.md). Establish actual consumer paths and a repeatable baseline before choosing optimizations.
+- **Day 13 performance:** `PERF-13-01` actual consumer/source map is complete via PR #952 and recorded in [Day 13 performance implementation backlog](day13-performance-profiling-implementation-backlog.md). The next gates are a reproducible `PERF-13-02` baseline and `PERF-13-03` measurable correctness/performance acceptance before any optimization.
 - **Day 9–12:** Add specific items only when source inspection demonstrates a concrete missing contract, service capability, infrastructure requirement, or test harness. Avoid speculative migrations and duplicate backlog entries.
