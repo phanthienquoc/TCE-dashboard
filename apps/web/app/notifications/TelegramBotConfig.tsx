@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   Bot,
   Eye,
@@ -14,6 +14,7 @@ import {
   Wrench,
 } from 'lucide-react';
 import { platformApi } from '../../lib/api';
+import { loadTelegramNotificationData } from '../../lib/telegram-notification-data';
 import { useTCEDataStore } from '../../lib/tce-data-store';
 import { Button } from '../../components/ui/button';
 import {
@@ -56,32 +57,47 @@ export default function TelegramBotConfig() {
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
   const [ok, setOk] = useState(false);
+  const loadController = useRef<AbortController | null>(null);
 
   useEffect(() => {
+    const cleanup = () => {
+      loadController.current?.abort();
+    };
+
     if (cachedBots !== null || cachedAssignments !== null) {
+      loadController.current?.abort();
+      loadController.current = null;
       const nextBots = Array.isArray(cachedBots) ? cachedBots : [];
       const nextAssignments = Array.isArray(cachedAssignments) ? cachedAssignments : [];
       setBots(nextBots as BotRow[]);
       setAssignments(nextAssignments as Assignment[]);
       setBotId(current => current || nextBots[0]?.id || '');
-      return;
+      return cleanup;
     }
+
     void load();
+    return cleanup;
   }, [cachedBots, cachedAssignments]);
 
   async function load() {
+    loadController.current?.abort();
+    const controller = new AbortController();
+    loadController.current = controller;
+
     try {
-      const [b, a] = await Promise.all([
-        platformApi.telegramBots(),
-        platformApi.telegramDebugAssignments(),
-      ]);
-      const botRows = b.data?.bots ?? b.data ?? [];
-      setBots(Array.isArray(botRows) ? botRows : []);
-      setAssignments(Array.isArray(a.data) ? a.data : (a.data?.assignments ?? []));
-      setBotId(current => current || botRows?.[0]?.id || '');
+      const { bots: botRows, assignments: assignmentRows } = await loadTelegramNotificationData(
+        controller.signal
+      );
+      if (controller.signal.aborted || loadController.current !== controller) return;
+      setBots(botRows);
+      setAssignments(assignmentRows);
+      setBotId(current => current || botRows[0]?.id || '');
     } catch {
+      if (controller.signal.aborted || loadController.current !== controller) return;
       setBots([]);
       setAssignments([]);
+    } finally {
+      if (loadController.current === controller) loadController.current = null;
     }
   }
 

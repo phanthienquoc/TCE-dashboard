@@ -1,6 +1,6 @@
 # Senior Frontend Day 10 — REST APIs, Error Handling & Cancellation
 
-> Duration: 60 minutes. This lesson is aligned with the real TCE Dashboard repository and the implementation in `apps/web/lib/api.ts`, `apps/web/lib/api-errors.ts`, `apps/web/lib/store.ts`, `apps/web/lib/stock-dividend-pool-store.ts`, `apps/web/lib/stock-event-store.ts`, and `apps/web/lib/app-data-worker.ts`.
+> Duration: 60 minutes. This lesson is aligned with the real TCE Dashboard repository and the implementation in `apps/web/lib/api.ts`, `apps/web/lib/api-errors.ts`, `apps/web/lib/store.ts`, `apps/web/lib/stock-dividend-pool-store.ts`, `apps/web/lib/stock-event-store.ts`, `apps/web/lib/app-data-worker.ts`, and `apps/web/lib/telegram-notification-data.ts` plus its notifications-page consumers.
 
 ## Implementation readiness — cross-layer assessment
 
@@ -14,6 +14,50 @@ Before treating this lesson as complete, apply the shared [Learning Implementati
 - **Integration:** verify auth/refresh behavior, overlapping request ordering, stale-response protection, loading state, and safe user-facing errors against real source—not only a mock.
 
 Record a **READY / PARTIALLY READY / BLOCKED** decision. Implement real runtime behavior only where ownership and contracts are established; otherwise link a concrete item in [the cross-layer curriculum backlog](backlog/curriculum-implementation-backlog.md). Assess system design, infrastructure, service/backend, database, frontend and integration impacts; mark irrelevant layers N/A with a reason. Do not claim deployment or production verification without evidence.
+
+## System Readiness Check — Telegram notification read lifecycle (2026-10-30)
+
+**Task:** `DAY10-TELEGRAM-READ-01` — cancel obsolete Telegram bot/assignment reads and prevent stale notification UI state after route unmount or account switch.
+
+| Area                              | Status | Evidence                                                                                                                                                                                                                                                                                       |
+| --------------------------------- | ------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Scope and acceptance              | PASS   | Bounded to authenticated read-only Telegram bot and debug-assignment GETs used by notifications list/detail/config screens. The existing `platformApi` methods already accept optional signals; the implementation reuses them and does not change endpoint, auth, write, or schema contracts. |
+| Default/base/current commit       | PASS   | Branch `fix/day10-telegram-read-lifecycle-20261030` was created from current `master` SHA `e093b8521730eaef3b6d1b2e7ce5b6e6b0c095ee` after PR #956 merged.                                                                                                                                     |
+| Open PR/branch overlap            | PASS   | At task start, only PR #928 was open and it changes `plan/agentic-task-queue.md`; no overlapping file changes were found.                                                                                                                                                                      |
+| Source/dependencies               | PASS   | Inspected `platformApi.telegramBots(signal?)`, `telegramDebugAssignments(signal?)`, `useTCEDataStore`, and the three notifications consumers. Route cleanup and account ID changes define the client cancellation boundary.                                                                    |
+| Working-tree/change safety        | WARN   | No local working-tree snapshot is available through the connector; the full branch diff must be reviewed before merge.                                                                                                                                                                         |
+| Build/test/CI baseline            | WARN   | The source baseline is unchanged by documentation-only PR #956; relevant earlier frontend build and root tests passed on PR #955. No local commands can be run through this connector; the new branch's frontend build, Prettier and root unit tests are pending CI.                           |
+| Service/infrastructure/deployment | N/A    | Client-side read lifecycle only; no service, manifest, workflow, deployment, or market-scan schedule changes.                                                                                                                                                                                  |
+| Secrets/permissions               | PASS   | Repository write permission is available; no secret is required or accessed.                                                                                                                                                                                                                   |
+| Database/schema/migrations        | N/A    | No persistence or schema change. Live schema/RLS state is not needed for this client-only slice and remains unverified.                                                                                                                                                                        |
+| Production risk/rollback          | PASS   | Read-only requests only; no trading/execution behavior. Rollback is reverting the PR; no production deployment is planned or claimed.                                                                                                                                                          |
+
+### Read lifecycle
+
+```mermaid
+sequenceDiagram
+  participant UI as Notifications route/component
+  participant Scope as AbortController + active guard
+  participant Loader as Telegram read helper
+  participant API as Existing authenticated GET endpoints
+
+  UI->>Scope: Start read for current user/route
+  UI->>Loader: Load bots and/or assignments(signal)
+  Loader->>API: GET with the same AbortSignal
+  alt Route unmounts, route ID changes, or account ID changes
+    UI->>Scope: Abort and mark inactive
+    Scope-->>Loader: Signal aborted
+    API-->>Loader: Cancellation/rejection
+    Loader-->>UI: No state commit
+  else Request completes while current
+    API-->>Loader: Bot/assignment payloads
+    Loader-->>UI: Normalized arrays
+    UI->>Scope: Verify active signal/controller
+    Scope-->>UI: Commit data and loading state
+  end
+```
+
+**Readiness decision:** READY for this bounded client-side implementation. PR #957 exact head `9baa4327d21089a6b2a02e7707f2a367caba706e` passed WF-01P run `41024441808`, WF-02 run `41024441810`, and WF-05 run `41024441832`. The slice is CI-verified; merge and post-merge verification remain separate.
 
 ## System Readiness Check — dividend-pool read lifecycle (2026-10-30)
 

@@ -7,7 +7,7 @@ import DashboardLayout from '../../../components/dashboard/DashboardLayout';
 import { DetailSkeleton } from '../../../components/ui/page-skeleton';
 import { Button } from '../../../components/ui/button';
 import { useAuthStore } from '../../../lib/store';
-import { platformApi } from '../../../lib/api';
+import { loadTelegramBots } from '../../../lib/telegram-notification-data';
 
 const TelegramBotConfig = dynamic(() => import('../TelegramBotConfig'), {
   loading: () => <DetailSkeleton />,
@@ -30,19 +30,35 @@ export default function NotificationDetailPage() {
   }, [init]);
 
   useEffect(() => {
-    if (!initialized || !user || !params?.id) return;
-    void (async () => {
-      try {
-        const response = await platformApi.telegramBots();
-        const rows = response.data?.bots ?? response.data ?? [];
-        setBot(
-          Array.isArray(rows) ? (rows.find((item: BotRow) => item.id === params.id) ?? null) : null
-        );
-      } finally {
-        setLoading(false);
-      }
-    })();
-  }, [initialized, user, params?.id]);
+    if (authLoading || !initialized || !user?.id || !params?.id) {
+      setBot(null);
+      setLoading(authLoading || !initialized);
+      return;
+    }
+
+    const controller = new AbortController();
+    let active = true;
+    setBot(null);
+    setLoading(true);
+
+    void loadTelegramBots(controller.signal)
+      .then(rows => {
+        if (!active || controller.signal.aborted) return;
+        setBot(rows.find((item: BotRow) => item.id === params.id) ?? null);
+      })
+      .catch(() => {
+        if (!active || controller.signal.aborted) return;
+        setBot(null);
+      })
+      .finally(() => {
+        if (active && !controller.signal.aborted) setLoading(false);
+      });
+
+    return () => {
+      active = false;
+      controller.abort();
+    };
+  }, [authLoading, initialized, user?.id, params?.id]);
 
   if (authLoading || !initialized) return <DetailSkeleton />;
   if (!user) return null;
