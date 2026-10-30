@@ -138,7 +138,7 @@ export const dashboardApi = {
   strategy: () => api.get('/dashboard/strategy'),
   sources: () => api.get('/dashboard/sources'),
   engines: (signal?: AbortSignal) => api.get('/dashboard/engines', { signal }),
-  engineRuntime: () => api.get('/dashboard/engine-runtime'),
+  engineRuntime: (signal?: AbortSignal) => api.get('/dashboard/engine-runtime', { signal }),
   setEngineStatus: (engineId: string, status: 'ACTIVE' | 'INACTIVE') =>
     api.patch(`/dashboard/engines/${engineId}/status`, { status }),
   engineConfig: (signal?: AbortSignal) => api.get('/dashboard/engine-config', { signal }),

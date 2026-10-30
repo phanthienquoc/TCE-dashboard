@@ -1,8 +1,10 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { dashboardApi } from '../../../lib/api';
+import { isApiRequestCancelled, normalizeApiError } from '../../../lib/api-errors';
+import { loadEngineRuntime } from '../../../lib/engine-runtime-data';
 import { EngineRuntimeSkeleton } from '../../../components/ui/page-skeleton';
 import { ENGINE_REGISTRY, getEngine, type EngineId } from '../../engines/engine-registry';
 import { EngineWorkflow, type WorkflowEngine } from '../../engines/EngineWorkflow';
@@ -16,22 +18,24 @@ const DEPENDENCIES: Record<string, string[]> = {
   'binance-derivatives': ['binance-market'],
   'binance-xau': ['binance-derivatives'],
 };
-type RuntimeRow = {
-  engineId: string;
-  configuredEnabled: boolean;
-  status: 'ACTIVE' | 'PAUSED' | 'ERROR';
-  dependencies: string[];
-};
 
 export default function EngineWorkflowScreen() {
   const [runtime, setRuntime] = useState<WorkflowEngine[]>([]);
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const mounted = useRef(false);
+  const loadController = useRef<AbortController | null>(null);
   async function load() {
+    if (!mounted.current) return;
+    loadController.current?.abort();
+    const controller = new AbortController();
+    loadController.current = controller;
     setLoading(true);
+    setError(null);
     try {
-      const { data } = await dashboardApi.engineRuntime();
-      const rows = (data as { engines?: RuntimeRow[] })?.engines ?? [];
+      const rows = await loadEngineRuntime(controller.signal);
+      if (!mounted.current || controller.signal.aborted) return;
       setRuntime(
         ENGINE_REGISTRY.map(definition => {
           const row = rows.find(item => item.engineId === definition.id);
@@ -66,8 +70,14 @@ export default function EngineWorkflowScreen() {
           } satisfies WorkflowEngine;
         })
       );
+    } catch (requestError) {
+      if (!mounted.current || controller.signal.aborted || isApiRequestCancelled(requestError)) {
+        return;
+      }
+      setError(normalizeApiError(requestError, 'Unable to load engine runtime').message);
     } finally {
-      setLoading(false);
+      if (mounted.current && !controller.signal.aborted) setLoading(false);
+      if (loadController.current === controller) loadController.current = null;
     }
   }
   async function toggle(id: string) {
@@ -83,13 +93,19 @@ export default function EngineWorkflowScreen() {
     setUpdating(id);
     try {
       await dashboardApi.setEngineStatus(id, current.enabled ? 'INACTIVE' : 'ACTIVE');
-      await load();
+      if (mounted.current) await load();
     } finally {
-      setUpdating(null);
+      if (mounted.current) setUpdating(null);
     }
   }
   useEffect(() => {
+    mounted.current = true;
     void load();
+    return () => {
+      mounted.current = false;
+      loadController.current?.abort();
+      loadController.current = null;
+    };
   }, []);
   const runningText = useMemo(
     () =>
@@ -114,6 +130,11 @@ export default function EngineWorkflowScreen() {
           </Link>
         </div>
       </header>
+      {error ? (
+        <p role="alert" className="px-1 text-sm text-rose-300">
+          {error}
+        </p>
+      ) : null}
       {loading && !runtime.length ? (
         <EngineRuntimeSkeleton />
       ) : (
