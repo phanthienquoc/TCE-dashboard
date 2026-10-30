@@ -18,6 +18,8 @@ type TCEDataState = {
 };
 
 let inFlight: Promise<void> | null = null;
+let prefetchController: AbortController | null = null;
+let prefetchGeneration = 0;
 
 export const useTCEDataStore = create<TCEDataState>((set, get) => ({
   dashboard: null,
@@ -34,16 +36,22 @@ export const useTCEDataStore = create<TCEDataState>((set, get) => ({
     if (get().initialized) return;
     if (inFlight) return inFlight;
 
+    const controller = new AbortController();
+    const generation = ++prefetchGeneration;
+    prefetchController = controller;
     set({ loading: true, error: null });
-    inFlight = Promise.allSettled([
-      dashboardApi.all('WATCHING'),
-      dashboardApi.engines(),
-      dashboardApi.engineConfig(),
-      platformApi.credentials(),
-      platformApi.telegramBots(),
-      platformApi.telegramDebugAssignments(),
+
+    const request = Promise.allSettled([
+      dashboardApi.all('WATCHING', controller.signal),
+      dashboardApi.engines(controller.signal),
+      dashboardApi.engineConfig(controller.signal),
+      platformApi.credentials(controller.signal),
+      platformApi.telegramBots(controller.signal),
+      platformApi.telegramDebugAssignments(controller.signal),
     ])
       .then(results => {
+        if (controller.signal.aborted || generation !== prefetchGeneration) return;
+
         const [dashboard, engines, engineConfig, credentials, telegramBots, telegramAssignments] =
           results;
         set({
@@ -66,19 +74,28 @@ export const useTCEDataStore = create<TCEDataState>((set, get) => ({
         });
       })
       .catch(error => {
+        if (controller.signal.aborted || generation !== prefetchGeneration) return;
         set({
           loading: false,
           error: error instanceof Error ? error.message : 'Unable to prefetch TCE data',
         });
       })
       .finally(() => {
-        inFlight = null;
+        if (generation === prefetchGeneration) {
+          inFlight = null;
+          prefetchController = null;
+        }
       });
 
-    return inFlight;
+    inFlight = request;
+    return request;
   },
 
   clear: () => {
+    prefetchGeneration += 1;
+    prefetchController?.abort();
+    prefetchController = null;
+    inFlight = null;
     set({
       dashboard: null,
       engines: null,
