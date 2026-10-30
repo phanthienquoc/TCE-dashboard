@@ -1,4 +1,5 @@
 import { platformApi } from './api';
+import { normalizeApiError } from './api-errors';
 
 export type TelegramBotSummary = {
   id: string;
@@ -47,4 +48,18 @@ export async function loadTelegramNotificationData(
     bots: normalizeBots(botsResponse.data),
     assignments: normalizeAssignments(assignmentsResponse.data),
   };
+}
+
+
+/** A paired notification view is cache-ready only when both reads completed with arrays. */
+export function hasCompleteTelegramNotificationCache(bots: unknown, assignments: unknown): boolean {
+  return Array.isArray(bots) && Array.isArray(assignments);
+}
+
+/** Return a safe message for a failed Telegram notification read. */
+export function normalizeTelegramNotificationReadError(error: unknown): string {
+  return normalizeApiError(
+    error,
+    'Unable to load Telegram notifications. Please try again.'
+  ).message;
 }
