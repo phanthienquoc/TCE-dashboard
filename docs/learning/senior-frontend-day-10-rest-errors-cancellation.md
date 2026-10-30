@@ -778,7 +778,6 @@ Note over UI,API: Client cancellation does not prove server-side work was rolled
 
 **Safety boundary:** The endpoint, JWT authentication, account binding, engine status/configuration writes, dependency gating, database schema, trading/execution behavior and market-scan schedule are unchanged. No production deployment is claimed. Keep `CURR-SVC-03` open for the broader API/event contract audit.
 
-
 ## Dividend OHLCV chart read lifecycle (PR #981, 2026-10-30)
 
 The one-year mini candlestick chart now owns an `AbortController` in its effect and aborts the existing authenticated history read on unmount or symbol change. `useDividendOhlcvStore.load` accepts the caller signal, forwards a linked signal to `dashboardApi.priceHistory`, immediately resets loading when the caller cancels, and uses a per-symbol generation fence so late results cannot restore data after a clear/reload. Cancellation is control flow rather than a visible error; other errors pass through the shared safe API-error normalizer.
