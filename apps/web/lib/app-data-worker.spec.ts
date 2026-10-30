@@ -78,6 +78,7 @@ test('clearing the app data worker prevents old work from advancing progress or 
     assert.ok(poolRequest.signal, 'dividend-pool read must receive a cancellable signal');
     assert.ok(requests.some(request => request.signal));
     assert.ok(requests.filter(request => request.signal).every(request => request.signal?.aborted));
+    assert.equal(poolRequest.signal?.aborted, true);
 
     for (const request of requests) request.pending.resolve(response([]));
     await run;
