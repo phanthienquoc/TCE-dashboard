@@ -6,7 +6,8 @@ import { authApi, dashboardApi } from './api';
 import { isApiRequestCancelled, normalizeApiError } from './api-errors';
 import { useTCEDataStore } from './tce-data-store';
 import { useStockEventStore } from './stock-event-store';
-import { startAppDataWorker } from './app-data-worker';
+import { startAppDataWorker, useAppDataWorkerStore } from './app-data-worker';
+import { useStockSyncStore } from './stock-sync-store';
 import { normalizeMarketPricePayload, type MarketPrice } from './market-price-validation';
 
 type User = { id: string; email: string; role: string; mfaEnabled: boolean };
@@ -45,6 +46,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       set({ user: r.data.user, status: 'authenticated', initialized: true });
       prefetchAfterAuth();
     } catch {
+      clearAccountScopedStores();
       setAccessToken(null);
       set({ user: null, status: 'anonymous', initialized: true });
     } finally {
@@ -56,9 +58,11 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     setAccessToken(accessToken);
     try {
       const me = await authApi.me();
+      if (get().user && get().user?.id !== me.data.user.id) clearAccountScopedStores();
       set({ user: me.data.user, status: 'authenticated', initialized: true });
       prefetchAfterAuth();
     } catch (err: any) {
+      clearAccountScopedStores();
       setAccessToken(null);
       set({
         user: null,
@@ -76,16 +80,24 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     try {
       const r = await authApi.login(e, p);
       if (r.data.mfaRequired) {
+        clearAccountScopedStores();
         setAccessToken(null);
-        set({ status: 'anonymous' });
+        set({ user: null, status: 'anonymous' });
         return r.data;
       }
       const me = await authApi.me();
+      if (get().user && get().user?.id !== me.data.user.id) clearAccountScopedStores();
       set({ user: me.data.user, status: 'authenticated', initialized: true });
       prefetchAfterAuth();
       return r.data;
     } catch (err: any) {
-      set({ status: 'anonymous', error: err?.response?.data?.message ?? 'Login failed' });
+      clearAccountScopedStores();
+      setAccessToken(null);
+      set({
+        user: null,
+        status: 'anonymous',
+        error: err?.response?.data?.message ?? 'Login failed',
+      });
       throw err;
     } finally {
       set({ loading: false });
@@ -97,16 +109,21 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       const { signInWithPasskey } = await import('./passkey');
       const result = await signInWithPasskey();
       if (result.mfaRequired) {
+        clearAccountScopedStores();
         setAccessToken(null);
-        set({ status: 'anonymous' });
+        set({ user: null, status: 'anonymous' });
         return result;
       }
       const me = await authApi.me();
+      if (get().user && get().user?.id !== me.data.user.id) clearAccountScopedStores();
       set({ user: me.data.user, status: 'authenticated', initialized: true });
       prefetchAfterAuth();
       return result;
     } catch (err: any) {
+      clearAccountScopedStores();
+      setAccessToken(null);
       set({
+        user: null,
         status: 'anonymous',
         error: err?.response?.data?.message ?? err?.message ?? 'Passkey sign-in failed',
       });
@@ -120,10 +137,13 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     try {
       const r = await authApi.mfaLogin(id, c);
       const me = await authApi.me();
+      if (get().user && get().user?.id !== me.data.user.id) clearAccountScopedStores();
       set({ user: me.data.user, status: 'authenticated', initialized: true });
       prefetchAfterAuth();
     } catch (err) {
-      set({ status: 'anonymous' });
+      clearAccountScopedStores();
+      setAccessToken(null);
+      set({ user: null, status: 'anonymous' });
       throw err;
     } finally {
       set({ loading: false });
@@ -131,15 +151,15 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
   logout: async () => {
     const logoutUrl = keycloakLogoutUrl();
+    // Invalidate local account data immediately; the remote logout request may take time.
+    clearAccountScopedStores();
+    set({ user: null, status: 'anonymous', initialized: true });
     try {
       await authApi.logout();
     } catch {
-      // Clear local state and continue to the IdP logout even if the app session expired.
+      // Continue to the IdP logout even if the app session expired.
     } finally {
       setAccessToken(null);
-      useTCEDataStore.getState().clear();
-      useStockEventStore.getState().clear();
-      useDashboardStore.getState().clear();
       set({ user: null, status: 'anonymous', initialized: true });
     }
     if (logoutUrl && typeof window !== 'undefined') window.location.assign(logoutUrl);
@@ -326,3 +346,16 @@ export const useDashboardStore = create<DashboardState>(set => ({
     set({ data: null, marketPrices: {}, loading: false, error: null });
   },
 }));
+
+/**
+ * Clear and invalidate every account-sensitive client cache before changing identity.
+ * Public stock-event/dividend data may be fetched again; no user-scoped configuration,
+ * credentials, dashboard snapshot, or worker progress should survive the transition.
+ */
+function clearAccountScopedStores() {
+  useAppDataWorkerStore.getState().clear();
+  useTCEDataStore.getState().clear();
+  useStockEventStore.getState().clear();
+  useDashboardStore.getState().clear();
+  useStockSyncStore.getState().clear();
+}
