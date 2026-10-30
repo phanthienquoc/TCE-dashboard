@@ -2,6 +2,18 @@
 
 > Duration: 60 minutes. This lesson continues Day 12's normalized-state and cache design. It is documentation-only: it does not change runtime behavior, market-data handling, Supabase schema, trading strategy, or execution settings.
 
+
+## Implementation readiness — cross-layer assessment
+
+Before treating this lesson as complete, apply the shared [Learning Implementation Readiness Gate](IMPLEMENTATION_READINESS.md). A code snippet, test-only change, or documentation update is not proof that the product behavior exists end to end.
+
+### TCE-specific inspection scope
+- **System design:** trace the complete slow path from user action/data event through API or stream, parsing, store update, selector, component render and browser paint.
+- **Service/infrastructure:** use network timing, service latency/logs and deployment/runtime evidence to distinguish frontend render cost from API, transport, or infrastructure latency before choosing an optimization.
+- **Data correctness:** inspect source ownership, freshness/version/order and recovery guarantees before batching or coalescing updates.
+- **Implementation:** change the real bottleneck only after a reproducible baseline; profile and test the same scenario before/after. If evidence or required contracts are missing, record them in the linked backlog rather than guessing.
+
+Record a **READY / PARTIALLY READY / BLOCKED** decision. Implement real runtime behavior only where ownership and contracts are established; otherwise link a concrete item in [the cross-layer curriculum backlog](backlog/curriculum-implementation-backlog.md). Assess system design, infrastructure, service/backend, database, frontend and integration impacts; mark irrelevant layers N/A with a reason. Do not claim deployment or production verification without evidence.
 ## Implementation requirement — code first, backlog missing prerequisites
 
 This lesson is not complete merely because the learner can explain profiling or paste an illustrative snippet. When this lesson is applied to the TCE repository:
