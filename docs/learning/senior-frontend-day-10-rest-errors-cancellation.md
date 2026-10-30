@@ -609,20 +609,20 @@ A Senior Frontend Engineer does not merely call an endpoint. They define the req
 
 **Task:** `DAY10-READ-ENGINE-CONTROL-01` — cancel obsolete read-only engine status/configuration requests when the Engine Control panel effect is cleaned up or restarted. Keep existing API endpoints, auth/session behavior, engine-toggle writes, trading/execution settings, and persistence unchanged.
 
-| Area                              | Status     | Evidence                                                                                                                                                                                                                                 |
-| --------------------------------- | ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Scope and acceptance              | PASS       | Existing effect suppresses late commits but omits signals supported by both GETs. Acceptance: one effect-owned controller, shared signal, abort on cleanup/restart, no post-abort state commit; writes remain unchanged.                 |
-| Default/base/current commit       | PASS       | Repository default/base is `master`; current base is `43a52e39439274ac9b08370cf8b23495e4b7bbe5`, after merged PR #960. The task branch is `fix/day10-engine-control-read-cancellation-20261030`, created from that exact commit.         |
-| Open PR/branch overlap            | PASS       | Only open PR found is #928, limited to `plan/agentic-task-queue.md`. No existing branch matching the Engine Control read task was found. PRs #959/#960 are merged; their review-thread lists are empty.                                  |
-| Source of truth and dependencies  | PASS       | Inspected `apps/web/app/engines/EngineControlPanel.tsx`, `apps/web/lib/api.ts`, and `apps/web/lib/dashboard-cancellation.spec.ts`. The two GET methods already accept `AbortSignal`; no backend/API change is needed.                    |
-| Working-tree/change safety        | WARN       | GitHub connector does not expose a local working-tree snapshot. Review the complete PR diff and review threads before merge.                                                                                                             |
-| Build/test/CI baseline            | WARN       | PR #959 head passed WF-01P #41027669687/WF-02 #41027669111/WF-05 #41027669122. PR #960 Dockerfile-only head passed WF-02 #41027956925/WF-05 #41027956907; WF-01P and master post-merge status are unverified. Require exact-head checks. |
-| Service/infrastructure/deployment | N/A        | Read-only client request lifecycle only. No service, workflow, manifest, deployment, runtime configuration, or market-scan schedule changes.                                                                                             |
-| Secrets/permissions               | PASS / N/A | Repository branch/write permission is available. No secret is required, read, or changed.                                                                                                                                                |
-| Database/schema/migrations        | N/A        | No persistence, schema, RLS, or migration changes; live DB state is not needed for this bounded client-only task.                                                                                                                        |
-| Production risk and rollback      | PASS       | Only existing authenticated GET reads are cancelled. No engine toggle/config write, order, strategy, execution, or production action is changed. Rollback is reverting this PR; no deployment is planned.                                |
+| Area                              | Status     | Evidence                                                                                                                                                                                                                           |
+| --------------------------------- | ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Scope and acceptance              | PASS       | Existing effect suppresses late commits but omits signals supported by both GETs. Acceptance: one effect-owned controller, shared signal, abort on cleanup/restart, no post-abort state commit; writes remain unchanged.           |
+| Default/base/current commit       | PASS       | Repository default/base is `master`; current base is `43a52e39439274ac9b08370cf8b23495e4b7bbe5`, after merged PR #960. The task branch is `fix/day10-engine-control-read-cancellation-20261030`, created from that exact commit.   |
+| Open PR/branch overlap            | PASS       | Only open PR found is #928, limited to `plan/agentic-task-queue.md`. No existing branch matching the Engine Control read task was found. PRs #959/#960 are merged; their review-thread lists are empty.                            |
+| Source of truth and dependencies  | PASS       | Inspected `apps/web/app/engines/EngineControlPanel.tsx`, `apps/web/lib/api.ts`, and `apps/web/lib/dashboard-cancellation.spec.ts`. The two GET methods already accept `AbortSignal`; no backend/API change is needed.              |
+| Working-tree/change safety        | WARN       | GitHub connector does not expose a local working-tree snapshot. Review the complete PR diff and review threads before merge.                                                                                                       |
+| Build/test/CI baseline            | WARN       | PR #961 exact head `ec240d8662597b3982263fe74b7071a76a26e735` passed WF-01P #41030892797, WF-02 #41030892857 and WF-05 #41030892904 (253 passed, 0 failed). Post-merge status for `53b70f9` was not surfaced; no deployment claim. |
+| Service/infrastructure/deployment | N/A        | Read-only client request lifecycle only. No service, workflow, manifest, deployment, runtime configuration, or market-scan schedule changes.                                                                                       |
+| Secrets/permissions               | PASS / N/A | Repository branch/write permission is available. No secret is required, read, or changed.                                                                                                                                          |
+| Database/schema/migrations        | N/A        | No persistence, schema, RLS, or migration changes; live DB state is not needed for this bounded client-only task.                                                                                                                  |
+| Production risk and rollback      | PASS       | Only existing authenticated GET reads are cancelled. No engine toggle/config write, order, strategy, execution, or production action is changed. Rollback is reverting this PR; no deployment is planned.                          |
 
-**Readiness decision:** GO for this bounded read-only client lifecycle task. The CI baseline warning is retained explicitly; the new PR's exact-head build/format/test checks are required before merge.
+**Readiness decision:** PR #961 merged at `53b70f907eb24462db207269ddc2092e9c6563c3` after exact-head build/format/tests passed. Post-merge workflow status remains WARN; no deployment is claimed.
 
 ### Design — Engine Control read lifecycle
 
@@ -647,5 +647,12 @@ sequenceDiagram
     UI->>UI: Commit only if effect is still active
   end
 ```
+
+### Post-merge verification — PR #961 (2026-10-30)
+
+- **Merge state — PASS:** PR #961 is merged at `53b70f907eb24462db207269ddc2092e9c6563c3`; the three runtime/test files are present on `master`.
+- **Exact-head CI — PASS:** WF-01P #41030892797, WF-02 #41030892857 and WF-05 #41030892904 passed on head `ec240d8662597b3982263fe74b7071a76a26e735`. WF-05 reported 253 tests passed and 0 failed, including the three Engine Control helper tests.
+- **Post-merge checks — WARN:** Combined status and the available workflow-run query returned no post-merge records for merge SHA `53b70f9`. This is unverified, not PASS.
+- **Production — N/A:** No production deployment or live engine/config mutation was performed.
 
 Next: **Day 11 — WebSocket/SSE, reconnection and backpressure**, using the TCE realtime contract and keeping correctness separate from rendering optimizations.
