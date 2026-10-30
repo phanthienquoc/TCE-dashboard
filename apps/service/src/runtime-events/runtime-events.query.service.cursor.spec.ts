@@ -6,6 +6,8 @@ import { RuntimeEventsQueryService } from './runtime-events.query.service';
 
 type QueryResult = { data: unknown; error: unknown | null };
 
+// Minimal thenable mock for the Supabase query builder used by cursor lookup.
+
 function makeCursorDb(result: QueryResult) {
   const calls: Array<[string, ...unknown[]]> = [];
   const query: Record<string, any> = {};
