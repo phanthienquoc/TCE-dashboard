@@ -427,6 +427,8 @@ sequenceDiagram
 **Task:** `DAY10-READ-POOL-01`  
 **Status:** Runtime change and regression tests are present on the dedicated task branch; exact-head CI and merge are still pending. Do not mark the checklist above verified until the PR checks pass.
 
+The first WF-02 run failed only on `apps/web/lib/stock-dividend-pool-store.spec.ts`. The repository's push formatter applied formatting-only commit `6e8b93bc9b863be5e8608011a3913166b67554de`; results from the earlier head are stale. All required checks must pass on the final PR head before merge.
+
 The source-backed gap was in `apps/web/lib/stock-dividend-pool-store.ts`: changing the month starts another GET while the previous response can still replace `items` and clear `loading`; the app-data worker's cancellation signal also did not reach this store's Axios request. The bounded implementation adds an internal controller and monotonically increasing request generation, accepts an optional caller signal, ignores obsolete/aborted completions, and uses `normalizeApiError` for user-visible failures. `apps/web/lib/app-data-worker.ts` now forwards its existing worker signal to this read.
 
 Regression coverage is in `apps/web/lib/stock-dividend-pool-store.spec.ts` and `apps/web/lib/app-data-worker.spec.ts`. The tests cover month-switch races, late responses after cancellation, worker cancellation propagation, and safe 503 messaging. The controller/service, authentication interceptor, schema, and all trading/execution paths are unchanged. No deployment or production verification is claimed.
