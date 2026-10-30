@@ -88,12 +88,30 @@ function event(id: string, channel: string, sequence?: number): MicrofeEvent {
 }
 
 test('reconnect delay grows exponentially, caps the exponent, and applies injectable jitter', () => {
-  assert.equal(reconnectDelay(0, () => 0), 500);
-  assert.equal(reconnectDelay(1, () => 0), 1000);
-  assert.equal(reconnectDelay(2, () => 0), 2000);
-  assert.equal(reconnectDelay(16, () => 0), 30_000);
-  assert.equal(reconnectDelay(100, () => 0), 30_000);
-  assert.equal(reconnectDelay(0, () => 0.5), 562);
+  assert.equal(
+    reconnectDelay(0, () => 0),
+    500
+  );
+  assert.equal(
+    reconnectDelay(1, () => 0),
+    1000
+  );
+  assert.equal(
+    reconnectDelay(2, () => 0),
+    2000
+  );
+  assert.equal(
+    reconnectDelay(16, () => 0),
+    30_000
+  );
+  assert.equal(
+    reconnectDelay(100, () => 0),
+    30_000
+  );
+  assert.equal(
+    reconnectDelay(0, () => 0.5),
+    562
+  );
 });
 
 test('platform WebSocket deduplicates IDs and scopes sequence gaps to each channel', () => {
