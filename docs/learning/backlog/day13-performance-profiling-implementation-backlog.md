@@ -43,10 +43,10 @@ References:
 
 - `apps/web/app/overview/page.tsx` renders `DashboardShell view="overview"` with `OverviewView`.
 - `apps/web/app/pools/page.tsx` renders `DashboardShell view="pools"` with `PoolsView`; `apps/web/app/pool/page.tsx` renders `PoolEngineView`.
-- `apps/web/app/positions/page.tsx` renders the `PositionsView` from `DashboardViews.tsx`; `apps/web/app/position/page.tsx` renders `DividendPositionsView` with `DividendPositionsFilter`.
+- `apps/web/app/position/page.tsx` renders `DividendPositionsView` with `DividendPositionsFilter`. `PositionsView` is exported from `DashboardViews.tsx` and subscribes to the whole quote map, but no active App Router page referencing that export was found; treat it as an unmounted candidate until a route consumer is verified.
 - `DashboardShell.tsx:57` subscribes broadly to `useDashboardStore()` and passes derived `data` plus actions into the child render function.
 - `store.ts:263-269` loads the dashboard snapshot and immediately syncs prices. `store.ts:272-278` starts a 15-minute store timer. `store.ts:292-324` validates requested-symbol quotes, updates `marketPrices`, and merges quote values into dashboard rows. `mergeMarketPrices` maps all three arrays; for rows with a quote it returns a new object even if the price is unchanged.
-- `DashboardViews.tsx:238-239` (`PositionsView`), `DividendPositionsView.tsx:25-26`, and `DividendPositionsFilter.tsx:32` subscribe to the whole `marketPrices` map. The dividend views derive grouped events using that map; their symbol-scoped refresh timers are also 15 minutes.
+- `DashboardViews.tsx:238-239` (`PositionsView`, exported but no active route consumer found), `DividendPositionsView.tsx:25-26`, and `DividendPositionsFilter.tsx:32` subscribe to the whole `marketPrices` map. The active `/position` dividend views derive grouped events using that map; their symbol-scoped refresh timers are also 15 minutes.
 - `DashboardViews.tsx`: `OverviewView` slices four positions/three pools and sums P&L; `PoolsView` builds capital-pool metrics and maps up to nine positions and twelve decision rows. Row keys use `row.id ?? row.symbol ?? index`; capital pools use `pool.pool`.
 - `DividendPositionsView.tsx`: groups events by month/symbol, finds a matching pool for each card, and keys cards by `${group.monthKey}:${item.symbol}`. `DividendPositionsFilter.tsx` recomputes month groups/candidate counts from events, filters and the whole quote map.
 - `PoolEngineView.tsx`: consumes `data` props rather than a quote selector; maps capital pools by `pool.pool`, positions and decision rows by `row.id ?? row.symbol ?? index`. It can still rerender through the broad `DashboardShell` subscription.
@@ -60,8 +60,9 @@ flowchart TD
   Shell --> Load[dashboardApi.all]
   Load --> Sync[Immediate syncMarketPrices]
   Timer[Store 15-minute timer] --> Sync
-  PositionView[PositionsView / DividendPositionsView] -->|whole marketPrices map| Derived[Derived rows and dividend groups]
-  PositionFilter[DividendPositionsFilter] -->|whole marketPrices map| Derived
+  DividendView[DividendPositionsView on /position] -->|whole marketPrices map| Derived[Derived rows and dividend groups]
+  PositionFilter[DividendPositionsFilter on /position] -->|whole marketPrices map| Derived
+  Unmounted[PositionsView export; no active route found] -. source candidate .-> Derived
   PositionView -->|symbol-scoped 15-minute timer| Sync
   Sync --> API[HTTP market-prices endpoint]
   API --> Validate[normalizeMarketPricePayload]
