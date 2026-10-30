@@ -747,7 +747,7 @@ sequenceDiagram
 
 **Implementation evidence:** PR #976 merged at `4431264eea50c8adba67a6ca6160ea17a4fddc26`. The shared frontend request limit is used in `DividendPositionsView`, `DashboardViews`, the app-data worker and the stock-events page. The service's existing cap is named `MAX_LIMIT = 200`; `stock-event-read-lifecycle.spec.ts` and `stock-events.service.spec.ts` verify request-limit usage and server clamping. Final-head WF-01P/WF-02/WF-05/WF-11 passed; post-merge status remains unverified. The service maximum, authenticated route, repository selection, schema, trading/execution behavior and market-scan schedule remain unchanged.
 
-**Audit cross-reference:** Current Day 9–13 evidence is maintained in [Implementation Audit & Readiness](implementation-audit-readiness.md), the [Architecture Map](architecture-map.md), and the [Cross-Layer Curriculum Backlog](backlog/curriculum-implementation-backlog.md), rechecked against source baseline `dc11adc6aaa73436857512173d4f26a2a7b027a9`. PR #976's stock-event limit alignment, PR #978's Engine Workflow runtime-read cancellation, and PR #981's Dividend OHLCV chart-history cancellation are merged with exact-head CI passing; post-merge status for `dc11adc` remains unverified. PR #975's watcher traffic guard remains a separate service-file change.
+**Audit cross-reference:** Current Day 9–13 evidence is maintained in [Implementation Audit & Readiness](implementation-audit-readiness.md), the [Architecture Map](architecture-map.md), and the [Cross-Layer Curriculum Backlog](backlog/curriculum-implementation-backlog.md), rechecked against source baseline `66da3a008ba055ee3551dc520c12952ec58164b5`. PR #976's stock-event limit alignment, PR #978's Engine Workflow runtime-read cancellation, PR #981's Dividend OHLCV chart-history cancellation, and PR #983's Stock Events Sync safe error normalization are merged. PR #983 exact-head frontend build, Prettier and unit tests passed; post-merge WF-02/WF-05 passed while WF-01 `41077445107` completed successfully (image/config verification only; not deployment). PR #970 is merged for stage-specific SSO network diagnostics only; it does not implement browser WebSocket authentication. PR #975's watcher traffic guard remains a separate service-file change.
 
 ## Engine Workflow runtime-read lifecycle (2026-10-30)
 
@@ -811,3 +811,30 @@ sequenceDiagram
 **Implementation evidence:** PR #981 merged at `dc11adc6aaa73436857512173d4f26a2a7b027a9`. The changed runtime paths are `apps/web/components/dashboard/DividendOneYearCandleChart.tsx`, `apps/web/lib/dividend-ohlcv-store.ts`, and `apps/web/lib/dividend-ohlcv-store.spec.ts`. Four tests cover signal propagation and data normalization, cancellation/loading state, stale-response rejection after clear/reload, and safe error fallback. Final PR head `27ab1b9ea98f55286869d3fe21931dd55c442f8b` passed WF-01P `41069139823`, WF-02 `41069139440`, and WF-05 `41069139458`; WF-05 logs confirm 271 Node tests passed / 0 failed and 24 Vitest files / 103 tests passed. Post-merge status/workflow records for `dc11adc` were not surfaced, so post-merge verification remains WARN.
 
 **Safety boundary:** The authenticated endpoint, Bearer JWT, response shape, shared OHLCV data selection, database/schema, engine writes, trading/execution behavior, production configuration, and market-scan schedule are unchanged. Browser cancellation does not prove server work already received was rolled back. No production deployment is claimed. Keep `CURR-SVC-03` open for the broader API/event caller and end-to-end contract audit.
+
+## Stock Events Sync safe error handling (PR #983, 2026-10-30)
+
+The Stock Events Sync store now uses the existing `normalizeApiError` helper for refresh, save, and trigger failures. Previously, these three catch paths copied `error.message` directly into the store's user-visible `message` state, which could expose low-level Axios text or an arbitrary thrown exception. The shared normalizer keeps stable, status-specific messages and uses the operation's safe fallback for non-Axios errors. Intentional request cancellation remains a separate control-flow path; the existing cancellation guard and account-generation checks are unchanged.
+
+```mermaid
+sequenceDiagram
+  participant UI as Stock Events Sync page
+  participant Store as useStockSyncStore
+  participant API as Existing authenticated API
+  participant Errors as normalizeApiError
+  UI->>Store: refresh / save / trigger
+  Store->>API: Existing request and payload
+  alt Request succeeds
+    API-->>Store: Existing response shape
+    Store-->>UI: Existing state update
+  else Request fails
+    API-->>Store: Axios, HTTP, network, or generic error
+    Store->>Errors: normalizeApiError(error, safe fallback)
+    Errors-->>Store: Stable user-facing message
+    Store-->>UI: Safe message without raw backend details
+  end
+```
+
+**Implementation evidence:** PR #983 merged at `66da3a008ba055ee3551dc520c12952ec58164b5`. Runtime path: `apps/web/lib/stock-sync-store.ts`; tests: `apps/web/lib/stock-sync-store.spec.ts`. Four new Node tests cover refresh 403, save 500, trigger 403, and a non-Axios error fallback; each verifies that simulated internal details are not surfaced. Exact PR head `5941d5aecaccb2aae4bc9928d4fb73aa709f369e` passed WF-01P `41077247885`, WF-02 `41077248228`, and WF-05 `41077247826`; the unit-test log reports 275 Node tests passed / 0 failed. Post-merge master WF-02 `41077445106` and WF-05 `41077444913` passed; WF-01 `41077445107` completed successfully (image/config verification only; no deployment).
+
+**Safety boundary:** No endpoint, Bearer JWT/authentication, response contract, stock-sync payload, cron schedule, account-generation guard, write semantics, database/schema, trading/execution behavior, production configuration or market-scan scheduling changed. Scheduled healthcheck run `41070484265` and rerun job `124135356886` reported TCE web HTTP 200 but central Auth liveness/readiness HTTP 503; this PR does not fix or claim recovery of that service issue. Keep `CURR-SVC-03` open for the broader API/event contract audit.
