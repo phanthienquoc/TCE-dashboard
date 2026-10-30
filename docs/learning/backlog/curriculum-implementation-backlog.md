@@ -74,6 +74,31 @@ Use the shared contract in [Implementation Readiness Gate](../IMPLEMENTATION_REA
 - **Acceptance:** A checked-in index lists the canonical path for each Day 1–13 lesson and links the readiness gate; all listed files exist.
 - **Unblock condition:** The canonical source for Day 1–8 is located or the owner confirms they should be created anew.
 
+### CURR-AUTH-07 — Establish a secure browser WebSocket authentication handshake
+
+- **Priority:** P1
+- **Status:** BLOCKED
+- **Affected lessons:** Day 11 realtime/recovery and Day 12 cache/stream integration.
+- **Evidence:** In master, `apps/web/lib/api.ts` attaches the in-memory access token only to Axios requests; the browser WebSocket constructor in the unmerged PR #936 did not carry an Authorization header. `apps/service/src/runtime-events/runtime-events.websocket.ts` accepts a Bearer header or a cookie that it introspects through `AUTH_SERVICE_URL`. The auth refresh cookie is configured with `Path=/api/auth`; the actual socket host/path cookie scope has not been verified. An authenticated HTTP preflight does not authenticate a later WebSocket upgrade.
+- **Work:** Inspect the real production host, reverse-proxy route, cookie domain/path/SameSite settings, and browser session lifecycle. Choose and document a secure handshake compatible with browser WebSocket APIs before implementing the frontend quote stream. Consider a verified same-origin HttpOnly cookie contract or a short-lived, single-use channel credential transported outside the URL; do not put access/refresh bearer tokens in URLs.
+- **Acceptance:** The design has a sequence diagram and identifies credential issuer, transport, expiry/replay protection, origin validation, account binding, logging/redaction, and rollback. An integration test proves the actual browser-to-socket identity path, rejects unauthenticated/expired/replayed credentials and disallowed origins, and proves the client cannot select another account. No stream is marked integrated based only on a successful HTTP preflight or mocked WebSocket.
+- **Unblock condition:** Deployment routing and cookie scope are verified, the handshake design is reviewed, and the integration-test owner/environment are identified. Any persistence or schema needed for one-time credentials gets a separate readiness review.
+
+**Proposed handshake sequence — design target only; not implemented:**
+
+```mermaid
+sequenceDiagram
+  participant Browser
+  participant Auth as Authenticated HTTP API
+  participant WS as Runtime Events WebSocket
+  Browser->>Auth: Request channel authorization using existing session
+  Auth-->>Browser: Approved secure handshake mechanism
+  Browser->>WS: Upgrade using supported credential channel (not URL bearer token)
+  WS->>Auth: Validate identity, origin, expiry and replay policy
+  Auth-->>WS: Authenticated account identity
+  WS-->>Browser: Open account-scoped read-only stream
+```
+
 ## Day-specific follow-up
 
 - **Day 13 performance:** Continue using [Day 13 performance implementation backlog](day13-performance-profiling-implementation-backlog.md). Establish actual consumer paths and a repeatable baseline before choosing optimizations.
