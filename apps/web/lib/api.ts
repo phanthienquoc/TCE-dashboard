@@ -207,8 +207,7 @@ export const platformApi = {
   }) => api.post('/platform/credentials/ssi/order', body),
   fastApiConfig: () => api.get('/platform/config/fastapi'),
   saveFastApi: (body: Record<string, string>) => api.post('/platform/config/fastapi', body),
-  binanceXauConfig: (signal?: AbortSignal) =>
-    api.get('/tce/engine/binance/config', { signal }),
+  binanceXauConfig: (signal?: AbortSignal) => api.get('/tce/engine/binance/config', { signal }),
   saveBinanceXauConfig: (body: Record<string, unknown>) =>
     api.patch('/tce/engine/binance/config', body),
   binanceXauPositions: (environment = 'production', signal?: AbortSignal) =>
