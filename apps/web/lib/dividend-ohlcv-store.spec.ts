@@ -103,20 +103,20 @@ test(
       receivedSignal = signal;
       return pending.promise;
     }) as typeof dashboardApi.priceHistory;
-  
+
     try {
       useDividendOhlcvStore.getState().clear();
       const controller = new AbortController();
       const load = useDividendOhlcvStore.getState().load('DPM', 365, controller.signal);
-  
+
       assert.equal(useDividendOhlcvStore.getState().loading.DPM, true);
       controller.abort();
-  
+
       assert.equal(receivedSignal?.aborted, true);
       assert.equal(useDividendOhlcvStore.getState().loading.DPM, false);
       pending.reject(new CanceledError('request canceled'));
       await load;
-  
+
       assert.equal(useDividendOhlcvStore.getState().loading.DPM, false);
       assert.equal(useDividendOhlcvStore.getState().errors.DPM ?? null, null);
       assert.equal(useDividendOhlcvStore.getState().histories.DPM, undefined);
@@ -140,27 +140,27 @@ test(
       requests.push({ signal, pending });
       return pending.promise;
     }) as typeof dashboardApi.priceHistory;
-  
+
     try {
       useDividendOhlcvStore.getState().clear();
       const firstLoad = useDividendOhlcvStore.getState().load('DPM');
       assert.equal(requests.length, 1);
-  
+
       useDividendOhlcvStore.getState().clear();
       assert.equal(requests[0].signal?.aborted, true);
       assert.deepEqual(useDividendOhlcvStore.getState().histories, {});
-  
+
       const secondLoad = useDividendOhlcvStore.getState().load('DPM');
       assert.equal(requests.length, 2);
       requests[0].pending.resolve(response({ data: [{ trading_date: 'old', close: 1 }] }));
       await firstLoad;
-  
+
       assert.equal(useDividendOhlcvStore.getState().histories.DPM, undefined);
       assert.equal(useDividendOhlcvStore.getState().loading.DPM, true);
-  
+
       requests[1].pending.resolve(response({ data: [{ trading_date: 'new', close: 2 }] }));
       await secondLoad;
-  
+
       assert.equal(useDividendOhlcvStore.getState().histories.DPM?.[0].tradingDate, 'new');
       assert.equal(useDividendOhlcvStore.getState().histories.DPM?.[0].close, 2);
       assert.equal(useDividendOhlcvStore.getState().loading.DPM, false);
