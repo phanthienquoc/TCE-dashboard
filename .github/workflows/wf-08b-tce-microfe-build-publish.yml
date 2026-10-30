@@ -244,7 +244,7 @@ jobs:
       - build-shell
       - build-ws
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 35
     steps:
       - name: Download all image metadata
         uses: actions/download-artifact@v4
@@ -294,64 +294,115 @@ jobs:
             "https://api.github.com/repos/phanthienquoc/platform-infra/dispatches" \
             -d @/tmp/microfe-dispatch.json
 
-      - name: Verify platform-infra MicroFE reconciliation
+      - name: Verify shared GitOps promotion and targeted reconciliation
         env:
           PLATFORM_INFRA_TOKEN: ${{ secrets.PLATFORM_INFRA_TOKEN }}
         run: |
           set -euo pipefail
           REPO="phanthienquoc/platform-infra"
           API="https://api.github.com/repos/$REPO/actions/runs"
+          EXPECTED_RELEASE="microfe-${GITHUB_SHA:0:7}"
+          EXPECTED_RECONCILE_TITLE="Reconcile VPS — microfe / $EXPECTED_RELEASE"
 
-          echo "Waiting for platform-infra MicroFE reconciliation workflow..."
-          RUN_ID=""
-          for attempt in $(seq 1 18); do
-            RUN_ID="$(curl --fail --silent --show-error \
+          api_get() {
+            curl --fail --silent --show-error \
               -H "Accept: application/vnd.github+json" \
               -H "Authorization: Bearer $PLATFORM_INFRA_TOKEN" \
               -H "X-GitHub-Api-Version: 2022-11-28" \
-              "$API?event=repository_dispatch&per_page=50" |
-              jq -r --argjson cutoff "$DISPATCHED_AT" '
-                [.workflow_runs[]
-                  | select(.name == "reconcile-microfe")
-                  | select(.created_at != null)
-                  | select((.created_at | fromdateiso8601) >= ($cutoff - 10))]
-                | sort_by(.created_at)
-                | last
-                | .id // empty')"
+              "$1"
+          }
 
-            if [ -n "$RUN_ID" ]; then
-              echo "MicroFE reconciliation workflow detected: $RUN_ID"
+          echo "Waiting for shared GitOps Image Promotion for $EXPECTED_RELEASE..."
+          PROMOTION_RUN_ID=""
+          for attempt in $(seq 1 36); do
+            RUNS="$(api_get "$API?event=repository_dispatch&per_page=100")"
+            PROMOTION_RUN_ID="$(printf '%s' "$RUNS" | jq -r --argjson cutoff "$DISPATCHED_AT" '
+              [.workflow_runs[]
+                | select(.name == "GitOps Image Promotion")
+                | select(.created_at != null)
+                | select((.created_at | fromdateiso8601) >= ($cutoff - 10))]
+              | sort_by(.created_at)
+              | last
+              | .id // empty')"
+            if [ -n "$PROMOTION_RUN_ID" ]; then
+              echo "Shared GitOps promotion run detected: $PROMOTION_RUN_ID"
               break
             fi
-            echo "No MicroFE reconciliation run yet (attempt $attempt/18)."
+            echo "No shared promotion run yet (attempt $attempt/36)."
             sleep 5
           done
-
-          test -n "$RUN_ID" || {
-            echo "::error::platform-infra accepted the dispatch but did not schedule reconcile-microfe within 90 seconds."
+          test -n "$PROMOTION_RUN_ID" || {
+            echo "::error::platform-infra accepted the image event but did not schedule GitOps Image Promotion within 180 seconds."
             exit 1
           }
 
-          for attempt in $(seq 1 36); do
-            RUN_JSON="$(curl --fail --silent --show-error \
-              -H "Accept: application/vnd.github+json" \
-              -H "Authorization: Bearer $PLATFORM_INFRA_TOKEN" \
-              -H "X-GitHub-Api-Version: 2022-11-28" \
-              "$API/$RUN_ID")"
-            STATUS="$(printf '%s' "$RUN_JSON" | jq -r '.status')"
-            CONCLUSION="$(printf '%s' "$RUN_JSON" | jq -r '.conclusion // empty')"
-
-            echo "MicroFE reconcile: status=$STATUS conclusion=${CONCLUSION:-pending}"
-            if [ "$STATUS" = "completed" ]; then
-              test "$CONCLUSION" = "success" || {
-                echo "::error::platform-infra reconcile-microfe failed: conclusion=$CONCLUSION"
+          PROMOTION_CREATED_EPOCH=""
+          PROMOTION_COMPLETE=false
+          for attempt in $(seq 1 180); do
+            PROMOTION_JSON="$(api_get "$API/$PROMOTION_RUN_ID")"
+            PROMOTION_STATUS="$(printf '%s' "$PROMOTION_JSON" | jq -r '.status')"
+            PROMOTION_CONCLUSION="$(printf '%s' "$PROMOTION_JSON" | jq -r '.conclusion // empty')"
+            PROMOTION_CREATED_EPOCH="$(printf '%s' "$PROMOTION_JSON" | jq -r '.created_at | fromdateiso8601')"
+            echo "GitOps promotion: status=$PROMOTION_STATUS conclusion=${PROMOTION_CONCLUSION:-pending}"
+            if [ "$PROMOTION_STATUS" = "completed" ]; then
+              test "$PROMOTION_CONCLUSION" = "success" || {
+                echo "::error::Shared GitOps image promotion failed: conclusion=$PROMOTION_CONCLUSION"
                 exit 1
               }
-              echo "MicroFE production reconciliation completed successfully."
-              exit 0
+              PROMOTION_COMPLETE=true
+              break
             fi
             sleep 5
           done
+          test "$PROMOTION_COMPLETE" = true || {
+            echo "::error::Shared GitOps image promotion did not complete within 15 minutes."
+            exit 1
+          }
 
-          echo "::error::platform-infra reconcile-microfe did not complete within 180 seconds."
-          exit 1
+          echo "Waiting for the matching targeted reconciliation: $EXPECTED_RECONCILE_TITLE"
+          RECONCILE_RUN_ID=""
+          for attempt in $(seq 1 36); do
+            RUNS="$(api_get "$API?event=repository_dispatch&per_page=100")"
+            RECONCILE_RUN_ID="$(printf '%s' "$RUNS" | jq -r --argjson cutoff "$PROMOTION_CREATED_EPOCH" --arg title "$EXPECTED_RECONCILE_TITLE" '
+              [.workflow_runs[]
+                | select(.name == "reconcile-vps")
+                | select(.event == "repository_dispatch")
+                | select((.display_title // "") == $title)
+                | select(.created_at != null)
+                | select((.created_at | fromdateiso8601) >= ($cutoff - 10))]
+              | sort_by(.created_at)
+              | last
+              | .id // empty')"
+            if [ -n "$RECONCILE_RUN_ID" ]; then
+              echo "Matching MicroFE reconciliation run detected: $RECONCILE_RUN_ID"
+              break
+            fi
+            echo "No matching reconciliation run yet (attempt $attempt/36)."
+            sleep 5
+          done
+          test -n "$RECONCILE_RUN_ID" || {
+            echo "::error::GitOps promotion succeeded but the matching MicroFE reconcile-vps run was not scheduled within 180 seconds."
+            exit 1
+          }
+
+          RECONCILE_COMPLETE=false
+          for attempt in $(seq 1 240); do
+            RECONCILE_JSON="$(api_get "$API/$RECONCILE_RUN_ID")"
+            RECONCILE_STATUS="$(printf '%s' "$RECONCILE_JSON" | jq -r '.status')"
+            RECONCILE_CONCLUSION="$(printf '%s' "$RECONCILE_JSON" | jq -r '.conclusion // empty')"
+            echo "MicroFE reconcile-vps: status=$RECONCILE_STATUS conclusion=${RECONCILE_CONCLUSION:-pending}"
+            if [ "$RECONCILE_STATUS" = "completed" ]; then
+              test "$RECONCILE_CONCLUSION" = "success" || {
+                echo "::error::Targeted MicroFE reconciliation/health gate failed: conclusion=$RECONCILE_CONCLUSION"
+                exit 1
+              }
+              RECONCILE_COMPLETE=true
+              break
+            fi
+            sleep 5
+          done
+          test "$RECONCILE_COMPLETE" = true || {
+            echo "::error::Targeted MicroFE reconciliation did not complete within 20 minutes."
+            exit 1
+          }
+          echo "Shared GitOps promotion and targeted MicroFE reconciliation/health gate completed successfully."
