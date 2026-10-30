@@ -15,7 +15,7 @@ function config() {
   const baseUrl = required(
     'NEXT_PUBLIC_KEYCLOAK_URL',
     process.env.NEXT_PUBLIC_KEYCLOAK_URL || KEYCLOAK_URL_FALLBACK
-  ).replace(/\\/+$/, '');
+  ).replace(/\/+$/, '');
   const realm = required(
     'NEXT_PUBLIC_KEYCLOAK_REALM',
     process.env.NEXT_PUBLIC_KEYCLOAK_REALM || KEYCLOAK_REALM_FALLBACK
