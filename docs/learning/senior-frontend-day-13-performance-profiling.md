@@ -23,10 +23,10 @@ This lesson is not complete merely because the learner can explain profiling or 
 2. Implement a focused runtime improvement when the source code and contracts provide enough information and profiling proves a bottleneck.
 3. Do not copy sample names or state shapes blindly; for example, the current dashboard store uses `marketPrices` keyed by normalized symbol, so verify the actual consumer and selector before implementation.
 4. Add or update tests for the chosen behavior and provide before/after profiling evidence.
-5. If required behavior, source ownership, data ordering/version guarantees, reproducible fixtures, or acceptance thresholds are missing, do not guess or change trading behavior. Add a concrete item to [the Day 13 implementation backlog](backlog/day13-performance-implementation-backlog.md) with the missing prerequisite, acceptance criteria, and safe implementation sequence.
+5. If required behavior, source ownership, data ordering/version guarantees, reproducible fixtures, or acceptance thresholds are missing, do not guess or change trading behavior. Add a concrete item to [the Day 13 implementation backlog](backlog/day13-performance-profiling-implementation-backlog.md) with the missing prerequisite, acceptance criteria, and safe implementation sequence.
 6. Do not treat a documentation-only lesson as proof that runtime functionality has been implemented. The implementation task is complete only when the relevant source code is changed, verified, and the result is documented.
 
-Current audit result: the existing store provides useful starting points, but the lesson alone does not specify exact production component call sites or a measured bottleneck. Complete the backlog's source-tracing and baseline items before choosing the runtime optimization.
+Current audit result: `PERF-13-01` source mapping is complete in the linked backlog and identifies real component selectors and refresh paths, but it does not establish a measured bottleneck. `PERF-13-02` reproducible baseline and `PERF-13-03` acceptance criteria remain open; no runtime optimization is authorized yet.
 
 ## Learning objectives
 

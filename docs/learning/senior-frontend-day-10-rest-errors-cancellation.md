@@ -481,7 +481,7 @@ sequenceDiagram
 ### Implementation follow-up — stock-event read lifecycle
 
 **Task:** `DAY10-READ-STOCK-EVENT-01`  
-**Status:** Source/test behavior passed WF-01P run 41013707425 and WF-05 run 41013707530 on pre-format head `b40037f`. WF-02 flagged formatting in the store and spec; repository formatter commits `9043683` and `3be79b5` corrected those files. The final formatted head must pass all required checks before merge.
+**Status:** PR #955 merged at master commit `d79404ec62250ddf2762620f6819318daf029412`. Final head `ad1664f06ed48972dd3915ef105551b08f91cc14` passed frontend build run 41013983958, Prettier run 41013984089 and backend/root tests run 41013983940. Master backend tests, image/config verification and auto-format also passed in runs 41014092643, 41014092714 and 41014092678; duplicate runs were cancelled/skipped. This is CI evidence only; no production deployment or environment verification is claimed.
 
 The store's `clear()` previously reset visible state without aborting or invalidating its pending `/stock-events` request. Since logout/account change calls `clearAccountScopedStores()`, a late response could repopulate the store after it had been cleared. The app-data worker also did not forward its cancellation signal to this read. The bounded implementation adds an internal `AbortController`, a request generation guard, an optional caller signal, and normalized error messages without changing the authenticated endpoint contract.
 

@@ -530,13 +530,13 @@ A cache key that omits account scope can leak one account's data into another ac
 
 ### Implementation evidence — account-scoped cache invalidation
 
-- `apps/web/lib/store.ts` clears dashboard, TCE, stock-sync and app-worker state on logout and when a successful authentication flow changes account identity. Local identity and sensitive caches are cleared before awaiting the remote logout response.
+- `apps/web/lib/store.ts` clears dashboard, TCE, stock-event, stock-sync and app-worker state on logout and when a successful authentication flow changes account identity. Local identity and sensitive caches are cleared before awaiting the remote logout response.
 - `apps/web/lib/stock-sync-store.ts` aborts in-flight settings/bot/run reads, invalidates stale read and mutation generations, and resets account-scoped config, Telegram bot metadata, run history and progress.
 - `apps/web/lib/app-data-worker.ts` aborts its shared read signal, stops scheduling remaining tasks, and prevents an old worker from updating progress after a session transition.
 - Regression tests cover SSO account switching, immediate logout clearing, late stock-sync responses, and stale worker completion in `account-cache-isolation.spec.ts`, `stock-sync-store.spec.ts`, and `app-data-worker.spec.ts`.
 - **Readiness boundary:** no database schema, RLS, API contract, trading/execution logic or production deployment changed. A UI mock and ERD are N/A because this task changes cache lifecycle only, not visual behavior or persistent entities.
 - **Remaining Day 12 work:** snapshot/event ordering is still unverified because no comparable server watermark/version has been established; this PR does not mark the whole lesson complete.
-- **Completion rule:** verify PR #951 is merged and inspect its post-merge checks before treating this acceptance item as complete on `master`.
+- **Verified acceptance slice:** PR #951 merged at `5f03443cd9093995e6512cb250b9e8387a5ee310`. PR-head checks passed: backend unit tests runs 41010722517 and 41010718935, frontend build run 41010722510 and Prettier run 41010722508. Account-scoped invalidation is merged and CI-verified, not production-verified.
 
 ```mermaid
 sequenceDiagram

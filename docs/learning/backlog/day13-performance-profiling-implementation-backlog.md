@@ -73,7 +73,7 @@ flowchart TD
 
 **Readiness decision:** GO for this source-map task; **NO-GO for PERF-13-04/05/06 runtime optimization until PERF-13-02 and PERF-13-03 are satisfied**. A UI mock, ERD, and deployment swimlane are N/A: this task changes no visual behavior, persistent entity, or deployment workflow.
 
-- **Evidence base:** source paths and selectors were checked against `master` commit `5f03443cd9093995e6512cb250b9e8387a5ee310`; refresh this map after route/store refactors.
+- **Evidence base:** source paths and selectors were initially checked for PR #952 against `master` commit `5f03443cd9093995e6512cb250b9e8387a5ee310` and rechecked as part of the audit refresh against `master` `d79404ec62250ddf2762620f6819318daf029412`. PR #955 changed stock-event request lifecycle, not these performance consumers; refresh after any route/store refactor.
 
 ### PERF-13-02 — Establish a reproducible baseline
 
