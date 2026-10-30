@@ -23,7 +23,7 @@ This evidence-backed snapshot is refreshed against master after PR #955. It sepa
 | Service/infrastructure/deployment | N/A | Documentation-only refresh; no service, manifest, workflow, runtime configuration, deployment or market-scan schedule changes. |
 | Secrets/permissions | PASS | Repository write permission is available for the branch/PR; this task requires no secrets. No secret values were read or changed. |
 | Database/schema/migrations | WARN | No database mutation. Live schema, RLS and migration-ledger state were not queried and remain unverified. |
-| Production risk and rollback | PASS for documentation | Reverting this documentation-only change restores the previous audit snapshot; no production rollout or runtime rollback is involved. |
+| Production risk and rollback | PASS | Reverting this documentation-only change restores the previous audit snapshot; no production rollout or runtime rollback is involved. |
 
 **Readiness decision: GO for audit/documentation refresh only.** This does not authorize runtime optimization, browser WebSocket auth, database changes or production deployment.
 
