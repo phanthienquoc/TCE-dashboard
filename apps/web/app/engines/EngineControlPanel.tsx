@@ -124,7 +124,13 @@ export default function EngineControlPanel() {
                 Showing the last successful snapshot. Controls are disabled until refresh succeeds.
               </p>
             ) : null}
-            <Button type="button" variant="outline" size="sm" onClick={retryLoad} disabled={loading}>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={retryLoad}
+              disabled={loading}
+            >
               Retry
             </Button>
           </div>
@@ -147,7 +153,9 @@ export default function EngineControlPanel() {
                     <Power className="size-4" />
                   </button>
                   <Link
-                    href={engine.engineId === 'binance-xau' ? '/xau' : `/engines/${engine.engineId}`}
+                    href={
+                      engine.engineId === 'binance-xau' ? '/xau' : `/engines/${engine.engineId}`
+                    }
                     className="engine-copy"
                   >
                     <div className="engine-title-row">
