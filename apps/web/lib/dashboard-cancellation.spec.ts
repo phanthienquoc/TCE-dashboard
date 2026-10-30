@@ -117,7 +117,8 @@ test('a superseded dashboard load cannot overwrite newer data or clear its loadi
     dashboardApi.all = originalAll;
     dashboardApi.marketPrices = originalMarketPrices;
   }
-});
+  }
+);
 
 test('a newer market-price sync aborts the older sync and rejects its late result', async () => {
   const originalMarketPrices = dashboardApi.marketPrices;
@@ -222,8 +223,9 @@ test('intentional Axios cancellation does not become a dashboard error', async (
   }
 });
 
-
-test('market-price sync logs normalized failures without leaking Axios config or credentials', async () => {
+test(
+  'market-price sync logs normalized failures without leaking Axios config or credentials',
+  async () => {
   const originalMarketPrices = dashboardApi.marketPrices;
   const originalConsoleError = console.error;
   const logCalls: unknown[][] = [];
