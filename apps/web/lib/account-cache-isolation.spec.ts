@@ -203,7 +203,8 @@ test('logout clears account caches before the remote logout request settles', as
 
     const logout = useAuthStore.getState().logout();
 
-    assert.equal(useAuthStore.getState().user?.id, 'old-account');
+    assert.equal(useAuthStore.getState().user, null);
+    assert.equal(useAuthStore.getState().status, 'anonymous');
     assert.equal(useTCEDataStore.getState().credentials, null);
     assert.equal(useStockSyncStore.getState().config.telegramCredentialId, null);
     assert.deepEqual(useStockSyncStore.getState().bots, []);
