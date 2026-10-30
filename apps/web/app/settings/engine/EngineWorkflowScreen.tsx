@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { dashboardApi } from '../../../lib/api';
 import { isApiRequestCancelled, normalizeApiError } from '../../../lib/api-errors';
-import { loadEngineRuntime, type EngineRuntimeRow } from '../../../lib/engine-runtime-data';
+import { loadEngineRuntime } from '../../../lib/engine-runtime-data';
 import { EngineRuntimeSkeleton } from '../../../components/ui/page-skeleton';
 import { ENGINE_REGISTRY, getEngine, type EngineId } from '../../engines/engine-registry';
 import { EngineWorkflow, type WorkflowEngine } from '../../engines/EngineWorkflow';
