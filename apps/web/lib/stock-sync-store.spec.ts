@@ -203,7 +203,6 @@ test('clear prevents a late save response from restoring previous-account config
   }
 });
 
-
 test('refresh normalizes backend errors instead of exposing internal response details', async () => {
   const originalGet = api.get;
   api.get = (async () => {
