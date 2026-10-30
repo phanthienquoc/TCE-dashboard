@@ -1,9 +1,9 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { AxiosHeaders, type AxiosResponse, type InternalAxiosRequestConfig } from 'axios';
+import { AxiosError, AxiosHeaders, type AxiosResponse, type InternalAxiosRequestConfig } from 'axios';
 
 import { dashboardApi } from './api';
-import { loadEngineControlData } from './engine-control-data';
+import { loadEngineControlData, normalizeEngineControlReadFailure } from './engine-control-data';
 
 function response<T>(data: T): AxiosResponse<T> {
   return {
@@ -14,6 +14,35 @@ function response<T>(data: T): AxiosResponse<T> {
     config: { headers: new AxiosHeaders() } as InternalAxiosRequestConfig,
   };
 }
+
+test('normalizes Engine Control read failures without exposing response bodies or exception messages', () => {
+  const config = {
+    headers: new AxiosHeaders({ Authorization: 'Bearer engine-control-test-secret' }),
+  } as InternalAxiosRequestConfig;
+  const failedResponse: AxiosResponse<unknown> = {
+    data: { message: 'private engine database details' },
+    status: 500,
+    statusText: 'Internal Server Error',
+    headers: new AxiosHeaders(),
+    config,
+  };
+  const failure = normalizeEngineControlReadFailure(
+    new AxiosError('Request failed with status code 500', 'ERR_BAD_RESPONSE', config, undefined, failedResponse)
+  );
+
+  assert.equal(failure.kind, 'http');
+  assert.equal(failure.status, 500);
+  assert.equal(failure.message, 'The service is temporarily unavailable. Please try again.');
+  assert.equal(failure.retryable, true);
+  assert.equal(JSON.stringify(failure).includes('engine-control-test-secret'), false);
+  assert.equal(JSON.stringify(failure).includes('private engine database details'), false);
+  assert.equal(JSON.stringify(failure).includes('ERR_BAD_RESPONSE'), false);
+
+  const fallback = normalizeEngineControlReadFailure(new Error('private internal exception'));
+  assert.equal(fallback.kind, 'unknown');
+  assert.equal(fallback.message, 'Unable to load engine status and configuration.');
+  assert.equal(JSON.stringify(fallback).includes('private internal exception'), false);
+});
 
 test('Engine Control reads share the caller AbortSignal', async () => {
   const originalEngines = dashboardApi.engines;
