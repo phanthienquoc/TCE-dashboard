@@ -6,7 +6,7 @@
 **Standard:** [Implementation Readiness Gate](IMPLEMENTATION_READINESS.md)  
 **Shared backlog:** [Cross-layer curriculum backlog](backlog/curriculum-implementation-backlog.md)
 
-This is an evidence-backed snapshot. It does not claim that unmeasured runtime behavior is complete or that production was verified.
+This is an evidence-backed snapshot against master `2434a27`. It does not claim that unmeasured runtime behavior is complete or that production was verified.
 
 ## System Readiness Check — post-merge Day 10 audit refresh (2026-10-30)
 
