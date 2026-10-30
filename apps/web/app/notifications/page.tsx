@@ -11,6 +11,7 @@ import {
   loadTelegramNotificationData,
   normalizeTelegramNotificationReadError,
 } from '../../lib/telegram-notification-data';
+import { telegramNotificationAccountKey } from '../../lib/telegram-notification-account';
 import { useTCEDataStore } from '../../lib/tce-data-store';
 import { enableSystemUpdateNotifications } from '../../lib/system-updates';
 import DashboardLayout from '../../components/dashboard/DashboardLayout';
@@ -25,6 +26,11 @@ type Assignment = {
 };
 
 export default function NotificationsPage() {
+  const userId = useAuthStore(s => s.user?.id ?? null);
+  return <NotificationsPageContent key={telegramNotificationAccountKey(userId)} />;
+}
+
+function NotificationsPageContent() {
   const router = useRouter();
   const user = useAuthStore(s => s.user);
   const authLoading = useAuthStore(s => s.loading);
