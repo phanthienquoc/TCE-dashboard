@@ -1,6 +1,6 @@
 # Senior Frontend Day 10 — REST APIs, Error Handling & Cancellation
 
-> Duration: 60 minutes. This lesson is aligned with the real TCE Dashboard repository and the implementation in `apps/web/lib/api.ts`, `apps/web/lib/api-errors.ts`, `apps/web/lib/store.ts`, `apps/web/lib/stock-dividend-pool-store.ts`, `apps/web/lib/stock-event-store.ts`, `apps/web/lib/app-data-worker.ts`, `apps/web/lib/telegram-notification-data.ts` and its consumers, plus `apps/web/lib/engine-control-data.ts` and `apps/web/app/engines/EngineControlPanel.tsx`.
+> Duration: 60 minutes. This lesson is aligned with the real TCE Dashboard repository and the implementation in `apps/web/lib/api.ts`, `apps/web/lib/api-errors.ts`, `apps/web/lib/store.ts`, `apps/web/lib/stock-dividend-pool-store.ts`, `apps/web/lib/stock-event-store.ts`, `apps/web/lib/app-data-worker.ts`, `apps/web/lib/telegram-notification-data.ts` and its consumers, plus `apps/web/lib/engine-control-data.ts`, `apps/web/app/engines/EngineControlPanel.tsx`, `apps/web/lib/engine-runtime-data.ts`, and `apps/web/app/settings/engine/EngineWorkflowScreen.tsx`.
 
 ## Implementation readiness — cross-layer assessment
 
