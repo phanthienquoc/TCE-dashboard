@@ -172,6 +172,50 @@ test('aborting a waiting caller does not abort the shared stock-event transport'
   }
 });
 
+test('a waiting stock-event caller retries when the transport owner aborts', async () => {
+  const originalGet = api.get;
+  const requests: Array<{
+    signal?: AbortSignal;
+    pending: Deferred<AxiosResponse<unknown>>;
+  }> = [];
+
+  api.get = ((_: string, config?: AxiosRequestConfig) => {
+    const pending = deferred<AxiosResponse<unknown>>();
+    requests.push({ signal: config?.signal as AbortSignal | undefined, pending });
+    return pending.promise;
+  }) as typeof api.get;
+
+  try {
+    useStockEventStore.getState().clear();
+    const owner = new AbortController();
+    const ownerLoad = useStockEventStore.getState().load(200, true, null, owner.signal);
+    assert.equal(requests.length, 1);
+
+    const waitingLoad = useStockEventStore.getState().load(200, true, null);
+    owner.abort();
+    assert.equal(requests[0].signal?.aborted, true);
+
+    requests[0].pending.resolve(response([stockEvent('stale-owner')]));
+    await ownerLoad;
+    await new Promise<void>(resolve => setImmediate(resolve));
+
+    assert.equal(requests.length, 2);
+    assert.equal(requests[1].signal?.aborted, false);
+    requests[1].pending.resolve(response([stockEvent('fresh')]));
+    await waitingLoad;
+
+    assert.deepEqual(
+      useStockEventStore.getState().events.map(event => event.id),
+      ['fresh']
+    );
+    assert.equal(useStockEventStore.getState().initialized, true);
+    assert.equal(useStockEventStore.getState().error, null);
+  } finally {
+    useStockEventStore.getState().clear();
+    api.get = originalGet;
+  }
+});
+
 test('stock-event read errors use normalized messages rather than backend response bodies', async () => {
   const originalGet = api.get;
   const config = { headers: new AxiosHeaders() } as InternalAxiosRequestConfig;
