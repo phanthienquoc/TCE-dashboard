@@ -71,9 +71,10 @@ export const useStockEventStore = create<StockEventState>((set, get) => ({
 
     if (inFlight) {
       const waitingGeneration = requestGeneration;
+      const waitingKey = inFlightKey;
       await waitForInFlightOrAbort(inFlight, externalSignal);
       if (externalSignal?.aborted || waitingGeneration !== requestGeneration) return;
-      if (inFlightKey === requestKey) return;
+      if (waitingKey === requestKey) return;
       return get().load(limit, true, month, externalSignal);
     }
 
