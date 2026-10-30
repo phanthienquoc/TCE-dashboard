@@ -286,7 +286,6 @@ stateDiagram-v2
   Error --> [*]: unmount aborts pending reads
 ```
 
-
 ## Latest source recheck after PR #998
 
 Master source baseline is `e9b8dd8895dea2b3532c12c4606254aa7070ff70`, the squash merge of PR #998. In `apps/web/app/notifications/page.tsx`, `enablePush()` no longer logs the raw rejection from `enableSystemUpdateNotifications()`; it calls `normalizeSystemUpdatePushFailure()` from `apps/web/lib/system-update-push-errors.ts`. That helper delegates to `normalizeApiError()` and returns only kind, controlled message, retryability and optional HTTP status. The existing push subscription API, payload, permission flow and UI error state remain unchanged.
