@@ -55,7 +55,11 @@ export const useStockDividendPoolStore = create<State>(set => ({
       );
 
       if (controller.signal.aborted || generation !== requestGeneration) return;
-      set({ items: Array.isArray(response.data) ? response.data : [], loading: false, error: null });
+      set({
+        items: Array.isArray(response.data) ? response.data : [],
+        loading: false,
+        error: null,
+      });
     } catch (error) {
       if (generation !== requestGeneration) return;
       if (controller.signal.aborted || isApiRequestCancelled(error)) {
