@@ -153,21 +153,14 @@ test('a newer market-price sync aborts the older sync and rejects its late resul
     assert.equal(requests.length, 2);
     assert.equal(requests[0].signal?.aborted, true);
 
-    requests[1].pending.resolve(
-      response({ data: [{ symbol: 'DPM', price: 42.5 }] })
-    );
+    requests[1].pending.resolve(response({ data: [{ symbol: 'DPM', price: 42.5 }] }));
     await secondSync;
 
-    requests[0].pending.resolve(
-      response({ data: [{ symbol: 'DPM', price: 41.0 }] })
-    );
+    requests[0].pending.resolve(response({ data: [{ symbol: 'DPM', price: 41.0 }] }));
     await firstSync;
 
     assert.equal(useDashboardStore.getState().marketPrices.DPM?.price, 42.5);
-    assert.equal(
-      useDashboardStore.getState().data?.positions[0].marketPrice,
-      42.5
-    );
+    assert.equal(useDashboardStore.getState().data?.positions[0].marketPrice, 42.5);
   } finally {
     useDashboardStore.getState().clear();
     dashboardApi.marketPrices = originalMarketPrices;
