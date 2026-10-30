@@ -87,7 +87,7 @@ flowchart TD
 
 Diagrams must match real contracts and source. Label unknowns instead of inventing guarantees. A mock is a design artifact, not evidence that runtime behavior exists.
 
-### SSE resume sequence — PR #946 merged; post-merge build verification pending
+### SSE resume sequence — PR #946 merged; master CI verified
 
 ```mermaid
 sequenceDiagram
