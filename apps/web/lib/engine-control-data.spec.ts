@@ -51,6 +51,39 @@ test('Engine Control reads forward one effect-owned AbortSignal to both existing
   }
 });
 
+test('aborting the shared signal cancels both pending Engine Control reads', async () => {
+  const originalEngines = dashboardApi.engines;
+  const originalConfig = dashboardApi.engineConfig;
+  const signals: Array<AbortSignal | undefined> = [];
+  const pendingRead = (signal?: AbortSignal) =>
+    new Promise<AxiosResponse<unknown>>((resolve, reject) => {
+      signals.push(signal);
+      if (signal?.aborted) {
+        reject(new Error('cancelled'));
+        return;
+      }
+      signal?.addEventListener('abort', () => reject(new Error('cancelled')), { once: true });
+    });
+
+  dashboardApi.engines = ((signal?: AbortSignal) =>
+    pendingRead(signal)) as typeof dashboardApi.engines;
+  dashboardApi.engineConfig = ((signal?: AbortSignal) =>
+    pendingRead(signal)) as typeof dashboardApi.engineConfig;
+
+  try {
+    const controller = new AbortController();
+    const pending = loadEngineControlData(controller.signal);
+    controller.abort();
+
+    await assert.rejects(pending, /cancelled/);
+    assert.equal(signals.length, 2);
+    assert.ok(signals.every(signal => signal?.aborted));
+  } finally {
+    dashboardApi.engines = originalEngines;
+    dashboardApi.engineConfig = originalConfig;
+  }
+});
+
 test('Engine Control read helper normalizes empty response collections without changing the API contract', async () => {
   const originalEngines = dashboardApi.engines;
   const originalConfig = dashboardApi.engineConfig;
