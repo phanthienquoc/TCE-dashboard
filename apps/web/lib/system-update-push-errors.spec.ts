@@ -21,7 +21,13 @@ test('system update push failures expose only safe allow-listed metadata', () =>
     config,
   };
   const failure = normalizeSystemUpdatePushFailure(
-    new AxiosError('Request failed with status code 500', 'ERR_BAD_RESPONSE', config, undefined, response)
+    new AxiosError(
+      'Request failed with status code 500',
+      'ERR_BAD_RESPONSE',
+      config,
+      undefined,
+      response
+    )
   );
   const serialized = JSON.stringify(failure);
 
