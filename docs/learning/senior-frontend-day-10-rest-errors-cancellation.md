@@ -605,4 +605,47 @@ The browser times out while submitting an order. Can the UI safely report “the
 
 A Senior Frontend Engineer does not merely call an endpoint. They define the request lifecycle, error semantics, cancellation ownership, stale-response policy, and the boundary between client uncertainty and authoritative server state.
 
+## System Readiness Check — Engine Control read lifecycle (2026-10-30)
+
+**Task:** `DAY10-READ-ENGINE-CONTROL-01` — cancel obsolete read-only engine status/configuration requests when the Engine Control panel effect is cleaned up or restarted. Keep existing API endpoints, auth/session behavior, engine-toggle writes, trading/execution settings, and persistence unchanged.
+
+| Area | Status | Evidence |
+| --- | --- | --- |
+| Scope and acceptance | PASS | `EngineControlPanel.tsx` uses a mounted flag to suppress stale state commits but does not pass a signal to the existing `dashboardApi.engines(signal?)` and `dashboardApi.engineConfig(signal?)` GET methods. Acceptance: one effect-owned `AbortController`, same signal to both GETs, abort on cleanup/restart, no state/loading commit after abort; write methods remain untouched. |
+| Default/base/current commit | PASS | Repository default/base is `master`; current base is `43a52e39439274ac9b08370cf8b23495e4b7bbe5`, after merged PR #960. The task branch is `fix/day10-engine-control-read-cancellation-20261030`, created from that exact commit. |
+| Open PR/branch overlap | PASS | Only open PR found is #928, limited to `plan/agentic-task-queue.md`. No existing branch matching the Engine Control read task was found. PRs #959/#960 are merged; their review-thread lists are empty. |
+| Source of truth and dependencies | PASS | Inspected `apps/web/app/engines/EngineControlPanel.tsx`, `apps/web/lib/api.ts`, and `apps/web/lib/dashboard-cancellation.spec.ts`. The two GET methods already accept `AbortSignal`; no backend/API change is needed. |
+| Working-tree/change safety | WARN | GitHub connector does not expose a local working-tree snapshot. Review the complete PR diff and review threads before merge. |
+| Build/test/CI baseline | WARN | PR #959 exact head `aea94d33389883da46de03788992842afeefd162` passed WF-01P `41027669687`, WF-02 `41027669111`, and WF-05 `41027669122`. PR #960 changed only `Dockerfile`; its exact head passed WF-02 `41027956925` and WF-05 `41027956907`, but no WF-01P run was surfaced for that head. Combined status on current master returned no status entries. Require frontend build, formatter, and unit-test workflows on this task's exact PR head. |
+| Service/infrastructure/deployment | N/A | Read-only client request lifecycle only. No service, workflow, manifest, deployment, runtime configuration, or market-scan schedule changes. |
+| Secrets/permissions | PASS / N/A | Repository branch/write permission is available. No secret is required, read, or changed. |
+| Database/schema/migrations | N/A | No persistence, schema, RLS, or migration changes; live DB state is not needed for this bounded client-only task. |
+| Production risk and rollback | PASS | Only existing authenticated GET reads are cancelled. No engine toggle/config write, order, strategy, execution, or production action is changed. Rollback is reverting this PR; no deployment is planned. |
+
+**Readiness decision:** GO for this bounded read-only client lifecycle task. The CI baseline warning is retained explicitly; the new PR's exact-head build/format/test checks are required before merge.
+
+### Design — Engine Control read lifecycle
+
+```mermaid
+sequenceDiagram
+  participant UI as EngineControlPanel effect
+  participant Scope as AbortController
+  participant Loader as Engine control read helper
+  participant API as Existing authenticated GETs
+
+  UI->>Scope: Create controller for current effect
+  UI->>Loader: Load engine states + config(signal)
+  Loader->>API: engines(signal) and engineConfig(signal)
+  alt Effect cleanup or dependency restart
+    UI->>Scope: Abort controller
+    Scope-->>Loader: Signal aborted
+    API-->>Loader: Cancel/reject in-flight GETs
+    Loader-->>UI: No stale data/loading commit
+  else Both reads finish while active
+    API-->>Loader: Existing response payloads
+    Loader-->>UI: States + config
+    UI->>UI: Commit only if effect is still active
+  end
+```
+
 Next: **Day 11 — WebSocket/SSE, reconnection and backpressure**, using the TCE realtime contract and keeping correctness separate from rendering optimizations.
