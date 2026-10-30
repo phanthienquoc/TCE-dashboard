@@ -4,8 +4,13 @@ import { Bell, Bot, ChevronRight, Plus, Smartphone } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '../../components/ui/button';
+import { isApiRequestCancelled } from '../../lib/api-errors';
 import { useAuthStore } from '../../lib/store';
-import { loadTelegramNotificationData } from '../../lib/telegram-notification-data';
+import {
+  hasCompleteTelegramNotificationCache,
+  loadTelegramNotificationData,
+  normalizeTelegramNotificationReadError,
+} from '../../lib/telegram-notification-data';
 import { useTCEDataStore } from '../../lib/tce-data-store';
 import { enableSystemUpdateNotifications } from '../../lib/system-updates';
 import DashboardLayout from '../../components/dashboard/DashboardLayout';
@@ -30,6 +35,8 @@ export default function NotificationsPage() {
   const [bots, setBots] = useState<BotRow[]>([]);
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [reloadAttempt, setReloadAttempt] = useState(0);
   const [pushState, setPushState] = useState<'idle' | 'loading' | 'enabled' | 'error'>('idle');
 
   useEffect(() => {
@@ -41,16 +48,19 @@ export default function NotificationsPage() {
       setBots([]);
       setAssignments([]);
       setLoading(!initialized || authLoading);
+      setLoadError(null);
       return;
     }
 
     const controller = new AbortController();
     let active = true;
 
-    if (cachedBots !== null || cachedAssignments !== null) {
-      setBots(Array.isArray(cachedBots) ? (cachedBots as BotRow[]) : []);
-      setAssignments(Array.isArray(cachedAssignments) ? (cachedAssignments as Assignment[]) : []);
+    // A partial prefetch must not masquerade as a successful empty notification list.
+    if (hasCompleteTelegramNotificationCache(cachedBots, cachedAssignments)) {
+      setBots(cachedBots as BotRow[]);
+      setAssignments(cachedAssignments as Assignment[]);
       setLoading(false);
+      setLoadError(null);
       return () => {
         active = false;
         controller.abort();
@@ -60,16 +70,18 @@ export default function NotificationsPage() {
     setBots([]);
     setAssignments([]);
     setLoading(true);
+    setLoadError(null);
     void loadTelegramNotificationData(controller.signal)
       .then(({ bots: botRows, assignments: assignmentRows }) => {
         if (!active || controller.signal.aborted) return;
         setBots(botRows);
         setAssignments(assignmentRows);
       })
-      .catch(() => {
-        if (!active || controller.signal.aborted) return;
+      .catch((error: unknown) => {
+        if (!active || controller.signal.aborted || isApiRequestCancelled(error)) return;
         setBots([]);
         setAssignments([]);
+        setLoadError(normalizeTelegramNotificationReadError(error));
       })
       .finally(() => {
         if (active && !controller.signal.aborted) setLoading(false);
@@ -79,7 +91,7 @@ export default function NotificationsPage() {
       active = false;
       controller.abort();
     };
-  }, [authLoading, initialized, user?.id, cachedBots, cachedAssignments]);
+  }, [authLoading, initialized, user?.id, cachedBots, cachedAssignments, reloadAttempt]);
 
   async function enablePush() {
     setPushState('loading');
@@ -141,10 +153,32 @@ export default function NotificationsPage() {
       <section className="notification-section mt-3">
         <div className="notification-section-head">
           <span>Telegram bots</span>
-          <span>{bots.length} configured</span>
+          <span>
+            {loadError ? 'Unavailable' : loading ? 'Loading…' : `${bots.length} configured`}
+          </span>
         </div>
         {loading ? (
           <div className="loading-state m-3 min-h-20 animate-pulse" />
+        ) : loadError ? (
+          <div className="notification-empty flex items-center gap-3 p-4" role="alert">
+            <div className="notification-empty-icon">
+              <Bell className="size-5" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="text-sm font-semibold text-foreground">
+                Unable to load Telegram bots
+              </div>
+              <div className="mt-1 text-xs text-muted">{loadError}</div>
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setReloadAttempt(attempt => attempt + 1)}
+            >
+              Retry
+            </Button>
+          </div>
         ) : bots.length === 0 ? (
           <button
             type="button"
@@ -202,14 +236,16 @@ export default function NotificationsPage() {
           </div>
         )}
       </section>
-      <Button
-        type="button"
-        onClick={() => router.push('/notifications/new')}
-        className="mt-3 w-full"
-      >
-        <Plus className="size-4" />
-        Add bot
-      </Button>
+      {!loadError && (
+        <Button
+          type="button"
+          onClick={() => router.push('/notifications/new')}
+          className="mt-3 w-full"
+        >
+          <Plus className="size-4" />
+          Add bot
+        </Button>
+      )}
     </DashboardLayout>
   );
 }

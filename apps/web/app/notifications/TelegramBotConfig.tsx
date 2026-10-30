@@ -17,7 +17,10 @@ import { platformApi } from '../../lib/api';
 import { normalizeTelegramBotConfigError } from '../../lib/telegram-bot-config-errors';
 import { telegramBotConfigAccountKey } from '../../lib/telegram-bot-config-account';
 import { useAuthStore } from '../../lib/store';
-import { loadTelegramNotificationData } from '../../lib/telegram-notification-data';
+import {
+  hasCompleteTelegramNotificationCache,
+  loadTelegramNotificationData,
+} from '../../lib/telegram-notification-data';
 import { useTCEDataStore } from '../../lib/tce-data-store';
 import { Button } from '../../components/ui/button';
 import {
@@ -72,7 +75,7 @@ function TelegramBotConfigAccount() {
       loadController.current?.abort();
     };
 
-    if (cachedBots !== null || cachedAssignments !== null) {
+    if (hasCompleteTelegramNotificationCache(cachedBots, cachedAssignments)) {
       loadController.current?.abort();
       loadController.current = null;
       const nextBots = Array.isArray(cachedBots) ? cachedBots : [];

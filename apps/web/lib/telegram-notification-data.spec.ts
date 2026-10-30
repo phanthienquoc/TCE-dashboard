@@ -1,9 +1,14 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { AxiosHeaders, type AxiosResponse, type InternalAxiosRequestConfig } from 'axios';
+import axios, { AxiosHeaders, type AxiosResponse, type InternalAxiosRequestConfig } from 'axios';
 
 import { platformApi } from './api';
-import { loadTelegramBots, loadTelegramNotificationData } from './telegram-notification-data';
+import {
+  hasCompleteTelegramNotificationCache,
+  loadTelegramBots,
+  loadTelegramNotificationData,
+  normalizeTelegramNotificationReadError,
+} from './telegram-notification-data';
 
 function response<T>(data: T): AxiosResponse<T> {
   return {
@@ -15,7 +20,7 @@ function response<T>(data: T): AxiosResponse<T> {
   };
 }
 
-test('notification data reads forward the same AbortSignal and normalize both responses', async () => {
+test('notification reads forward one signal and normalize both responses', async () => {
   const originalBots = platformApi.telegramBots;
   const originalAssignments = platformApi.telegramDebugAssignments;
   const signals: Array<AbortSignal | undefined> = [];
@@ -67,4 +72,39 @@ test('single bot read forwards its signal and accepts a bare array response', as
   } finally {
     platformApi.telegramBots = originalBots;
   }
+});
+
+test('paired notification cache requires both bot and assignment arrays', () => {
+  assert.equal(hasCompleteTelegramNotificationCache([], []), true);
+  assert.equal(hasCompleteTelegramNotificationCache([], null), false);
+  assert.equal(hasCompleteTelegramNotificationCache(null, []), false);
+  assert.equal(hasCompleteTelegramNotificationCache(undefined, []), false);
+});
+
+test('notification read errors use safe HTTP messages and a generic fallback', () => {
+  const config = { headers: new AxiosHeaders() } as InternalAxiosRequestConfig;
+  const errorResponse: AxiosResponse<{ message: string }> = {
+    data: { message: 'sensitive database path and credential details' },
+    status: 500,
+    statusText: 'Internal Server Error',
+    headers: new AxiosHeaders(),
+    config,
+  };
+  const httpError = new axios.AxiosError(
+    'Internal Server Error',
+    'ERR_BAD_RESPONSE',
+    config,
+    undefined,
+    errorResponse
+  );
+
+  const httpMessage = normalizeTelegramNotificationReadError(httpError);
+  assert.equal(httpMessage, 'The service is temporarily unavailable. Please try again.');
+  assert.equal(httpMessage.includes('sensitive database path'), false);
+
+  const unknownMessage = normalizeTelegramNotificationReadError(
+    new Error('internal database path')
+  );
+  assert.equal(unknownMessage, 'Unable to load Telegram notifications. Please try again.');
+  assert.equal(unknownMessage.includes('internal database path'), false);
 });
