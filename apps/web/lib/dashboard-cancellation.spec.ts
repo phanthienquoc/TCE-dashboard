@@ -298,3 +298,97 @@ test('market-price sync logs normalized failures without leaking Axios config or
     dashboardApi.marketPrices = originalMarketPrices;
   }
 });
+
+test('market-price sync preserves existing prices when every quote is invalid', async () => {
+  const originalMarketPrices = dashboardApi.marketPrices;
+  const originalConsoleWarn = console.warn;
+  const warnings: unknown[][] = [];
+  const existingData = {
+    positions: [{ symbol: 'DPM', marketPrice: 42 }],
+    currentPositions: [],
+    pools: [],
+  };
+
+  dashboardApi.marketPrices = (async () =>
+    response({
+      ok: true,
+      data: [
+        { symbol: 'DPM', price: 0 },
+        { symbol: 'UNKNOWN', price: 999 },
+      ],
+    })) as typeof dashboardApi.marketPrices;
+  console.warn = (...args: unknown[]) => {
+    warnings.push(args);
+  };
+
+  try {
+    useDashboardStore.setState({
+      data: existingData,
+      marketPrices: { DPM: { symbol: 'DPM', price: 42 } },
+      loading: false,
+      error: null,
+    });
+
+    await useDashboardStore.getState().syncMarketPrices();
+
+    const state = useDashboardStore.getState();
+    assert.deepEqual(state.marketPrices, { DPM: { symbol: 'DPM', price: 42 } });
+    assert.equal(state.data.positions[0].marketPrice, 42);
+    assert.deepEqual(warnings, [
+      ['[FE_MARKET_PRICE_SYNC_INVALID_PAYLOAD]', { received: 2, accepted: 0, rejected: 2 }],
+    ]);
+    assert.equal(JSON.stringify(warnings).includes('999'), false);
+  } finally {
+    console.warn = originalConsoleWarn;
+    useDashboardStore.getState().clear();
+    dashboardApi.marketPrices = originalMarketPrices;
+  }
+});
+
+test('market-price sync quarantines invalid and unrequested quotes without leaking payload values', async () => {
+  const originalMarketPrices = dashboardApi.marketPrices;
+  const originalConsoleWarn = console.warn;
+  const warnings: unknown[][] = [];
+
+  dashboardApi.marketPrices = (async () =>
+    response({
+      ok: true,
+      data: [
+        { symbol: 'DPM', price: -1 },
+        { symbol: 'SSI', price: 31.5 },
+        { symbol: 'UNKNOWN', price: 999 },
+      ],
+    })) as typeof dashboardApi.marketPrices;
+  console.warn = (...args: unknown[]) => {
+    warnings.push(args);
+  };
+
+  try {
+    useDashboardStore.setState({
+      data: {
+        positions: [{ symbol: 'DPM' }, { symbol: 'SSI' }],
+        currentPositions: [],
+        pools: [],
+      },
+      marketPrices: { DPM: { symbol: 'DPM', price: 42 } },
+      loading: false,
+      error: null,
+    });
+
+    await useDashboardStore.getState().syncMarketPrices();
+
+    const state = useDashboardStore.getState();
+    assert.equal(state.marketPrices.DPM.price, 42);
+    assert.equal(state.marketPrices.SSI.price, 31.5);
+    assert.equal(state.marketPrices.UNKNOWN, undefined);
+    assert.deepEqual(warnings, [
+      ['[FE_MARKET_PRICE_SYNC_INVALID_PAYLOAD]', { received: 3, accepted: 1, rejected: 2 }],
+    ]);
+    assert.equal(JSON.stringify(warnings).includes('999'), false);
+    assert.equal(JSON.stringify(warnings).includes('-1'), false);
+  } finally {
+    console.warn = originalConsoleWarn;
+    useDashboardStore.getState().clear();
+    dashboardApi.marketPrices = originalMarketPrices;
+  }
+});
