@@ -8,6 +8,7 @@ import { useTCEDataStore } from './tce-data-store';
 import { useStockEventStore } from './stock-event-store';
 import { startAppDataWorker, useAppDataWorkerStore } from './app-data-worker';
 import { useStockSyncStore } from './stock-sync-store';
+import { useEngineRuntimeStore } from './engine-runtime-store';
 import { normalizeMarketPricePayload, type MarketPrice } from './market-price-validation';
 
 type User = { id: string; email: string; role: string; mfaEnabled: boolean };
@@ -358,4 +359,5 @@ function clearAccountScopedStores() {
   useStockEventStore.getState().clear();
   useDashboardStore.getState().clear();
   useStockSyncStore.getState().clear();
+  useEngineRuntimeStore.getState().clear();
 }
