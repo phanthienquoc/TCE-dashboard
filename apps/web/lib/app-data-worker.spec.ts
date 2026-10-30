@@ -76,7 +76,9 @@ test(
       useStockEventStore.getState().clear();
       useStockSyncStore.getState().clear();
       assert.ok(requests.some(request => request.signal));
-      assert.ok(requests.filter(request => request.signal).every(request => request.signal?.aborted));
+      assert.ok(
+      requests.filter(request => request.signal).every(request => request.signal?.aborted)
+    );
 
       for (const request of requests) request.pending.resolve(response([]));
       await run;
