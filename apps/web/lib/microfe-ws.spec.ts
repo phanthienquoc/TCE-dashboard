@@ -87,7 +87,7 @@ function event(id: string, channel: string, sequence?: number): MicrofeEvent {
   };
 }
 
-test('reconnect delay grows exponentially, caps the exponent, and applies injectable jitter', () => {
+test('reconnect backoff is exponential, capped, and jittered', () => {
   assert.equal(
     reconnectDelay(0, () => 0),
     500
