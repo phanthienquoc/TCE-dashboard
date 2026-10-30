@@ -40,6 +40,7 @@ flowchart TD
   TCEStore[useTCEDataStore<br/>apps/web/lib/tce-data-store.ts]
   Service[apps/service API]
   RuntimeEvents[Runtime Events Controller]
+  RuntimeQuery[RuntimeEventsQueryService]
   Supabase[(Supabase persistence<br/>schema/RLS not audited here)]
   WSClient[microfe-ws.ts]
   WSService[runtime-events.websocket.ts<br/>auth handshake contract must be verified]
@@ -55,7 +56,8 @@ flowchart TD
   TCEStore --> API
   API --> Service
   WSClient -. "separate upgrade/auth contract" .-> WSService
-  Service --> RuntimeEvents --> Supabase
+  Service --> RuntimeEvents --> RuntimeQuery --> Supabase
+  WSService --> RuntimeQuery
 ```
 
 ### Verified source ownership
@@ -96,6 +98,7 @@ sequenceDiagram
   participant Store as Zustand stores
   participant API as Central Axios client
   participant Service as Authenticated service API
+  participant Query as RuntimeEventsQueryService
   participant DB as Supabase runtime event store
   participant SSE as Runtime Events SSE
 
@@ -106,8 +109,10 @@ sequenceDiagram
   API-->>Store: resolve or reject
   Store-->>UI: state update
   SSE->>Service: request with Bearer JWT and cursor
-  Service->>DB: account-scoped cursor/list query
-  DB-->>Service: ordered events
+  Service->>Query: resolve cursor / list account events
+  Query->>DB: account-scoped cursor/list query
+  DB-->>Query: ordered events
+  Query-->>Service: event envelopes
   Service-->>SSE: SSE events with resumable event IDs
   Note over UI,SSE: Browser WS upgrade authentication is a separate unresolved contract; do not assume SSE auth automatically works for WebSocket.
 ```
