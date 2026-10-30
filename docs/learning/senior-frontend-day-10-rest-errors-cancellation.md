@@ -57,7 +57,7 @@ sequenceDiagram
   end
 ```
 
-**Readiness decision:** READY for this bounded client-side implementation. The helper/unit test and component guards are in this branch; implementation is not considered verified or merged until the PR's required checks pass.
+**Readiness decision:** READY for this bounded client-side implementation. The helper/unit test and component guards are proposed in PR #957; implementation is not considered CI-verified or merged until the PR's required checks pass.
 
 ## System Readiness Check — dividend-pool read lifecycle (2026-10-30)
 
