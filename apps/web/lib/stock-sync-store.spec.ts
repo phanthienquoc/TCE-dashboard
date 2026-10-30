@@ -162,6 +162,55 @@ test('clear aborts account-scoped reads and blocks late responses from restoring
   }
 });
 
+test('refresh propagates caller cancellation to settings, Telegram bots, and run-history reads', async () => {
+  const originalGet = api.get;
+  const requests: Array<{
+    url: string;
+    signal?: AbortSignal;
+    pending: Deferred<AxiosResponse<unknown>>;
+  }> = [];
+  const controller = new AbortController();
+
+  api.get = ((url: string, config?: AxiosRequestConfig) => {
+    const pending = deferred<AxiosResponse<unknown>>();
+    requests.push({
+      url,
+      signal: config?.signal as AbortSignal | undefined,
+      pending,
+    });
+    return pending.promise;
+  }) as typeof api.get;
+
+  try {
+    useStockSyncStore.getState().clear();
+
+    const refresh = useStockSyncStore.getState().refresh(controller.signal);
+    assert.equal(requests.length, 3);
+    assert.ok(requests.some(request => request.url.includes('/stock-events-cron/settings')));
+    assert.ok(requests.some(request => request.url.includes('/platform/telegram/bots')));
+    assert.ok(requests.some(request => request.url.includes('/stock-events-cron/runs')));
+    assert.ok(requests.every(request => request.signal));
+
+    controller.abort();
+
+    assert.ok(requests.every(request => request.signal?.aborted));
+
+    for (const request of requests) request.pending.resolve(response({}));
+    await refresh;
+
+    const state = useStockSyncStore.getState();
+    assert.equal(state.initialized, false);
+    assert.equal(state.loading, false);
+    assert.deepEqual(state.bots, []);
+    assert.deepEqual(state.runs, []);
+    assert.equal(state.config.telegramCredentialId, null);
+    assert.equal(state.message, null);
+  } finally {
+    useStockSyncStore.getState().clear();
+    api.get = originalGet;
+  }
+});
+
 test('clear prevents a late save response from restoring previous-account configuration', async () => {
   const originalPost = api.post;
   const pending = deferred<AxiosResponse<StockSyncConfig>>();
