@@ -7,6 +7,7 @@ import { useAppDataWorkerStore } from './app-data-worker';
 import { useStockEventStore } from './stock-event-store';
 import { useStockSyncStore, type StockSyncRun } from './stock-sync-store';
 import { useTCEDataStore } from './tce-data-store';
+import { useEngineRuntimeStore, type EngineRuntimeNode } from './engine-runtime-store';
 import { setAccessToken } from './session-token';
 import { useAuthStore, useDashboardStore } from './store';
 
@@ -40,6 +41,20 @@ function response<T>(data: T): AxiosResponse<T> {
   };
 }
 
+function oldEngineRuntime(): EngineRuntimeNode {
+  return {
+    engineId: 'tce-decision',
+    configured: true,
+    configuredEnabled: true,
+    persistedStatus: 'ACTIVE',
+    status: 'ACTIVE',
+    dependencies: [],
+    blockedBy: [],
+    updatedAt: '2026-10-30T00:00:00.000Z',
+    error: null,
+  };
+}
+
 test('SSO account switch clears old account caches before new account prefetch starts', async () => {
   const originalMe = authApi.me;
   const originalPrefetch = useTCEDataStore.getState().prefetch;
@@ -62,6 +77,12 @@ test('SSO account switch clears old account caches before new account prefetch s
     useAuthStore.setState({
       user: oldUser,
       status: 'authenticated',
+      loading: false,
+      initialized: true,
+      error: null,
+    });
+    useEngineRuntimeStore.setState({
+      engines: [oldEngineRuntime()],
       loading: false,
       initialized: true,
       error: null,
@@ -117,6 +138,8 @@ test('SSO account switch clears old account caches before new account prefetch s
 
     assert.equal(useAuthStore.getState().user?.id, 'new-account');
     assert.equal(useTCEDataStore.getState().credentials, null);
+    assert.deepEqual(useEngineRuntimeStore.getState().engines, []);
+    assert.equal(useEngineRuntimeStore.getState().initialized, false);
     assert.equal(useTCEDataStore.getState().initialized, false);
     assert.equal(useStockSyncStore.getState().config.telegramCredentialId, null);
     assert.deepEqual(useStockSyncStore.getState().bots, []);
@@ -130,6 +153,7 @@ test('SSO account switch clears old account caches before new account prefetch s
     useTCEDataStore.setState({ prefetch: originalPrefetch });
     useStockEventStore.setState({ load: originalStockEventLoad });
     useAppDataWorkerStore.setState({ start: originalWorkerStart });
+    useEngineRuntimeStore.getState().clear();
     useTCEDataStore.getState().clear();
     useStockEventStore.getState().clear();
     useStockSyncStore.getState().clear();
@@ -161,6 +185,12 @@ test('logout clears account caches before the remote logout request settles', as
         mfaEnabled: false,
       },
       status: 'authenticated',
+      loading: false,
+      initialized: true,
+      error: null,
+    });
+    useEngineRuntimeStore.setState({
+      engines: [oldEngineRuntime()],
       loading: false,
       initialized: true,
       error: null,
@@ -205,6 +235,8 @@ test('logout clears account caches before the remote logout request settles', as
     assert.equal(useAuthStore.getState().user, null);
     assert.equal(useAuthStore.getState().status, 'anonymous');
     assert.equal(useTCEDataStore.getState().credentials, null);
+    assert.deepEqual(useEngineRuntimeStore.getState().engines, []);
+    assert.equal(useEngineRuntimeStore.getState().initialized, false);
     assert.equal(useStockSyncStore.getState().config.telegramCredentialId, null);
     assert.deepEqual(useStockSyncStore.getState().bots, []);
     assert.equal(useDashboardStore.getState().data, null);
@@ -217,6 +249,7 @@ test('logout clears account caches before the remote logout request settles', as
     assert.equal(useAuthStore.getState().status, 'anonymous');
   } finally {
     authApi.logout = originalLogout;
+    useEngineRuntimeStore.getState().clear();
     useTCEDataStore.getState().clear();
     useStockEventStore.getState().clear();
     useStockSyncStore.getState().clear();
