@@ -123,7 +123,10 @@ export const useAppDataWorkerStore = create<AppDataWorkerState>((set, get) => ({
         prefetchRoutes(router);
         const storeTasks: Task[] = [
           { key: 'tce-data', run: () => useTCEDataStore.getState().prefetch() },
-          { key: 'stock-events', run: () => useStockEventStore.getState().load(200, false, null) },
+          {
+            key: 'stock-events',
+            run: () => useStockEventStore.getState().load(200, false, null, controller.signal),
+          },
           {
             key: 'dividend-pool',
             run: () => useStockDividendPoolStore.getState().load(undefined, controller.signal),
