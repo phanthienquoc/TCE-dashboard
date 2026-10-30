@@ -439,6 +439,23 @@ When is it safe to coalesce incoming events?
 
 **Answer:** When intermediate values are replaceable for presentation, such as quote-tile renders, and the domain state remains correct. It is not safe to silently discard required execution, risk, account-transition or reconciliation events.
 
+### SSO session-exchange error reporting is not WebSocket authentication
+
+PR #966 (merged at `48e384`) changes `apps/web/lib/keycloak-sso.ts` so failed TCE session-exchange responses can show a non-empty string `message`; absent such a message, the client uses status-specific fallback text. The PR changed only this source file and added no dedicated frontend regression spec. Its exact-head CI passed, but that does not establish browser WebSocket authentication.
+
+```mermaid
+flowchart TD
+  A[Keycloak callback] --> B[POST existing TCE session exchange]
+  B -->|2xx with accessToken| C[Existing authenticated HTTP session]
+  B -->|Non-2xx| D{Non-empty string message?}
+  D -->|Yes| E[Show response message]
+  D -->|No| F[Show status-specific fallback]
+  G[Browser WebSocket upgrade] --> H[Verify routing, cookie scope, origin, expiry and account binding]
+  H -->|Not integration-tested| I[BLOCKED — no frontend quote stream]
+```
+
+**Boundary:** SSO login/session-exchange error reporting and WebSocket upgrade authentication are separate contracts. `CURR-AUTH-07` remains BLOCKED until the real browser-to-socket identity path is verified and integration-tested.
+
 ## End-of-session takeaway
 
 A reliable realtime frontend is not just a socket with a reconnect timer. It needs a transport lifecycle, authentication policy, event identity, cursor-based recovery, ordering guarantees, bounded memory, and an explicit rule for which data can be coalesced.
