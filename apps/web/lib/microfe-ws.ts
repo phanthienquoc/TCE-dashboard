@@ -16,12 +16,21 @@ type Options = {
 };
 
 const wsUrl = process.env.NEXT_PUBLIC_WS_BASE_URL ?? 'wss://ws.mrcute.space/ws';
+const STABLE_CONNECTION_MS = 30_000;
+
+export function reconnectDelay(attempt: number, random = Math.random): number {
+  const safeAttempt = Math.max(0, Math.min(Math.trunc(attempt), 16));
+  const base = Math.min(30_000, 500 * 2 ** safeAttempt);
+  const jitter = Math.floor(random() * Math.max(100, base * 0.25));
+  return base + jitter;
+}
 
 class MicrofeWebSocket {
   private socket?: WebSocket;
   private reconnectTimer?: ReturnType<typeof setTimeout>;
   private heartbeatTimer?: ReturnType<typeof setInterval>;
   private heartbeatTimeout?: ReturnType<typeof setTimeout>;
+  private stableConnectionTimer?: ReturnType<typeof setTimeout>;
   private stopped = true;
   private attempt = 0;
   private readonly subscriptions = new Set<string>();
@@ -40,9 +49,11 @@ class MicrofeWebSocket {
     if (this.reconnectTimer) clearTimeout(this.reconnectTimer);
     if (this.heartbeatTimer) clearInterval(this.heartbeatTimer);
     if (this.heartbeatTimeout) clearTimeout(this.heartbeatTimeout);
+    if (this.stableConnectionTimer) clearTimeout(this.stableConnectionTimer);
     this.reconnectTimer = undefined;
     this.heartbeatTimer = undefined;
     this.heartbeatTimeout = undefined;
+    this.stableConnectionTimer = undefined;
     this.socket?.close(1000, 'client_stop');
     this.socket = undefined;
   }
@@ -61,12 +72,20 @@ class MicrofeWebSocket {
     if (this.stopped || this.socket?.readyState === WebSocket.OPEN) return;
     this.socket = new WebSocket(wsUrl);
     this.socket.addEventListener('open', () => {
-      this.attempt = 0;
+      // An open handshake alone is not proof that the connection is healthy.
+      // Reset the backoff only after the socket stays open for a stable period.
+      if (this.stableConnectionTimer) clearTimeout(this.stableConnectionTimer);
+      this.stableConnectionTimer = setTimeout(() => {
+        this.attempt = 0;
+        this.stableConnectionTimer = undefined;
+      }, STABLE_CONNECTION_MS);
       this.startHeartbeat();
       for (const channel of this.subscriptions) this.send({ type: 'subscribe', channel });
     });
     this.socket.addEventListener('message', event => this.handleMessage(event.data));
     this.socket.addEventListener('close', event => {
+      if (this.stableConnectionTimer) clearTimeout(this.stableConnectionTimer);
+      this.stableConnectionTimer = undefined;
       this.clearHeartbeat();
       if (event.code === 4401 || event.code === 4403) {
         this.options.onAuthRequired?.();
@@ -144,12 +163,11 @@ class MicrofeWebSocket {
 
   private scheduleReconnect() {
     if (this.stopped || this.reconnectTimer) return;
-    const base = Math.min(30000, 500 * 2 ** this.attempt++);
-    const jitter = Math.floor(Math.random() * Math.max(100, base * 0.25));
+    const delay = reconnectDelay(this.attempt++);
     this.reconnectTimer = setTimeout(() => {
       this.reconnectTimer = undefined;
       this.connect();
-    }, base + jitter);
+    }, delay);
   }
 }
 
