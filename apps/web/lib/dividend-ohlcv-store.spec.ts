@@ -93,83 +93,77 @@ test('dividend OHLCV reads forward the component lifecycle signal and normalize 
   }
 });
 
-test(
-  'unmount cancellation aborts the history request without leaving loading or an error',
-  async () => {
-    const originalPriceHistory = dashboardApi.priceHistory;
+test('unmount cancellation aborts the history request without leaving loading or an error', async () => {
+  const originalPriceHistory = dashboardApi.priceHistory;
+  const pending = deferred<AxiosResponse<{ data: unknown[] }>>();
+  let receivedSignal: AbortSignal | undefined;
+  dashboardApi.priceHistory = ((_symbol, _days, signal) => {
+    receivedSignal = signal;
+    return pending.promise;
+  }) as typeof dashboardApi.priceHistory;
+
+  try {
+    useDividendOhlcvStore.getState().clear();
+    const controller = new AbortController();
+    const load = useDividendOhlcvStore.getState().load('DPM', 365, controller.signal);
+
+    assert.equal(useDividendOhlcvStore.getState().loading.DPM, true);
+    controller.abort();
+
+    assert.equal(receivedSignal?.aborted, true);
+    assert.equal(useDividendOhlcvStore.getState().loading.DPM, false);
+    pending.reject(new CanceledError('request canceled'));
+    await load;
+
+    assert.equal(useDividendOhlcvStore.getState().loading.DPM, false);
+    assert.equal(useDividendOhlcvStore.getState().errors.DPM ?? null, null);
+    assert.equal(useDividendOhlcvStore.getState().histories.DPM, undefined);
+  } finally {
+    useDividendOhlcvStore.getState().clear();
+    dashboardApi.priceHistory = originalPriceHistory;
+  }
+});
+
+test('clear aborts an old history request and prevents its late response replacing a new read', async () => {
+  const originalPriceHistory = dashboardApi.priceHistory;
+  const requests: Array<{
+    signal?: AbortSignal;
+    pending: Deferred<AxiosResponse<{ data: unknown[] }>>;
+  }> = [];
+  dashboardApi.priceHistory = ((_symbol, _days, signal) => {
     const pending = deferred<AxiosResponse<{ data: unknown[] }>>();
-    let receivedSignal: AbortSignal | undefined;
-    dashboardApi.priceHistory = ((_symbol, _days, signal) => {
-      receivedSignal = signal;
-      return pending.promise;
-    }) as typeof dashboardApi.priceHistory;
+    requests.push({ signal, pending });
+    return pending.promise;
+  }) as typeof dashboardApi.priceHistory;
 
-    try {
-      useDividendOhlcvStore.getState().clear();
-      const controller = new AbortController();
-      const load = useDividendOhlcvStore.getState().load('DPM', 365, controller.signal);
+  try {
+    useDividendOhlcvStore.getState().clear();
+    const firstLoad = useDividendOhlcvStore.getState().load('DPM');
+    assert.equal(requests.length, 1);
 
-      assert.equal(useDividendOhlcvStore.getState().loading.DPM, true);
-      controller.abort();
+    useDividendOhlcvStore.getState().clear();
+    assert.equal(requests[0].signal?.aborted, true);
+    assert.deepEqual(useDividendOhlcvStore.getState().histories, {});
 
-      assert.equal(receivedSignal?.aborted, true);
-      assert.equal(useDividendOhlcvStore.getState().loading.DPM, false);
-      pending.reject(new CanceledError('request canceled'));
-      await load;
+    const secondLoad = useDividendOhlcvStore.getState().load('DPM');
+    assert.equal(requests.length, 2);
+    requests[0].pending.resolve(response({ data: [{ trading_date: 'old', close: 1 }] }));
+    await firstLoad;
 
-      assert.equal(useDividendOhlcvStore.getState().loading.DPM, false);
-      assert.equal(useDividendOhlcvStore.getState().errors.DPM ?? null, null);
-      assert.equal(useDividendOhlcvStore.getState().histories.DPM, undefined);
-    } finally {
-      useDividendOhlcvStore.getState().clear();
-      dashboardApi.priceHistory = originalPriceHistory;
-    }
+    assert.equal(useDividendOhlcvStore.getState().histories.DPM, undefined);
+    assert.equal(useDividendOhlcvStore.getState().loading.DPM, true);
+
+    requests[1].pending.resolve(response({ data: [{ trading_date: 'new', close: 2 }] }));
+    await secondLoad;
+
+    assert.equal(useDividendOhlcvStore.getState().histories.DPM?.[0].tradingDate, 'new');
+    assert.equal(useDividendOhlcvStore.getState().histories.DPM?.[0].close, 2);
+    assert.equal(useDividendOhlcvStore.getState().loading.DPM, false);
+  } finally {
+    useDividendOhlcvStore.getState().clear();
+    dashboardApi.priceHistory = originalPriceHistory;
   }
-);
-
-test(
-  'clear aborts an old history request and prevents its late response replacing a new read',
-  async () => {
-    const originalPriceHistory = dashboardApi.priceHistory;
-    const requests: Array<{
-      signal?: AbortSignal;
-      pending: Deferred<AxiosResponse<{ data: unknown[] }>>;
-    }> = [];
-    dashboardApi.priceHistory = ((_symbol, _days, signal) => {
-      const pending = deferred<AxiosResponse<{ data: unknown[] }>>();
-      requests.push({ signal, pending });
-      return pending.promise;
-    }) as typeof dashboardApi.priceHistory;
-
-    try {
-      useDividendOhlcvStore.getState().clear();
-      const firstLoad = useDividendOhlcvStore.getState().load('DPM');
-      assert.equal(requests.length, 1);
-
-      useDividendOhlcvStore.getState().clear();
-      assert.equal(requests[0].signal?.aborted, true);
-      assert.deepEqual(useDividendOhlcvStore.getState().histories, {});
-
-      const secondLoad = useDividendOhlcvStore.getState().load('DPM');
-      assert.equal(requests.length, 2);
-      requests[0].pending.resolve(response({ data: [{ trading_date: 'old', close: 1 }] }));
-      await firstLoad;
-
-      assert.equal(useDividendOhlcvStore.getState().histories.DPM, undefined);
-      assert.equal(useDividendOhlcvStore.getState().loading.DPM, true);
-
-      requests[1].pending.resolve(response({ data: [{ trading_date: 'new', close: 2 }] }));
-      await secondLoad;
-
-      assert.equal(useDividendOhlcvStore.getState().histories.DPM?.[0].tradingDate, 'new');
-      assert.equal(useDividendOhlcvStore.getState().histories.DPM?.[0].close, 2);
-      assert.equal(useDividendOhlcvStore.getState().loading.DPM, false);
-    } finally {
-      useDividendOhlcvStore.getState().clear();
-      dashboardApi.priceHistory = originalPriceHistory;
-    }
-  }
-);
+});
 
 test('dividend OHLCV errors use a safe fallback instead of raw exception details', async () => {
   const originalPriceHistory = dashboardApi.priceHistory;
