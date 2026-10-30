@@ -160,31 +160,47 @@ test('a newer market-price sync aborts the older sync and rejects its late resul
   }
 });
 
-test('clear aborts an in-flight dashboard load and prevents its late response from repopulating state', async () => {
+test('clear aborts dashboard and market-price reads and ignores their late responses', async () => {
   const originalAll = dashboardApi.all;
-  const pending = deferred<AxiosResponse<unknown>>();
-  let requestSignal: AbortSignal | undefined;
+  const originalMarketPrices = dashboardApi.marketPrices;
+  const dashboardPending = deferred<AxiosResponse<unknown>>();
+  const pricesPending = deferred<AxiosResponse<unknown>>();
+  let dashboardSignal: AbortSignal | undefined;
+  let pricesSignal: AbortSignal | undefined;
 
   dashboardApi.all = ((_status?: string, signal?: AbortSignal) => {
-    requestSignal = signal;
-    return pending.promise;
+    dashboardSignal = signal;
+    return dashboardPending.promise;
   }) as typeof dashboardApi.all;
+  dashboardApi.marketPrices = ((_symbols: string[], signal?: AbortSignal) => {
+    pricesSignal = signal;
+    return pricesPending.promise;
+  }) as typeof dashboardApi.marketPrices;
 
   try {
     const load = useDashboardStore.getState().load();
+    dashboardPending.resolve(
+      response({ id: 'late', positions: [{ symbol: 'DPM' }], currentPositions: [], pools: [] })
+    );
+    await Promise.resolve();
+
+    assert.ok(pricesSignal, 'the dashboard snapshot should start a market-price read');
     useDashboardStore.getState().clear();
 
-    assert.equal(requestSignal?.aborted, true);
+    assert.equal(dashboardSignal?.aborted, true);
+    assert.equal(pricesSignal?.aborted, true);
 
-    pending.resolve(response({ id: 'late', positions: [], currentPositions: [], pools: [] }));
+    pricesPending.resolve(response({ data: [{ symbol: 'DPM', price: 42.5 }] }));
     await load;
 
     assert.equal(useDashboardStore.getState().data, null);
+    assert.deepEqual(useDashboardStore.getState().marketPrices, {});
     assert.equal(useDashboardStore.getState().loading, false);
     assert.equal(useDashboardStore.getState().error, null);
   } finally {
     useDashboardStore.getState().clear();
     dashboardApi.all = originalAll;
+    dashboardApi.marketPrices = originalMarketPrices;
   }
 });
 
