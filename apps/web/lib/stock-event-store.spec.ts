@@ -150,9 +150,7 @@ test('aborting a waiting caller does not abort the shared stock-event transport'
     assert.equal(requestCount, 1);
 
     const waitingCaller = new AbortController();
-    const waitingLoad = useStockEventStore
-      .getState()
-      .load(200, true, null, waitingCaller.signal);
+    const waitingLoad = useStockEventStore.getState().load(200, true, null, waitingCaller.signal);
     waitingCaller.abort();
     await waitingLoad;
 
