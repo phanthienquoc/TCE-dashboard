@@ -281,6 +281,9 @@ test('market-price sync logs normalized failures without leaking Axios config or
     assert.equal(serializedLogs.includes('should-not-leak-api-key'), false);
     assert.equal(serializedLogs.includes('private transport detail'), false);
     assert.equal(serializedLogs.includes('private response body'), false);
+    assert.equal(serializedLogs.includes('Authorization'), false);
+    assert.equal(serializedLogs.includes('x-api-key'), false);
+    assert.equal(serializedLogs.includes('Internal Server Error'), false);
   } finally {
     console.error = originalConsoleError;
     useDashboardStore.getState().clear();
