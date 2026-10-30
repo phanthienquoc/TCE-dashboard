@@ -130,3 +130,8 @@ sequenceDiagram
 ## Completion boundary
 
 This document completes the **source mapping/audit task** for the five lesson files present in `docs/learning/`. It does not mean Day 10–13 runtime work is complete, the database has been audited, WebSocket auth is fixed, or production has been verified.
+
+
+## Maintenance
+
+Update this map when a source owner, route, API contract, event cursor, or readiness decision changes; re-verify every referenced path against the current base branch.
