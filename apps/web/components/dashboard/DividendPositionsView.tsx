@@ -1,7 +1,11 @@
 'use client';
 import { WalletCards, CircleDot } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
-import { useStockEventStore, type StockEvent } from '../../lib/stock-event-store';
+import {
+  STOCK_EVENTS_READ_LIMIT,
+  useStockEventStore,
+  type StockEvent,
+} from '../../lib/stock-event-store';
 import { startStockEventRead } from '../../lib/stock-event-read-lifecycle';
 import { useDashboardStore } from '../../lib/store';
 import { usePositionFilterStore } from '../../lib/position-filter-store';
@@ -26,7 +30,10 @@ export function DividendPositionsView({ data, actions }: ViewProps) {
   const marketPrices = useDashboardStore(s => s.marketPrices);
   const syncMarketPrices = useDashboardStore(s => s.syncMarketPrices);
 
-  useEffect(() => startStockEventRead({ limit: 2000, force: true, month: null }, load), [load]);
+  useEffect(
+    () => startStockEventRead({ limit: STOCK_EVENTS_READ_LIMIT, force: true, month: null }, load),
+    [load]
+  );
 
   const monthGroups = useMemo(
     () =>

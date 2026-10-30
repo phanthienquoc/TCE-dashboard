@@ -4,7 +4,7 @@ import type { AppRouterInstance } from 'next/dist/shared/lib/app-router-context.
 import { create } from 'zustand';
 import { api } from './api';
 import { useStockDividendPoolStore } from './stock-dividend-pool-store';
-import { useStockEventStore } from './stock-event-store';
+import { STOCK_EVENTS_READ_LIMIT, useStockEventStore } from './stock-event-store';
 import { useStockSyncStore } from './stock-sync-store';
 import { useTCEDataStore } from './tce-data-store';
 
@@ -125,7 +125,10 @@ export const useAppDataWorkerStore = create<AppDataWorkerState>((set, get) => ({
           { key: 'tce-data', run: () => useTCEDataStore.getState().prefetch() },
           {
             key: 'stock-events',
-            run: () => useStockEventStore.getState().load(200, false, null, controller.signal),
+            run: () =>
+              useStockEventStore
+                .getState()
+                .load(STOCK_EVENTS_READ_LIMIT, false, null, controller.signal),
           },
           {
             key: 'dividend-pool',

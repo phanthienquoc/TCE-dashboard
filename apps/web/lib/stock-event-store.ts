@@ -4,6 +4,8 @@ import { create } from 'zustand';
 import { api } from './api';
 import { isApiRequestCancelled, normalizeApiError } from './api-errors';
 
+export const STOCK_EVENTS_READ_LIMIT = 200;
+
 export type StockEvent = {
   id: string;
   ticker: string;
@@ -69,7 +71,12 @@ export const useStockEventStore = create<StockEventState>((set, get) => ({
   initialized: false,
   error: null,
 
-  load: async (limit = 200, force = false, month = currentMonthKey(), externalSignal) => {
+  load: async (
+    limit = STOCK_EVENTS_READ_LIMIT,
+    force = false,
+    month = currentMonthKey(),
+    externalSignal
+  ) => {
     if (externalSignal?.aborted) return;
 
     const requestKey = `${limit}:${month ?? '*'}`;

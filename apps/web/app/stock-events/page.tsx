@@ -4,7 +4,11 @@ import { CalendarDays, Database, RefreshCw, Search } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import DashboardLayout from '../../components/dashboard/DashboardLayout';
 import { useAuthStore } from '../../lib/store';
-import { useStockEventStore, type StockEvent } from '../../lib/stock-event-store';
+import {
+  STOCK_EVENTS_READ_LIMIT,
+  useStockEventStore,
+  type StockEvent,
+} from '../../lib/stock-event-store';
 import {
   Button,
   Caption,
@@ -154,7 +158,7 @@ export default function StockEventsPage() {
               variant="outline"
               aria-label="Refresh stock events"
               title="Refresh"
-              onClick={() => void load(200, true)}
+              onClick={() => void load(STOCK_EVENTS_READ_LIMIT, true)}
               disabled={loading}
             >
               <RefreshCw className={`size-4 ${loading ? 'animate-spin' : ''}`} />
