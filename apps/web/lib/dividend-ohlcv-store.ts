@@ -36,6 +36,11 @@ export const useDividendOhlcvStore = create<OhlcvState>((set, get) => ({
     if (!normalized || externalSignal?.aborted || get().loading[normalized] || get().histories[normalized])
       return;
 
+    set(state => ({
+      loading: { ...state.loading, [normalized]: true },
+      errors: { ...state.errors, [normalized]: null },
+    }));
+
     const controller = new AbortController();
     const generation = ++nextGeneration;
     activeRequests.set(normalized, { controller, generation });
@@ -48,11 +53,6 @@ export const useDividendOhlcvStore = create<OhlcvState>((set, get) => ({
     };
     externalSignal?.addEventListener('abort', abortFromCaller, { once: true });
     if (externalSignal?.aborted) abortFromCaller();
-
-    set(state => ({
-      loading: { ...state.loading, [normalized]: true },
-      errors: { ...state.errors, [normalized]: null },
-    }));
 
     try {
       const response = await dashboardApi.priceHistory(normalized, days, controller.signal);
