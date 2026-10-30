@@ -21,10 +21,10 @@ Use the shared contract in [Implementation Readiness Gate](../IMPLEMENTATION_REA
 - **Evidence:** [TCE Dashboard learning-to-source architecture map](../architecture-map.md), audited against master `c324e3b1b67dcc627192cbaa422a2e71b87ab447`.
 - **Boundary:** This verifies source-path/ownership mapping only. It does not mark Day 10–13 runtime requirements complete, and explicitly leaves WebSocket auth (`CURR-AUTH-07`), live schema/RLS/migration provenance (`CURR-DATA-04`), infra deployment details, and Day 13 profiling as unresolved.
 - **Affected lessons:** Day 9–13 currently present in `docs/learning/`; link other curriculum days when their files are added/found.
-- **Gap to verify:** Each lesson needs a traceable mapping from its concept to the real route/component, API/service, event/data contract, persistence, and deployment boundary where applicable.
-- **Work:** Build a concise source map with paths/symbols and service ownership. Distinguish verified facts from assumptions and identify the canonical source of truth for each data flow.
-- **Acceptance:** Every existing lesson names its actual entry points and affected layers, marks irrelevant layers N/A with a reason, and links shared dependencies instead of inventing example-only interfaces.
-- **Verification:** Review links/paths against the current default branch and confirm referenced files/symbols exist.
+- **Verified result:** The architecture map traces each existing Day 9–13 lesson to actual routes/components, API/store owners, service/event boundaries, and explicit N/A or unresolved layers. Missing Day 1–8 files remain tracked separately under `CURR-CATALOG-06`.
+- **Maintenance:** Update the map when a source owner, route, API contract, event cursor, or readiness decision changes; re-verify every referenced path against the current base branch.
+- **Acceptance:** MET for the five existing Day 9–13 files only: each lesson has source-backed entry points and affected layers, irrelevant layers are marked N/A with a reason, and unresolved contracts are explicit. Day 1–8 are not claimed reviewed.
+- **Verification:** Referenced paths/symbols and the Day 9 architecture-map link were checked against the audited source snapshot; PR CI validates Markdown formatting.
 
 ### CURR-INFRA-02 — Verify infrastructure prerequisites for service-level exercises
 
