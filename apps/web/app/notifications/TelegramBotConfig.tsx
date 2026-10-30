@@ -14,6 +14,8 @@ import {
   Wrench,
 } from 'lucide-react';
 import { platformApi } from '../../lib/api';
+import { telegramBotConfigAccountKey } from '../../lib/telegram-bot-config-account';
+import { useAuthStore } from '../../lib/store';
 import { loadTelegramNotificationData } from '../../lib/telegram-notification-data';
 import { useTCEDataStore } from '../../lib/tce-data-store';
 import { Button } from '../../components/ui/button';
@@ -42,6 +44,11 @@ type Assignment = {
 };
 
 export default function TelegramBotConfig() {
+  const userId = useAuthStore(state => state.user?.id ?? null);
+  return <TelegramBotConfigAccount key={telegramBotConfigAccountKey(userId)} />;
+}
+
+function TelegramBotConfigAccount() {
   const cachedBots = useTCEDataStore(s => s.telegramBots);
   const cachedAssignments = useTCEDataStore(s => s.telegramAssignments);
   const [bots, setBots] = useState<BotRow[]>([]);
