@@ -13,7 +13,21 @@ permissions:
   packages: write
 
 jobs:
+  validate-release-ref:
+    name: Require master for production release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Reject non-master production releases
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "$GITHUB_REF" != "refs/heads/master" ]]; then
+            echo "::error::Production releases must run from master; refusing image publication and GitOps promotion."
+            exit 1
+          fi
+
   notify-telegram-start:
+    needs: validate-release-ref
     name: Notify Telegram — release started
     runs-on: ubuntu-latest
     env:
