@@ -187,7 +187,7 @@ export class RuntimeEventsController {
                 return fresh.map(
                   event =>
                     ({
-                      // Keep the canonical event ID as the SSE ID; on reconnect
+                      // Keep the canonical event ID as the SSE ID for compatibility; on reconnect
                       // the server resolves it to the composite timestamp+ID cursor.
                       id: event.eventId,
                       type: event.eventType,
