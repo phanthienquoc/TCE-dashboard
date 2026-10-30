@@ -3,6 +3,7 @@
 import type { AppRouterInstance } from 'next/dist/shared/lib/app-router-context.shared-runtime';
 import { create } from 'zustand';
 import { api } from './api';
+import { normalizeApiError } from './api-errors';
 import { useStockDividendPoolStore } from './stock-dividend-pool-store';
 import { STOCK_EVENTS_READ_LIMIT, useStockEventStore } from './stock-event-store';
 import { useStockSyncStore } from './stock-sync-store';
@@ -85,7 +86,13 @@ async function runWithConcurrency(
         if (isCurrent() && !signal.aborted) onDone(false);
       } catch (error) {
         if (!isCurrent() || signal.aborted) return;
-        console.warn(`[APP_DATA_WORKER] ${task.key} failed`, error);
+        const failure = normalizeApiError(error, `Unable to load ${task.key}`);
+        console.warn(`[APP_DATA_WORKER] ${task.key} failed`, {
+          kind: failure.kind,
+          message: failure.message,
+          retryable: failure.retryable,
+          ...(failure.status === undefined ? {} : { status: failure.status }),
+        });
         onDone(true);
       }
     }

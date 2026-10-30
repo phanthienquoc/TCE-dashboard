@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
+  AxiosError,
   AxiosHeaders,
   type AxiosRequestConfig,
   type AxiosResponse,
@@ -107,5 +108,80 @@ test('clearing the app data worker prevents old work from advancing progress or 
     useStockSyncStore.getState().clear();
     useStockDividendPoolStore.setState({ items: [], loading: false, error: null });
     api.get = originalGet;
+  }
+});
+
+test('app data worker logs normalized error metadata without raw Axios secrets or response bodies', async () => {
+  const originalGet = api.get;
+  const originalWarn = console.warn;
+  const warnings: unknown[][] = [];
+  const config = {
+    headers: new AxiosHeaders({ Authorization: 'Bearer worker-test-secret' }),
+  } as InternalAxiosRequestConfig;
+  const failedResponse: AxiosResponse<unknown> = {
+    data: { message: 'private database connection string' },
+    status: 500,
+    statusText: 'Internal Server Error',
+    headers: new AxiosHeaders(),
+    config,
+  };
+  const error = new AxiosError(
+    'Request failed with status code 500',
+    'ERR_BAD_RESPONSE',
+    config,
+    undefined,
+    failedResponse
+  );
+
+  api.get = (() => Promise.reject(error)) as typeof api.get;
+  console.warn = ((...args: unknown[]) => {
+    warnings.push(args);
+  }) as typeof console.warn;
+
+  try {
+    useAppDataWorkerStore.getState().clear();
+    useTCEDataStore.getState().clear();
+    useStockEventStore.getState().clear();
+    useStockSyncStore.getState().clear();
+    useStockDividendPoolStore.setState({ items: [], loading: false, error: null });
+
+    await useAppDataWorkerStore.getState().start();
+
+    assert.ok(warnings.length > 0, 'failed worker reads should remain observable');
+    assert.ok(
+      warnings.every(
+        args =>
+          args.length === 2 &&
+          typeof args[0] === 'string' &&
+          typeof args[1] === 'object' &&
+          args[1] !== null
+      ),
+      'warnings should contain a message and sanitized metadata, not the raw error object'
+    );
+    const output = JSON.stringify(warnings);
+    assert.equal(output.includes('worker-test-secret'), false);
+    assert.equal(output.includes('private database connection string'), false);
+    assert.equal(output.includes('ERR_BAD_RESPONSE'), false);
+    assert.ok(
+      warnings.some(args => {
+        const metadata = args[1] as Record<string, unknown>;
+        return (
+          metadata.kind === 'http' &&
+          metadata.status === 500 &&
+          metadata.message === 'The service is temporarily unavailable. Please try again.' &&
+          metadata.retryable === true
+        );
+      }),
+      'sanitized logs should retain only safe failure kind, message, retryability, and HTTP status'
+    );
+    assert.ok(useAppDataWorkerStore.getState().failed > 0);
+  } finally {
+    useAppDataWorkerStore.getState().clear();
+    useTCEDataStore.getState().clear();
+    useStockEventStore.getState().clear();
+    useStockSyncStore.getState().clear();
+    useStockDividendPoolStore.setState({ items: [], loading: false, error: null });
+    api.get = originalGet;
+    console.warn = originalWarn;
   }
 });
