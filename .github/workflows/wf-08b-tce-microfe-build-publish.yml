@@ -301,6 +301,7 @@ jobs:
             event_type: 'microfe-images-published',
             client_payload: {
               commit: process.env.GITHUB_SHA,
+              release: `microfe-${process.env.GITHUB_SHA.slice(0, 7)}`,
               auth_digest: digestFrom('/tmp/microfe-build-meta/microfe-auth.txt'),
               shell_digest: digestFrom('/tmp/microfe-build-meta/microfe-shell.txt'),
               ws_digest: digestFrom('/tmp/microfe-build-meta/microfe-ws.txt'),
@@ -308,6 +309,16 @@ jobs:
           };
           process.stdout.write(JSON.stringify(payload) + '\n');
           NODE
+
+          EXPECTED_RELEASE="microfe-${GITHUB_SHA:0:7}"
+          jq -e --arg commit "$GITHUB_SHA" --arg release "$EXPECTED_RELEASE" '
+            .event_type == "microfe-images-published"
+            and .client_payload.commit == $commit
+            and .client_payload.release == $release
+            and (.client_payload.auth_digest | test("^sha256:[0-9a-f]{64}$"))
+            and (.client_payload.shell_digest | test("^sha256:[0-9a-f]{64}$"))
+            and (.client_payload.ws_digest | test("^sha256:[0-9a-f]{64}$"))
+          ' /tmp/microfe-dispatch.json >/dev/null
 
           DISPATCHED_AT="$(date -u +%s)"
           echo "DISPATCHED_AT=$DISPATCHED_AT" >> "$GITHUB_ENV"
@@ -341,9 +352,11 @@ jobs:
           PROMOTION_RUN_ID=""
           for attempt in $(seq 1 36); do
             RUNS="$(api_get "$API?event=repository_dispatch&per_page=100")"
-            PROMOTION_RUN_ID="$(printf '%s' "$RUNS" | jq -r --argjson cutoff "$DISPATCHED_AT" '
+            PROMOTION_RUN_ID="$(printf '%s' "$RUNS" | jq -r --argjson cutoff "$DISPATCHED_AT" --arg release "$EXPECTED_RELEASE" '
               [.workflow_runs[]
-                | select(.name == "GitOps Image Promotion")
+                | select(.event == "repository_dispatch")
+                | select((.name // "") | startswith("GitOps Image Promotion"))
+                | select((.name // "") | contains($release))
                 | select(.created_at != null)
                 | select((.created_at | fromdateiso8601) >= ($cutoff - 10))]
               | sort_by(.created_at)
