@@ -198,34 +198,48 @@ export async function completeKeycloakLogin(search: string): Promise<string> {
   }
 
   try {
-    const tokenResponse = await fetch(`${cfg.issuer}/protocol/openid-connect/token`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      cache: 'no-store',
-      body: new URLSearchParams({
-        grant_type: 'authorization_code',
-        client_id: cfg.clientId,
-        code,
-        redirect_uri: cfg.redirectUri,
-        code_verifier: verifier,
-      }),
-    });
+    let tokenResponse: Response;
+    try {
+      tokenResponse = await fetch(`${cfg.issuer}/protocol/openid-connect/token`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        cache: 'no-store',
+        body: new URLSearchParams({
+          grant_type: 'authorization_code',
+          client_id: cfg.clientId,
+          code,
+          redirect_uri: cfg.redirectUri,
+          code_verifier: verifier,
+        }),
+      });
+    } catch {
+      throw new Error(
+        'Could not reach Keycloak token endpoint. Check Keycloak availability and browser CORS/network settings.'
+      );
+    }
     if (!tokenResponse.ok) throw new Error('Unable to exchange the Keycloak authorization code');
     const tokenBody = (await tokenResponse.json()) as { access_token?: string; id_token?: string };
     if (!tokenBody.access_token || !tokenBody.id_token)
       throw new Error('Keycloak did not return the required tokens');
     await verifyIdToken(tokenBody.id_token, cfg, nonce);
 
-    const sessionResponse = await fetch(`${cfg.authBaseUrl}/api/oidc/session`, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${tokenBody.access_token}`,
-        'Content-Type': 'application/json',
-      },
-      credentials: 'include',
-      cache: 'no-store',
-      body: '{}',
-    });
+    let sessionResponse: Response;
+    try {
+      sessionResponse = await fetch(`${cfg.authBaseUrl}/api/oidc/session`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${tokenBody.access_token}`,
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        cache: 'no-store',
+        body: '{}',
+      });
+    } catch {
+      throw new Error(
+        'Could not reach the central Auth service. Check https://auth.mrcute.space availability and CORS_ORIGINS.'
+      );
+    }
     if (!sessionResponse.ok) {
       let serverMessage = '';
       try {
