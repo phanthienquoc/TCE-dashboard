@@ -753,7 +753,7 @@ sequenceDiagram
 
 The Engine Workflow screen reads the authenticated GET /dashboard/engine-runtime endpoint to display per-account engine configuration and runtime status. The API method accepts an optional AbortSignal; the component owns the controller and aborts on unmount or when a later read supersedes the current one. A disposed or cancelled request does not commit runtime state or clear the loading state of a newer request. Non-cancellation failures use the shared safe API-error normalizer and render an accessible alert.
 
-\`\`\`mermaid
+```mermaid
 sequenceDiagram
 participant UI as EngineWorkflowScreen
 participant API as dashboardApi
@@ -772,7 +772,7 @@ Controller-->>API: Existing response contract
 API-->>UI: Response if request is still current
 UI->>UI: On cleanup, abort and ignore stale/cancelled results
 Note over UI,API: Client cancellation does not prove server-side work was rolled back
-\`\`\`
+```
 
 **Implementation evidence:** PR #978 merged at `ef40e664662b9df9c55c2cb30b54b4dabc3e4077`. `dashboardApi.engineRuntime` forwards the signal; `engine-runtime-data.ts` normalizes the response collection; `EngineWorkflowScreen.tsx` aborts on cleanup/superseding loads, guards state/loading commits, and displays normalized safe errors. `engine-runtime-data.spec.ts` verifies signal forwarding, malformed collection handling, in-flight cancellation, and pre-aborted signals. Exact PR head `58694a8241862aa2c1cc2a75f36ccf40691c0104` passed WF-01P `41060920532`, WF-02 `41060920537`, and WF-05 `41060920340`; WF-05 logs include all four new tests and 24 Vitest files / 103 tests passed. Post-merge status remains unverified.
 
