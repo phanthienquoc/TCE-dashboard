@@ -15,9 +15,7 @@ function response<T>(data: T): AxiosResponse<T> {
   };
 }
 
-test(
-  'Engine Control reads forward one effect-owned AbortSignal to both existing GETs',
-  async () => {
+test('Engine Control reads share the caller AbortSignal', async () => {
   const originalEngines = dashboardApi.engines;
   const originalConfig = dashboardApi.engineConfig;
   const signals: Array<AbortSignal | undefined> = [];
@@ -86,9 +84,7 @@ test('aborting the shared signal cancels both pending Engine Control reads', asy
   }
 });
 
-test(
-  'Engine Control read helper normalizes empty response collections without changing the API contract',
-  async () => {
+test('Engine Control read helper defaults missing collections to empty arrays', async () => {
   const originalEngines = dashboardApi.engines;
   const originalConfig = dashboardApi.engineConfig;
 
