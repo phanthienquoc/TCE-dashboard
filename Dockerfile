@@ -1,6 +1,19 @@
 FROM node:24-alpine AS build
 WORKDIR /app
 
+# Public OIDC configuration is compiled into the Next.js browser bundle.
+# Keep legacy auth available; this only enables the additional SSO option.
+ARG NEXT_PUBLIC_AUTH_MODE=keycloak
+ARG NEXT_PUBLIC_KEYCLOAK_URL=https://sso.mrcute.space
+ARG NEXT_PUBLIC_KEYCLOAK_REALM=mrcute
+ARG NEXT_PUBLIC_KEYCLOAK_CLIENT_ID=tce-dashboard
+ARG NEXT_PUBLIC_AUTH_BASE_URL=https://auth.mrcute.space
+ENV NEXT_PUBLIC_AUTH_MODE=${NEXT_PUBLIC_AUTH_MODE}
+ENV NEXT_PUBLIC_KEYCLOAK_URL=${NEXT_PUBLIC_KEYCLOAK_URL}
+ENV NEXT_PUBLIC_KEYCLOAK_REALM=${NEXT_PUBLIC_KEYCLOAK_REALM}
+ENV NEXT_PUBLIC_KEYCLOAK_CLIENT_ID=${NEXT_PUBLIC_KEYCLOAK_CLIENT_ID}
+ENV NEXT_PUBLIC_AUTH_BASE_URL=${NEXT_PUBLIC_AUTH_BASE_URL}
+
 COPY package.json ./
 COPY postcss.config.mjs ./
 RUN npm install
