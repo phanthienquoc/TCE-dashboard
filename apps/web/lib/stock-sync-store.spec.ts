@@ -1,4 +1,4 @@
-import assert from 'node:assert/strict'; 
+import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
   AxiosHeaders,
@@ -45,150 +45,144 @@ function response<T>(data: T): AxiosResponse<T> {
   };
 }
 
-test(
-  'clear aborts account-scoped reads and blocks late responses from restoring old data',
-  async () => {
-    const originalGet = api.get;
-    const requests: Array<{
-      url: string;
-      signal?: AbortSignal;
-      pending: Deferred<AxiosResponse<unknown>>;
-    }> = [];
+test('clear aborts account-scoped reads and blocks late responses from restoring old data', async () => {
+  const originalGet = api.get;
+  const requests: Array<{
+    url: string;
+    signal?: AbortSignal;
+    pending: Deferred<AxiosResponse<unknown>>;
+  }> = [];
 
-    api.get = ((url: string, config?: AxiosRequestConfig) => {
-      const pending = deferred<AxiosResponse<unknown>>();
-      requests.push({
-        url,
-        signal: config?.signal as AbortSignal | undefined,
-        pending,
-      });
-      return pending.promise;
-    }) as typeof api.get;
+  api.get = ((url: string, config?: AxiosRequestConfig) => {
+    const pending = deferred<AxiosResponse<unknown>>();
+    requests.push({
+      url,
+      signal: config?.signal as AbortSignal | undefined,
+      pending,
+    });
+    return pending.promise;
+  }) as typeof api.get;
 
-    try {
-      useStockSyncStore.getState().clear();
-      useStockSyncStore.setState({
-        config: {
-          enabled: true,
-          schedule: '0 */4 * * *',
-          timezone: 'Asia/Ho_Chi_Minh',
-          syncStartDate: null,
-          syncEndDate: null,
-          batchSize: 200,
-          pageSize: 10,
-          priceSyncEnabled: true,
-          telegramCredentialId: 'old-account-credential',
-          lastRunAt: null,
+  try {
+    useStockSyncStore.getState().clear();
+    useStockSyncStore.setState({
+      config: {
+        enabled: true,
+        schedule: '0 */4 * * *',
+        timezone: 'Asia/Ho_Chi_Minh',
+        syncStartDate: null,
+        syncEndDate: null,
+        batchSize: 200,
+        pageSize: 10,
+        priceSyncEnabled: true,
+        telegramCredentialId: 'old-account-credential',
+        lastRunAt: null,
+      },
+      bots: [
+        {
+          id: 'old-account-bot',
+          environment: 'production',
+          name: 'private-bot',
+          isActive: true,
+          isPaused: false,
         },
-        bots: [
-          {
-            id: 'old-account-bot',
-            environment: 'production',
-            name: 'private-bot',
-            isActive: true,
-            isPaused: false,
-          },
-        ],
-        runs: [{ id: 'old-account-run' } as StockSyncRun],
-        initialized: true,
-        loading: false,
-        saving: false,
-        triggering: false,
-        message: null,
-        tab: 'config',
-      });
+      ],
+      runs: [{ id: 'old-account-run' } as StockSyncRun],
+      initialized: true,
+      loading: false,
+      saving: false,
+      triggering: false,
+      message: null,
+      tab: 'config',
+    });
 
-      const refresh = useStockSyncStore.getState().refresh();
-      assert.equal(requests.length, 3);
-      assert.ok(requests.every(request => request.signal));
+    const refresh = useStockSyncStore.getState().refresh();
+    assert.equal(requests.length, 3);
+    assert.ok(requests.every(request => request.signal));
 
-      useStockSyncStore.getState().clear();
+    useStockSyncStore.getState().clear();
 
-      assert.ok(requests.every(request => request.signal?.aborted));
-      assert.equal(useStockSyncStore.getState().config.telegramCredentialId, null);
-      assert.deepEqual(useStockSyncStore.getState().bots, []);
-      assert.deepEqual(useStockSyncStore.getState().runs, []);
-      assert.equal(useStockSyncStore.getState().initialized, false);
-      assert.equal(useStockSyncStore.getState().loading, false);
+    assert.ok(requests.every(request => request.signal?.aborted));
+    assert.equal(useStockSyncStore.getState().config.telegramCredentialId, null);
+    assert.deepEqual(useStockSyncStore.getState().bots, []);
+    assert.deepEqual(useStockSyncStore.getState().runs, []);
+    assert.equal(useStockSyncStore.getState().initialized, false);
+    assert.equal(useStockSyncStore.getState().loading, false);
 
-      for (const request of requests) {
-        if (request.url.includes('/stock-events-cron/settings')) {
-          request.pending.resolve(
-            response({
-              telegramCredentialId: 'old-account-credential',
-            } as StockSyncConfig)
-          );
-        } else if (request.url.includes('/platform/telegram/bots')) {
-          request.pending.resolve(
-            response([
-              {
-                id: 'old-account-bot',
-                environment: 'production',
-                name: 'private-bot',
-                isActive: true,
-                isPaused: false,
-              } as StockSyncTelegramBot,
-            ])
-          );
-        } else {
-          request.pending.resolve(response([{ id: 'old-account-run' } as StockSyncRun]));
-        }
+    for (const request of requests) {
+      if (request.url.includes('/stock-events-cron/settings')) {
+        request.pending.resolve(
+          response({
+            telegramCredentialId: 'old-account-credential',
+          } as StockSyncConfig)
+        );
+      } else if (request.url.includes('/platform/telegram/bots')) {
+        request.pending.resolve(
+          response([
+            {
+              id: 'old-account-bot',
+              environment: 'production',
+              name: 'private-bot',
+              isActive: true,
+              isPaused: false,
+            } as StockSyncTelegramBot,
+          ])
+        );
+      } else {
+        request.pending.resolve(response([{ id: 'old-account-run' } as StockSyncRun]));
       }
-
-      await refresh;
-
-      assert.equal(useStockSyncStore.getState().config.telegramCredentialId, null);
-      assert.deepEqual(useStockSyncStore.getState().bots, []);
-      assert.deepEqual(useStockSyncStore.getState().runs, []);
-      assert.equal(useStockSyncStore.getState().initialized, false);
-      assert.equal(useStockSyncStore.getState().loading, false);
-    } finally {
-      useStockSyncStore.getState().clear();
-      api.get = originalGet;
     }
+
+    await refresh;
+
+    assert.equal(useStockSyncStore.getState().config.telegramCredentialId, null);
+    assert.deepEqual(useStockSyncStore.getState().bots, []);
+    assert.deepEqual(useStockSyncStore.getState().runs, []);
+    assert.equal(useStockSyncStore.getState().initialized, false);
+    assert.equal(useStockSyncStore.getState().loading, false);
+  } finally {
+    useStockSyncStore.getState().clear();
+    api.get = originalGet;
   }
-);
+});
 
-test(
-  'clear prevents a late save response from restoring previous-account configuration',
-  async () => {
-    const originalPost = api.post;
-    const pending = deferred<AxiosResponse<StockSyncConfig>>();
+test('clear prevents a late save response from restoring previous-account configuration', async () => {
+  const originalPost = api.post;
+  const pending = deferred<AxiosResponse<StockSyncConfig>>();
 
-    api.post = (() => pending.promise) as typeof api.post;
+  api.post = (() => pending.promise) as typeof api.post;
 
-    try {
-      useStockSyncStore.getState().clear();
-      useStockSyncStore.setState({
-        config: {
-          enabled: true,
-          schedule: '0 */4 * * *',
-          timezone: 'Asia/Ho_Chi_Minh',
-          syncStartDate: null,
-          syncEndDate: null,
-          batchSize: 200,
-          pageSize: 10,
-          priceSyncEnabled: true,
-          telegramCredentialId: 'old-account-credential',
-          lastRunAt: null,
-        },
-        saving: false,
-        initialized: true,
-      });
+  try {
+    useStockSyncStore.getState().clear();
+    useStockSyncStore.setState({
+      config: {
+        enabled: true,
+        schedule: '0 */4 * * *',
+        timezone: 'Asia/Ho_Chi_Minh',
+        syncStartDate: null,
+        syncEndDate: null,
+        batchSize: 200,
+        pageSize: 10,
+        priceSyncEnabled: true,
+        telegramCredentialId: 'old-account-credential',
+        lastRunAt: null,
+      },
+      saving: false,
+      initialized: true,
+    });
 
-      const save = useStockSyncStore.getState().save();
-      useStockSyncStore.getState().clear();
-      pending.resolve(
-        response({ telegramCredentialId: 'old-account-credential' } as StockSyncConfig)
-      );
-      await save;
+    const save = useStockSyncStore.getState().save();
+    useStockSyncStore.getState().clear();
+    pending.resolve(
+      response({ telegramCredentialId: 'old-account-credential' } as StockSyncConfig)
+    );
+    await save;
 
-      assert.equal(useStockSyncStore.getState().config.telegramCredentialId, null);
-      assert.equal(useStockSyncStore.getState().saving, false);
-      assert.equal(useStockSyncStore.getState().initialized, false);
-    } finally {
-      useStockSyncStore.getState().clear();
-      api.post = originalPost;
-    }
+    assert.equal(useStockSyncStore.getState().config.telegramCredentialId, null);
+    assert.equal(useStockSyncStore.getState().saving, false);
+    assert.equal(useStockSyncStore.getState().initialized, false);
+  } finally {
+    useStockSyncStore.getState().clear();
+    api.post = originalPost;
   }
-);
+});
