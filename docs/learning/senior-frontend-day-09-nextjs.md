@@ -4,7 +4,7 @@
 
 ## Implementation readiness — cross-layer assessment
 
-Before treating this lesson as complete, apply the shared [Learning Implementation Readiness Gate](IMPLEMENTATION_READINESS.md). A code snippet, test-only change, or documentation update is not proof that the product behavior exists end to end.
+Before treating this lesson as complete, apply the shared [Learning Implementation Readiness Gate](IMPLEMENTATION_READINESS.md). A code snippet, test-only change, or documentation update is not proof that the product behavior exists end to end. See the source-backed [TCE Dashboard learning-to-source architecture map](architecture-map.md) for verified App Router entry points, ownership boundaries, and unresolved cross-layer contracts.
 
 ### TCE-specific inspection scope
 
