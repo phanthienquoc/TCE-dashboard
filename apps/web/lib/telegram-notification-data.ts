@@ -58,10 +58,10 @@ export function hasCompleteTelegramNotificationCache(
   return Array.isArray(bots) && Array.isArray(assignments);
 }
 
+const TELEGRAM_NOTIFICATION_READ_FALLBACK =
+  'Unable to load Telegram notifications. Please try again.';
+
 /** Return a safe message for a failed Telegram notification read. */
 export function normalizeTelegramNotificationReadError(error: unknown): string {
-  return normalizeApiError(
-    error,
-    'Unable to load Telegram notifications. Please try again.'
-  ).message;
+  return normalizeApiError(error, TELEGRAM_NOTIFICATION_READ_FALLBACK).message;
 }
