@@ -365,6 +365,7 @@ Apply only if this price-sync request is still current
 - [ ] Logout/clear aborts and invalidates in-flight reads.
 - [ ] Cancellation is not surfaced as a user-facing error.
 - [ ] Logs do not include raw Axios request config or credential headers.
+- [x] Invalid market-price rows cannot overwrite state; unrequested symbols are rejected and diagnostics contain aggregate counts only.
 - [ ] Existing callers that omit `signal` still compile.
 
 ---
