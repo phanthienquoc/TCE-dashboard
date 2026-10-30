@@ -214,7 +214,6 @@ Master is `66da3a008ba055ee3551dc520c12952ec58164b5`. PR #983 changes only the S
 - The independent scheduled healthcheck `41070484265` and rerun job `124135356886` reported TCE web HTTP 200 but central Auth liveness/readiness HTTP 503. This is recorded as an infrastructure warning; this PR did not change Auth or deployment and does not claim service health restoration.
 - No database/schema/RLS, auth protocol, trading/execution, production configuration or market-scan scheduling changes. `CURR-SVC-03` remains open; `CURR-AUTH-07` remains blocked until browser WebSocket authentication is proven end to end.
 
-
 ## Latest source recheck after PR #986
 
 Master is `05fc77704b2af8c87a2ed89693e9da41b04126bb`, verified identical to PR #986's squash merge. PR #985 (`550580915819da4704c16d119e80d9ea9d2d99d4`) adds cancellation and generation fencing to `apps/web/lib/engine-runtime-store.ts`, and `clearAccountScopedStores()` now clears that cache. PR #986 (`05fc77704b2af8c87a2ed89693e9da41b04126bb`) keys `TelegramBotConfig` local UI state by `useAuthStore.user.id`; an identity change remounts the subtree, resets local bot/assignment/form state, and runs the existing effect cleanup that aborts the read.
