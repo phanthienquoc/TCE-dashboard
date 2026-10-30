@@ -960,4 +960,3 @@ sequenceDiagram
   UI->>UI: Keep existing pushState = error
   Note over Safe,Log: Raw Axios config, credentials and response body are never logged
 ```
-
