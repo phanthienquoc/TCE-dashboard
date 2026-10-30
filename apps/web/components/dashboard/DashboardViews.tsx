@@ -245,8 +245,7 @@ export function PositionsView({ data, actions }: ViewProps) {
   const [expandedDividend, setExpandedDividend] = useState<string | null>(null);
   const [collapsedDividendMonths, setCollapsedDividendMonths] = useState<Set<string>>(new Set());
   useEffect(
-    () =>
-      startStockEventRead({ limit: STOCK_EVENTS_READ_LIMIT, force: false, month: null }, load),
+    () => startStockEventRead({ limit: STOCK_EVENTS_READ_LIMIT, force: false, month: null }, load),
     [load]
   );
   const dividendMonthGroups = useMemo(() => {
