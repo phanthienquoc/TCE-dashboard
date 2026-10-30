@@ -105,7 +105,12 @@ test('worker cancellation aborts the stock-event transport without surfacing an 
   }) as typeof api.get;
 
   try {
-    useStockEventStore.setState({ events: existing, loading: false, initialized: true, error: null });
+    useStockEventStore.setState({
+      events: existing,
+      loading: false,
+      initialized: true,
+      error: null,
+    });
     const worker = new AbortController();
     const load = useStockEventStore.getState().load(200, true, null, worker.signal);
 
