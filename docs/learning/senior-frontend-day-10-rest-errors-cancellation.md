@@ -1,6 +1,6 @@
 # Senior Frontend Day 10 — REST APIs, Error Handling & Cancellation
 
-> Duration: 60 minutes. This lesson is aligned with the real TCE Dashboard repository and the implementation in `apps/web/lib/api.ts`, `apps/web/lib/api-errors.ts`, `apps/web/lib/store.ts`, `apps/web/lib/stock-dividend-pool-store.ts`, `apps/web/lib/stock-event-store.ts`, `apps/web/lib/app-data-worker.ts`, `apps/web/lib/telegram-notification-data.ts` and its consumers, plus `apps/web/lib/engine-control-data.ts` and `apps/web/app/engines/EngineControlPanel.tsx`.
+> Duration: 60 minutes. This lesson is aligned with the real TCE Dashboard repository and the implementation in `apps/web/lib/api.ts`, `apps/web/lib/api-errors.ts`, `apps/web/lib/store.ts`, `apps/web/lib/stock-dividend-pool-store.ts`, `apps/web/lib/stock-event-store.ts`, `apps/web/lib/app-data-worker.ts`, `apps/web/lib/telegram-notification-data.ts` and its consumers, `apps/web/lib/engine-control-data.ts` and `apps/web/app/engines/EngineControlPanel.tsx`, plus the public chart-history read in `apps/web/components/dashboard/BinanceRealtimeChart.tsx` and `apps/web/lib/binance-kline-history.ts`.
 
 ## Implementation readiness — cross-layer assessment
 
@@ -656,3 +656,47 @@ sequenceDiagram
 - **Production — N/A:** No production deployment or live engine/config mutation was performed.
 
 Next: **Day 11 — WebSocket/SSE, reconnection and backpressure**, using the TCE realtime contract and keeping correctness separate from rendering optimizations.
+
+## System Readiness Check — Binance chart-history cancellation (2026-10-30)
+
+**Task:** `DAY10-BINANCE-HISTORY-CANCEL-01` — abort the public Binance kline-history HTTP read when the chart effect is cleaned up or its symbol/interval/limit changes. This is a client-side read lifecycle fix; the public WebSocket and trading/execution behavior are excluded.
+
+| Area | Status | Evidence |
+|---|---| 
+| Scope and acceptance | PASS | `BinanceRealtimeChart` owns the effect lifecycle; the extracted helper forwards the effect-owned `AbortSignal`. Cleanup aborts the request, and the existing disposed guard suppresses stale chart/error updates. |
+| Default/base/current commit | PASS | The repository default branch is `master`; PR #963 branch was created from `58c1c899d02dc2436cf09764c803694da2bdd2e3` and squash-merged at `086d5370f80128e20683dc792f3f02c7608015e3`. |
+| Open PR/branch overlap | PASS | Before implementation, only PR #928 was open; its sole changed file is `plan/agentic-task-queue.md`. No overlap with the chart/helper/spec. |
+| Source of truth and dependencies | PASS | Inspected `apps/web/components/dashboard/BinanceRealtimeChart.tsx`, its dynamic route, `lightweight-charts`, the public `/api/v3/klines` request and root test discovery. No API key or service endpoint is required. |
+| Working-tree/change safety | WARN | The GitHub connector does not expose a local working-tree snapshot or shell. The exact PR diff was inspected; no local command run is claimed. |
+| Build/test/CI baseline | PASS / WARN | Exact PR #963 head `d18f18464a4b8ed151fbc2a6b304f56e126821b2` passed WF-01P run `41037561091`, WF-02 run `41037561173`, and WF-05 run `41037561127`. The three new Node tests passed; Vitest reported 23 files and 101 tests passed. Post-merge status for `086d537` was not surfaced and remains unverified. |
+| Service/infrastructure/deployment | N/A | The change is a public browser-side GET lifecycle fix. No service, manifest, workflow, runtime configuration, deployment, or market-scan schedule changed. |
+| Secrets/permissions | PASS / N/A | Repository write access is available; no secret was required, read, or modified. |
+| Database/schema/migrations | N/A | No persistence or schema behavior changed; live schema/RLS state is outside scope. |
+| Production risk and rollback | PASS | Read-only request cancellation; no order, engine toggle, strategy, or execution path changes. Rollback is reverting PR #963. No production deployment is claimed. |
+
+**Lifecycle diagram — implemented in PR #963:**
+
+```mermaid
+sequenceDiagram
+  participant UI as BinanceRealtimeChart effect
+  participant Controller as Effect-owned AbortController
+  participant Loader as fetchBinanceKlineHistory
+  participant Binance as Public Binance REST API
+
+  UI->>Controller: Create controller for current chart inputs
+  UI->>Loader: Load klines(symbol, interval, limit, signal)
+  Loader->>Binance: GET /api/v3/klines with signal
+  alt Request completes while effect is active
+    Binance-->>Loader: Kline rows / HTTP error
+    Loader-->>UI: Resolve / throw
+    UI->>UI: Check disposed and signal state before chart/state updates
+  else Effect cleanup (unmount or inputs change)
+    UI->>Controller: abort()
+    Controller-->>Binance: Cancel client-side fetch
+    Loader-->>UI: Abort rejection
+    UI->>UI: Suppress stale error/state updates
+  end
+```
+
+**Readiness decision:** GO for this bounded client-side cancellation slice only. The broader `CURR-SVC-03` API/event contract audit remains open; post-merge checks and production behavior remain unverified.
+
