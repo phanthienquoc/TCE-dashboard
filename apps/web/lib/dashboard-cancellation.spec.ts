@@ -62,8 +62,10 @@ test('dashboard and TCE prefetch reads forward optional AbortSignals to Axios', 
     await platformApi.credentials(controller.signal);
     await platformApi.telegramBots(controller.signal);
     await platformApi.telegramDebugAssignments(controller.signal);
+    await platformApi.binanceXauConfig(controller.signal);
+    await platformApi.binanceXauPositions('testnet', controller.signal);
 
-    assert.equal(requests.length, 9);
+    assert.equal(requests.length, 11);
     assert.equal(requests[0].signal, controller.signal);
     assert.equal(requests[1].signal, controller.signal);
     assert.equal(requests[2].signal, controller.signal);
@@ -71,6 +73,9 @@ test('dashboard and TCE prefetch reads forward optional AbortSignals to Axios', 
     for (const request of requests.slice(4)) {
       assert.equal(request.signal, controller.signal);
     }
+    assert.equal(requests[9].signal, controller.signal);
+    assert.equal(requests[10].signal, controller.signal);
+    assert.equal(requests[10].headers.get('x-environment'), 'testnet');
   } finally {
     api.defaults.adapter = previousAdapter;
   }

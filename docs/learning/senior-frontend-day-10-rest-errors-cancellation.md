@@ -663,3 +663,56 @@ sequenceDiagram
 - **Readiness:** GO for this bounded client read-lifecycle change only. Post-merge checks for `086d537` remain unverified; `CURR-SVC-03` remains open. No production, database, auth, WebSocket, trading or execution behavior changed.
 
 Next: **Day 11 — WebSocket/SSE, reconnection and backpressure**, using the TCE realtime contract and keeping correctness separate from rendering optimizations.
+
+## System Readiness Check — Binance XAU panel read lifecycle (2026-10-30)
+
+**Task:** `DAY10-XAU-READ-01` — cancel obsolete account/environment-scoped Binance XAU panel reads and prevent stale position/configuration/bot metadata from committing after cleanup or account change.
+
+| Area                              | Status                              | Evidence                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| --------------------------------- | ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Scope and acceptance              | PASS                                | Bounded to the panel's read-only `GET /tce/engine/binance/config`, `GET /platform/telegram/bots`, and `GET /tce/engine/binance/positions` requests. Abort reads on unmount/account/environment change; prevent obsolete state/loading commits; avoid overlapping position polls. No order, save, TP/SL, close, engine-scan, or execution behavior changes.                                                                                                                                                                                                                                       |
+| Default/base/current commit       | PASS                                | Repository default branch is `master`; latest master at task start is `659e1ec1f1df143cfaca88d0475194459d2da4e6`. Dedicated branch `fix/day10-binance-xau-read-lifecycle-20261030` was created directly from that SHA.                                                                                                                                                                                                                                                                                                                                                                           |
+| Open PR/branch overlap            | PASS                                | Only open PR is draft #928, and its changed-file list contains only `plan/agentic-task-queue.md`. No overlapping source, test, or learning-document changes; the new task branch did not exist before creation.                                                                                                                                                                                                                                                                                                                                                                                  |
+| Source of truth and dependencies  | PASS                                | Inspected `apps/web/app/xau/page.tsx`, `apps/web/app/engines/BinanceXauTradingPanel.tsx`, `apps/web/lib/api.ts`, `apps/web/lib/store.ts` (`useAuthStore` identity/status), `apps/service/src/monitor/tce-engine.controller.ts`, `apps/service/src/monitor/binance-engine.service.ts`, and `apps/service/src/platform/binance-futures.service.ts`. The controller derives user identity from the existing Bearer JWT, validates the `x-environment` header, and calls the position service with that user ID and environment. Binance credentials are resolved per user by the existing provider. |
+| Working-tree/change safety        | WARN                                | The GitHub connector does not expose a local working-tree snapshot or permit local commands. Review the complete PR diff and rely on PR CI for formatter/tests/build; no claim of a clean local tree is possible.                                                                                                                                                                                                                                                                                                                                                                                |
+| Build/test/CI baseline            | WARN                                | Current-master combined status and workflow-run queries returned no entries for `659e1ec`; this is unverified, not PASS. Prior PR #963 passed its exact-head frontend build, Prettier and unit-test workflows, but that is not a current-master baseline. This task must pass its own required PR workflows.                                                                                                                                                                                                                                                                                     |
+| Service/infrastructure/deployment | N/A for change; WARN for runtime    | The service contract and deployment files are not changed. Client cancellation does not guarantee cancellation of the server's downstream Binance read. No live service health, deployment, proxy or Binance connectivity check is available or required for this UI-only change.                                                                                                                                                                                                                                                                                                                |
+| Secrets and permissions           | PASS / N/A                          | Repository write access is available and no CI secret is required by the intended source/test changes. No secret values are read or exposed. Per-user Binance credentials are runtime-owned and are not inspected or changed.                                                                                                                                                                                                                                                                                                                                                                    |
+| Database/schema/migrations        | N/A for change; WARN for live state | No database, migration, RLS or persistence changes. Live schema/ledger state is not queried because this read-lifecycle change does not depend on a schema modification.                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| Production risk and rollback      | PASS for bounded client change      | Position/config/bot reads only. No production order, config write, TP/SL, close, trading strategy, authentication protocol, or market-scan schedule changes. Rollback is reverting the task's squash commit; no production deployment is planned.                                                                                                                                                                                                                                                                                                                                                |
+
+**Readiness decision: PARTIALLY READY — proceed only with the client read-lifecycle slice.** The authenticated service contract is source-backed, while CI baseline and local working-tree state are unverified. Keep all write/execution paths unchanged.
+
+### Read-lifecycle sequence
+
+```mermaid
+sequenceDiagram
+  participant Auth as Auth store
+  participant UI as Binance XAU panel
+  participant Scope as Effect-owned AbortController
+  participant API as Existing authenticated GETs
+  participant Service as TCE engine controller
+  participant Binance as User-scoped Binance state adapter
+
+  Auth-->>UI: authenticated user ID + status
+  UI->>Scope: Start config/bot reads and position poll
+  Scope->>API: GET config + Telegram bots + positions(environment, signal)
+  API->>Service: Existing Bearer JWT + environment header
+  Service->>Service: Resolve user ID from JWT; validate environment
+  Service->>Binance: Read positions for that user/environment
+  Binance-->>Service: Position rows
+  Service-->>API: Existing response contract
+  API-->>UI: Read result
+  UI->>UI: Commit only if effect is active and signal is not aborted
+  alt Logout, account switch, environment change, or unmount
+    UI->>Scope: Cleanup
+    Scope-->>API: Abort client request
+    UI->>UI: Clear prior account's local position/config/bot view
+  else Poll completed
+    UI->>Scope: Schedule next poll after completion
+  end
+```
+
+**Explicit limitation:** aborting the browser request prevents obsolete client state commits; it does not prove that the service or Binance has stopped processing an already received read request.
+
+**Implementation evidence (PR #965, pending CI/review):** the branch adds optional signals to the existing config/position GET methods in `apps/web/lib/api.ts`, centralizes position selection in `apps/web/lib/binance-xau-position-data.ts`, and scopes the panel's config/bot reads to authenticated account lifecycle and its position poll to account/environment lifecycle in `apps/web/app/engines/BinanceXauTradingPanel.tsx`. Regression coverage is proposed in `apps/web/lib/binance-xau-position-data.spec.ts` and `apps/web/lib/dashboard-cancellation.spec.ts`. These changes are not yet merged or production-verified.

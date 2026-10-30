@@ -1,11 +1,16 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Activity, Bell, Loader2, Save, Wifi } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { platformApi } from '../../lib/api';
+import {
+  loadBinanceXauPosition,
+  type BinanceXauPosition,
+} from '../../lib/binance-xau-position-data';
+import { useAuthStore } from '../../lib/store';
 
 type Config = {
   enabled: boolean;
@@ -18,79 +23,112 @@ type Config = {
   slPct: number;
   notificationId: string | null;
 };
-type Position = {
-  symbol: string;
-  positionAmt: number;
-  entryPrice: number;
-  markPrice: number;
-  unrealizedProfit: number;
-  positionSide?: string;
-};
 type BotRow = { id: string; name: string; environment: string; isActive: boolean };
+
+const DEFAULT_CONFIG: Config = {
+  enabled: false,
+  quantity: 0.01,
+  positionSide: 'BOTH',
+  xauEnabled: false,
+  xauSymbol: 'XAUUSDT',
+  autoProtection: true,
+  tpPct: 5,
+  slPct: 5,
+  notificationId: null,
+};
 
 const fieldClass = 'mt-1 h-10 w-full';
 const selectClass =
   'mt-1 h-10 w-full rounded-xl border border-white/10 bg-[#120b18] px-3 text-sm text-white outline-none';
 
 export default function BinanceXauTradingPanel() {
-  const [config, setConfig] = useState<Config>({
-    enabled: false,
-    quantity: 0.01,
-    positionSide: 'BOTH',
-    xauEnabled: false,
-    xauSymbol: 'XAUUSDT',
-    autoProtection: true,
-    tpPct: 5,
-    slPct: 5,
-    notificationId: null,
-  });
-  const [position, setPosition] = useState<Position | null>(null);
+  const userId = useAuthStore(state => state.user?.id ?? null);
+  const authStatus = useAuthStore(state => state.status);
+  const [config, setConfig] = useState<Config>(DEFAULT_CONFIG);
+  const [position, setPosition] = useState<BinanceXauPosition | null>(null);
   const [bots, setBots] = useState<BotRow[]>([]);
   const [environment, setEnvironment] = useState<'production' | 'testnet'>('production');
   const [busy, setBusy] = useState(true);
   const [message, setMessage] = useState('');
   const [socketState, setSocketState] = useState<'polling' | 'api-sync'>('polling');
 
-  async function refreshPosition() {
-    try {
-      const response = await platformApi.binanceXauPositions(environment);
-      const rows = Array.isArray(response.data) ? response.data : [];
-      setPosition(rows.find((item: Position) => Math.abs(Number(item.positionAmt)) > 0) ?? null);
-    } catch {
-      setPosition(null);
-    }
-  }
-
-  async function load() {
+  const load = useCallback(async (signal: AbortSignal) => {
     setBusy(true);
+    setMessage('');
     try {
       const [configResponse, botsResponse] = await Promise.all([
-        platformApi.binanceXauConfig(),
-        platformApi.telegramBots(),
+        platformApi.binanceXauConfig(signal),
+        platformApi.telegramBots(signal),
       ]);
+      if (signal.aborted) return;
       const nextConfig = configResponse.data ?? {};
       setConfig(current => ({ ...current, ...nextConfig }));
       const rows = botsResponse.data?.bots ?? botsResponse.data ?? [];
       setBots(Array.isArray(rows) ? rows : []);
-      await refreshPosition();
     } catch (error: any) {
+      if (signal.aborted) return;
       setMessage(
         error?.response?.data?.message ?? error?.message ?? 'Unable to load Binance XAU engine.'
       );
     } finally {
-      setBusy(false);
+      if (!signal.aborted) setBusy(false);
     }
-  }
-
-  useEffect(() => {
-    void load();
   }, []);
 
   useEffect(() => {
-    const timer = setInterval(() => void refreshPosition(), 5000);
+    if (authStatus !== 'authenticated' || !userId) {
+      setConfig(DEFAULT_CONFIG);
+      setBots([]);
+      setMessage('');
+      setBusy(false);
+      return;
+    }
+
+    setConfig(DEFAULT_CONFIG);
+    setBots([]);
+    setPosition(null);
+    setMessage('');
+
+    const controller = new AbortController();
+    void load(controller.signal);
+    return () => controller.abort();
+  }, [authStatus, userId, load]);
+
+  useEffect(() => {
+    if (authStatus !== 'authenticated' || !userId) {
+      setPosition(null);
+      return;
+    }
+
+    let active = true;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    let requestController: AbortController | null = null;
+
+    const pollPosition = async () => {
+      const controller = new AbortController();
+      requestController = controller;
+      try {
+        const nextPosition = await loadBinanceXauPosition(environment, controller.signal);
+        if (active && !controller.signal.aborted) setPosition(nextPosition);
+      } catch {
+        if (active && !controller.signal.aborted) setPosition(null);
+      } finally {
+        if (active && !controller.signal.aborted) {
+          timer = setTimeout(() => void pollPosition(), 5000);
+        }
+      }
+    };
+
+    setPosition(null);
     setSocketState('api-sync');
-    return () => clearInterval(timer);
-  }, [environment]);
+    void pollPosition();
+
+    return () => {
+      active = false;
+      if (timer) clearTimeout(timer);
+      requestController?.abort();
+    };
+  }, [authStatus, userId, environment]);
 
   async function saveConfig() {
     setBusy(true);
