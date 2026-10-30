@@ -20,9 +20,7 @@ function response<T>(data: T): AxiosResponse<T> {
   };
 }
 
-test(
-  'notification data reads forward the same AbortSignal and normalize both responses',
-  async () => {
+test('notification reads forward one signal and normalize both responses', async () => {
   const originalBots = platformApi.telegramBots;
   const originalAssignments = platformApi.telegramDebugAssignments;
   const signals: Array<AbortSignal | undefined> = [];
@@ -55,8 +53,7 @@ test(
     platformApi.telegramBots = originalBots;
     platformApi.telegramDebugAssignments = originalAssignments;
   }
-  }
-);
+});
 
 test('single bot read forwards its signal and accepts a bare array response', async () => {
   const originalBots = platformApi.telegramBots;
