@@ -3,6 +3,7 @@ import { ChevronRight, Power, Settings2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Card } from '../../components/ui/card';
+import { dashboardApi } from '../../lib/api';
 import { loadEngineControlData, type EngineControlConfig } from '../../lib/engine-control-data';
 import { useTCEDataStore } from '../../lib/tce-data-store';
 import { ENGINE_REGISTRY, EngineId } from './engine-registry';
