@@ -50,10 +50,10 @@ async function resolveAccountId(request: UpgradeRequest, jwt: JwtService): Promi
 
 function rejectUpgrade(socket: Duplex, status: 400 | 401 | 403, message: string): void {
   socket.write(
-    `HTTP/1.1 ${status} ${status === 400 ? 'Bad Request' : status === 401 ? 'Unauthorized' : 'Forbidden'}\\r\\n` +
-      'Connection: close\\r\\n' +
-      'Content-Type: text/plain; charset=utf-8\\r\\n' +
-      `Content-Length: ${Buffer.byteLength(message)}\\r\\n\\r\\n` +
+    `HTTP/1.1 ${status} ${status === 400 ? 'Bad Request' : status === 401 ? 'Unauthorized' : 'Forbidden'}\r\n` +
+      'Connection: close\r\n' +
+      'Content-Type: text/plain; charset=utf-8\r\n' +
+      `Content-Length: ${Buffer.byteLength(message)}\r\n\r\n` +
       message
   );
   socket.destroy();
