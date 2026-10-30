@@ -481,14 +481,14 @@ sequenceDiagram
 ### Implementation follow-up — stock-event read lifecycle
 
 **Task:** `DAY10-READ-STOCK-EVENT-01`  
-**Status:** Runtime change and regression tests are on the dedicated task branch; exact-head CI and merge are pending. Do not mark this checklist verified until the required checks pass.
+**Status:** Source/test behavior passed WF-01P run 41013707425 and WF-05 run 41013707530 on pre-format head `b40037f`. WF-02 flagged formatting in the store and spec; repository formatter commits `9043683` and `3be79b5` corrected those files. The final formatted head must pass all required checks before merge.
 
 The store's `clear()` previously reset visible state without aborting or invalidating its pending `/stock-events` request. Since logout/account change calls `clearAccountScopedStores()`, a late response could repopulate the store after it had been cleared. The app-data worker also did not forward its cancellation signal to this read. The bounded implementation adds an internal `AbortController`, a request generation guard, an optional caller signal, and normalized error messages without changing the authenticated endpoint contract.
 
-- [ ] `clear()` aborts the active request, invalidates its generation, and prevents late responses from repopulating state.
-- [ ] App-data-worker cancellation reaches the stock-event transport and intentional cancellation remains silent.
-- [ ] Stock-event read failures use normalized safe messages rather than arbitrary backend response bodies.
-- [ ] Regression tests cover clear/late-response behavior, worker cancellation, and normalized errors.
+- [x] `clear()` aborts the active request, invalidates its generation, and prevents late responses from repopulating state.
+- [x] App-data-worker cancellation reaches the stock-event transport and intentional cancellation remains silent.
+- [x] Stock-event read failures use normalized safe messages rather than arbitrary backend response bodies.
+- [x] Regression tests cover clear/late-response behavior, worker cancellation, and normalized errors.
 
 ```mermaid
 sequenceDiagram
