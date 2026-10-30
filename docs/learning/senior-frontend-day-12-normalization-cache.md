@@ -536,7 +536,7 @@ A cache key that omits account scope can leak one account's data into another ac
 - Regression tests cover SSO account switching, immediate logout clearing, late stock-sync responses, and stale worker completion in `account-cache-isolation.spec.ts`, `stock-sync-store.spec.ts`, and `app-data-worker.spec.ts`.
 - **Readiness boundary:** no database schema, RLS, API contract, trading/execution logic or production deployment changed. A UI mock and ERD are N/A because this task changes cache lifecycle only, not visual behavior or persistent entities.
 - **Remaining Day 12 work:** snapshot/event ordering is still unverified because no comparable server watermark/version has been established; this PR does not mark the whole lesson complete.
-- **Completion rule:** verify PR #951 is merged and inspect its post-merge checks before treating this acceptance item as complete on `master`.
+- **Verified acceptance slice:** PR #951 merged at `5f03443cd9093995e6512cb250b9e8387a5ee310`. PR-head checks passed: backend unit tests runs 41010722517 and 41010718935, frontend build run 41010722510 and Prettier run 41010722508. Account-scoped invalidation is merged and CI-verified, not production-verified.
 
 ```mermaid
 sequenceDiagram
