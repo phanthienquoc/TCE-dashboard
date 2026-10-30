@@ -17,6 +17,7 @@ The existing source provides some implementation context:
 - The current Day 13 exercise does not establish which real page/component is the dominant render bottleneck, nor does it contain measured before/after results.
 
 References:
+
 - `apps/web/lib/store.ts`
 - `apps/web/lib/tce-data-store.ts`
 - `docs/learning/senior-frontend-day-12-normalization-cache.md`

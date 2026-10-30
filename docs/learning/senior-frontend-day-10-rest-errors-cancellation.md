@@ -2,18 +2,19 @@
 
 > Duration: 60 minutes. This lesson is aligned with the real TCE Dashboard repository and the implementation in `apps/web/lib/api.ts`, `apps/web/lib/api-errors.ts`, and `apps/web/lib/store.ts`.
 
-
 ## Implementation readiness — cross-layer assessment
 
 Before treating this lesson as complete, apply the shared [Learning Implementation Readiness Gate](IMPLEMENTATION_READINESS.md). A code snippet, test-only change, or documentation update is not proof that the product behavior exists end to end.
 
 ### TCE-specific inspection scope
+
 - **System design and service contract:** locate the actual caller, centralized API client, endpoint handler/owner, and response/error contract. Confirm whether cancellation is client-side only or has explicit server semantics.
 - **Infrastructure:** check timeout/proxy/runtime limits only when they affect the observed request path; do not change infrastructure speculatively.
 - **Database and side effects:** determine whether a request is read-only or can mutate durable state. Aborting a browser request does not prove a server operation was rolled back.
 - **Integration:** verify auth/refresh behavior, overlapping request ordering, stale-response protection, loading state, and safe user-facing errors against real source—not only a mock.
 
 Record a **READY / PARTIALLY READY / BLOCKED** decision. Implement real runtime behavior only where ownership and contracts are established; otherwise link a concrete item in [the cross-layer curriculum backlog](backlog/curriculum-implementation-backlog.md). Assess system design, infrastructure, service/backend, database, frontend and integration impacts; mark irrelevant layers N/A with a reason. Do not claim deployment or production verification without evidence.
+
 ## Learning objectives
 
 By the end of the session, you should be able to:

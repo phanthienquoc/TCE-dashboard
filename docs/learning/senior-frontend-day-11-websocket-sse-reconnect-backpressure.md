@@ -2,12 +2,12 @@
 
 > Duration: 60 minutes. This lesson follows Day 10 and is grounded in the current TCE Dashboard runtime-event contracts. It is documentation-only: no transport behavior, trading logic, credentials, database schema or runtime flags are changed.
 
-
 ## Implementation readiness — cross-layer assessment
 
 Before treating this lesson as complete, apply the shared [Learning Implementation Readiness Gate](IMPLEMENTATION_READINESS.md). A code snippet, test-only change, or documentation update is not proof that the product behavior exists end to end.
 
 ### TCE-specific inspection scope
+
 - **System design:** identify the real event producer, transport adapter, client consumer, event envelope, and source of truth. Treat WebSocket/SSE reconnection as transport recovery, not proof that missed data was recovered.
 - **Service/backend:** inspect the actual stream handler and its authentication, event identity/versioning, cursor/replay, gap detection and retry semantics before changing the client.
 - **Infrastructure:** where applicable, inspect ingress/proxy idle timeouts, connection limits, health checks, routing and runtime support. Do not infer deployment support from a browser mock.
@@ -15,6 +15,7 @@ Before treating this lesson as complete, apply the shared [Learning Implementati
 - **Integration:** exercise disconnect, reconnect, duplicate, gap, stale snapshot and auth-expiry cases with deterministic fixtures. Preserve all domain events required for positions, risk, execution and reconciliation.
 
 Record a **READY / PARTIALLY READY / BLOCKED** decision. Implement real runtime behavior only where ownership and contracts are established; otherwise link a concrete item in [the cross-layer curriculum backlog](backlog/curriculum-implementation-backlog.md). Assess system design, infrastructure, service/backend, database, frontend and integration impacts; mark irrelevant layers N/A with a reason. Do not claim deployment or production verification without evidence.
+
 ## Learning objectives
 
 By the end of the session, you should be able to:

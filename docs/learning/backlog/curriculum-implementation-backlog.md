@@ -14,6 +14,7 @@ Use the shared contract in [Implementation Readiness Gate](../IMPLEMENTATION_REA
 ## Cross-layer items
 
 ### CURR-ARCH-01 — Map learning exercises to the real TCE architecture
+
 - **Priority:** P0
 - **Status:** NEEDS AUDIT
 - **Affected lessons:** Day 9–13 currently present in `docs/learning/`; link other curriculum days when their files are added/found.
@@ -23,6 +24,7 @@ Use the shared contract in [Implementation Readiness Gate](../IMPLEMENTATION_REA
 - **Verification:** Review links/paths against the current default branch and confirm referenced files/symbols exist.
 
 ### CURR-INFRA-02 — Verify infrastructure prerequisites for service-level exercises
+
 - **Priority:** P1
 - **Status:** NEEDS AUDIT
 - **Affected lessons:** Day 9–13 where a lesson introduces SSR, API transport, streams, caching, or profiling.
@@ -32,6 +34,7 @@ Use the shared contract in [Implementation Readiness Gate](../IMPLEMENTATION_REA
 - **Unblock condition:** Current manifests/workflows and ownership have been inspected and evidence is attached to the task/PR.
 
 ### CURR-SVC-03 — Verify service/API/event contracts before frontend-only implementation
+
 - **Priority:** P0
 - **Status:** NEEDS AUDIT
 - **Affected lessons:** Day 10 REST cancellation; Day 11 realtime/recovery; Day 12 snapshot/event merge; Day 13 performance diagnosis.
@@ -41,6 +44,7 @@ Use the shared contract in [Implementation Readiness Gate](../IMPLEMENTATION_REA
 - **Unblock condition:** Relevant producer and consumer contracts are located and the intended behavior is agreed/documented.
 
 ### CURR-DATA-04 — Verify persistence and versioning assumptions
+
 - **Priority:** P1
 - **Status:** NEEDS AUDIT
 - **Affected lessons:** Day 11–12 and any exercise requiring durable replay, snapshot/event ordering, deduplication, or cache reconciliation.
@@ -50,6 +54,7 @@ Use the shared contract in [Implementation Readiness Gate](../IMPLEMENTATION_REA
 - **Unblock condition:** Current persistence and ordering guarantees are verified; unresolved guarantees become a specific follow-up item.
 
 ### CURR-VERIFY-05 — Add end-to-end evidence to implementation completion
+
 - **Priority:** P0
 - **Status:** READY
 - **Affected lessons:** All learning lessons.
@@ -58,6 +63,7 @@ Use the shared contract in [Implementation Readiness Gate](../IMPLEMENTATION_REA
 - **Safety:** Do not use a live order, production schema mutation, or production rollout as a test fixture.
 
 ### CURR-CATALOG-06 — Reconcile curriculum file inventory
+
 - **Priority:** P1
 - **Status:** BLOCKED
 - **Affected lessons:** Day 1–13 curriculum inventory.
