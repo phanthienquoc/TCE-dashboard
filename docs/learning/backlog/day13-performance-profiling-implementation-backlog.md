@@ -1,6 +1,6 @@
 # Day 13 — Performance Profiling Implementation Backlog
 
-Status: **Backlog created; runtime implementation not started**
+Status: **PERF-13-01 source map complete; runtime optimization not started pending measured baseline**
 Source lesson: [Day 13 — Performance Profiling](../senior-frontend-day-13-performance-profiling.md)
 Scope: TCE Dashboard frontend performance, with correctness-preserving changes only.
 
@@ -8,13 +8,15 @@ Scope: TCE Dashboard frontend performance, with correctness-preserving changes o
 
 The lesson is useful as a learning guide, but it is **not yet a complete implementation-ready feature specification**. It contains illustrative React/Zustand snippets and a profiling workflow, but it does not identify the exact production route/component call sites, define measurable baselines and acceptance thresholds, or provide an executable test/performance harness.
 
-The existing source provides some implementation context:
+The source-backed call-site map is now complete for the visible dashboard routes:
 
-- `apps/web/lib/store.ts` exports `useDashboardStore`, with `marketPrices: Record<string, MarketPrice>` keyed by normalized symbol, and dashboard data merged into `positions`, `currentPositions`, and `pools`.
-- Market-price sync currently uses an API call and an interval; do not assume this path is a WebSocket quote stream.
-- `apps/web/lib/tce-data-store.ts` holds broad response objects and uses request generation/cancellation for prefetch.
-- Day 12 documents normalized state and narrow selectors, but its code examples are illustrative and explicitly require checking real exports, keys, and runtime contracts before copying.
-- The current Day 13 exercise does not establish which real page/component is the dominant render bottleneck, nor does it contain measured before/after results.
+- `apps/web/components/dashboard/DashboardShell.tsx` subscribes to the whole `useDashboardStore()` state via `const { data, loading, error, load } = useDashboardStore()`; this broad subscription makes the shell sensitive to market-price updates.
+- `apps/web/lib/store.ts` stores quotes in `marketPrices: Record<string, MarketPrice>` keyed by normalized symbol. `syncMarketPrices` merges accepted quotes into the map and calls `mergeMarketPrices`, which maps `positions`, `currentPositions`, and `pools`.
+- `PositionsView`, `DividendPositionsView`, and `DividendPositionsFilter` subscribe to the entire `marketPrices` map, not to a single symbol. `DividendPositionsView` and `DividendPositionsFilter` include the whole map in expensive derived grouping dependencies.
+- Dashboard quote refresh is HTTP polling. `DashboardShell.load` fetches the dashboard snapshot, triggers an immediate price sync, and starts a 15-minute store timer. Positions-related views also trigger symbol-scoped syncs and 15-minute timers. Because all call the same action, overlapping syncs can abort one another; this is a profiling candidate, not a confirmed defect.
+- `MicrofeWebSocketBridge` subscribes to `platform.deployments` notifications; it is not the market-quote stream.
+- Visible `useTCEDataStore` consumers select `engines`, `telegramBots`, or `telegramAssignments`. No direct UI selector of the cached `dashboard` field was found in the inspected consumers; confirm repository-wide usage before removing the prefetch because the cache may have indirect consumers.
+- The source shows plausible repeated work: the shell's broad subscription, quote-driven array/row cloning in `mergeMarketPrices`, whole-map selectors, duplicated dashboard prefetch, and multiple pollers. **None is declared the dominant bottleneck until a real profile confirms it.**
 
 References:
 
@@ -27,12 +29,49 @@ References:
 
 ### PERF-13-01 — Map real dashboard rendering call sites
 
-- [ ] Trace the actual overview/watchlist/positions/pools components that consume `useDashboardStore` and `useTCEDataStore`.
-- [ ] Record each subscription selector and whether it reads `data`, `marketPrices`, or broad store slices.
-- [ ] Confirm whether updates to `marketPrices` cause components to subscribe to the whole map or to individual symbols.
-- [ ] Identify actual row components, list keys, derived calculations, and any duplicated quote-to-position/pool mapping.
-- [ ] Record the current refresh/event source for each screen; do not assume WebSocket behavior without tracing the code.
-- **Acceptance:** a source-backed component/data-flow map with exact file paths and selectors; no inferred component names.
+- [x] Trace the actual overview/watchlist/positions/pools components that consume `useDashboardStore` and `useTCEDataStore`.
+- [x] Record each subscription selector and whether it reads `data`, `marketPrices`, or broad store slices.
+- [x] Confirm whether updates to `marketPrices` cause components to subscribe to the whole map or to individual symbols.
+- [x] Identify actual row components, list keys, derived calculations, and any duplicated quote-to-position/pool mapping.
+- [x] Record the current refresh/event source for each screen; do not assume WebSocket behavior without tracing the code.
+- **Acceptance:** source-backed map completed below with exact file paths/selectors. Runtime performance remains unmeasured; no optimization is authorized by this mapping alone.
+
+
+### Verified source map — 2026-10-30
+
+**Dashboard snapshot and quote update path**
+
+- `apps/web/app/overview/page.tsx` renders `DashboardShell view="overview"` with `OverviewView`.
+- `apps/web/app/pools/page.tsx` renders `DashboardShell view="pools"` with `PoolsView`; `apps/web/app/pool/page.tsx` renders `PoolEngineView`.
+- `apps/web/app/positions/page.tsx` renders the `PositionsView` from `DashboardViews.tsx`; `apps/web/app/position/page.tsx` renders `DividendPositionsView` with `DividendPositionsFilter`.
+- `DashboardShell.tsx:57` subscribes broadly to `useDashboardStore()` and passes derived `data` plus actions into the child render function.
+- `store.ts:263-269` loads the dashboard snapshot and immediately syncs prices. `store.ts:272-278` starts a 15-minute store timer. `store.ts:292-324` validates requested-symbol quotes, updates `marketPrices`, and merges quote values into dashboard rows. `mergeMarketPrices` maps all three arrays; for rows with a quote it returns a new object even if the price is unchanged.
+- `DashboardViews.tsx:238-239` (`PositionsView`), `DividendPositionsView.tsx:25-26`, and `DividendPositionsFilter.tsx:32` subscribe to the whole `marketPrices` map. The dividend views derive grouped events using that map; their symbol-scoped refresh timers are also 15 minutes.
+- `DashboardViews.tsx`: `OverviewView` slices four positions/three pools and sums P&L; `PoolsView` builds capital-pool metrics and maps up to nine positions and twelve decision rows. Row keys use `row.id ?? row.symbol ?? index`; capital pools use `pool.pool`.
+- `DividendPositionsView.tsx`: groups events by month/symbol, finds a matching pool for each card, and keys cards by `${group.monthKey}:${item.symbol}`. `DividendPositionsFilter.tsx` recomputes month groups/candidate counts from events, filters and the whole quote map.
+- `PoolEngineView.tsx`: consumes `data` props rather than a quote selector; maps capital pools by `pool.pool`, positions and decision rows by `row.id ?? row.symbol ?? index`. It can still rerender through the broad `DashboardShell` subscription.
+- `apps/web/app/providers.tsx`: `MicrofeWebSocketBridge` subscribes to `platform.deployments` and shows deployment notifications; this is not the quote-update source.
+- `tce-data-store.ts` is a prefetch cache. Inspected UI consumers use narrow selectors for `engines`, `telegramBots`, and `telegramAssignments`; the visible dashboard quote flow is owned by `useDashboardStore`.
+
+```mermaid
+flowchart TD
+  Route[Overview / Pools / Positions route] --> Shell[DashboardShell]
+  Shell -->|broad useDashboardStore subscription| Snapshot[Dashboard data + marketPrices]
+  Shell --> Load[dashboardApi.all]
+  Load --> Sync[Immediate syncMarketPrices]
+  Timer[Store 15-minute timer] --> Sync
+  PositionView[PositionsView / DividendPositionsView] -->|whole marketPrices map| Derived[Derived rows and dividend groups]
+  PositionFilter[DividendPositionsFilter] -->|whole marketPrices map| Derived
+  PositionView -->|symbol-scoped 15-minute timer| Sync
+  Sync --> API[HTTP market-prices endpoint]
+  API --> Validate[normalizeMarketPricePayload]
+  Validate --> Merge[mergeMarketPrices]
+  Merge --> Snapshot
+  WS[MicrofeWebSocketBridge] -->|platform.deployments only| Toast[Deployment toast]
+  WS -. not quote data .-> Snapshot
+```
+
+**Readiness decision:** GO for this source-map task; **NO-GO for PERF-13-04/05/06 runtime optimization until PERF-13-02 and PERF-13-03 are satisfied**. A UI mock, ERD, and deployment swimlane are N/A: this task changes no visual behavior, persistent entity, or deployment workflow.
 
 ### PERF-13-02 — Establish a reproducible baseline
 
@@ -125,7 +164,7 @@ References:
 
 ## Definition of Done
 
-- [ ] Actual production component/store paths are documented.
+- [x] Actual production component/store paths are documented.
 - [ ] A reproducible baseline and a measured bottleneck exist.
 - [ ] A focused runtime implementation addresses that bottleneck.
 - [ ] Tests cover correctness and regressions.
