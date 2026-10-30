@@ -225,7 +225,7 @@ Master is `05fc77704b2af8c87a2ed89693e9da41b04126bb`, verified identical to PR #
 - Combined-status/workflow-run queries for merge commits `5505809` and `05fc777` returned no records. Record post-merge status as WARN/unverified, not PASS.
 - No API/auth protocol, server authorization, database/schema/RLS, trading/execution, production configuration or market-scan scheduling behavior changed. `CURR-DATA-04` remains open for snapshot/event watermark, ordering and reconciliation evidence; no production deployment is claimed.
 
-## Latest source recheck after PR #990
+## Source recheck after PR #990
 
 Master is `2255b263fe0d5b7670ec51de21cc7dd70a41f1c4`, verified identical to PR #990's squash merge. `hasCompleteTelegramNotificationCache` now accepts the shared Telegram cache only when both bot and debug-assignment values are arrays. `NotificationsPage` retries the paired authenticated read when either cached collection is absent, suppresses cancellation errors, and shows a normalized safe error plus Retry rather than rendering an empty list after a failed read. `TelegramBotConfig` uses the same cache-completeness helper; its existing safe error handling remains intact.
 
@@ -233,3 +233,14 @@ Master is `2255b263fe0d5b7670ec51de21cc7dd70a41f1c4`, verified identical to PR #
 - Exact PR head `65e9e99241110a6b8a567844f2efab2384fe86f1` passed WF-01P `41087370680`, WF-02 `41087370830`, and WF-05 `41087370764`; the test log confirms the new paired-cache and safe-error tests ran.
 - Combined-status/workflow-run queries for merge `2255b26` returned no records. Post-merge verification remains WARN/unverified, not PASS.
 - No endpoint/auth protocol, server authorization, database/schema/RLS, trading/execution, production configuration or market-scan scheduling behavior changed. No production deployment is claimed. `CURR-SVC-03` remains open; `CURR-DATA-04` remains open for server watermark/version, event ordering and reconciliation evidence.
+
+## Latest source recheck after PR #992
+
+Master is `c44dbb58d33379fa53fefcad1958be0fc52c5636`, verified identical to PR #992's squash merge. `apps/web/app/notifications/page.tsx` now exports a small route wrapper that keys `NotificationsPageContent` with `telegramNotificationAccountKey(userId)`. A changed authenticated user ID remounts the local subtree, drops the previous account's bot/assignment/loading/error state, and invokes the existing effect cleanup that aborts pending paired reads. The existing authenticated read helper, paired-cache completeness rule, safe read-error state, and Retry action remain unchanged.
+
+- **Runtime paths:** `apps/web/app/notifications/page.tsx`, `apps/web/lib/telegram-notification-account.ts`, and `apps/web/lib/telegram-notification-account.spec.ts`.
+- **Exact-head CI:** PR #992 head `f9548b0db91e04677e715a9992f7d235e34a2e58` passed WF-01P `41095290873`, WF-02 `41095290861`, and WF-05 `41095290859`; the unit-test log confirms the new account-key regression ran.
+- **Post-merge verification:** master equals merge `c44dbb5`. Backend unit tests `41095470305` and build/image/Kubernetes-YAML verification `41095470277` passed. Auto-format-on-push `41095470165` remained in progress at the time of this snapshot; overall post-merge verification is therefore WARN/partially verified. The build workflow only builds images and checks metadata/YAML; it did not deploy production.
+- **Readiness boundary:** no API/auth protocol, server authorization, database/schema/RLS, trading/execution, production configuration, or market-scan scheduling behavior changed. `CURR-DATA-04` remains open for server snapshot watermark/version, event ordering and replay/reconciliation evidence. No production deployment is claimed.
+- **Component boundary:** the account key isolates React-local state only; the existing paired authenticated GET remains the data source and server authorization remains unchanged.
+- **Cross-document contract:** Day 12, the shared backlog, and the audit matrix agree that this change is client-local; `CURR-DATA-04` remains open for snapshot/event ordering and replay/reconciliation.

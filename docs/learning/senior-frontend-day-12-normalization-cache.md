@@ -593,6 +593,29 @@ The Telegram notification cache is a paired view: bot summaries and debug assign
 - **Readiness:** this bounded cache-consumer contract is merged and CI-verified before merge. Post-merge status remains WARN because no status/workflow records were returned for `2255b26`.
 - **Boundary:** no schema, RLS, endpoint/auth contract, trading/execution or production configuration changed. This does not establish snapshot/event ordering or a server watermark; `CURR-DATA-04` remains open. See the Day 10 lesson for the paired-cache/read-error sequence diagram.
 
+### Notifications list account-local state isolation — PR #992 (2026-10-31)
+
+`NotificationsPage` held Telegram bot rows, debug assignments, loading, and read-error state locally, but the route subtree was not keyed to the authenticated user ID. A user identity transition could leave the previous subtree's local state renderable until the effect ran after the render. PR #992 adds `telegramNotificationAccountKey(userId)` and keys the stateful `NotificationsPageContent` subtree to that identity. When the key changes, React unmounts the old subtree, runs its existing effect cleanup (which aborts pending paired reads), and mounts fresh local state for the current identity.
+
+- **Runtime paths:** `apps/web/app/notifications/page.tsx`, `apps/web/lib/telegram-notification-account.ts`, and `apps/web/lib/telegram-notification-account.spec.ts`.
+- **Verification:** the new Node test checks distinct keys for two accounts and anonymous/null handling. PR #992 code head `f9548b0db91e04677e715a9992f7d235e34a2e58` passed WF-01P run `41095290873`, WF-02 run `41095290861`, and WF-05 run `41095290859`; the test log confirms the new test executed. After merge, master is `c44dbb58d33379fa53fefcad1958be0fc52c5636`; post-merge unit tests (`41095470305`) and image/config/YAML verification (`41095470277`) passed. The post-merge auto-format-on-push job `41095470165` remained in progress at this audit snapshot, so overall post-merge verification remains **WARN / partially verified**, not fully PASS.
+- **Design / lifecycle:**
+
+```mermaid
+flowchart TD
+  A[Authenticated user ID changes] --> B[telegramNotificationAccountKey]
+  B --> C{React key unchanged?}
+  C -->|Yes| D[Keep current notification subtree]
+  C -->|No| E[Unmount old subtree]
+  E --> F[Existing effect cleanup aborts pending read]
+  E --> G[Discard old bots, assignments, loading and error state]
+  G --> H[Mount fresh subtree for current identity]
+  H --> I[Existing paired authenticated read / cache check]
+  I --> J[Render current identity's state]
+```
+
+- **Readiness boundary:** this is client-local UI isolation only. Existing authenticated endpoints, paired-cache checks, safe read errors, and Retry behavior are unchanged. It does not establish server authorization or snapshot/event ordering; keep `CURR-DATA-04` open. No database/schema/RLS, trading/execution, production configuration, or market-scan scheduling change occurred, and no production deployment is claimed.
+
 ## 4. English interview practice (10 minutes)
 
 ### Question 1: What is normalized state, and when would you use it?
