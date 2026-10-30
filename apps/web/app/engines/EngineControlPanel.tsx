@@ -3,13 +3,13 @@ import { ChevronRight, Power, Settings2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Card } from '../../components/ui/card';
-import { loadEngineControlData } from '../../lib/engine-control-data';
+import { loadEngineControlData, type EngineControlConfig } from '../../lib/engine-control-data';
 import { useTCEDataStore } from '../../lib/tce-data-store';
 import { ENGINE_REGISTRY, EngineId } from './engine-registry';
 
 export default function EngineControlPanel() {
   const cachedEngines = useTCEDataStore(s => s.engines);
-  const [configs, setConfigs] = useState<EngineConfig[]>([]);
+  const [configs, setConfigs] = useState<EngineControlConfig[]>([]);
   const [enabled, setEnabled] = useState<Record<string, boolean>>({});
   const [loading, setLoading] = useState(cachedEngines === null);
   const [updating, setUpdating] = useState<string | null>(null);
