@@ -15,6 +15,27 @@ Before treating this lesson as complete, apply the shared [Learning Implementati
 
 Record a **READY / PARTIALLY READY / BLOCKED** decision. Implement real runtime behavior only where ownership and contracts are established; otherwise link a concrete item in [the cross-layer curriculum backlog](backlog/curriculum-implementation-backlog.md). Assess system design, infrastructure, service/backend, database, frontend and integration impacts; mark irrelevant layers N/A with a reason. Do not claim deployment or production verification without evidence.
 
+## System Readiness Check — dividend-pool read lifecycle (2026-10-30)
+
+**Task:** `DAY10-READ-POOL-01` — make month-filtered dividend-pool reads cancellable and stale-response safe.
+
+| Area | Status | Evidence |
+|---|---|---|
+| Scope and acceptance | PASS | Bounded to the existing client-side dividend-pool read path: propagate an optional `AbortSignal`, abort superseded month reads, reject obsolete responses from changing items/loading/error, and normalize user-facing errors. No new API or schema contract. |
+| Default/base and commit | PASS | Repository default branch is `master`; task branch `fix/day10-dividend-pool-read-lifecycle-20261030` was created from `a6bf2a027b6855627586103404d9f86aaf3e83f1`, the squash merge of Day 13 source-map PR #952. |
+| Open PR overlap | PASS | The only open PR found is #928 and it changes only `plan/agentic-task-queue.md`. No overlap with the store, worker, tests, or Day 10 lesson. Earlier Day 10 test-only PRs #938/#939 were reviewed; runtime behavior originated in #929 and quote validation in #949. |
+| Source of truth and dependencies | PASS | Inspected `apps/web/lib/stock-dividend-pool-store.ts`, its consumers `apps/web/app/stock-events/pool/page.tsx` and `apps/web/app/stock-dividend-pool/page.tsx`, `apps/web/lib/app-data-worker.ts`, the centralized Axios client, and `apps/service/src/stock-events/stock-dividend-pool.controller.ts` / service. The endpoint is an authenticated GET; an omitted month resolves to the service's current UTC month. |
+| Working tree and change safety | WARN | GitHub branch and file contents are observable, but a local working-tree snapshot is not available through this connector. Changes are isolated to the dedicated branch and will be checked through the complete PR diff. |
+| Build/test/CI baseline | WARN | The current master includes merged PR #952. The connected status/workflow-run endpoints returned no check records for that merge SHA, so current master CI is not independently verified in this run. Repository scripts expose `npm test`, `npm run typecheck`, `npm run build:web`, and `npm run format:check`; exact-head CI must pass before merge. |
+| Service, infrastructure, deployment | N/A | This is client-side read lifecycle only. No controller, service, manifest, workflow, runtime configuration, deployment, or market-scan schedule is changed. |
+| Secrets and permissions | PASS | No secret values are read or changed. The existing authenticated Axios instance/interceptors remain the transport; no new permission or credential is introduced. |
+| Database/schema/migrations | N/A for changes; WARN for live state | No DB/schema/migration mutation is proposed. The existing service reads its configured market-metrics table; live schema/RLS/ledger state is not queried and is not required for this frontend lifecycle change. |
+| Production risk and rollback | PASS for bounded client change | Read-only market-data display path only. No auth protocol, account-scoped cache contract, trading strategy, order execution, or schedule changes. Rollback is reverting the task's squash commit; no deployment rollback is applicable because no deployment is planned. |
+
+**Readiness decision: PARTIALLY READY.** Source ownership and a safe verification path are established for this bounded read-only change. Implement only the cancellation/generation-guard/error-normalization slice; broader Day 10 API-caller audit remains open.
+
+---
+
 ## Learning objectives
 
 By the end of the session, you should be able to:
