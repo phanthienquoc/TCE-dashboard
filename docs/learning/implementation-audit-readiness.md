@@ -455,7 +455,7 @@ A lesson is complete only when the audit row identifies:
 5. Readiness results and warnings/blockers.
 6. PR URL, squash-merge SHA, CI/post-merge evidence, and deployment evidence only if deployment occurred.
 
-Tests-only changes do not count as runtime implementation. Documentation-only changes do not count as runtime implementation. A green build alone does not prove domain correctness or production deployment. The repository's Prettier pull-request workflow checks this Markdown.
+Tests-only changes do not count as runtime implementation. Documentation-only changes do not count as runtime implementation. A green build alone does not prove domain correctness or production deployment. The repository's Prettier pull-request workflow checks this Markdown. The push formatter must cover the branch's full change set, not only the latest commit, so a successful formatter run cannot leave earlier changed files failing the pull-request check.
 
 ## System Readiness Check — PR #965 post-merge audit refresh (2026-10-30)
 
