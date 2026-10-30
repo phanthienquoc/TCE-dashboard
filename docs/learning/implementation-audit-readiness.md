@@ -2,7 +2,7 @@
 
 **Audit date:** 2026-10-30  
 **Repository:** `phanthienquoc/TCE-dashboard`  
-**Audited master:** `41b0afa91ebaa201564620a9278a131306642329`  
+**Audited master:** `c324e3b1b67dcc627192cbaa422a2e71b87ab447`  
 **Standard:** [Implementation Readiness Gate](IMPLEMENTATION_READINESS.md)  
 **Shared backlog:** [Cross-layer curriculum backlog](backlog/curriculum-implementation-backlog.md)
 
@@ -12,10 +12,10 @@ This is an evidence-backed snapshot. It does not claim that unmeasured runtime b
 
 - **Scope and criteria — PASS:** reviewed all five Day 9–13 lesson files, the shared readiness gate, and both implementation backlogs.
 - **Default branch/base — PASS:** repository default branch is `master`; audited SHA is `41b0afa91ebaa201564620a9278a131306642329`.
-- **PR overlap — WARN:** [PR #936](https://github.com/phanthienquoc/TCE-dashboard/pull/936) was closed without merge. It was stale, had a failing Prettier check, and introduced a WebSocket quote client without a verified browser-to-socket auth handshake. Its branch is reference only. [PR #946](https://github.com/phanthienquoc/TCE-dashboard/pull/946) is a bounded SSE resume-cursor task awaiting CI.
+- **PR overlap — WARN:** [PR #936](https://github.com/phanthienquoc/TCE-dashboard/pull/936) was closed without merge because it was stale, had a failing Prettier check, and introduced a WebSocket quote client without a verified browser-to-socket auth handshake. Its branch is reference only. [PR #946](https://github.com/phanthienquoc/TCE-dashboard/pull/946) merged as `c324e3b`; its Prettier and backend unit checks passed. Master post-merge image/build verification is still running. [PR #947](https://github.com/phanthienquoc/TCE-dashboard/pull/947) tracks the remaining secure WebSocket auth design.
 - **Source/dependencies — PASS with gaps:** master contains the centralized API/auth client, cancellation-aware dashboard reads, runtime-event REST/SSE controller, persisted event query service, and read-only WebSocket adapter. The frontend quote-stream implementation from PR #936 is not on master.
 - **Working-tree safety — WARN:** dedicated branches are used. A local working-tree snapshot is not observable through the GitHub connector.
-- **Build/test baseline — WARN:** no check runs were exposed for the audited master SHA. Historical PR #936 frontend build, backend tests and mobile viewport contract passed, but Prettier failed. Those results do not validate unmerged code. PR #946 must pass CI before merge.
+- **Build/test baseline — WARN:** PR #946 Prettier and backend unit tests passed before merge; master backend unit tests also passed. The post-merge Build + Verify job is still running at this snapshot. Historical PR #936 frontend build, backend tests and mobile viewport contract passed, but Prettier failed; those results do not validate unmerged code.
 - **Infrastructure/deployment — N/A:** this audit made no deployment or live service mutation. Verify actual service health and routing before runtime rollout.
 - **Secrets/permissions — N/A:** no secret values were read or changed. Verify the actual credential path before any socket-auth implementation.
 - **Database/migrations — PASS for cursor design:** existing `tce_runtime_events` has `event_id` as primary key and includes `account_id` and `occurred_at`. The SSE cursor task requires no schema change. Live schema drift was not queried.
@@ -54,7 +54,7 @@ This is an evidence-backed snapshot. It does not claim that unmeasured runtime b
 
 - **Source:** `apps/web/lib/microfe-ws.ts` has bounded reconnect backoff; `apps/service/src/runtime-events/runtime-events.websocket.ts` has account-scoped replay cursors and a bounded outbound buffer. REST replay is ordered by `occurred_at,event_id`.
 - **Tests:** existing controller/query tests cover account scope, cursor validation and event envelopes. PR #946 adds focused SSE resume tests.
-- **Readiness:** PARTIALLY IMPLEMENTED. PR #946 resolves `Last-Event-ID` within the authenticated account and resumes with the composite cursor; await CI and merge verification. The platform deployment socket is not the canonical runtime-event consumer. The frontend quote stream in PR #936 remains blocked on socket authentication.
+- **Readiness:** PARTIALLY IMPLEMENTED. PR #946 resolves `Last-Event-ID` within the authenticated account and resumes with the composite cursor. Pre-merge Prettier and backend unit checks passed; master post-merge Build + Verify is pending. The platform deployment socket is not the canonical runtime-event consumer. The frontend quote stream remains blocked on socket authentication; see `CURR-AUTH-07` in PR #947.
 
 ### Day 12 — normalization and cache
 
@@ -105,7 +105,7 @@ flowchart TD
 
 Diagrams must match real contracts and source. Label unknowns instead of inventing guarantees. A mock is a design artifact, not evidence that runtime behavior exists.
 
-### SSE resume sequence — PR #946, pending CI
+### SSE resume sequence — PR #946 merged; post-merge build verification pending
 
 ```mermaid
 sequenceDiagram
