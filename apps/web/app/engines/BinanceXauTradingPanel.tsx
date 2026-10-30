@@ -81,6 +81,11 @@ export default function BinanceXauTradingPanel() {
       return;
     }
 
+    setConfig(DEFAULT_CONFIG);
+    setBots([]);
+    setPosition(null);
+    setMessage('');
+
     const controller = new AbortController();
     void load(controller.signal);
     return () => controller.abort();
