@@ -72,6 +72,7 @@ jobs:
     name: Auto-format on push
     permissions:
       contents: write
+      pull-requests: read
     runs-on: ubuntu-latest
     timeout-minutes: 10
 
@@ -92,12 +93,26 @@ jobs:
       - name: Install dependencies
         run: npm install --include=dev --no-audit --no-fund
 
-      - name: Format changed files
+      - name: Format all files changed against the branch base
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
-          diff_range="HEAD^...HEAD"
+          base_ref="$(gh pr list --head "$GITHUB_REF_NAME" --state open --json baseRefName --jq '.[0].baseRefName // empty' || true)"
+          if [[ -z "$base_ref" ]]; then
+            case "$GITHUB_REF_NAME" in
+              master|staging|development) base_ref="$GITHUB_REF_NAME" ;;
+              *) base_ref=master ;;
+            esac
+          fi
+          git fetch --no-tags origin "$base_ref"
+          if [[ "$GITHUB_REF_NAME" == "$base_ref" ]]; then
+            diff_range="HEAD^...HEAD"
+          else
+            diff_range="origin/$base_ref...HEAD"
+          fi
           mapfile -t files < <(
-            git diff --name-only --diff-filter=ACMR "${diff_range}" |
+            git diff --name-only --diff-filter=ACMR "$diff_range" |
               grep -E '[.](cjs|cts|css|html|js|jsx|json|jsonc|md|mdx|mjs|mts|scss|ts|tsx|yaml|yml)$' |
               grep -v '^[.]github/workflows/' || true
           )
@@ -106,7 +121,6 @@ jobs:
           else
             echo "No eligible changed files to format."
           fi
-
       - name: Commit and push formatting changes
         run: |
           set -euo pipefail
