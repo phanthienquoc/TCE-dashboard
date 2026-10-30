@@ -15,13 +15,13 @@ By the end of this session, you should be able to:
 
 ## Minute plan
 
-| Time | Activity | Outcome |
-| --- | --- | --- |
-| 0–10 min | Performance fundamentals | Separate user-perceived latency from CPU/render cost |
-| 10–25 min | Profiling workflow | Capture and interpret a reproducible profile |
-| 25–40 min | React rendering practice | Reduce unnecessary work without changing behavior |
-| 40–50 min | TCE architecture | Apply profiling to quote tiles, positions, and dashboard lists |
-| 50–60 min | Interview practice and quiz | Explain evidence, trade-offs, and regression checks |
+| Time      | Activity                    | Outcome                                                        |
+| --------- | --------------------------- | -------------------------------------------------------------- |
+| 0–10 min  | Performance fundamentals    | Separate user-perceived latency from CPU/render cost           |
+| 10–25 min | Profiling workflow          | Capture and interpret a reproducible profile                   |
+| 25–40 min | React rendering practice    | Reduce unnecessary work without changing behavior              |
+| 40–50 min | TCE architecture            | Apply profiling to quote tiles, positions, and dashboard lists |
+| 50–60 min | Interview practice and quiz | Explain evidence, trade-offs, and regression checks            |
 
 ---
 
@@ -31,14 +31,14 @@ By the end of this session, you should be able to:
 
 A page can feel slow for different reasons:
 
-| Symptom | Likely area to inspect | Evidence to collect |
-| --- | --- | --- |
-| Initial screen appears late | Network, server response, JS download/parse, hydration | Network waterfall, route timing, browser Performance trace |
-| Clicking feels delayed | Main-thread work, expensive calculation, event handler | Long tasks and call stacks in Performance |
-| Scrolling stutters | Large DOM, repeated layout, expensive row rendering | Frame track, layout/paint events, list size |
-| One quote update rerenders the whole dashboard | Broad state subscription or unstable props | React Profiler commit and component render counts |
-| UI looks current but data is old | Cache/realtime recovery, not necessarily rendering | Event cursor, freshness timestamp, snapshot/version evidence |
-| Repeated rerenders do not show a visible change | State identity, selector result identity, parent rerender | React Profiler and component props/state |
+| Symptom                                         | Likely area to inspect                                    | Evidence to collect                                          |
+| ----------------------------------------------- | --------------------------------------------------------- | ------------------------------------------------------------ |
+| Initial screen appears late                     | Network, server response, JS download/parse, hydration    | Network waterfall, route timing, browser Performance trace   |
+| Clicking feels delayed                          | Main-thread work, expensive calculation, event handler    | Long tasks and call stacks in Performance                    |
+| Scrolling stutters                              | Large DOM, repeated layout, expensive row rendering       | Frame track, layout/paint events, list size                  |
+| One quote update rerenders the whole dashboard  | Broad state subscription or unstable props                | React Profiler commit and component render counts            |
+| UI looks current but data is old                | Cache/realtime recovery, not necessarily rendering        | Event cursor, freshness timestamp, snapshot/version evidence |
+| Repeated rerenders do not show a visible change | State identity, selector result identity, parent rerender | React Profiler and component props/state                     |
 
 Do not reach for memoization, virtualization, or a new state library before identifying which work is expensive.
 
