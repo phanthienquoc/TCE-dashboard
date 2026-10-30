@@ -132,6 +132,47 @@ test('worker cancellation aborts the stock-event transport without surfacing an 
   }
 });
 
+test('aborting a waiting caller does not abort the shared stock-event transport', async () => {
+  const originalGet = api.get;
+  const pending = deferred<AxiosResponse<unknown>>();
+  let requestSignal: AbortSignal | undefined;
+  let requestCount = 0;
+
+  api.get = ((_: string, config?: AxiosRequestConfig) => {
+    requestCount += 1;
+    requestSignal = config?.signal as AbortSignal | undefined;
+    return pending.promise;
+  }) as typeof api.get;
+
+  try {
+    useStockEventStore.getState().clear();
+    const ownerLoad = useStockEventStore.getState().load(200, true, null);
+    assert.equal(requestCount, 1);
+
+    const waitingCaller = new AbortController();
+    const waitingLoad = useStockEventStore
+      .getState()
+      .load(200, true, null, waitingCaller.signal);
+    waitingCaller.abort();
+    await waitingLoad;
+
+    assert.equal(requestSignal?.aborted, false);
+    assert.equal(requestCount, 1);
+
+    pending.resolve(response([stockEvent('shared')]));
+    await ownerLoad;
+
+    assert.equal(requestSignal?.aborted, false);
+    assert.deepEqual(
+      useStockEventStore.getState().events.map(event => event.id),
+      ['shared']
+    );
+  } finally {
+    useStockEventStore.getState().clear();
+    api.get = originalGet;
+  }
+});
+
 test('stock-event read errors use normalized messages rather than backend response bodies', async () => {
   const originalGet = api.get;
   const config = { headers: new AxiosHeaders() } as InternalAxiosRequestConfig;
