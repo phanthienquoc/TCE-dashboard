@@ -347,7 +347,6 @@ export const useDashboardStore = create<DashboardState>(set => ({
   },
 }));
 
-
 /**
  * Clear and invalidate every account-sensitive client cache before changing identity.
  * Public stock-event/dividend data may be fetched again; no user-scoped configuration,
