@@ -57,7 +57,7 @@ sequenceDiagram
   end
 ```
 
-**Readiness decision:** READY for this bounded client-side implementation. PR #957 exact head `9baa4327d21089a6b2a02e7707f2a367caba706e` passed WF-01P run `41024441808`, WF-02 run `41024441810`, and WF-05 run `41024441832`. The slice is CI-verified; merge and post-merge verification remain separate.
+**Readiness decision:** PR #957 merged at `6b3beb546409358cf9cc1a8f000a4527f02255ab`. Exact PR head `052c301ad522d98802a13e88ed48c6a48c636de7` passed WF-01P #41024683065, WF-02 #41024683023, and WF-05 #41024682994 before merge. The available connector did not surface post-merge workflow status, so post-merge checks and production verification remain unverified.
 
 ## System Readiness Check — dividend-pool read lifecycle (2026-10-30)
 
