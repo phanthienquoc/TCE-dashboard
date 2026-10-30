@@ -8,6 +8,23 @@
 
 This evidence-backed snapshot includes PR #956's audit refresh and PR #957's Telegram notification read-lifecycle implementation merged at `6b3beb5`. Exact-head PR checks passed; post-merge workflow status was not surfaced by the available connector, so production/post-merge verification is not claimed.
 
+## System Readiness Check — PR #961 post-merge audit refresh (2026-10-30)
+
+**Task:** `DAY10-POSTMERGE-AUDIT-961` — update the existing audit matrix and linked learning artifacts to reflect the merged Engine Control read-cancellation slice, while keeping post-merge verification uncertainty explicit. Documentation-only; no runtime changes.
+
+- **Scope and acceptance — PASS:** Refresh the existing audit matrix, Day 10 lesson, architecture map and shared backlog with PR #961 merge/CI evidence. Keep `CURR-SVC-03` open; do not claim deployment or end-to-end completion.
+- **Default/base/current commit — PASS:** Default branch is `master`; current master is merge commit `53b70f907eb24462db207269ddc2092e9c6563c3` from PR #961. Dedicated branch `docs/day10-postmerge-audit-pr961-20261030` was created from that exact SHA.
+- **Open PR/branch overlap — PASS:** PR #961 is merged. The only open PR found is #928, limited to `plan/agentic-task-queue.md`; no overlap with the audit artifacts. No existing PR961 post-merge audit branch was found.
+- **Source of truth and dependencies — PASS:** Verified PR #961 merge state, its six changed files, the Engine Control consumer/helper and three tests. Existing API methods accept `AbortSignal`; engine toggle writes and auth/API contracts are unchanged.
+- **Working-tree/change safety — WARN:** The GitHub connector does not expose a local working-tree snapshot. The complete documentation-only diff must be reviewed before merge.
+- **Build/test/CI baseline — PASS / WARN:** Exact PR #961 head `ec240d8662597b3982263fe74b7071a76a26e735` passed WF-01P #41030892797, WF-02 #41030892857 and WF-05 #41030892904 (253 tests passed, 0 failed, including all three Engine Control specs). Combined status and the available workflow-run query returned no post-merge records for `53b70f9`; post-merge checks remain unverified, not PASS.
+- **Service/infrastructure/deployment — N/A:** Documentation-only refresh; no service, infra, deployment, market-scan schedule or production configuration change.
+- **Secrets/permissions — PASS / N/A:** Repository write permission is available; no secret is required or accessed.
+- **Database/schema/migrations — N/A:** No database or schema changes; live schema/RLS state is outside scope.
+- **Production risk/rollback — PASS:** Audit metadata only. No production deployment is planned or claimed; rollback is reverting this documentation PR.
+
+**Readiness decision:** GO for the documentation-only audit refresh. Preserve WARN for post-merge execution status until a trustworthy status/run source is available.
+
 ## System Readiness Check — PR #957 post-merge audit refresh (2026-10-30)
 
 **Task:** `DAY10-POSTMERGE-AUDIT-01` — refresh existing audit artifacts to reflect the merged Telegram notification read-lifecycle slice and distinguish pre-merge CI evidence from post-merge verification. Documentation-only; no runtime changes.
