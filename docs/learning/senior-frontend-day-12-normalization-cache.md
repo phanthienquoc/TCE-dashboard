@@ -585,6 +585,14 @@ sequenceDiagram
 
 **Boundary:** this is client-local state isolation only. It does not change API authorization or prove snapshot/event ordering; keep `CURR-DATA-04` open.
 
+### Paired Telegram cache completeness — PR #990 (2026-10-30)
+
+The Telegram notification cache is a paired view: bot summaries and debug assignments must both be arrays before a consumer treats the cache as complete. PR #990 adds `hasCompleteTelegramNotificationCache` and applies it in `NotificationsPage` and `TelegramBotConfig`. A partial prefetch now triggers the existing paired authenticated read rather than silently presenting an empty bot/assignment view. The notifications list distinguishes a genuine read failure from an empty successful response by showing a safe normalized error and Retry action; cancellation remains silent.
+
+- **Verification:** `telegram-notification-data.spec.ts` covers complete/partial cache values, HTTP 500 safe messaging, and a generic fallback without internal details. PR #990 head `65e9e99241110a6b8a567844f2efab2384fe86f1` passed WF-01P `41087370680`, WF-02 `41087370830`, and WF-05 `41087370764`.
+- **Readiness:** this bounded cache-consumer contract is merged and CI-verified before merge. Post-merge status remains WARN because no status/workflow records were returned for `2255b26`.
+- **Boundary:** no schema, RLS, endpoint/auth contract, trading/execution or production configuration changed. This does not establish snapshot/event ordering or a server watermark; `CURR-DATA-04` remains open. See the Day 10 lesson for the paired-cache/read-error sequence diagram.
+
 ## 4. English interview practice (10 minutes)
 
 ### Question 1: What is normalized state, and when would you use it?

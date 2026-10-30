@@ -2,10 +2,12 @@
 
 **Task:** `CURR-ARCH-01` — Map learning exercises to the real TCE architecture  
 **Readiness:** `PARTIALLY READY` for source mapping; `NO-GO` for any new auth/SSR/DB/runtime contract changes inferred from this map  
-**Audited source baseline:** `master` at `05fc77704b2af8c87a2ed89693e9da41b04126bb` (2026-10-30; PRs #985/#986 merged; exact-head CI passed; post-merge status for these two merges remains unverified)  
+**Audited source baseline:** `master` at `2255b263fe0d5b7670ec51de21cc7dd70a41f1c4` (2026-10-30; PR #990 merged; exact-head CI passed; post-merge status remains unverified)  
 **Purpose:** Trace the existing Day 9–13 learning notes to actual repository entry points and owners. This map records what source establishes and explicitly labels unresolved contracts; it does not claim every lesson's desired behavior is complete.
 
 ## System Readiness Check
+
+> Historical baseline: this initial readiness table was recorded after PR #986. The latest source baseline and PR #990 evidence are recorded in the final source-recheck section below.
 
 | Area                      | Status                                 | Evidence                                                                                                                                                                                                                                                                                                                               |
 | ------------------------- | -------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -222,3 +224,12 @@ Master is `05fc77704b2af8c87a2ed89693e9da41b04126bb`, verified identical to PR #
 - PR #986 exact head `61ad9d327275fd618e0c91ae4a836abfbe8da455` passed WF-01P `41081363037`, WF-02 `41081363112`, and WF-05 `41081362999`; the Node test log includes the account-key regression test.
 - Combined-status/workflow-run queries for merge commits `5505809` and `05fc777` returned no records. Record post-merge status as WARN/unverified, not PASS.
 - No API/auth protocol, server authorization, database/schema/RLS, trading/execution, production configuration or market-scan scheduling behavior changed. `CURR-DATA-04` remains open for snapshot/event watermark, ordering and reconciliation evidence; no production deployment is claimed.
+
+## Latest source recheck after PR #990
+
+Master is `2255b263fe0d5b7670ec51de21cc7dd70a41f1c4`, verified identical to PR #990's squash merge. `hasCompleteTelegramNotificationCache` now accepts the shared Telegram cache only when both bot and debug-assignment values are arrays. `NotificationsPage` retries the paired authenticated read when either cached collection is absent, suppresses cancellation errors, and shows a normalized safe error plus Retry rather than rendering an empty list after a failed read. `TelegramBotConfig` uses the same cache-completeness helper; its existing safe error handling remains intact.
+
+- Runtime paths: `apps/web/app/notifications/page.tsx`, `apps/web/app/notifications/TelegramBotConfig.tsx`, `apps/web/lib/telegram-notification-data.ts`, and `apps/web/lib/telegram-notification-data.spec.ts`.
+- Exact PR head `65e9e99241110a6b8a567844f2efab2384fe86f1` passed WF-01P `41087370680`, WF-02 `41087370830`, and WF-05 `41087370764`; the test log confirms the new paired-cache and safe-error tests ran.
+- Combined-status/workflow-run queries for merge `2255b26` returned no records. Post-merge verification remains WARN/unverified, not PASS.
+- No endpoint/auth protocol, server authorization, database/schema/RLS, trading/execution, production configuration or market-scan scheduling behavior changed. No production deployment is claimed. `CURR-SVC-03` remains open; `CURR-DATA-04` remains open for server watermark/version, event ordering and reconciliation evidence.
