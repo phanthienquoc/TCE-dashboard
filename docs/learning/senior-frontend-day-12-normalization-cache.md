@@ -565,7 +565,6 @@ sequenceDiagram
   Note over Worker,Cache: Old responses and mutation completions cannot repopulate prior-account state.
 ```
 
-
 ## Account-local Telegram UI state
 
 ```mermaid
