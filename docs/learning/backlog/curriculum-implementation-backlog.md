@@ -24,7 +24,7 @@ Use the shared contract in [Implementation Readiness Gate](../IMPLEMENTATION_REA
 - **Verified result:** The architecture map traces each existing Day 9–13 lesson to actual routes/components, API/store owners, service/event boundaries, and explicit N/A or unresolved layers. Missing Day 1–8 files remain tracked separately under `CURR-CATALOG-06`.
 - **Maintenance:** Update the map when a source owner, route, API contract, event cursor, or readiness decision changes; re-verify every referenced path against the current base branch.
 - **Acceptance:** MET for the five existing Day 9–13 files only: each lesson has source-backed entry points and affected layers, irrelevant layers are marked N/A with a reason, and unresolved contracts are explicit. Day 1–8 are not claimed reviewed.
-- **Verification:** Referenced paths/symbols, the Day 9 architecture-map link, and the Day 10 validator path were checked against current master; the associated refresh PR records its Markdown-formatting and backend-unit CI results.
+- **Verification:** Referenced paths/symbols, the Day 9 architecture-map link, the Day 10 validator, and the pool-read lifecycle paths were checked against current master. PR #953 exact-head frontend build, Prettier, and root unit-suite checks passed; separate post-merge status records were not surfaced.
 
 ### CURR-INFRA-02 — Verify infrastructure prerequisites for service-level exercises
 
