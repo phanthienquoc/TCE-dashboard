@@ -17,14 +17,14 @@ Use the shared contract in [Implementation Readiness Gate](../IMPLEMENTATION_REA
 
 - **Priority:** P0
 - **Status:** VERIFIED — source mapping completed for the five Day 9–13 lesson files present in `docs/learning/`
-- **Last source recheck:** 2026-10-30 after the WebSocket-auth backlog item was merged to master.
-- **Evidence:** [TCE Dashboard learning-to-source architecture map](../architecture-map.md), audited against master `c324e3b1b67dcc627192cbaa422a2e71b87ab447`.
+- **Last source recheck:** 2026-10-30 after Day 10 quote validation merged at `48083829805ed3d60162c77604e11b8b084bde89`.
+- **Evidence:** [TCE Dashboard learning-to-source architecture map](../architecture-map.md), refreshed against master `48083829805ed3d60162c77604e11b8b084bde89`; Day 10 quote-validation source is `apps/web/lib/market-price-validation.ts`.
 - **Boundary:** This verifies source-path/ownership mapping only. It does not mark Day 10–13 runtime requirements complete, and explicitly leaves WebSocket auth (`CURR-AUTH-07`), live schema/RLS/migration provenance (`CURR-DATA-04`), infra deployment details, and Day 13 profiling as unresolved.
 - **Affected lessons:** Day 9–13 currently present in `docs/learning/`; link other curriculum days when their files are added/found.
 - **Verified result:** The architecture map traces each existing Day 9–13 lesson to actual routes/components, API/store owners, service/event boundaries, and explicit N/A or unresolved layers. Missing Day 1–8 files remain tracked separately under `CURR-CATALOG-06`.
 - **Maintenance:** Update the map when a source owner, route, API contract, event cursor, or readiness decision changes; re-verify every referenced path against the current base branch.
 - **Acceptance:** MET for the five existing Day 9–13 files only: each lesson has source-backed entry points and affected layers, irrelevant layers are marked N/A with a reason, and unresolved contracts are explicit. Day 1–8 are not claimed reviewed.
-- **Verification:** Referenced paths/symbols and the Day 9 architecture-map link were checked against the audited source snapshot; PR CI validates Markdown formatting.
+- **Verification:** Referenced paths/symbols, the Day 9 architecture-map link, and the Day 10 validator path were checked against current master; the associated refresh PR records its Markdown-formatting and backend-unit CI results.
 
 ### CURR-INFRA-02 — Verify infrastructure prerequisites for service-level exercises
 
