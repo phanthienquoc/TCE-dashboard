@@ -36,7 +36,6 @@ References:
 - [x] Record the current refresh/event source for each screen; do not assume WebSocket behavior without tracing the code.
 - **Acceptance:** source-backed map completed below with exact file paths/selectors. Runtime performance remains unmeasured; no optimization is authorized by this mapping alone.
 
-
 ### Verified source map — 2026-10-30
 
 **Dashboard snapshot and quote update path**
