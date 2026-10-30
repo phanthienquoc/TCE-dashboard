@@ -530,7 +530,7 @@ A cache key that omits account scope can leak one account's data into another ac
 
 ### Implementation evidence — account-scoped cache invalidation
 
-- `apps/web/lib/store.ts` clears dashboard, TCE, stock-sync and app-worker state on logout and when a successful authentication flow changes account identity. Local identity and sensitive caches are cleared before awaiting the remote logout response.
+- `apps/web/lib/store.ts` clears dashboard, TCE, stock-event, stock-sync and app-worker state on logout and when a successful authentication flow changes account identity. Local identity and sensitive caches are cleared before awaiting the remote logout response.
 - `apps/web/lib/stock-sync-store.ts` aborts in-flight settings/bot/run reads, invalidates stale read and mutation generations, and resets account-scoped config, Telegram bot metadata, run history and progress.
 - `apps/web/lib/app-data-worker.ts` aborts its shared read signal, stops scheduling remaining tasks, and prevents an old worker from updating progress after a session transition.
 - Regression tests cover SSO account switching, immediate logout clearing, late stock-sync responses, and stale worker completion in `account-cache-isolation.spec.ts`, `stock-sync-store.spec.ts`, and `app-data-worker.spec.ts`.
