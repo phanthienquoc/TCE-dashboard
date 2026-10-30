@@ -2,6 +2,7 @@
 
 import { create } from 'zustand';
 import { api } from './api';
+import { isApiRequestCancelled } from './api-errors';
 
 export type StockSyncConfig = {
   enabled: boolean;
@@ -74,6 +75,7 @@ type StockSyncState = {
   setConfig: (config: StockSyncConfig | ((current: StockSyncConfig) => StockSyncConfig)) => void;
   setTab: (tab: 'runs' | 'config') => void;
   clearMessage: () => void;
+  clear: () => void;
 };
 
 const defaultConfig: StockSyncConfig = {
@@ -93,6 +95,12 @@ const noCache = {
   headers: { 'Cache-Control': 'no-cache', Pragma: 'no-cache' },
 };
 
+let refreshController: AbortController | null = null;
+let refreshGeneration = 0;
+let runsController: AbortController | null = null;
+let runsGeneration = 0;
+let accountGeneration = 0;
+
 export const useStockSyncStore = create<StockSyncState>((set, get) => ({
   config: defaultConfig,
   bots: [],
@@ -105,22 +113,53 @@ export const useStockSyncStore = create<StockSyncState>((set, get) => ({
   initialized: false,
 
   refreshRuns: async () => {
-    const response = await api.get<StockSyncRun[]>(
-      '/stock-events-cron/runs?limit=20&_ts=' + Date.now(),
-      noCache
-    );
-    set({ runs: Array.isArray(response.data) ? response.data : [] });
+    runsController?.abort();
+    const controller = new AbortController();
+    runsController = controller;
+    const generation = ++runsGeneration;
+    try {
+      const response = await api.get<StockSyncRun[]>(
+        '/stock-events-cron/runs?limit=20&_ts=' + Date.now(),
+        { ...noCache, signal: controller.signal }
+      );
+      if (controller.signal.aborted || generation !== runsGeneration) return;
+      set({ runs: Array.isArray(response.data) ? response.data : [] });
+    } catch (error) {
+      if (controller.signal.aborted || isApiRequestCancelled(error) || generation !== runsGeneration)
+        return;
+      throw error;
+    } finally {
+      if (runsController === controller) runsController = null;
+    }
   },
 
   refresh: async () => {
     if (get().loading) return;
+    refreshController?.abort();
+    const controller = new AbortController();
+    refreshController = controller;
+    const generation = ++refreshGeneration;
+    const currentAccountGeneration = accountGeneration;
     set({ loading: true, message: null });
     try {
       const [settings, telegram] = await Promise.all([
-        api.get<StockSyncConfig>('/stock-events-cron/settings?_ts=' + Date.now(), noCache),
-        api.get<StockSyncTelegramBot[]>('/platform/telegram/bots?_ts=' + Date.now(), noCache),
+        api.get<StockSyncConfig>('/stock-events-cron/settings?_ts=' + Date.now(), {
+          ...noCache,
+          signal: controller.signal,
+        }),
+        api.get<StockSyncTelegramBot[]>('/platform/telegram/bots?_ts=' + Date.now(), {
+          ...noCache,
+          signal: controller.signal,
+        }),
         get().refreshRuns(),
       ]);
+      if (
+        controller.signal.aborted ||
+        generation !== refreshGeneration ||
+        currentAccountGeneration !== accountGeneration
+      ) {
+        return;
+      }
       set({
         config: { ...defaultConfig, ...settings.data },
         bots: telegram.data ?? [],
@@ -128,11 +167,24 @@ export const useStockSyncStore = create<StockSyncState>((set, get) => ({
         loading: false,
       });
     } catch (error) {
+      if (
+        controller.signal.aborted ||
+        isApiRequestCancelled(error) ||
+        generation !== refreshGeneration ||
+        currentAccountGeneration !== accountGeneration
+      ) {
+        return;
+      }
       set({
         initialized: true,
         loading: false,
         message: error instanceof Error ? error.message : 'Unable to load stock events cron data',
       });
+    } finally {
+      if (generation === refreshGeneration && currentAccountGeneration === accountGeneration) {
+        set({ loading: false });
+      }
+      if (refreshController === controller) refreshController = null;
     }
   },
 
@@ -144,31 +196,40 @@ export const useStockSyncStore = create<StockSyncState>((set, get) => ({
   clearMessage: () => set({ message: null }),
 
   save: async () => {
+    const generation = accountGeneration;
     set({ saving: true, message: null });
     try {
       const response = await api.post<StockSyncConfig>('/stock-events-cron/settings', get().config);
+      if (generation !== accountGeneration) return;
       set(state => ({
         config: { ...state.config, ...response.data },
         saving: false,
         message: 'Saved',
       }));
       await get().refresh();
+      if (generation !== accountGeneration) return;
       set({ message: 'Saved' });
     } catch (error) {
+      if (generation !== accountGeneration) return;
       set({
         saving: false,
         message: error instanceof Error ? error.message : 'Unable to save',
       });
+    } finally {
+      if (generation === accountGeneration) set({ saving: false });
     }
   },
 
   trigger: async () => {
+    const generation = accountGeneration;
     set({ triggering: true, message: null });
     try {
       const response = await api.post<StockSyncRun>('/stock-events-cron/trigger', {});
+      if (generation !== accountGeneration) return;
       await get()
         .refreshRuns()
         .catch(() => undefined);
+      if (generation !== accountGeneration) return;
       set({
         triggering: false,
         message:
@@ -176,10 +237,34 @@ export const useStockSyncStore = create<StockSyncState>((set, get) => ({
         tab: 'runs',
       });
     } catch (error) {
+      if (generation !== accountGeneration) return;
       set({
         triggering: false,
         message: error instanceof Error ? error.message : 'Unable to trigger sync',
       });
+    } finally {
+      if (generation === accountGeneration) set({ triggering: false });
     }
+  },
+
+  clear: () => {
+    accountGeneration += 1;
+    refreshGeneration += 1;
+    runsGeneration += 1;
+    refreshController?.abort();
+    refreshController = null;
+    runsController?.abort();
+    runsController = null;
+    set({
+      config: { ...defaultConfig },
+      bots: [],
+      runs: [],
+      loading: false,
+      saving: false,
+      triggering: false,
+      message: null,
+      tab: 'runs',
+      initialized: false,
+    });
   },
 }));
