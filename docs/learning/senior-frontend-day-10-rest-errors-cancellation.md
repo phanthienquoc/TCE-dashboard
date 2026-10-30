@@ -389,9 +389,9 @@ Apply only if this price-sync request is still current
 - [x] Invalid market-price rows cannot overwrite state; unrequested symbols are rejected and diagnostics contain aggregate counts only.
 - [x] If a payload contains no valid quote rows, existing market-price state is preserved.
 - [x] Existing callers that omit `signal` still compile.
-- [ ] A newer dividend-pool month request aborts the previous read and an obsolete response cannot replace the selected-month data or loading state.
-- [ ] App-data-worker cancellation reaches the dividend-pool transport; intentional cancellation stays silent.
-- [ ] Dividend-pool failures use normalized safe messages rather than arbitrary backend response bodies.
+- [x] A newer dividend-pool month request aborts the previous read and an obsolete response cannot replace the selected-month data or loading state.
+- [x] App-data-worker cancellation reaches the dividend-pool transport; intentional cancellation stays silent.
+- [x] Dividend-pool failures use normalized safe messages rather than arbitrary backend response bodies.
 
 ---
 
@@ -425,7 +425,7 @@ sequenceDiagram
 ### Implementation follow-up — dividend-pool read lifecycle
 
 **Task:** `DAY10-READ-POOL-01`  
-**Status:** Runtime change and regression tests are present on the dedicated task branch; exact-head CI and merge are still pending. Do not mark the checklist above verified until the PR checks pass.
+**Status:** Runtime change and regression tests are implemented. All three required checks passed on source/test head `0fc3cfe8fb72962f92b9db16df97a146c06017cc`; this checklist refresh is a documentation-only follow-up, and the final PR head must pass checks before merge.
 
 The first WF-02 run failed only on `apps/web/lib/stock-dividend-pool-store.spec.ts`. The repository's push formatter applied formatting-only commit `6e8b93bc9b863be5e8608011a3913166b67554de`; results from the earlier head are stale. All required checks must pass on the final PR head before merge.
 
