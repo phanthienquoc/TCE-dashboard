@@ -175,10 +175,7 @@ test('dividend OHLCV errors use a safe fallback instead of raw exception details
     useDividendOhlcvStore.getState().clear();
     await useDividendOhlcvStore.getState().load('DPM');
 
-    assert.equal(
-      useDividendOhlcvStore.getState().errors.DPM,
-      'Unable to load 1Y candle history'
-    );
+    assert.equal(useDividendOhlcvStore.getState().errors.DPM, 'Unable to load 1Y candle history');
     assert.equal(useDividendOhlcvStore.getState().loading.DPM, false);
   } finally {
     useDividendOhlcvStore.getState().clear();
