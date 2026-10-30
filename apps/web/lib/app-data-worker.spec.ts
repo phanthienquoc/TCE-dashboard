@@ -44,65 +44,60 @@ function response<T>(data: T): AxiosResponse<T> {
   };
 }
 
-test(
-  'clearing the app data worker prevents old work from advancing progress or starting more tasks',
-  async () => {
-    const originalGet = api.get;
-    const requests: Array<{
-      url: string;
-      signal?: AbortSignal;
-      pending: Deferred<AxiosResponse<unknown>>;
-    }> = [];
+test('clearing the app data worker prevents old work from advancing progress or starting more tasks', async () => {
+  const originalGet = api.get;
+  const requests: Array<{
+    url: string;
+    signal?: AbortSignal;
+    pending: Deferred<AxiosResponse<unknown>>;
+  }> = [];
 
-    api.get = ((url: string, config?: AxiosRequestConfig) => {
-      const pending = deferred<AxiosResponse<unknown>>();
-      requests.push({ url, signal: config?.signal as AbortSignal | undefined, pending });
-      return pending.promise;
-    }) as typeof api.get;
+  api.get = ((url: string, config?: AxiosRequestConfig) => {
+    const pending = deferred<AxiosResponse<unknown>>();
+    requests.push({ url, signal: config?.signal as AbortSignal | undefined, pending });
+    return pending.promise;
+  }) as typeof api.get;
 
-    try {
-      useAppDataWorkerStore.getState().clear();
-      useTCEDataStore.getState().clear();
-      useStockEventStore.getState().clear();
-      useStockSyncStore.getState().clear();
-      useStockDividendPoolStore.setState({ items: [], loading: false, error: null });
+  try {
+    useAppDataWorkerStore.getState().clear();
+    useTCEDataStore.getState().clear();
+    useStockEventStore.getState().clear();
+    useStockSyncStore.getState().clear();
+    useStockDividendPoolStore.setState({ items: [], loading: false, error: null });
 
-      const run = useAppDataWorkerStore.getState().start();
-      const initialRequestCount = requests.length;
-      assert.ok(initialRequestCount >= 11);
+    const run = useAppDataWorkerStore.getState().start();
+    const initialRequestCount = requests.length;
+    assert.ok(initialRequestCount >= 11);
 
-      useAppDataWorkerStore.getState().clear();
-      useTCEDataStore.getState().clear();
-      useStockEventStore.getState().clear();
-      useStockSyncStore.getState().clear();
-      assert.ok(requests.some(request => request.signal));
-      assert.ok(
-      requests.filter(request => request.signal).every(request => request.signal?.aborted)
-    );
+    useAppDataWorkerStore.getState().clear();
+    useTCEDataStore.getState().clear();
+    useStockEventStore.getState().clear();
+    useStockSyncStore.getState().clear();
+    assert.ok(requests.some(request => request.signal));
+    assert.ok(requests.filter(request => request.signal).every(request => request.signal?.aborted));
 
-      for (const request of requests) request.pending.resolve(response([]));
-      await run;
+    for (const request of requests) request.pending.resolve(response([]));
+    await run;
 
-      assert.equal(requests.length, initialRequestCount);
-      assert.deepEqual(useAppDataWorkerStore.getState(), {
-        status: 'idle',
-        total: 0,
-        completed: 0,
-        failed: 0,
-        startedAt: null,
-        finishedAt: null,
-        start: useAppDataWorkerStore.getState().start,
-        clear: useAppDataWorkerStore.getState().clear,
-      });
-      assert.equal(useTCEDataStore.getState().initialized, false);
-      assert.equal(useStockSyncStore.getState().initialized, false);
-    } finally {
-      useAppDataWorkerStore.getState().clear();
-      useTCEDataStore.getState().clear();
-      useStockEventStore.getState().clear();
-      useStockSyncStore.getState().clear();
-      useStockDividendPoolStore.setState({ items: [], loading: false, error: null });
-      api.get = originalGet;
-    }
+    assert.equal(requests.length, initialRequestCount);
+    assert.deepEqual(useAppDataWorkerStore.getState(), {
+      status: 'idle',
+      total: 0,
+      completed: 0,
+      failed: 0,
+      startedAt: null,
+      finishedAt: null,
+      start: useAppDataWorkerStore.getState().start,
+      clear: useAppDataWorkerStore.getState().clear,
+    });
+    assert.equal(useTCEDataStore.getState().initialized, false);
+    assert.equal(useStockSyncStore.getState().initialized, false);
+  } finally {
+    useAppDataWorkerStore.getState().clear();
+    useTCEDataStore.getState().clear();
+    useStockEventStore.getState().clear();
+    useStockSyncStore.getState().clear();
+    useStockDividendPoolStore.setState({ items: [], loading: false, error: null });
+    api.get = originalGet;
   }
-);
+});
