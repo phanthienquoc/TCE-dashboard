@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '../../components/ui/button';
 import { isApiRequestCancelled } from '../../lib/api-errors';
+import { normalizeSystemUpdatePushFailure } from '../../lib/system-update-push-errors';
 import { useAuthStore } from '../../lib/store';
 import {
   hasCompleteTelegramNotificationCache,
@@ -105,7 +106,7 @@ function NotificationsPageContent() {
       await enableSystemUpdateNotifications();
       setPushState('enabled');
     } catch (error) {
-      console.error('[SYSTEM_UPDATE_PUSH]', error);
+      console.error('[SYSTEM_UPDATE_PUSH]', normalizeSystemUpdatePushFailure(error));
       setPushState('error');
     }
   }
