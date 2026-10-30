@@ -254,3 +254,24 @@ A lesson is complete only when the audit row identifies:
 6. PR URL, squash-merge SHA, CI/post-merge evidence, and deployment evidence only if deployment occurred.
 
 Tests-only changes do not count as runtime implementation. Documentation-only changes do not count as runtime implementation. A green build alone does not prove domain correctness or production deployment. The repository's Prettier pull-request workflow checks this Markdown.
+
+
+## System Readiness Check — PR #965 post-merge audit refresh (2026-10-30)
+
+**Task:** `DAY10-POSTMERGE-AUDIT-965` — reconcile the existing Day 9–13 audit matrix, architecture map, shared backlog and Day 10 lesson with the merged Binance XAU panel read-lifecycle slice.
+
+| Area | Status | Evidence |
+|---|---|---|
+| Scope and acceptance | PASS | Documentation-only audit of an already-merged bounded runtime change. Update existing records with source paths, tests, diagram, PR/merge SHA, final-head CI and post-merge CI; keep Day 10 and `CURR-SVC-03` partially ready. No new runtime scope. |
+| Default/base/current commit | PASS | Repository default branch is `master`; current master is `ff274e77bcd5d6c835654b96423342061a3d0df2`, the squash merge of PR #965. Audit branch `docs/day10-xau-read-lifecycle-audit-20261030` was created from that exact SHA. |
+| Open PR/branch overlap | PASS | PR #966 changes only `apps/web/lib/keycloak-sso.ts`; PR #928 changes only `plan/agentic-task-queue.md`. Neither overlaps the four learning/audit Markdown files in this task. PR #965 is merged. |
+| Source of truth and dependencies | PASS | Re-read merged `apps/web/app/engines/BinanceXauTradingPanel.tsx`, `apps/web/lib/api.ts`, `apps/web/lib/binance-xau-position-data.ts`, both related specs, the XAU route, `useAuthStore`, and the existing Day 10 lesson. Verified the merged master paths and per-user/environment read contract. |
+| Working-tree/change safety | WARN | The GitHub connector exposes repository files/PR diffs but no local working-tree snapshot or local command execution. Review the complete documentation diff and run PR CI before merge. |
+| Build/test/CI baseline | PASS / WARN | PR #965 exact head `8726c7f4d0287e50fab42a60dbb1826761314c53` passed WF-01P `41045939056`, WF-02 `41045938623` and WF-05 `41045938628`. Post-merge WF-02 `41046146855` and WF-05 `41046146842` passed; post-merge WF-01 build/verify run `41046146755` is still in progress at audit start. Do not treat that pending run as PASS. |
+| Service/infrastructure/deployment | N/A for audit | No runtime, service, manifest, workflow, deployment or market-scan schedule change is proposed. Post-merge WF-01 builds/verifies images and Kubernetes YAML; it does not deploy. No production environment verification is claimed. |
+| Secrets and permissions | PASS / N/A | Repository write permission is available. No secrets are read or changed by the documentation task; no secret values are recorded. |
+| Database/schema/migrations | N/A for audit; WARN for live state | No persistence/schema/RLS changes. Live schema and migration ledger remain unverified and outside this task. |
+| Production risk and rollback | PASS for docs-only change | Audit documents evidence only; rollback is reverting the audit PR. No production deployment, live Binance call, order, strategy, auth, or database action is performed. |
+| Branch-protection visibility | WARN | The connector returned HTTP 403 for the branch-protection endpoint. Final-head PR checks are directly verified; the inaccessible policy endpoint is not represented as PASS. |
+
+**Readiness decision: READY for the bounded documentation audit.** Reconcile source and evidence only. Keep any runtime or environment verification claim bounded to the actual checks returned by GitHub.
