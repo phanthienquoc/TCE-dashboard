@@ -152,7 +152,13 @@ export default function NotificationsPage() {
       <section className="notification-section mt-3">
         <div className="notification-section-head">
           <span>Telegram bots</span>
-          <span>{loadError ? 'Unavailable' : loading ? 'Loading…' : `${bots.length} configured`}</span>
+          <span>
+            {loadError
+              ? 'Unavailable'
+              : loading
+                ? 'Loading…'
+                : `${bots.length} configured`}
+          </span>
         </div>
         {loading ? (
           <div className="loading-state m-3 min-h-20 animate-pulse" />
@@ -162,7 +168,9 @@ export default function NotificationsPage() {
               <Bell className="size-5" />
             </div>
             <div className="min-w-0 flex-1">
-              <div className="text-sm font-semibold text-foreground">Unable to load Telegram bots</div>
+              <div className="text-sm font-semibold text-foreground">
+                Unable to load Telegram bots
+              </div>
               <div className="mt-1 text-xs text-muted">{loadError}</div>
             </div>
             <Button
