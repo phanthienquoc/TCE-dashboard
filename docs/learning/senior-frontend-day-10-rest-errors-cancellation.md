@@ -378,6 +378,7 @@ Apply only if this price-sync request is still current
 - `apps/web/lib/store.ts` applies only accepted rows and logs aggregate counts for rejected rows; it does not log the raw payload or credential-bearing request config.
 - Unit and store-level regression coverage lives in `apps/web/lib/market-price-validation.spec.ts` and `apps/web/lib/dashboard-cancellation.spec.ts`.
 - This validates the client boundary; the backend SSI adapter also filters non-positive market prices. It does not replace server-side validation or prove production behavior before deployment.
+- Merge/CI evidence: PR #949 merged as `4808382`; master WF-01 Build + Verify, WF-02 Prettier, and WF-05 backend/unit checks passed. No production deployment was performed.
 
 ```mermaid
 sequenceDiagram
