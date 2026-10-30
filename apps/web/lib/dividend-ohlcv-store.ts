@@ -34,8 +34,14 @@ export const useDividendOhlcvStore = create<OhlcvState>((set, get) => ({
   errors: {},
   load: async (symbol, days = 365, externalSignal) => {
     const normalized = String(symbol).trim().toUpperCase();
-    if (!normalized || externalSignal?.aborted || get().loading[normalized] || get().histories[normalized])
+    if (
+      !normalized ||
+      externalSignal?.aborted ||
+      get().loading[normalized] ||
+      get().histories[normalized]
+    ) {
       return;
+    }
 
     set(state => ({
       loading: { ...state.loading, [normalized]: true },
