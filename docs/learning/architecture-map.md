@@ -234,7 +234,6 @@ Master is `2255b263fe0d5b7670ec51de21cc7dd70a41f1c4`, verified identical to PR #
 - Combined-status/workflow-run queries for merge `2255b26` returned no records. Post-merge verification remains WARN/unverified, not PASS.
 - No endpoint/auth protocol, server authorization, database/schema/RLS, trading/execution, production configuration or market-scan scheduling behavior changed. No production deployment is claimed. `CURR-SVC-03` remains open; `CURR-DATA-04` remains open for server watermark/version, event ordering and reconciliation evidence.
 
-
 ## Latest source recheck after PR #992
 
 Master is `c44dbb58d33379fa53fefcad1958be0fc52c5636`, verified identical to PR #992's squash merge. `apps/web/app/notifications/page.tsx` now exports a small route wrapper that keys `NotificationsPageContent` with `telegramNotificationAccountKey(userId)`. A changed authenticated user ID remounts the local subtree, drops the previous account's bot/assignment/loading/error state, and invokes the existing effect cleanup that aborts pending paired reads. The existing authenticated read helper, paired-cache completeness rule, safe read-error state, and Retry action remain unchanged.
