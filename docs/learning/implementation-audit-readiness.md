@@ -30,13 +30,13 @@ This is an evidence-backed snapshot. It does not claim that unmeasured runtime b
 
 ## 2. Audit matrix — existing Day 9–13 lessons
 
-| Lesson | Status | Master evidence | Remaining work | PR status |
-|---|---|---|---|---|
-| Day 9 — Next.js | PARTIAL | `layout.tsx`, `overview/page.tsx`, `providers.tsx`, `DashboardShell`, `api.ts` | Map ownership and auth/cache boundaries before any SSR migration. | Readiness docs merged in #944. |
-| Day 10 — REST/errors | PARTIAL | `api-errors.ts`, `store.ts`, `tce-data-store.ts`, related specs | Audit every relevant read caller for cancellation, stale-response and safe error state. | Existing code is on master; #936 closed unmerged. |
-| Day 11 — realtime | PARTIAL | `microfe-ws.ts`, `runtime-events.websocket.ts`, `runtime-events.controller.ts`, query service | Verify SSE resume fix in #946; keep frontend quote stream blocked until socket auth is proven. | #946 open; #936 closed unmerged. |
-| Day 12 — cache | PARTIAL | `store.ts`, `tce-data-store.ts`, `tce-event.contract.ts` | Confirm entity identity and snapshot/event ordering from real contracts; do not invent a global watermark. | Readiness docs merged in #944. |
-| Day 13 — profiling | BLOCKED | Lesson and dedicated profiling backlog | Trace actual selectors, capture repeatable baseline, then define measured acceptance criteria before optimizing. | Backlog merged in #944; no runtime optimization claimed. |
+| Lesson               | Status  | Master evidence                                                                               | Remaining work                                                                                                   | PR status                                                |
+| -------------------- | ------- | --------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------- |
+| Day 9 — Next.js      | PARTIAL | `layout.tsx`, `overview/page.tsx`, `providers.tsx`, `DashboardShell`, `api.ts`                | Map ownership and auth/cache boundaries before any SSR migration.                                                | Readiness docs merged in #944.                           |
+| Day 10 — REST/errors | PARTIAL | `api-errors.ts`, `store.ts`, `tce-data-store.ts`, related specs                               | Audit every relevant read caller for cancellation, stale-response and safe error state.                          | Existing code is on master; #936 closed unmerged.        |
+| Day 11 — realtime    | PARTIAL | `microfe-ws.ts`, `runtime-events.websocket.ts`, `runtime-events.controller.ts`, query service | Verify SSE resume fix in #946; keep frontend quote stream blocked until socket auth is proven.                   | #946 open; #936 closed unmerged.                         |
+| Day 12 — cache       | PARTIAL | `store.ts`, `tce-data-store.ts`, `tce-event.contract.ts`                                      | Confirm entity identity and snapshot/event ordering from real contracts; do not invent a global watermark.       | Readiness docs merged in #944.                           |
+| Day 13 — profiling   | BLOCKED | Lesson and dedicated profiling backlog                                                        | Trace actual selectors, capture repeatable baseline, then define measured acceptance criteria before optimizing. | Backlog merged in #944; no runtime optimization claimed. |
 
 ### Day 9 — Next.js architecture
 
