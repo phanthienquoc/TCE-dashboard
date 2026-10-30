@@ -8,6 +8,7 @@ import { useTCEDataStore } from './tce-data-store';
 import { useStockEventStore } from './stock-event-store';
 import { startAppDataWorker, useAppDataWorkerStore } from './app-data-worker';
 import { useStockSyncStore } from './stock-sync-store';
+import { useEngineRuntimeStore } from './engine-runtime-store';
 import { normalizeMarketPricePayload, type MarketPrice } from './market-price-validation';
 
 type User = { id: string; email: string; role: string; mfaEnabled: boolean };
@@ -350,7 +351,7 @@ export const useDashboardStore = create<DashboardState>(set => ({
 /**
  * Clear and invalidate every account-sensitive client cache before changing identity.
  * Public stock-event/dividend data may be fetched again; no user-scoped configuration,
- * credentials, dashboard snapshot, or worker progress should survive the transition.
+ * credentials, dashboard snapshot, engine runtime state, or worker progress should survive the transition.
  */
 function clearAccountScopedStores() {
   useAppDataWorkerStore.getState().clear();
@@ -358,4 +359,5 @@ function clearAccountScopedStores() {
   useStockEventStore.getState().clear();
   useDashboardStore.getState().clear();
   useStockSyncStore.getState().clear();
+  useEngineRuntimeStore.getState().clear();
 }
