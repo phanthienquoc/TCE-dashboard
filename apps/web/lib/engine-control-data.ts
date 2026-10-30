@@ -1,4 +1,5 @@
 import { dashboardApi } from './api';
+import { normalizeApiError, type ApiFailure } from './api-errors';
 
 export type EngineControlState = {
   engineId: string;
@@ -11,6 +12,11 @@ export type EngineControlConfig = {
   config: Record<string, unknown>;
   updatedAt?: string | null;
 };
+
+/** Normalize Engine Control read failures without exposing arbitrary Axios or exception details. */
+export function normalizeEngineControlReadFailure(error: unknown): ApiFailure {
+  return normalizeApiError(error, 'Unable to load engine status and configuration.');
+}
 
 /** Load the read-only Engine Control snapshot within the owning effect's lifecycle. */
 export async function loadEngineControlData(signal: AbortSignal): Promise<{
