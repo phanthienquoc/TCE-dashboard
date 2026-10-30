@@ -24,8 +24,7 @@ function makeCursorDb(result: QueryResult) {
     calls.push(['maybeSingle']);
     return query;
   };
-  query.then = (resolve: (value: QueryResult) => unknown) =>
-    Promise.resolve(result).then(resolve);
+  query.then = (resolve: (value: QueryResult) => unknown) => Promise.resolve(result).then(resolve);
 
   const db = {
     from: (table: string) => {
@@ -37,28 +36,25 @@ function makeCursorDb(result: QueryResult) {
   return { db, calls };
 }
 
-test(
-  'resolves an SSE event ID to a timestamp cursor within the authenticated account',
-  async () => {
-    const occurredAt = '2026-10-21T01:00:00.000Z';
-    const { db, calls } = makeCursorDb({
-      data: { event_id: 'evt-1', occurred_at: occurredAt },
-      error: null,
-    });
-    const service = new RuntimeEventsQueryService({ db } as any);
+test('resolves an SSE event ID to a timestamp cursor within the authenticated account', async () => {
+  const occurredAt = '2026-10-21T01:00:00.000Z';
+  const { db, calls } = makeCursorDb({
+    data: { event_id: 'evt-1', occurred_at: occurredAt },
+    error: null,
+  });
+  const service = new RuntimeEventsQueryService({ db } as any);
 
-    const cursor = await service.findCursorForAccountEvent('account-1', 'evt-1');
+  const cursor = await service.findCursorForAccountEvent('account-1', 'evt-1');
 
-    assert.deepEqual(cursor, { occurredAt, eventId: 'evt-1' });
-    assert.deepEqual(calls, [
-      ['from', 'tce_runtime_events'],
-      ['select', 'event_id,occurred_at'],
-      ['eq', 'account_id', 'account-1'],
-      ['eq', 'event_id', 'evt-1'],
-      ['maybeSingle'],
-    ]);
-  }
-);
+  assert.deepEqual(cursor, { occurredAt, eventId: 'evt-1' });
+  assert.deepEqual(calls, [
+    ['from', 'tce_runtime_events'],
+    ['select', 'event_id,occurred_at'],
+    ['eq', 'account_id', 'account-1'],
+    ['eq', 'event_id', 'evt-1'],
+    ['maybeSingle'],
+  ]);
+});
 
 test('does not resolve a cursor that is absent from the authenticated account', async () => {
   const { db } = makeCursorDb({ data: null, error: null });
