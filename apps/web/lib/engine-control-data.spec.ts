@@ -1,6 +1,11 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { AxiosError, AxiosHeaders, type AxiosResponse, type InternalAxiosRequestConfig } from 'axios';
+import {
+  AxiosError,
+  AxiosHeaders,
+  type AxiosResponse,
+  type InternalAxiosRequestConfig,
+} from 'axios';
 
 import { dashboardApi } from './api';
 import { loadEngineControlData, normalizeEngineControlReadFailure } from './engine-control-data';
@@ -27,7 +32,13 @@ test('normalizes Engine Control read failures without exposing response bodies o
     config,
   };
   const failure = normalizeEngineControlReadFailure(
-    new AxiosError('Request failed with status code 500', 'ERR_BAD_RESPONSE', config, undefined, failedResponse)
+    new AxiosError(
+      'Request failed with status code 500',
+      'ERR_BAD_RESPONSE',
+      config,
+      undefined,
+      failedResponse
+    )
   );
 
   assert.equal(failure.kind, 'http');
