@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import axios, { AxiosHeaders, type AxiosResponse, type InternalAxiosRequestConfig } from 'axios';
 
-import { api, dashboardApi } from './api';
+import { api, dashboardApi, platformApi } from './api';
 import { useDashboardStore } from './store';
 
 type Deferred<T> = {
@@ -57,12 +57,20 @@ test('dashboard read helpers forward optional AbortSignals to the Axios request'
     await dashboardApi.marketPrices(['DPM'], controller.signal);
     await dashboardApi.priceHistory('DPM', 30, controller.signal);
     await dashboardApi.all();
+    await dashboardApi.engines(controller.signal);
+    await dashboardApi.engineConfig(controller.signal);
+    await platformApi.credentials(controller.signal);
+    await platformApi.telegramBots(controller.signal);
+    await platformApi.telegramDebugAssignments(controller.signal);
 
-    assert.equal(requests.length, 4);
+    assert.equal(requests.length, 9);
     assert.equal(requests[0].signal, controller.signal);
     assert.equal(requests[1].signal, controller.signal);
     assert.equal(requests[2].signal, controller.signal);
     assert.equal(requests[3].signal, undefined);
+    for (const request of requests.slice(4)) {
+      assert.equal(request.signal, controller.signal);
+    }
   } finally {
     api.defaults.adapter = previousAdapter;
   }
