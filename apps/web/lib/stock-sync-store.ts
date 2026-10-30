@@ -68,8 +68,8 @@ type StockSyncState = {
   message: string | null;
   tab: 'runs' | 'config';
   initialized: boolean;
-  refresh: () => Promise<void>;
-  refreshRuns: () => Promise<void>;
+  refresh: (signal?: AbortSignal) => Promise<void>;
+  refreshRuns: (signal?: AbortSignal) => Promise<void>;
   save: () => Promise<void>;
   trigger: () => Promise<void>;
   setConfig: (config: StockSyncConfig | ((current: StockSyncConfig) => StockSyncConfig)) => void;
@@ -112,10 +112,14 @@ export const useStockSyncStore = create<StockSyncState>((set, get) => ({
   tab: 'runs',
   initialized: false,
 
-  refreshRuns: async () => {
+  refreshRuns: async externalSignal => {
+    if (externalSignal?.aborted) return;
     runsController?.abort();
     const controller = new AbortController();
     runsController = controller;
+    const abortFromCaller = () => controller.abort();
+    externalSignal?.addEventListener('abort', abortFromCaller, { once: true });
+    if (externalSignal?.aborted) controller.abort();
     const generation = ++runsGeneration;
     try {
       const response = await api.get<StockSyncRun[]>(
@@ -133,15 +137,19 @@ export const useStockSyncStore = create<StockSyncState>((set, get) => ({
         return;
       throw error;
     } finally {
+      externalSignal?.removeEventListener('abort', abortFromCaller);
       if (runsController === controller) runsController = null;
     }
   },
 
-  refresh: async () => {
-    if (get().loading) return;
+  refresh: async externalSignal => {
+    if (externalSignal?.aborted || get().loading) return;
     refreshController?.abort();
     const controller = new AbortController();
     refreshController = controller;
+    const abortFromCaller = () => controller.abort();
+    externalSignal?.addEventListener('abort', abortFromCaller, { once: true });
+    if (externalSignal?.aborted) controller.abort();
     const generation = ++refreshGeneration;
     const currentAccountGeneration = accountGeneration;
     set({ loading: true, message: null });
@@ -155,7 +163,7 @@ export const useStockSyncStore = create<StockSyncState>((set, get) => ({
           ...noCache,
           signal: controller.signal,
         }),
-        get().refreshRuns(),
+        get().refreshRuns(controller.signal),
       ]);
       if (
         controller.signal.aborted ||
@@ -185,6 +193,7 @@ export const useStockSyncStore = create<StockSyncState>((set, get) => ({
         message: normalizeApiError(error, 'Unable to load stock events cron data').message,
       });
     } finally {
+      externalSignal?.removeEventListener('abort', abortFromCaller);
       if (generation === refreshGeneration && currentAccountGeneration === accountGeneration) {
         set({ loading: false });
       }
