@@ -45,16 +45,6 @@ function response<T>(data: T): AxiosResponse<T> {
   };
 }
 
-const endpointNames = [
-  'dashboard',
-  'engines',
-  'engineConfig',
-  'credentials',
-  'telegramBots',
-  'telegramAssignments',
-] as const;
-type EndpointName = (typeof endpointNames)[number];
-
 test(
   'clearing the app data worker prevents old work from advancing progress or starting more tasks',
   async () => {
