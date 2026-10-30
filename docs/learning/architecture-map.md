@@ -2,7 +2,7 @@
 
 **Task:** `CURR-ARCH-01` — Map learning exercises to the real TCE architecture  
 **Readiness:** `PARTIALLY READY` for source mapping; `NO-GO` for any new auth/SSR/DB/runtime contract changes inferred from this map  
-**Audited base:** `master` at `c324e3b1b67dcc627192cbaa422a2e71b87ab447` (2026-10-30)  
+**Audited source baseline:** `master` at `c324e3b1b67dcc627192cbaa422a2e71b87ab447` (2026-10-30)  
 **Purpose:** Trace the existing Day 9–13 learning notes to actual repository entry points and owners. This map records what source establishes and explicitly labels unresolved contracts; it does not claim every lesson's desired behavior is complete.
 
 ## System Readiness Check
@@ -10,7 +10,7 @@
 | Area                      | Status                                               | Evidence                                                                                                                                                                                                                                                   |
 | ------------------------- | ---------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Scope                     | PASS                                                 | First backlog item `CURR-ARCH-01`; current `docs/learning/` contains Day 9–13 lesson files plus readiness/backlog documents.                                                                                                                               |
-| Git/base                  | PASS                                                 | Current `master` is `c324e3b1b67dcc627192cbaa422a2e71b87ab447`. Dedicated branch `docs/learning-map-real-architecture` created from that SHA.                                                                                                              |
+| Git/base                  | PASS                                                 | Branch `docs/learning-map-real-architecture` was created from source baseline `c324e3b`. At review time, `master` had advanced to `386be658` through documentation-only PRs; no runtime source changed after the audited baseline.                                                                                                              |
 | Existing PR overlap       | WARN                                                 | PR #945 readiness/audit and PR #947 auth-blocker docs are merged; PR #928 remains open for Supabase migration provenance. This task edits the architecture map, Day 9 link, and CURR-ARCH-01 backlog entry; review path-level diff against current master. |
 | Source ownership          | PASS for mapped frontend/runtime paths               | Verified App Router layout/pages/providers, API client, stores, WebSocket client and runtime-events controller/query service.                                                                                                                              |
 | Build/test baseline       | PASS for merged runtime baseline; PR checks required | PR #946 passed Prettier/backend unit tests before merge; post-merge WF-01 Build + Verify passed frontend/backend image builds, image metadata and Kubernetes YAML. This documentation PR still requires its own Prettier/backend checks.                   |
