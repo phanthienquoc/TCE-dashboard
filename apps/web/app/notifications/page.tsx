@@ -55,6 +55,7 @@ export default function NotificationsPage() {
     const controller = new AbortController();
     let active = true;
 
+    // A partial prefetch must not masquerade as a successful empty notification list.
     if (hasCompleteTelegramNotificationCache(cachedBots, cachedAssignments)) {
       setBots(cachedBots as BotRow[]);
       setAssignments(cachedAssignments as Assignment[]);
