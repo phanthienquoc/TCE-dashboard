@@ -141,7 +141,7 @@ export const useAppDataWorkerStore = create<AppDataWorkerState>((set, get) => ({
             key: 'dividend-pool',
             run: () => useStockDividendPoolStore.getState().load(undefined, controller.signal),
           },
-          { key: 'stock-sync', run: () => useStockSyncStore.getState().refresh() },
+          { key: 'stock-sync', run: () => useStockSyncStore.getState().refresh(controller.signal) },
         ];
         await runWithConcurrency(
           [...storeTasks, ...tasks],
