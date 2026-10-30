@@ -1,18 +1,11 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import axios, {
-  AxiosHeaders,
-  type AxiosResponse,
-  type InternalAxiosRequestConfig,
-} from 'axios';
+import axios, { AxiosHeaders, type AxiosResponse, type InternalAxiosRequestConfig } from 'axios';
 
 import { api } from './api';
 import { loadEngineRuntime } from './engine-runtime-data';
 
-function response<T>(
-  config: InternalAxiosRequestConfig,
-  data: T
-): AxiosResponse<T> {
+function response<T>(config: InternalAxiosRequestConfig, data: T): AxiosResponse<T> {
   return {
     data,
     status: 200,
@@ -51,7 +44,8 @@ test('engine runtime reads forward AbortSignal and return the engine collection'
 test('engine runtime read normalizes a malformed collection to an empty list', async () => {
   const previousAdapter = api.defaults.adapter;
 
-  api.defaults.adapter = async config => response(config, { accountId: 'account-1', engines: null });
+  api.defaults.adapter = async config =>
+    response(config, { accountId: 'account-1', engines: null });
 
   try {
     assert.deepEqual(await loadEngineRuntime(new AbortController().signal), []);
