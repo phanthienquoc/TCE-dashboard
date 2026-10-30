@@ -2,6 +2,7 @@
 
 import { create } from 'zustand';
 import { api } from './api';
+import { isApiRequestCancelled, normalizeApiError } from './api-errors';
 
 export type StockEvent = {
   id: string;
@@ -29,12 +30,38 @@ type StockEventState = {
   loading: boolean;
   initialized: boolean;
   error: string | null;
-  load: (limit?: number, force?: boolean, month?: string | null) => Promise<void>;
+  load: (
+    limit?: number,
+    force?: boolean,
+    month?: string | null,
+    signal?: AbortSignal
+  ) => Promise<void>;
   clear: () => void;
 };
 
 let inFlight: Promise<void> | null = null;
 let inFlightKey: string | null = null;
+let activeController: AbortController | null = null;
+let requestGeneration = 0;
+
+// A cancelled worker should stop waiting even when another caller owns the active read.
+function waitForInFlightOrAbort(promise: Promise<void>, signal?: AbortSignal): Promise<void> {
+  if (!signal) return promise;
+  if (signal.aborted) return Promise.resolve();
+
+  return new Promise(resolve => {
+    let settled = false;
+    const finish = () => {
+      if (settled) return;
+      settled = true;
+      signal.removeEventListener('abort', finish);
+      resolve();
+    };
+
+    signal.addEventListener('abort', finish, { once: true });
+    promise.then(finish, finish);
+  });
+}
 
 export const useStockEventStore = create<StockEventState>((set, get) => ({
   events: [],
@@ -42,20 +69,35 @@ export const useStockEventStore = create<StockEventState>((set, get) => ({
   initialized: false,
   error: null,
 
-  load: async (limit = 200, force = false, month = currentMonthKey()) => {
+  load: async (limit = 200, force = false, month = currentMonthKey(), externalSignal) => {
+    if (externalSignal?.aborted) return;
+
     const requestKey = `${limit}:${month ?? '*'}`;
     if (get().initialized && !force) return;
+
     if (inFlight) {
-      if (inFlightKey === requestKey) return inFlight;
-      await inFlight;
-      return get().load(limit, true, month);
+      const waitingGeneration = requestGeneration;
+      const waitingKey = inFlightKey;
+      await waitForInFlightOrAbort(inFlight, externalSignal);
+      if (externalSignal?.aborted || waitingGeneration !== requestGeneration) return;
+      if (waitingKey === requestKey) return;
+      return get().load(limit, true, month, externalSignal);
     }
+
+    const controller = new AbortController();
+    const generation = ++requestGeneration;
+    activeController = controller;
+    const abortFromCaller = () => controller.abort();
+    externalSignal?.addEventListener('abort', abortFromCaller, { once: true });
+    if (externalSignal?.aborted) controller.abort();
 
     set({ loading: true, error: null });
     inFlightKey = requestKey;
     inFlight = api
-      .get<StockEvent[]>('/stock-events', { params: { limit } })
+      .get<StockEvent[]>('/stock-events', { params: { limit }, signal: controller.signal })
       .then(response => {
+        if (controller.signal.aborted || generation !== requestGeneration) return;
+
         const rawEvents = Array.isArray(response.data) ? response.data : [];
         const events = rawEvents
           .map(event => ({
@@ -70,21 +112,39 @@ export const useStockEventStore = create<StockEventState>((set, get) => ({
         set({ events, initialized: true, loading: false, error: null });
       })
       .catch(error => {
+        if (generation !== requestGeneration) return;
+        if (controller.signal.aborted || isApiRequestCancelled(error)) {
+          set({ loading: false });
+          return;
+        }
+
         set({
           loading: false,
           initialized: true,
-          error: error instanceof Error ? error.message : 'Unable to load stock events',
+          error: normalizeApiError(error, 'Unable to load stock events').message,
         });
       })
       .finally(() => {
-        inFlight = null;
-        inFlightKey = null;
+        externalSignal?.removeEventListener('abort', abortFromCaller);
+        if (generation === requestGeneration) {
+          inFlight = null;
+          inFlightKey = null;
+          activeController = null;
+          if (controller.signal.aborted) set({ loading: false });
+        }
       });
 
     return inFlight;
   },
 
-  clear: () => set({ events: [], loading: false, initialized: false, error: null }),
+  clear: () => {
+    requestGeneration += 1;
+    activeController?.abort();
+    activeController = null;
+    inFlight = null;
+    inFlightKey = null;
+    set({ events: [], loading: false, initialized: false, error: null });
+  },
 }));
 
 function currentMonthKey(): string {

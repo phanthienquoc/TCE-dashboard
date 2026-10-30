@@ -1,6 +1,6 @@
 # Senior Frontend Day 10 — REST APIs, Error Handling & Cancellation
 
-> Duration: 60 minutes. This lesson is aligned with the real TCE Dashboard repository and the implementation in `apps/web/lib/api.ts`, `apps/web/lib/api-errors.ts`, `apps/web/lib/store.ts`, `apps/web/lib/stock-dividend-pool-store.ts`, and `apps/web/lib/app-data-worker.ts`.
+> Duration: 60 minutes. This lesson is aligned with the real TCE Dashboard repository and the implementation in `apps/web/lib/api.ts`, `apps/web/lib/api-errors.ts`, `apps/web/lib/store.ts`, `apps/web/lib/stock-dividend-pool-store.ts`, `apps/web/lib/stock-event-store.ts`, and `apps/web/lib/app-data-worker.ts`.
 
 ## Implementation readiness — cross-layer assessment
 
@@ -33,6 +33,27 @@ Record a **READY / PARTIALLY READY / BLOCKED** decision. Implement real runtime 
 | Production risk and rollback        | PASS for bounded client change          | Read-only market-data display path only. No auth protocol, account-scoped cache contract, trading strategy, order execution, or schedule changes. Rollback is reverting the task's squash commit; no deployment rollback is applicable because no deployment is planned.                                                                                                                                                     |
 
 **Readiness decision: READY for this bounded slice.** PR #953 merged the cancellation/generation-guard/error-normalization behavior, and exact-head build/format/unit CI passed. The broader Day 10 API-caller audit remains open. No production deployment or environment verification is claimed.
+
+---
+
+## System Readiness Check — stock-event read lifecycle (2026-10-30)
+
+**Task:** `DAY10-READ-STOCK-EVENT-01` — prevent an in-flight stock-event GET from repopulating cleared state and propagate app-data-worker cancellation.
+
+| Area                                | Status                               | Evidence                                                                                                                                                                                                                                                                                                                         |
+| ----------------------------------- | ------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Scope and acceptance                | PASS                                 | Bounded to the existing stock-event client store and its worker caller: support an optional `AbortSignal`, abort/invalidate on `clear()`, ignore stale completions, and keep cancellation silent with normalized errors. No endpoint/schema contract change.                                                                     |
+| Default/base and commit             | PASS                                 | Default branch is `master`; branch `fix/day10-stock-event-read-cancellation-20261030` was created from `4e39d5f5af80b628d7d45b56033b125150e9bace`, the merge of the post-merge audit refresh PR #954.                                                                                                                            |
+| Open PR overlap                     | PASS                                 | Only open PR found is #928, limited to `plan/agentic-task-queue.md`; no overlap with the stock-event store, worker, tests, or Day 10 lesson.                                                                                                                                                                                     |
+| Source of truth and dependencies    | PASS                                 | Inspected `apps/web/lib/stock-event-store.ts`, the stock-events page, `apps/web/lib/app-data-worker.ts`, and `clearAccountScopedStores()` in `apps/web/lib/store.ts`, which calls the store's `clear()` on logout/account change. The existing `/stock-events` controller is authenticated; its read contract remains unchanged. |
+| Working-tree/change safety          | WARN                                 | No local working-tree snapshot is available through this connector. The dedicated branch starts at the current master SHA; the complete PR diff will be reviewed before merge.                                                                                                                                                   |
+| Build/test/CI baseline              | WARN                                 | PR #953 exact-head WF-01P/WF-02/WF-05 passed, and PR #954 documentation WF-02/WF-05 passed. Separate master push-check records for merge `4e39d5f` were not exposed by status/workflow endpoints. This task's exact-head CI must pass before merge.                                                                              |
+| Service, infrastructure, deployment | N/A                                  | Client-only read lifecycle; no controller, service, deployment, workflow, runtime config, or market-scan schedule changes.                                                                                                                                                                                                       |
+| Secrets and permissions             | PASS                                 | No secret values accessed or changed; existing authenticated Axios transport remains in use.                                                                                                                                                                                                                                     |
+| Database/schema/migrations          | N/A for changes; WARN for live state | No DB/schema/RLS/migration changes. Live persistence state is not queried because this is a client request-lifecycle fix.                                                                                                                                                                                                        |
+| Production risk and rollback        | PASS for bounded change              | Stock-event data is a read-only market-data view. The fix prevents stale state after clear/logout and does not change account ownership, auth, trading, execution, or scheduling. Rollback is reverting the task's squash commit; no deployment is planned.                                                                      |
+
+**Readiness decision: PARTIALLY READY.** A real lifecycle gap is confirmed: `clear()` resets state but does not abort/invalidate the pending request, and the worker does not forward its signal. Implement this client-only slice with regression tests; the broader Day 10 API-caller audit remains open.
 
 ---
 
@@ -455,6 +476,35 @@ sequenceDiagram
   Worker->>Worker: clear() aborts workerSignal
   Store->>API: Abort current pool GET
   Store->>Store: Ignore cancelled completion; do not surface an error
+```
+
+### Implementation follow-up — stock-event read lifecycle
+
+**Task:** `DAY10-READ-STOCK-EVENT-01`  
+**Status:** Source/test behavior passed WF-01P run 41013707425 and WF-05 run 41013707530 on pre-format head `b40037f`. WF-02 flagged formatting in the store and spec; repository formatter commits `9043683` and `3be79b5` corrected those files. The final formatted head must pass all required checks before merge.
+
+The store's `clear()` previously reset visible state without aborting or invalidating its pending `/stock-events` request. Since logout/account change calls `clearAccountScopedStores()`, a late response could repopulate the store after it had been cleared. The app-data worker also did not forward its cancellation signal to this read. The bounded implementation adds an internal `AbortController`, a request generation guard, an optional caller signal, and normalized error messages without changing the authenticated endpoint contract.
+
+- [x] `clear()` aborts the active request, invalidates its generation, and prevents late responses from repopulating state.
+- [x] App-data-worker cancellation reaches the stock-event transport and intentional cancellation remains silent.
+- [x] Stock-event read failures use normalized safe messages rather than arbitrary backend response bodies.
+- [x] Regression tests cover clear/late-response behavior, worker cancellation, and normalized errors.
+
+```mermaid
+sequenceDiagram
+  participant Auth as Auth/account lifecycle
+  participant Worker as App-data worker
+  participant Store as Stock-event Zustand store
+  participant API as Central Axios client
+
+  Worker->>Store: load(200, false, null, workerSignal)
+  Store->>Store: Create controller and generation
+  Store->>API: GET /stock-events with internal signal
+  Auth->>Store: clear() on logout/account change
+  Store->>Store: Increment generation; abort controller; reset state
+  API-->>Store: Cancelled or late response
+  Store->>Store: Ignore stale/aborted completion
+  Note over Store: Cleared state remains empty; no cancellation error is surfaced
 ```
 
 ## 4. English interview practice (10 minutes)

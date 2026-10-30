@@ -76,9 +76,13 @@ test('clearing the app data worker prevents old work from advancing progress or 
     const poolRequest = requests.find(request => request.url.includes('/stock-events/pool'));
     assert.ok(poolRequest, 'worker must start the dividend-pool read');
     assert.ok(poolRequest.signal, 'dividend-pool read must receive a cancellable signal');
+    const stockEventRequest = requests.find(request => request.url === '/stock-events');
+    assert.ok(stockEventRequest, 'worker must start the stock-event read');
+    assert.ok(stockEventRequest.signal, 'stock-event read must receive a cancellable signal');
     assert.ok(requests.some(request => request.signal));
     assert.ok(requests.filter(request => request.signal).every(request => request.signal?.aborted));
     assert.equal(poolRequest.signal?.aborted, true);
+    assert.equal(stockEventRequest.signal?.aborted, true);
 
     for (const request of requests) request.pending.resolve(response([]));
     await run;
