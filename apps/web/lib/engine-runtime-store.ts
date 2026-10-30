@@ -43,7 +43,8 @@ export const useEngineRuntimeStore = create<EngineRuntimeState>(set => ({
     inFlightController = controller;
     set({ loading: true, error: null });
 
-    const request = Promise.resolve()
+    let request: Promise<void>;
+    request = Promise.resolve()
       .then(() => dashboardApi.engineRuntime(controller.signal))
       .then(({ data }) => {
         if (controller.signal.aborted || generation !== runtimeGeneration) return;
