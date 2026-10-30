@@ -24,6 +24,7 @@ type ActiveRequest = {
   generation: number;
 };
 
+// A generation fence prevents a late market-history response from restoring cleared data.
 const activeRequests = new Map<string, ActiveRequest>();
 let nextGeneration = 0;
 
