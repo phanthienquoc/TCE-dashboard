@@ -14,6 +14,7 @@ import {
   Wrench,
 } from 'lucide-react';
 import { platformApi } from '../../lib/api';
+import { normalizeTelegramBotConfigError } from '../../lib/telegram-bot-config-errors';
 import { telegramBotConfigAccountKey } from '../../lib/telegram-bot-config-account';
 import { useAuthStore } from '../../lib/store';
 import { loadTelegramNotificationData } from '../../lib/telegram-notification-data';
@@ -99,10 +100,12 @@ function TelegramBotConfigAccount() {
       setBots(botRows);
       setAssignments(assignmentRows);
       setBotId(current => current || botRows[0]?.id || '');
-    } catch {
+    } catch (error: unknown) {
       if (controller.signal.aborted || loadController.current !== controller) return;
       setBots([]);
       setAssignments([]);
+      setOk(false);
+      setMessage(normalizeTelegramBotConfigError(error, 'load'));
     } finally {
       if (loadController.current === controller) loadController.current = null;
     }
@@ -123,17 +126,16 @@ function TelegramBotConfigAccount() {
         environment,
         name: name.trim(),
       });
-      if (!response.data?.ok)
-        throw new Error(response.data?.message ?? 'Unable to save Telegram bot');
+      if (!response.data?.ok) throw new Error('Telegram bot save rejected');
       setToken('');
       setOk(true);
       setMessage(
         `Connected to @${response.data.bot?.username ?? response.data.bot?.first_name ?? 'bot'}.`
       );
       await load();
-    } catch (error: any) {
+    } catch (error: unknown) {
       setOk(false);
-      setMessage(error?.response?.data?.message ?? error?.message ?? 'Unable to save Telegram bot');
+      setMessage(normalizeTelegramBotConfigError(error, 'save'));
     } finally {
       setBusy(false);
     }
@@ -148,11 +150,9 @@ function TelegramBotConfigAccount() {
       setOk(true);
       setMessage(`${bot.name} ${bot.isPaused ? 'resumed' : 'paused'}.`);
       await load();
-    } catch (error: any) {
+    } catch (error: unknown) {
       setOk(false);
-      setMessage(
-        error?.response?.data?.message ?? error?.message ?? 'Unable to change Telegram state'
-      );
+      setMessage(normalizeTelegramBotConfigError(error, 'pause'));
     } finally {
       setBusy(false);
     }
@@ -165,9 +165,9 @@ function TelegramBotConfigAccount() {
       setOk(true);
       setMessage(`${bot.name} disconnected.`);
       await load();
-    } catch (error: any) {
+    } catch (error: unknown) {
       setOk(false);
-      setMessage(error?.response?.data?.message ?? error?.message ?? 'Unable to disconnect bot');
+      setMessage(normalizeTelegramBotConfigError(error, 'remove'));
     } finally {
       setBusy(false);
     }
@@ -185,11 +185,9 @@ function TelegramBotConfigAccount() {
       setOk(true);
       setMessage('Debug routing assigned.');
       await load();
-    } catch (error: any) {
+    } catch (error: unknown) {
       setOk(false);
-      setMessage(
-        error?.response?.data?.message ?? error?.message ?? 'Unable to assign debug routing'
-      );
+      setMessage(normalizeTelegramBotConfigError(error, 'assign'));
     } finally {
       setBusy(false);
     }
@@ -200,6 +198,9 @@ function TelegramBotConfigAccount() {
     try {
       await platformApi.telegramUnassignDebug(id);
       await load();
+    } catch (error: unknown) {
+      setOk(false);
+      setMessage(normalizeTelegramBotConfigError(error, 'unassign'));
     } finally {
       setBusy(false);
     }
