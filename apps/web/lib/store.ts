@@ -93,7 +93,11 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     } catch (err: any) {
       clearAccountScopedStores();
       setAccessToken(null);
-      set({ user: null, status: 'anonymous', error: err?.response?.data?.message ?? 'Login failed' });
+      set({
+        user: null,
+        status: 'anonymous',
+        error: err?.response?.data?.message ?? 'Login failed',
+      });
       throw err;
     } finally {
       set({ loading: false });
