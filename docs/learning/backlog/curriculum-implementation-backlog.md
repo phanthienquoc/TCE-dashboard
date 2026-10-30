@@ -87,6 +87,7 @@ Use the shared contract in [Implementation Readiness Gate](../IMPLEMENTATION_REA
 - **Status:** BLOCKED
 - **Affected lessons:** Day 1–13 curriculum inventory.
 - **Evidence:** The repository's `docs/learning/` directory on the audited branch contains Day 9, Day 10, Day 11, Day 12 and Day 13 lesson files only. The first eight day-specific Markdown files are not present in that directory listing at the time of this audit.
+- **Inventory recheck (2026-10-31):** GitHub repository-content queries confirmed that root `curriculum/` and `roadmap/` paths do not exist (404), and the current `docs/learning/` listing contains the five Day 9–13 lesson files plus audit/readiness and backlog documents. `CURR-CATALOG-06` remains BLOCKED until the authoritative Day 1–8 source is found or the owner explicitly authorizes creating those lessons.
 - **Work:** Locate the canonical Day 1–8 lesson source or restore/create those files from the authoritative curriculum before claiming all 13 lesson files have been reviewed. Do not fabricate lesson content or mark missing files reviewed.
 - **Acceptance:** A checked-in index lists the canonical path for each Day 1–13 lesson and links the readiness gate; all listed files exist.
 - **Unblock condition:** The canonical source for Day 1–8 is located or the owner confirms they should be created anew.
