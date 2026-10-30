@@ -1,6 +1,6 @@
 # Senior Frontend Day 12 — Data Normalization and Cache Design
 
-> Duration: 60 minutes. This lesson follows Day 11 and connects normalized client state, REST snapshots, and realtime TCE events. Documentation-only: it does not change runtime behavior, Supabase schema, credentials, strategy, or execution settings.
+> Duration: 60 minutes. This lesson follows Day 11 and connects normalized client state, REST snapshots, and realtime TCE events. Runtime changes are made only for source-backed acceptance gaps; the account-cache task does not change Supabase schema, trading strategy, or execution settings.
 
 ## Implementation readiness — cross-layer assessment
 
@@ -522,11 +522,42 @@ A cache key that omits account scope can leak one account's data into another ac
 - [ ] Snapshot/event ordering uses a server contract, watermark, or version—not arrival time alone.
 - [ ] Cache freshness is visible and independent of transport connection status.
 - [ ] Query invalidation has one clear owner.
-- [ ] Account switch/logout clears sensitive cache and cancels old work.
+- [x] Account switch/logout clears sensitive cache and invalidates/aborts old work.
 - [ ] High-frequency updates do not force unrelated components to rerender.
 - [ ] No runtime, Supabase, strategy, or live-execution settings are changed by this lesson.
 
 ---
+
+### Implementation evidence — account-scoped cache invalidation
+
+- `apps/web/lib/store.ts` clears dashboard, TCE, stock-sync and app-worker state on logout and when a successful authentication flow changes account identity. Local identity and sensitive caches are cleared before awaiting the remote logout response.
+- `apps/web/lib/stock-sync-store.ts` aborts in-flight settings/bot/run reads, invalidates stale read and mutation generations, and resets account-scoped config, Telegram bot metadata, run history and progress.
+- `apps/web/lib/app-data-worker.ts` aborts its shared read signal, stops scheduling remaining tasks, and prevents an old worker from updating progress after a session transition.
+- Regression tests cover SSO account switching, immediate logout clearing, late stock-sync responses, and stale worker completion in `account-cache-isolation.spec.ts`, `stock-sync-store.spec.ts`, and `app-data-worker.spec.ts`.
+- **Readiness boundary:** no database schema, RLS, API contract, trading/execution logic or production deployment changed. A UI mock and ERD are N/A because this task changes cache lifecycle only, not visual behavior or persistent entities.
+
+```mermaid
+sequenceDiagram
+  participant Auth as Auth store
+  participant Worker as App data worker
+  participant Cache as Account-scoped stores
+  participant API as Auth/API transport
+
+  Auth->>API: Verify new account identity
+  API-->>Auth: Authenticated user
+  alt Identity changed
+    Auth->>Worker: clear() / abort shared read signal
+    Auth->>Cache: clear() / abort reads / increment generations
+    Auth->>Auth: Set new authenticated identity
+    Auth->>Cache: Start fresh prefetch for new account
+  else Logout
+    Auth->>Worker: clear() / abort shared read signal
+    Auth->>Cache: clear() / abort reads / invalidate late responses
+    Auth->>Auth: Set anonymous immediately
+    Auth->>API: Request remote logout
+  end
+  Note over Worker,Cache: Old responses and mutation completions cannot repopulate prior-account state.
+```
 
 ## 4. English interview practice (10 minutes)
 
