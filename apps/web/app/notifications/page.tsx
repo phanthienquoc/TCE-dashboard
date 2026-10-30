@@ -5,7 +5,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '../../components/ui/button';
 import { useAuthStore } from '../../lib/store';
-import { platformApi } from '../../lib/api';
+import { loadTelegramNotificationData } from '../../lib/telegram-notification-data';
 import { useTCEDataStore } from '../../lib/tce-data-store';
 import { enableSystemUpdateNotifications } from '../../lib/system-updates';
 import DashboardLayout from '../../components/dashboard/DashboardLayout';
@@ -36,32 +36,50 @@ export default function NotificationsPage() {
     void init();
   }, [init]);
   useEffect(() => {
+    const userId = user?.id;
+    if (!initialized || authLoading || !userId) {
+      setBots([]);
+      setAssignments([]);
+      setLoading(!initialized || authLoading);
+      return;
+    }
+
+    const controller = new AbortController();
+    let active = true;
+
     if (cachedBots !== null || cachedAssignments !== null) {
       setBots(Array.isArray(cachedBots) ? (cachedBots as BotRow[]) : []);
       setAssignments(Array.isArray(cachedAssignments) ? (cachedAssignments as Assignment[]) : []);
       setLoading(false);
-      return;
+      return () => {
+        active = false;
+        controller.abort();
+      };
     }
-    void load();
-  }, [cachedBots, cachedAssignments]);
-  async function load() {
+
+    setBots([]);
+    setAssignments([]);
     setLoading(true);
-    try {
-      const [b, a] = await Promise.all([
-        platformApi.telegramBots(),
-        platformApi.telegramDebugAssignments(),
-      ]);
-      const botRows = b.data?.bots ?? b.data ?? [];
-      const assignmentRows = Array.isArray(a.data) ? a.data : (a.data?.assignments ?? []);
-      setBots(Array.isArray(botRows) ? botRows : []);
-      setAssignments(Array.isArray(assignmentRows) ? assignmentRows : []);
-    } catch {
-      setBots([]);
-      setAssignments([]);
-    } finally {
-      setLoading(false);
-    }
-  }
+    void loadTelegramNotificationData(controller.signal)
+      .then(({ bots: botRows, assignments: assignmentRows }) => {
+        if (!active || controller.signal.aborted) return;
+        setBots(botRows);
+        setAssignments(assignmentRows);
+      })
+      .catch(() => {
+        if (!active || controller.signal.aborted) return;
+        setBots([]);
+        setAssignments([]);
+      })
+      .finally(() => {
+        if (active && !controller.signal.aborted) setLoading(false);
+      });
+
+    return () => {
+      active = false;
+      controller.abort();
+    };
+  }, [authLoading, initialized, user?.id, cachedBots, cachedAssignments]);
 
   async function enablePush() {
     setPushState('loading');
