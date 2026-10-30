@@ -45,13 +45,25 @@ const staticTasks = (signal: AbortSignal): Task[] => [
   { key: 'dashboard.sources', run: () => api.get('/dashboard/sources', { signal }) },
   { key: 'dashboard.dreCampaigns', run: () => api.get('/dre/dashboard/campaigns', { signal }) },
   { key: 'platform.fastApiConfig', run: () => api.get('/platform/config/fastapi', { signal }) },
-  { key: 'platform.binanceXauConfig', run: () => api.get('/tce/engine/binance/config', { signal }) },
-  { key: 'platform.binanceXauPositions', run: () => api.get('/tce/engine/binance/positions', { signal }) },
-  { key: 'platform.binanceXauOrders', run: () => api.get('/tce/engine/binance/orders', { signal }) },
+  {
+    key: 'platform.binanceXauConfig',
+    run: () => api.get('/tce/engine/binance/config', { signal }),
+  },
+  {
+    key: 'platform.binanceXauPositions',
+    run: () => api.get('/tce/engine/binance/positions', { signal }),
+  },
+  {
+    key: 'platform.binanceXauOrders',
+    run: () => api.get('/tce/engine/binance/orders', { signal }),
+  },
   { key: 'systemUpdates.config', run: () => api.get('/tce/system-updates/config', { signal }) },
   { key: 'systemUpdates.latest', run: () => api.get('/tce/system-updates/latest', { signal }) },
   { key: 'auth.passkeys', run: () => api.get('/auth/passkeys', { signal }) },
-  { key: 'stockEventsCron.settings', run: () => api.get('/stock-events-cron/settings', { signal }) },
+  {
+    key: 'stockEventsCron.settings',
+    run: () => api.get('/stock-events-cron/settings', { signal }),
+  },
   {
     key: 'stockEventsCron.runs',
     run: () => api.get('/stock-events-cron/runs', { params: { limit: 20 }, signal }),
@@ -115,7 +127,13 @@ export const useAppDataWorkerStore = create<AppDataWorkerState>((set, get) => ({
           { key: 'dividend-pool', run: () => useStockDividendPoolStore.getState().load() },
           { key: 'stock-sync', run: () => useStockSyncStore.getState().refresh() },
         ];
-        await runWithConcurrency([...storeTasks, ...tasks], 4, markDone, isCurrent, controller.signal);
+        await runWithConcurrency(
+          [...storeTasks, ...tasks],
+          4,
+          markDone,
+          isCurrent,
+          controller.signal
+        );
       } finally {
         if (isCurrent()) {
           set({ status: 'completed', finishedAt: Date.now() });
