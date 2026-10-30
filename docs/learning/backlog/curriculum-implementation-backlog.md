@@ -17,6 +17,7 @@ Use the shared contract in [Implementation Readiness Gate](../IMPLEMENTATION_REA
 
 - **Priority:** P0
 - **Status:** VERIFIED — source mapping completed for the five Day 9–13 lesson files present in `docs/learning/`
+- **Last source recheck:** 2026-10-30 after the WebSocket-auth backlog item was merged to master.
 - **Evidence:** [TCE Dashboard learning-to-source architecture map](../architecture-map.md), audited against master `c324e3b1b67dcc627192cbaa422a2e71b87ab447`.
 - **Boundary:** This verifies source-path/ownership mapping only. It does not mark Day 10–13 runtime requirements complete, and explicitly leaves WebSocket auth (`CURR-AUTH-07`), live schema/RLS/migration provenance (`CURR-DATA-04`), infra deployment details, and Day 13 profiling as unresolved.
 - **Affected lessons:** Day 9–13 currently present in `docs/learning/`; link other curriculum days when their files are added/found.
