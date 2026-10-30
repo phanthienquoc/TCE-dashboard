@@ -2,7 +2,7 @@
 
 import { create } from 'zustand';
 import { api } from './api';
-import { isApiRequestCancelled } from './api-errors';
+import { isApiRequestCancelled, normalizeApiError } from './api-errors';
 
 export type StockSyncConfig = {
   enabled: boolean;
@@ -182,7 +182,7 @@ export const useStockSyncStore = create<StockSyncState>((set, get) => ({
       set({
         initialized: true,
         loading: false,
-        message: error instanceof Error ? error.message : 'Unable to load stock events cron data',
+        message: normalizeApiError(error, 'Unable to load stock events cron data').message,
       });
     } finally {
       if (generation === refreshGeneration && currentAccountGeneration === accountGeneration) {
@@ -217,7 +217,7 @@ export const useStockSyncStore = create<StockSyncState>((set, get) => ({
       if (generation !== accountGeneration) return;
       set({
         saving: false,
-        message: error instanceof Error ? error.message : 'Unable to save',
+        message: normalizeApiError(error, 'Unable to save').message,
       });
     } finally {
       if (generation === accountGeneration) set({ saving: false });
@@ -244,7 +244,7 @@ export const useStockSyncStore = create<StockSyncState>((set, get) => ({
       if (generation !== accountGeneration) return;
       set({
         triggering: false,
-        message: error instanceof Error ? error.message : 'Unable to trigger sync',
+        message: normalizeApiError(error, 'Unable to trigger sync').message,
       });
     } finally {
       if (generation === accountGeneration) set({ triggering: false });
