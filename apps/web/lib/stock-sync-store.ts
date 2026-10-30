@@ -125,7 +125,11 @@ export const useStockSyncStore = create<StockSyncState>((set, get) => ({
       if (controller.signal.aborted || generation !== runsGeneration) return;
       set({ runs: Array.isArray(response.data) ? response.data : [] });
     } catch (error) {
-      if (controller.signal.aborted || isApiRequestCancelled(error) || generation !== runsGeneration)
+      if (
+        controller.signal.aborted ||
+        isApiRequestCancelled(error) ||
+        generation !== runsGeneration
+      )
         return;
       throw error;
     } finally {
