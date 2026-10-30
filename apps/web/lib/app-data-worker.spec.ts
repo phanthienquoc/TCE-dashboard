@@ -48,6 +48,7 @@ test('clearing the app data worker prevents old work from advancing progress or 
   const originalGet = api.get;
   const requests: Array<{
     url: string;
+    signal?: AbortSignal;
     pending: Deferred<AxiosResponse<unknown>>;
   }> = [];
 
