@@ -27,6 +27,8 @@ This evidence-backed snapshot is refreshed against master after PR #955. It sepa
 
 **Readiness decision: GO for audit/documentation refresh only.** This does not authorize runtime optimization, browser WebSocket auth, database changes or production deployment.
 
+This snapshot does not replace a task-specific readiness check before any future runtime, authentication, database, trading or deployment change.
+
 ## System Readiness Check — post-merge Day 10 audit refresh (2026-10-30)
 
 **Task:** `DAY10-AUDIT-POSTMERGE-953` — reconcile the Day 9–13 audit matrix and architecture/backlog evidence after PR #953 merged.
