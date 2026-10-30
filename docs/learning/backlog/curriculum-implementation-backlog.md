@@ -16,7 +16,9 @@ Use the shared contract in [Implementation Readiness Gate](../IMPLEMENTATION_REA
 ### CURR-ARCH-01 — Map learning exercises to the real TCE architecture
 
 - **Priority:** P0
-- **Status:** NEEDS AUDIT
+- **Status:** VERIFIED — source mapping completed for the five Day 9–13 lesson files present in `docs/learning/`
+- **Evidence:** [TCE Dashboard learning-to-source architecture map](../architecture-map.md), audited against master `c324e3b1b67dcc627192cbaa422a2e71b87ab447`.
+- **Boundary:** This verifies source-path/ownership mapping only. It does not mark Day 10–13 runtime requirements complete, and explicitly leaves WebSocket auth (`CURR-AUTH-07`), live schema/RLS/migration provenance (`CURR-DATA-04`), infra deployment details, and Day 13 profiling as unresolved.
 - **Affected lessons:** Day 9–13 currently present in `docs/learning/`; link other curriculum days when their files are added/found.
 - **Gap to verify:** Each lesson needs a traceable mapping from its concept to the real route/component, API/service, event/data contract, persistence, and deployment boundary where applicable.
 - **Work:** Build a concise source map with paths/symbols and service ownership. Distinguish verified facts from assumptions and identify the canonical source of truth for each data flow.
