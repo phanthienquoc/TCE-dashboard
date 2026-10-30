@@ -1,115 +1,111 @@
-# Senior Frontend Learning — Implementation Audit & Readiness Standard
+# Senior Frontend Learning — Implementation Audit & Readiness
 
 **Audit date:** 2026-10-30  
 **Repository:** `phanthienquoc/TCE-dashboard`  
-**Audited base:** `master` at `55ca86251238beaf7cac0348042fa912cbecc5ef`  
-**Scope:** Existing `docs/learning/*.md` only. This is an evidence-based initial audit, not a claim that every source path and runtime behavior has already been exhaustively verified.
+**Audited master:** `41b0afa91ebaa201564620a9278a131306642329`  
+**Shared standard:** [Implementation Readiness Gate](IMPLEMENTATION_READINESS.md)  
+**Shared backlog:** [Cross-layer curriculum implementation backlog](backlog/curriculum-implementation-backlog.md)
 
-## 1. System Readiness Check — initial audit
+This is an evidence-backed status snapshot. It does not claim that unmeasured runtime behavior is complete or that production was verified.
 
-| Check                          | Status                           | Evidence / follow-up                                                                                                                                                                                                                                                                                                                                        |
-| ------------------------------ | -------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Scope and acceptance criteria  | WARN                             | Five learning Markdown files are present: Days 9–13. Extract each explicit implementation checklist and acceptance criterion before starting its code task.                                                                                                                                                                                                 |
-| Base branch and commit         | PASS                             | `master` resolves to `55ca86251238beaf7cac0348042fa912cbecc5ef`.                                                                                                                                                                                                                                                                                            |
-| Open PR overlap                | FAIL / BLOCKER for Days 9–12     | PR [#936](https://github.com/phanthienquoc/TCE-dashboard/pull/936) remains open and contains broad source/test/doc changes for Days 9–12. Do not edit overlapping paths or merge blindly.                                                                                                                                                                   |
-| Existing source                | WARN                             | The reconnect-backoff fix is on master in `apps/web/lib/microfe-ws.ts`; its PR #943 was squash-merged. Other Day 9–12 changes in PR #936 must not be treated as production/master implementation until verified on master.                                                                                                                                  |
-| Build and tests                | WARN                             | PR #936 reports successful frontend build, backend unit tests and mobile viewport contract. Prettier check fails on `apps/web/components/dashboard/DividendPositionsFilter.tsx`, `apps/web/lib/passkey-store.ts`, `apps/web/lib/stock-dividend-pool-store.ts`, and `apps/web/lib/store.ts`. Checks must be rerun after resolving formatting and base drift. |
-| Infra, services and deployment | N/A for this documentation audit | Re-check live service/deployment state before any task that changes runtime integration, auth, database, or production behavior. Do not infer health from source code.                                                                                                                                                                                      |
-| Secrets and permissions        | N/A for this documentation audit | For a task requiring credentials, verify presence/access without printing secret values.                                                                                                                                                                                                                                                                    |
-| Database and migrations        | N/A for this documentation audit | Any task touching persistence must inspect live schema, migration ledger and RLS/account scope before changes.                                                                                                                                                                                                                                              |
-| Production risk and rollback   | WARN                             | No production deployment is authorized by this audit. For runtime tasks, define impact, rollout and rollback before implementation.                                                                                                                                                                                                                         |
+## 1. System Readiness Check
 
-### Decision
+| Check | Status | Evidence |
+|---|---|---|
+| Scope and acceptance criteria | PASS | Reviewed all five Day 9–13 learning files currently present, the shared readiness gate, and both implementation backlogs. |
+| Default branch and base commit | PASS | Repository default branch is `master`; audited SHA is `41b0afa91ebaa201564620a9278a131306642329`. |
+| Open PR / branch overlap | WARN | PR [#936](https://github.com/phanthienquoc/TCE-dashboard/pull/936) was closed without merge because it was stale, had a Prettier failure, and introduced a WebSocket quote client without a verified browser-to-socket auth handshake. Its branch remains a reference, not evidence of merged code. PR [#946](https://github.com/phanthienquoc/TCE-dashboard/pull/946) is a bounded SSE resume-cursor task and is awaiting CI. |
+| Source of truth and dependencies | PASS with gaps | Current master has the centralized API/auth client, cancellation-aware dashboard reads, the runtime-event REST/SSE controller, the persisted event query service, and a read-only WebSocket adapter. The separate frontend quote-stream implementation from PR #936 is not on master. |
+| Working tree / branch safety | PASS for reviewed PRs | New tasks use dedicated branches based on master; no edits were made directly to master. Full local working-tree state is not observable through the GitHub connector. |
+| Build/test baseline | WARN | No check runs/statuses were exposed for the audited master SHA. PR #936's historical frontend build, backend tests and mobile viewport contract passed, but its Prettier check failed; those results do not validate code that was never merged. PR #946 CI must pass before its merge. |
+| Service / infrastructure / deployment | N/A for the documentation audit | No deployment or live service mutation was performed. Verify actual service health and routing before any runtime rollout. |
+| Secrets and permissions | N/A for the documentation audit | No secret values were read or changed. For a future socket-auth task, verify the real credential/session path without exposing tokens. |
+| Database and migrations | PASS for cursor design review | Existing `tce_runtime_events` schema has `event_id` as primary key plus `account_id` and `occurred_at`; the SSE cursor task needs no schema change. Live schema drift was not queried in this run. |
+| Production risk and rollback | WARN | No production deployment is authorized. Any change to auth, RLS, schema, live execution or schedules needs its own readiness review and rollback plan. |
 
-**NO-GO for overlapping Days 9–12 code changes until PR #936 is reconciled.** First inspect the PR's full diff and review threads, resolve its four formatting failures, compare/rebase against current `master`, rerun CI, and verify that its source changes remain correct and safe. Do not merge solely because several checks passed.
+### Decisions
 
-**GO for non-overlapping audit/documentation work.** Day 13 optimization is not authorized until a measurable bottleneck and a reproducible baseline are identified.
+- **GO:** Documentation/readiness-gate maintenance and the bounded SSE `Last-Event-ID` change in PR #946, subject to its CI and diff review.
+- **NO-GO:** Merging PR #936 as-is. It combines Days 9–12, diverges from master, has a failing Prettier check, and the new WebSocket client has no verified browser-to-WebSocket identity transfer. A successful HTTP preflight does not authenticate the later WebSocket handshake.
+- **NO-GO:** Day 13 runtime optimization until a reproducible profile identifies a real bottleneck.
+- **BLOCKED:** The frontend quote stream from PR #936 until a secure, explicit socket-auth handshake is designed and integration-tested. Never place a bearer token in a URL.
 
-## 2. Existing learning files — implementation status matrix
+## 2. Audit matrix — existing Day 9–13 learning files
 
-| Learning doc                                                     | Master/source evidence found so far                                                                                                                                                                                               | Status                                                                           | Next action                                                                                                                                                                                                                                                               |
-| ---------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `senior-frontend-day-09-nextjs.md`                               | PR #936 includes source and documentation changes related to this learning block, but that PR is still open.                                                                                                                      | **Not verified as merged implementation**                                        | After resolving PR #936, compare every explicit checklist item against current `master`, source paths and tests. Do not mark complete from PR-branch evidence alone.                                                                                                      |
-| `senior-frontend-day-10-rest-errors-cancellation.md`             | PR #936 contains cancellation/error-handling changes and tests; master completion is not established by the open PR.                                                                                                              | **Partially evidenced; merge status blocked**                                    | Audit request ownership, cancellation, stale-response guards, safe error logging and tests on current master after PR reconciliation.                                                                                                                                     |
-| `senior-frontend-day-11-websocket-sse-reconnect-backpressure.md` | Master has `apps/web/lib/microfe-ws.ts` with bounded reconnect delay and stable-connection backoff reset, merged by PR #943. The current master options include `onGap` but no visible `onResync` callback in the inspected file. | **Reconnect improvement implemented; recovery/backpressure not proven complete** | Verify sequence scope, gap recovery owner, reconnect resynchronization, queue bounds and event-domain-specific coalescing against existing contracts. Do not coalesce execution/risk/audit/reconciliation events.                                                         |
-| `senior-frontend-day-12-normalization-cache.md`                  | PR #936 includes source changes around cancellation/cache invalidation and tests, but remains open. The doc itself stresses that no global server watermark should be invented.                                                   | **Partial work in open PR; not verified complete on master**                     | Inspect canonical store ownership, account switching/logout cleanup, normalized identity, snapshot/stream ordering and whether backend contracts provide comparable versions/watermarks.                                                                                  |
-| `senior-frontend-day-13-performance-profiling.md`                | Learning material exists on master. No verified implementation task or measured before/after performance result has yet been established in this initial pass.                                                                    | **Audit pending; do not optimize speculatively**                                 | Select one existing screen/component named by an explicit checklist, collect reproducible profiler evidence, create a before/after mock or prototype when it helps validate the interaction, then implement one focused source change and verify correctness/performance. |
+| Learning doc | Current source evidence | Tests / diagrams | Readiness and remaining work | PR / merge status |
+|---|---|---|---|---|
+| `senior-frontend-day-09-nextjs.md` | The current architecture uses `apps/web/app/layout.tsx`, `apps/web/app/overview/page.tsx`, `apps/web/app/providers.tsx`, `DashboardShell`, and the centralized `apps/web/lib/api.ts`. The lesson does not justify an automatic Server Component migration because auth/session and freshness ownership must be designed first. | Existing route/build coverage applies; no new runtime test was required by the documentation task. The lesson contains conceptual data-flow guidance. | **PARTIALLY READY.** Map the actual route/component and API owner for each future exercise. Any SSR move needs a dedicated auth, cache, loading/error and deployment compatibility design. | Readiness gate merged in PR #944; no Day 9 runtime change is claimed here. |
+| `senior-frontend-day-10-rest-errors-cancellation.md` | Master has `apps/web/lib/api-errors.ts`, signal support for dashboard/market-price/price-history and several prefetch reads in `api.ts`, request-version/cancellation guards in `store.ts`, and generation/controller cancellation in `tce-data-store.ts`. | `api-errors.spec.ts` covers safe error normalization; `tce-data-store.spec.ts` verifies clear/abort prevents late data from repopulating the store. | **PARTIALLY IMPLEMENTED.** Audit each checklist item against every relevant read store/caller, especially cancellation ownership and safe failure state. Do not infer that all reads support signals just because several do. | Existing behavior is on master; PR #936 is closed without merge, so its additional edits are not evidence. |
+| `senior-frontend-day-11-websocket-sse-reconnect-backpressure.md` | Master has bounded reconnect backoff and stable-connection reset in `apps/web/lib/microfe-ws.ts`; the server's `runtime-events.websocket.ts` uses account-scoped durable cursors and a bounded outbound buffer; REST replay is ordered by `occurred_at,event_id`. The SSE controller previously ignored the standard `Last-Event-ID` header. | Existing runtime-event controller/query-service tests cover account scoping, cursor validation and event envelopes. PR #946 adds focused SSE resume tests. | **PARTIALLY IMPLEMENTED.** PR #946 adds SSE resume by resolving Last-Event-ID within the authenticated account; await CI and merge verification. The legacy platform deployment socket is not the canonical runtime-event consumer. The frontend market-quote stream from PR #936 remains blocked on socket authentication. | Reconnect backoff is on master; PR #946 is open/pending CI; PR #936 closed without merge. |
+| `senior-frontend-day-12-normalization-cache.md` | Master `store.ts` contains dashboard state, symbol-keyed market-price data, request guards and pool normalization. The runtime-event envelope supports optional aggregate-scoped sequence, not a universal global sequence. | Existing event contract/query tests validate envelopes and ordered account-scoped replay. No verified snapshot watermark exists in the inspected contract that would justify inventing a global freshness counter. | **PARTIALLY READY.** Establish canonical entity identity, snapshot/event ordering and cache ownership from actual producer contracts before implementing broader normalization. Account-switch/logout cleanup and stale-event recovery must be tested at integration level. No schema/RLS change is justified yet. | Documentation updated by PR #944; no claim of full normalization/reconciliation implementation. |
+| `senior-frontend-day-13-performance-profiling.md` | The lesson describes profiling; current source has `store.ts`, `tce-data-store.ts`, and dashboard components to investigate. No exact dominant component or reproducible before/after measurement was established in this run. | Lesson acceptance checklist requires comparable profiles and unchanged data/UI behavior. The dedicated backlog records the missing source map and baseline. | **BLOCKED for runtime optimization.** Complete PERF-13-01/02/03 first: trace real selectors/call sites, record a deterministic profile, then define measured acceptance criteria. Do not add memoization or virtualization speculatively. | Backlog added in PR #944; no runtime optimization is claimed. |
 
-**Important:** The current directory listing contains Days 9–13 only. Do not assume Days 1–8 exist in `docs/learning/`; search the existing curriculum/roadmap separately if the task requires them.
+### Curriculum inventory
+
+The audited `docs/learning/` directory contains Day 9–13 lesson files, plus the readiness standard and backlogs. Day 1–8 lesson files were not present in the inspected directory listing. This is tracked as `CURR-CATALOG-06` in the cross-layer backlog; do not fabricate content or claim the missing lessons were reviewed.
 
 ## 3. Mandatory task lifecycle
 
 ```mermaid
 flowchart TD
   A[Read existing learning MD and acceptance criteria] --> B[Inspect master, source, dependencies and open PRs]
-  B --> C[System Readiness Check with evidence]
-  C -->|NO-GO| D[Record blocker; resolve overlap/dependency first]
+  B --> C[Record readiness with evidence]
+  C -->|BLOCKED| D[Resolve blocker or create a bounded backlog item]
   D --> B
-  C -->|GO or safe warnings| E[Create dedicated branch from latest master]
-  E --> F[Design: mock/prototype when useful + relevant diagrams]
-  F --> G[Implement actual source behavior]
-  G --> H[Add tests as verification, not as a substitute for implementation]
-  H --> I[Run formatter, tests, typecheck/build and relevant checks]
-  I --> J[Review full diff, safety, contracts and review threads]
-  J -->|Failures or unresolved risk| K[Fix or document evidence-backed blocker]
+  C -->|READY / safe subset| E[Create a dedicated branch from latest master]
+  E --> F[Mock/design when useful and draw relevant diagrams]
+  F --> G[Implement real behavior in the owning layer]
+  G --> H[Add behavior and failure-path tests]
+  H --> I[Run formatter, tests, typecheck/build]
+  I --> J[Review full diff, auth/data safety and review threads]
+  J -->|Fail / unresolved risk| K[Fix or keep blocked]
   K --> I
-  J -->|Checks pass and no unresolved safety concern| L[PR and squash merge]
-  L --> M[Verify master, merged commit and relevant post-merge checks]
-  M --> N[Update audit matrix with source/test/diagram/PR evidence]
+  J -->|Required checks pass| L[Squash merge]
+  L --> M[Verify master and post-merge checks]
+  M --> N[Update the audit row with evidence]
 ```
 
-## 4. Design artifacts — senior engineering standard
+## 4. Design artifacts by task type
 
-Create only diagrams that materially clarify the specific task. Keep them aligned with the current source and contract; label unknowns rather than inventing behavior.
+| Task type | Artifact when relevant |
+|---|---|
+| Cross-module/service change | Architecture/component diagram |
+| API, auth, WebSocket, SSE or async lifecycle | Sequence diagram |
+| Persistence, relations or cache identity | ERD/data model |
+| Multi-owner workflow or deployment | Swimlane |
+| State transitions, retry/recovery or UI behavior | Flow/state machine |
+| Complex validation or deterministic branching | Pseudocode |
+| User-visible UI behavior | Mock/prototype or component-state table when it materially improves reviewability |
 
-| Task type                                               | Expected artifact when relevant                                                                           |
-| ------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
-| Cross-module or service change                          | Architecture/component diagram                                                                            |
-| API, auth, WebSocket, async lifecycle                   | Sequence diagram                                                                                          |
-| Persistent entities, relations or cache identity        | ERD/data model                                                                                            |
-| Multi-owner workflow or deployment                      | Swimlane                                                                                                  |
-| State transitions, retry/recovery or UI behavior        | Flow/state machine                                                                                        |
-| Complex branching, validation or deterministic behavior | Pseudocode                                                                                                |
-| User-visible UI behavior                                | Low-fidelity mock/prototype or component-state table before implementation when it improves reviewability |
+Diagrams must match real contracts and source. Label unknowns instead of inventing guarantees. A mock is a design artifact, not evidence that runtime behavior exists.
 
-Diagrams may be Mermaid in the existing learning doc or PR description. Do not add a decorative diagram with no design value. For UI work, a mock is a review artifact, not proof that the UI is implemented.
-
-### Generic implementation sequence
+### SSE resume sequence (PR #946; pending CI)
 
 ```mermaid
 sequenceDiagram
-  participant Dev as Developer/Agent
-  participant Repo as GitHub Repository
-  participant CI as CI and Tests
-  participant Reviewer as Diff/Safety Review
-  Dev->>Repo: Read source, docs, open PRs and base SHA
-  Dev->>Dev: Record readiness PASS/FAIL/WARN/N/A with evidence
-  alt Not ready
-    Dev->>Repo: Record blocker and avoid overlapping edits
-  else Ready
-    Dev->>Repo: Create dedicated branch and implement source
-    Dev->>CI: Run formatter, tests, typecheck/build
-    CI-->>Dev: Results and logs
-    Dev->>Reviewer: Inspect complete diff, diagrams and risks
-    alt Failed checks or unresolved risk
-      Reviewer-->>Dev: Request fix / block merge
-    else All required checks pass
-      Reviewer-->>Repo: PR ready for squash merge
-      Repo-->>Dev: Merged SHA
-      Dev->>Repo: Verify master and post-merge evidence
-    end
-  end
+  participant Client as SSE Client
+  participant Controller as RuntimeEventsController
+  participant Query as RuntimeEventsQueryService
+  participant DB as tce_runtime_events
+  Client->>Controller: Reconnect with Last-Event-ID
+  Controller->>Query: Resolve event ID under authenticated account
+  Query->>DB: Select event_id and occurred_at by account_id + event_id
+  DB-->>Query: Composite cursor or no match
+  Query-->>Controller: Timestamp + event ID
+  Controller->>Query: Replay strictly after the composite cursor
+  Query-->>Controller: Ordered event envelopes
+  Controller-->>Client: SSE event with canonical event ID
 ```
 
 ## 5. Completion evidence required per learning item
 
-A learning item is complete only when its audit row points to:
+A learning item is complete only when its audit row identifies:
 
-1. The exact acceptance criterion from the existing MD.
-2. The source file(s) and behavior that implement it on `master`.
-3. Tests that verify the behavior, including important failure/race paths.
-4. Relevant diagram/mock and an explanation of why it matches the implementation.
-5. Readiness results and any warnings/blockers.
-6. PR URL, squash-merge commit SHA, and relevant CI/post-merge evidence.
+1. Exact acceptance criteria from the existing MD.
+2. Source paths and behavior on `master`.
+3. Tests for success, failure, race and recovery paths as relevant.
+4. A relevant diagram/mock and why it matches the implementation.
+5. Readiness results and warnings/blockers.
+6. PR URL, squash-merge SHA, CI/post-merge evidence, and deployment evidence only if deployment actually occurred.
 
-Tests-only changes do not count as source implementation unless the explicit task is to add tests. Documentation-only changes do not count as runtime implementation. A green build alone does not prove domain correctness or production deployment.
+Tests-only changes do not count as runtime implementation. Documentation-only changes do not count as runtime implementation. A green build alone does not prove domain correctness or production deployment.
