@@ -39,6 +39,7 @@ let inFlightKey: string | null = null;
 let activeController: AbortController | null = null;
 let requestGeneration = 0;
 
+// A cancelled worker should stop waiting even when another caller owns the active read.
 function waitForInFlightOrAbort(promise: Promise<void>, signal?: AbortSignal): Promise<void> {
   if (!signal) return promise;
   if (signal.aborted) return Promise.resolve();
