@@ -57,7 +57,7 @@ sequenceDiagram
   end
 ```
 
-**Readiness decision:** READY for this bounded client-side implementation. The helper/unit test and component guards are proposed in PR #957; implementation is not considered CI-verified or merged until the PR's required checks pass.
+**Readiness decision:** READY for this bounded client-side implementation. PR #957 exact head `9baa4327d21089a6b2a02e7707f2a367caba706e` passed WF-01P run `41024441808`, WF-02 run `41024441810`, and WF-05 run `41024441832`. The slice is CI-verified; merge and post-merge verification remain separate.
 
 ## System Readiness Check — dividend-pool read lifecycle (2026-10-30)
 
