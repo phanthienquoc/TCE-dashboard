@@ -20,7 +20,9 @@ function response<T>(data: T): AxiosResponse<T> {
   };
 }
 
-test('notification data reads forward the same AbortSignal and normalize both responses', async () => {
+test(
+  'notification data reads forward the same AbortSignal and normalize both responses',
+  async () => {
   const originalBots = platformApi.telegramBots;
   const originalAssignments = platformApi.telegramDebugAssignments;
   const signals: Array<AbortSignal | undefined> = [];
@@ -53,7 +55,8 @@ test('notification data reads forward the same AbortSignal and normalize both re
     platformApi.telegramBots = originalBots;
     platformApi.telegramDebugAssignments = originalAssignments;
   }
-});
+  }
+);
 
 test('single bot read forwards its signal and accepts a bare array response', async () => {
   const originalBots = platformApi.telegramBots;
@@ -73,7 +76,6 @@ test('single bot read forwards its signal and accepts a bare array response', as
     platformApi.telegramBots = originalBots;
   }
 });
-
 
 test('paired notification cache requires both bot and assignment arrays', () => {
   assert.equal(hasCompleteTelegramNotificationCache([], []), true);
