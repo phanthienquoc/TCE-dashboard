@@ -51,9 +51,9 @@ test('clearing the app data worker prevents old work from advancing progress or 
     pending: Deferred<AxiosResponse<unknown>>;
   }> = [];
 
-  api.get = ((url: string, _config?: AxiosRequestConfig) => {
+  api.get = ((url: string, config?: AxiosRequestConfig) => {
     const pending = deferred<AxiosResponse<unknown>>();
-    requests.push({ url, pending });
+    requests.push({ url, signal: config?.signal as AbortSignal | undefined, pending });
     return pending.promise;
   }) as typeof api.get;
 
@@ -72,6 +72,8 @@ test('clearing the app data worker prevents old work from advancing progress or 
     useTCEDataStore.getState().clear();
     useStockEventStore.getState().clear();
     useStockSyncStore.getState().clear();
+    assert.ok(requests.some(request => request.signal));
+    assert.ok(requests.filter(request => request.signal).every(request => request.signal?.aborted));
 
     for (const request of requests) request.pending.resolve(response([]));
     await run;
