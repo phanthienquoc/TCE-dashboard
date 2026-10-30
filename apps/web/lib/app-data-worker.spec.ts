@@ -47,6 +47,13 @@ function response<T>(data: T): AxiosResponse<T> {
 
 test('clearing the app data worker prevents old work from advancing progress or starting more tasks', async () => {
   const originalGet = api.get;
+  const originalStockSyncRefresh = useStockSyncStore.getState().refresh;
+  let stockSyncSignal: AbortSignal | undefined;
+  useStockSyncStore.setState({
+    refresh: async signal => {
+      stockSyncSignal = signal;
+    },
+  });
   const requests: Array<{
     url: string;
     signal?: AbortSignal;
@@ -67,10 +74,12 @@ test('clearing the app data worker prevents old work from advancing progress or 
     useStockDividendPoolStore.setState({ items: [], loading: false, error: null });
 
     const run = useAppDataWorkerStore.getState().start();
+    assert.ok(stockSyncSignal, 'worker must pass its cancellation signal to stock sync refresh');
     const initialRequestCount = requests.length;
     assert.ok(initialRequestCount >= 11);
 
     useAppDataWorkerStore.getState().clear();
+    assert.equal(stockSyncSignal?.aborted, true, 'clearing worker must abort stock sync reads');
     useTCEDataStore.getState().clear();
     useStockEventStore.getState().clear();
     useStockSyncStore.getState().clear();
@@ -106,6 +115,7 @@ test('clearing the app data worker prevents old work from advancing progress or 
     useTCEDataStore.getState().clear();
     useStockEventStore.getState().clear();
     useStockSyncStore.getState().clear();
+    useStockSyncStore.setState({ refresh: originalStockSyncRefresh });
     useStockDividendPoolStore.setState({ items: [], loading: false, error: null });
     api.get = originalGet;
   }
