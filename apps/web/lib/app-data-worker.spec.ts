@@ -165,9 +165,14 @@ test('app data worker logs normalized error metadata without raw Axios secrets o
     assert.ok(
       warnings.some(args => {
         const metadata = args[1] as Record<string, unknown>;
-        return metadata.kind === 'http' && metadata.status === 500;
+        return (
+          metadata.kind === 'http' &&
+          metadata.status === 500 &&
+          metadata.message === 'The service is temporarily unavailable. Please try again.' &&
+          metadata.retryable === true
+        );
       }),
-      'sanitized logs should retain safe failure kind and HTTP status'
+      'sanitized logs should retain only safe failure kind, message, retryability, and HTTP status'
     );
     assert.ok(useAppDataWorkerStore.getState().failed > 0);
   } finally {
