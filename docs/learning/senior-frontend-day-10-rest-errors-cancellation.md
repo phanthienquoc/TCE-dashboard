@@ -389,6 +389,9 @@ Apply only if this price-sync request is still current
 - [x] Invalid market-price rows cannot overwrite state; unrequested symbols are rejected and diagnostics contain aggregate counts only.
 - [x] If a payload contains no valid quote rows, existing market-price state is preserved.
 - [x] Existing callers that omit `signal` still compile.
+- [ ] A newer dividend-pool month request aborts the previous read and an obsolete response cannot replace the selected-month data or loading state.
+- [ ] App-data-worker cancellation reaches the dividend-pool transport; intentional cancellation stays silent.
+- [ ] Dividend-pool failures use normalized safe messages rather than arbitrary backend response bodies.
 
 ---
 
@@ -417,6 +420,39 @@ sequenceDiagram
     Store->>Store: Preserve existing market-price state
   end
   Note over Store,Validator: Diagnostics contain counts only; raw payload values are not logged.
+```
+
+### Implementation follow-up — dividend-pool read lifecycle
+
+**Task:** `DAY10-READ-POOL-01`  
+**Status:** Runtime change and regression tests are present on the dedicated task branch; exact-head CI and merge are still pending. Do not mark the checklist above verified until the PR checks pass.
+
+The source-backed gap was in `apps/web/lib/stock-dividend-pool-store.ts`: changing the month starts another GET while the previous response can still replace `items` and clear `loading`; the app-data worker's cancellation signal also did not reach this store's Axios request. The bounded implementation adds an internal controller and monotonically increasing request generation, accepts an optional caller signal, ignores obsolete/aborted completions, and uses `normalizeApiError` for user-visible failures. `apps/web/lib/app-data-worker.ts` now forwards its existing worker signal to this read.
+
+Regression coverage is in `apps/web/lib/stock-dividend-pool-store.spec.ts` and `apps/web/lib/app-data-worker.spec.ts`. The tests cover month-switch races, late responses after cancellation, worker cancellation propagation, and safe 503 messaging. The controller/service, authentication interceptor, schema, and all trading/execution paths are unchanged. No deployment or production verification is claimed.
+
+```mermaid
+sequenceDiagram
+  participant Page as Dividend-pool page
+  participant Worker as App-data worker
+  participant Store as Pool Zustand store
+  participant API as Central Axios client
+
+  Page->>Store: load(selectedMonth)
+  Store->>Store: Abort prior read; increment generation
+  Store->>API: GET pool?month=selectedMonth + signal
+  Page->>Store: load(nextMonth)
+  Store->>Store: Abort prior read; increment generation
+  Store->>API: GET pool?month=nextMonth + signal
+  API-->>Store: Late response for selectedMonth
+  Store->>Store: Ignore obsolete generation
+  API-->>Store: Response for nextMonth
+  Store->>Store: Apply items; clear loading/error
+
+  Worker->>Store: load(undefined, workerSignal)
+  Worker->>Worker: clear() aborts workerSignal
+  Store->>API: Abort current pool GET
+  Store->>Store: Ignore cancelled completion; do not surface an error
 ```
 
 ## 4. English interview practice (10 minutes)
