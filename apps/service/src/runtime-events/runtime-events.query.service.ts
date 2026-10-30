@@ -13,6 +13,47 @@ export type RuntimeEventQuery = Readonly<{
 export class RuntimeEventsQueryService {
   constructor(private readonly supabase: SupabaseClientService) {}
 
+  /**
+   * Resolve an SSE Last-Event-ID to the durable composite cursor without
+   * allowing an event from another account to establish the resume position.
+   * event_id is the table primary key; the account predicate remains mandatory.
+   */
+  async findCursorForAccountEvent(accountId: string, eventId: string) {
+    if (!accountId.trim()) throw new Error('Authenticated account is required');
+    if (!/^[A-Za-z0-9._:-]{1,256}$/.test(eventId)) {
+      throw new Error('The event ID cursor is invalid');
+    }
+
+    const { data, error } = await this.supabase.db
+      .from('tce_runtime_events')
+      .select('event_id,occurred_at')
+      .eq('account_id', accountId)
+      .eq('event_id', eventId)
+      .maybeSingle();
+
+    if (error) {
+      throw new ServiceUnavailableException({
+        ok: false,
+        error: {
+          code: 'RUNTIME_EVENT_STORE_UNAVAILABLE',
+          message: 'Runtime event store is unavailable',
+          retryable: true,
+        },
+      });
+    }
+
+    if (
+      !data ||
+      typeof data.event_id !== 'string' ||
+      typeof data.occurred_at !== 'string' ||
+      !Number.isFinite(Date.parse(data.occurred_at))
+    ) {
+      return null;
+    }
+
+    return { occurredAt: data.occurred_at, eventId: data.event_id };
+  }
+
   async listForAccount(accountId: string, query: RuntimeEventQuery = {}) {
     if (!accountId.trim()) throw new Error('Authenticated account is required');
     const limit = Math.max(1, Math.min(200, Math.trunc(query.limit ?? 100)));
