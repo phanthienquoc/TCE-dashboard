@@ -35,7 +35,7 @@ function response<T>(data: T): AxiosResponse<T> {
   };
 }
 
-test('dashboard read helpers forward optional AbortSignals to the Axios request', async () => {
+test('dashboard and TCE prefetch reads forward optional AbortSignals to Axios', async () => {
   const previousAdapter = api.defaults.adapter;
   const requests: InternalAxiosRequestConfig[] = [];
 
