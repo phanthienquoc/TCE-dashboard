@@ -12,15 +12,9 @@ test('uses an operation-specific safe fallback for generic Telegram config failu
     'Unable to load Telegram bot configuration.'
   );
   assert.equal(normalizeTelegramBotConfigError(error, 'save'), 'Unable to save Telegram bot.');
-  assert.equal(
-    normalizeTelegramBotConfigError(error, 'pause'),
-    'Unable to change Telegram state.'
-  );
+  assert.equal(normalizeTelegramBotConfigError(error, 'pause'), 'Unable to change Telegram state.');
   assert.equal(normalizeTelegramBotConfigError(error, 'remove'), 'Unable to disconnect bot.');
-  assert.equal(
-    normalizeTelegramBotConfigError(error, 'assign'),
-    'Unable to assign debug routing.'
-  );
+  assert.equal(normalizeTelegramBotConfigError(error, 'assign'), 'Unable to assign debug routing.');
   assert.equal(
     normalizeTelegramBotConfigError(error, 'unassign'),
     'Unable to remove debug routing.'
@@ -36,7 +30,13 @@ test('normalizes HTTP errors without exposing the backend response body', () => 
     config,
     data: { message: 'sensitive database constraint and token details' },
   };
-  const error = new axios.AxiosError('Internal Server Error', 'ERR_BAD_RESPONSE', config, undefined, response);
+  const error = new axios.AxiosError(
+    'Internal Server Error',
+    'ERR_BAD_RESPONSE',
+    config,
+    undefined,
+    response
+  );
   const message = normalizeTelegramBotConfigError(error, 'save');
 
   assert.equal(message, 'The service is temporarily unavailable. Please try again.');
