@@ -21,7 +21,9 @@ export function DividendOneYearCandleChart({ symbol }: Props) {
   const load = useDividendOhlcvStore(state => state.load);
 
   useEffect(() => {
-    void load(normalized, 365);
+    const controller = new AbortController();
+    void load(normalized, 365, controller.signal);
+    return () => controller.abort();
   }, [load, normalized]);
 
   const chart = useMemo(() => {
@@ -132,21 +134,12 @@ export function DividendOneYearCandleChart({ symbol }: Props) {
                 width={bodyWidth}
                 height={bodyHeight}
                 fill="currentColor"
-                fillOpacity="0.78"
-                rx="0.7"
+                rx="0.5"
               />
             </g>
           );
         })}
       </svg>
-      <div className="flex items-center justify-between px-1 text-[8px] text-slate-500">
-        <span>Low {formatPrice(chart.min)}</span>
-        <span>High {formatPrice(chart.max)}</span>
-      </div>
     </div>
   );
-}
-
-function formatPrice(value: number) {
-  return value.toLocaleString('vi-VN');
 }
