@@ -227,15 +227,28 @@ export async function completeKeycloakLogin(search: string): Promise<string> {
       body: '{}',
     });
     if (!sessionResponse.ok) {
+      let serverMessage = '';
+      try {
+        const payload = (await sessionResponse.json()) as { message?: unknown };
+        if (typeof payload.message === 'string') serverMessage = payload.message;
+      } catch {
+        // Proxies may return non-JSON errors; retain the stable fallback below.
+      }
       if (sessionResponse.status === 403) {
         throw new Error(
-          'This account still requires legacy MFA sign-in. Use the existing sign-in method while MFA migration is completed.'
+          serverMessage ||
+            'This account still requires legacy MFA sign-in. Use the existing sign-in method while MFA migration is completed.'
         );
       }
       if (sessionResponse.status === 401) {
-        throw new Error('SSO identity is not eligible. Verify your email and TCE account access.');
+        throw new Error(
+          serverMessage ||
+            'SSO session rejected (401). The Auth service did not accept the Keycloak token or account.'
+        );
       }
-      throw new Error('Unable to create a TCE session from the SSO identity');
+      throw new Error(
+        serverMessage || `Unable to create a TCE session (HTTP ${sessionResponse.status})`
+      );
     }
     const session = (await sessionResponse.json()) as { accessToken?: string };
     if (!session.accessToken)
