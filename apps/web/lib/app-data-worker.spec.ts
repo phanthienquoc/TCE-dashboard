@@ -73,6 +73,9 @@ test('clearing the app data worker prevents old work from advancing progress or 
     useTCEDataStore.getState().clear();
     useStockEventStore.getState().clear();
     useStockSyncStore.getState().clear();
+    const poolRequest = requests.find(request => request.url.includes('/stock-events/pool'));
+    assert.ok(poolRequest, 'worker must start the dividend-pool read');
+    assert.ok(poolRequest.signal, 'dividend-pool read must receive a cancellable signal');
     assert.ok(requests.some(request => request.signal));
     assert.ok(requests.filter(request => request.signal).every(request => request.signal?.aborted));
 
