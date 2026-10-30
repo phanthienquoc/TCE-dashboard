@@ -351,7 +351,7 @@ export const useDashboardStore = create<DashboardState>(set => ({
 /**
  * Clear and invalidate every account-sensitive client cache before changing identity.
  * Public stock-event/dividend data may be fetched again; no user-scoped configuration,
- * credentials, dashboard snapshot, or worker progress should survive the transition.
+ * credentials, dashboard snapshot, engine runtime state, or worker progress should survive the transition.
  */
 function clearAccountScopedStores() {
   useAppDataWorkerStore.getState().clear();
