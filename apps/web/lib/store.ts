@@ -149,6 +149,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     const logoutUrl = keycloakLogoutUrl();
     // Invalidate local account data immediately; the remote logout request may take time.
     clearAccountScopedStores();
+    set({ user: null, status: 'anonymous', initialized: true });
     try {
       await authApi.logout();
     } catch {
