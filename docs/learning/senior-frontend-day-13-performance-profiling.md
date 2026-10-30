@@ -2,6 +2,19 @@
 
 > Duration: 60 minutes. This lesson continues Day 12's normalized-state and cache design. It is documentation-only: it does not change runtime behavior, market-data handling, Supabase schema, trading strategy, or execution settings.
 
+## Implementation requirement — code first, backlog missing prerequisites
+
+This lesson is not complete merely because the learner can explain profiling or paste an illustrative snippet. When this lesson is applied to the TCE repository:
+
+1. Inspect the real route, components, Zustand selectors, data contracts, and tests before editing code.
+2. Implement a focused runtime improvement when the source code and contracts provide enough information and profiling proves a bottleneck.
+3. Do not copy sample names or state shapes blindly; for example, the current dashboard store uses `marketPrices` keyed by normalized symbol, so verify the actual consumer and selector before implementation.
+4. Add or update tests for the chosen behavior and provide before/after profiling evidence.
+5. If required behavior, source ownership, data ordering/version guarantees, reproducible fixtures, or acceptance thresholds are missing, do not guess or change trading behavior. Add a concrete item to [the Day 13 implementation backlog](backlog/day13-performance-implementation-backlog.md) with the missing prerequisite, acceptance criteria, and safe implementation sequence.
+6. Do not treat a documentation-only lesson as proof that runtime functionality has been implemented. The implementation task is complete only when the relevant source code is changed, verified, and the result is documented.
+
+Current audit result: the existing store provides useful starting points, but the lesson alone does not specify exact production component call sites or a measured bottleneck. Complete the backlog's source-tracing and baseline items before choosing the runtime optimization.
+
 ## Learning objectives
 
 By the end of this session, you should be able to:
