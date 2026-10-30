@@ -69,6 +69,8 @@ sequenceDiagram
   end
 ```
 
+
+
 ## 1. Current architecture
 
 ```mermaid
