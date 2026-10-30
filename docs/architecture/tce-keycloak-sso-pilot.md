@@ -32,7 +32,7 @@ sequenceDiagram
 
 ## Configuration
 
-Set these build-time public variables only when enabling the pilot:
+The browser client has safe public fallbacks for the Keycloak URL, realm, and client ID below. Deployment-specific values may override them. The auth mode deliberately defaults to legacy and must be explicitly set to `keycloak` only after the acceptance gates pass. The auth service base URL has no hardcoded fallback and must be configured by the deployment.
 
 ```dotenv
 NEXT_PUBLIC_AUTH_MODE=keycloak
@@ -42,7 +42,7 @@ NEXT_PUBLIC_KEYCLOAK_CLIENT_ID=tce-dashboard
 NEXT_PUBLIC_AUTH_BASE_URL=https://auth.mrcute.space
 ```
 
-The existing Keycloak realm template declares a public `tce-dashboard` client, Authorization Code flow, PKCE S256, and a redirect allowlist for `https://tce.mrcute.space/*`. Verify the actual live realm/client settings independently before enabling this flag.
+The expected public client is `tce-dashboard`, with Authorization Code flow and PKCE S256. Verify the actual live realm/client settings independently before enabling this flag. Do not add a client secret to browser configuration.
 
 Central Auth requires server-side `KEYCLOAK_TCE_CLIENT_ID=tce-dashboard`. Its existing `KEYCLOAK_URL`, `KEYCLOAK_REALM`, `KEYCLOAK_ISSUER` and `KEYCLOAK_AUDIENCE` must be correctly configured, and the token must contain the expected API audience.
 
