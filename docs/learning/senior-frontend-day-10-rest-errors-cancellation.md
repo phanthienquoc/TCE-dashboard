@@ -132,16 +132,16 @@ A browser sends a request, waits for a response, then the application interprets
 
 ```text
 UI action
-  |
+|     |
   v
 API client
-  |
+|     |
   v
 Network -----> Backend
   ^               |
   |               v
   +------ Response / failure
-  |
+|     |
   v
 Normalize result -> Update UI state
 ```
@@ -375,16 +375,16 @@ In a real React component, keep the controller and version in a `useRef` or in a
 
 ```text
 React / Zustand
-     |
+|     |
      v
 apps/web/lib/api.ts
-     |
+|     |
      +--> Central Axios instance
      |      - base URL
      |      - credentials
      |      - auth interceptor / refresh
      |      - timeout
-     |
+|     |
      v
 Backend dashboard endpoints
 ```
@@ -395,27 +395,27 @@ Do not bypass this API layer with ad-hoc Axios instances in feature components. 
 
 ```text
 Dashboard load requested
-       |
+|     |
        v
 Abort previous dashboard + price-sync requests
-       |
+|     |
        v
 Create AbortController + increment request version
-       |
+|     |
        v
 Axios request receives signal
-       |
+|     |
        v
 Response arrives
-       |
+|     |
        +---- aborted / obsolete? ----> Ignore
-       |
+|     |
        v
 Normalize and update dashboard snapshot
-       |
+|     |
        v
 Fetch market prices with its own signal
-       |
+|     |
        v
 Apply only if this price-sync request is still current
 ```
