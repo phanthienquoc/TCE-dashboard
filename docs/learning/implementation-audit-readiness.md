@@ -1,12 +1,31 @@
 # Senior Frontend Learning — Implementation Audit & Readiness
 
-**Audit date:** 2026-10-30 (master baseline `d79404e`)  
+**Audit date:** 2026-10-30 (current master baseline `e093b85`)  
 **Repository:** `phanthienquoc/TCE-dashboard`  
-**Audited master:** `d79404ec62250ddf2762620f6819318daf029412`  
+**Audited master:** `e093b8521730eaef3b6d1b2e7ce5b6e6b0c095ee`  
 **Standard:** [Implementation Readiness Gate](IMPLEMENTATION_READINESS.md)  
 **Shared backlog:** [Cross-layer curriculum backlog](backlog/curriculum-implementation-backlog.md)
 
-This evidence-backed snapshot is refreshed against master after PR #955. It separates merged runtime slices from unresolved Day 9–13 contracts and does not claim production verification.
+This evidence-backed snapshot includes the audit refresh merged as PR #956 at `e093b85`. It separates merged runtime slices from unresolved Day 9–13 contracts and does not claim production verification.
+
+## System Readiness Check — Telegram notification read lifecycle (2026-10-30)
+
+**Task:** `DAY10-TELEGRAM-READ-01` — make Telegram bot/assignment reads abortable and prevent stale notification UI state after route unmount or account switch. Scope is limited to existing notifications list/detail/config read paths and a shared client-side loader; write/mutation calls are excluded.
+
+| Area | Status | Evidence |
+| --- | --- | --- |
+| Scope and acceptance | PASS | Target: forward `AbortSignal` to existing authenticated GETs, abort superseded/unmounted reads, and commit result/loading state only for the current account/effect. No new API, auth, schema, or mutation semantics. |
+| Default/base/current commit | PASS | Repository default branch is `master`; dedicated branch `fix/day10-telegram-read-lifecycle-20261030` was created from exact master SHA `e093b8521730eaef3b6d1b2e7ce5b6e6b0c095ee`, the squash merge of PR #956. |
+| Open PR/branch overlap | PASS | Open PR #928 changes only `plan/agentic-task-queue.md`; it does not overlap this task. PR #956 is merged. |
+| Source of truth and dependencies | PASS | Inspected `apps/web/lib/api.ts` (`platformApi.telegramBots(signal?)`, `telegramDebugAssignments(signal?)`), `apps/web/app/notifications/page.tsx`, `app/notifications/[id]/page.tsx`, `app/notifications/TelegramBotConfig.tsx`, and `apps/web/lib/tce-data-store.ts`. Existing endpoint/auth contracts and cache ownership are retained. |
+| Working tree/change safety | WARN | GitHub connector exposes branch/file content and PR diffs, not a local working-tree snapshot. Review the complete PR diff before merge. |
+| Build/test/CI baseline | WARN | Source code at master is unchanged by documentation-only PR #956; PR #955 exact-head frontend build, Prettier and backend/root tests passed, and PR #956 Prettier/backend unit tests passed. No local command execution is available through this connector; the new PR must pass its own frontend build, formatter and relevant unit tests. |
+| Service/infrastructure/deployment | N/A | These are client-side reads against existing authenticated GET endpoints. No service, workflow, manifest, deployment, or market-scan schedule change is needed. |
+| Secrets/permissions | PASS | Repository write permission is confirmed. No secret is required, read, or modified. |
+| Database/schema/migrations | N/A | No schema/persistence contract changes. Live schema/RLS/ledger is not queried because this bounded task does not require it. |
+| Production risk and rollback | PASS | Low-risk client-side cancellation/state-commit guards; no trading/execution path or server side effects. Rollback is reverting this PR. No production deployment is planned or claimed. |
+
+**Readiness decision: GO for this bounded client read-lifecycle slice only.** Any broader API-caller audit, auth protocol, persistence/versioning, or production change requires its own readiness check.
 
 ## System Readiness Check — post-merge learning audit refresh (2026-10-30)
 
