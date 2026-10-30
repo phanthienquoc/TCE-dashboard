@@ -30,7 +30,12 @@ type StockEventState = {
   loading: boolean;
   initialized: boolean;
   error: string | null;
-  load: (limit?: number, force?: boolean, month?: string | null, signal?: AbortSignal) => Promise<void>;
+  load: (
+    limit?: number,
+    force?: boolean,
+    month?: string | null,
+    signal?: AbortSignal
+  ) => Promise<void>;
   clear: () => void;
 };
 
