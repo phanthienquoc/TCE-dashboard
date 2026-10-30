@@ -4,7 +4,7 @@ import axios, { type InternalAxiosRequestConfig } from 'axios';
 
 import { normalizeTelegramBotConfigError } from './telegram-bot-config-errors';
 
-test('uses an operation-specific safe fallback for generic Telegram config failures', () => {
+test('maps generic Telegram config failures to operation-specific safe fallbacks', () => {
   const error = new Error('internal database path and credential details');
 
   assert.equal(
