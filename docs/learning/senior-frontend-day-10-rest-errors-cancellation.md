@@ -572,6 +572,43 @@ flowchart TD
   D -. raw Axios error is never logged .-> H[Authorization headers and response body stay private]
 ```
 
+## Design proposal — Engine Control read failure and retry (pre-implementation)
+
+This section records the design established before coding; the implementation evidence is recorded below.
+
+The existing `/engines` Engine Control component catches a failed status/configuration read by only clearing `loading`, so an unsuccessful request can leave an empty list with no visible error. The proposed bounded UI contract is:
+
+- Give each load attempt an effect-owned `AbortController`; abort on cleanup/retry and keep cancellation silent.
+- On success, replace the engine snapshot, clear the read error, and allow controls.
+- On non-cancelled failure, use the existing safe API error normalizer and show an accessible `role="alert"` plus Retry.
+- If a previous successful snapshot exists, mark it stale and disable engine writes until a fresh read succeeds. If no snapshot exists, show the error state rather than a false empty-success list.
+- Keep the existing engine configuration write endpoint and payload unchanged.
+
+```mermaid
+stateDiagram-v2
+  [*] --> Loading
+  Loading --> Ready: both GETs succeed
+  Loading --> Error: non-cancelled GET failure
+  Ready --> Loading: cache identity changes / Retry
+  Error --> Loading: Retry
+  Error --> Stale: prior snapshot exists
+  Stale --> Ready: fresh GET succeeds
+  Stale --> Error: refresh fails; writes remain disabled
+  Error --> [*]: component unmount / request aborted
+```
+
+## Implementation evidence — Engine Control read errors and retry (PR #996)
+
+**Status:** Runtime implementation is present on the open PR branch; it is not considered merged or complete until required checks pass and the merge is verified.
+
+- `apps/web/app/engines/EngineControlPanel.tsx` now distinguishes loading, unavailable, ready, refreshing, and stale states for the existing authenticated engine-status/configuration reads.
+- Non-cancelled read failures are normalized through the existing `normalizeApiError` contract and rendered in an accessible `role="alert"` with a Retry action. A failed first read no longer looks like a successful empty list.
+- If a prior snapshot exists, it remains visible as stale and engine toggles stay disabled until a fresh read succeeds. Successful reload clears the error; the existing engine configuration write endpoint and payload are unchanged.
+- `apps/web/lib/engine-control-data.spec.ts` adds a regression case using a synthetic bearer token and private response body, verifying that normalized failure metadata does not expose either. Existing tests continue to cover shared-signal propagation, cancellation of both pending reads, and missing collection normalization.
+- The state diagram in the preceding design section describes the intended UI lifecycle; it is a design/contract diagram, not a screenshot or a claim that a mockup was separately implemented.
+
+**Safety boundary:** Read-error presentation and retry lifecycle only. No API/auth protocol, account authorization, database/schema, trading/execution, production configuration, or market-scan scheduling change is included. Production deployment is not part of this task.
+
 ## 4. English interview practice (10 minutes)
 
 ### Question 1: How do you prevent race conditions in frontend data fetching?
