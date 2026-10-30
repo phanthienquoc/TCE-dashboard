@@ -180,4 +180,3 @@ test('app data worker logs normalized error metadata without raw Axios secrets o
     console.warn = originalWarn;
   }
 });
-
