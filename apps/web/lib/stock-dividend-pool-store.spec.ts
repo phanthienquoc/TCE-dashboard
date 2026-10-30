@@ -157,7 +157,7 @@ test('pool read errors use normalized messages rather than backend response bodi
     'ERR_BAD_RESPONSE',
     config,
     undefined,
-    failedResponse
+    failedResponse,
   );
 
   api.get = (() => Promise.reject(error)) as typeof api.get;
