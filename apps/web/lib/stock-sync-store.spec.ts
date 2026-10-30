@@ -8,7 +8,12 @@ import {
 } from 'axios';
 
 import { api } from './api';
-import { useStockSyncStore, type StockSyncConfig, type StockSyncRun, type StockSyncTelegramBot } from './stock-sync-store';
+import {
+  useStockSyncStore,
+  type StockSyncConfig,
+  type StockSyncRun,
+  type StockSyncTelegramBot,
+} from './stock-sync-store';
 
 type Deferred<T> = {
   promise: Promise<T>;
@@ -40,7 +45,9 @@ function response<T>(data: T): AxiosResponse<T> {
   };
 }
 
-test('clear aborts account-scoped reads and blocks late responses from restoring old data', async () => {
+test(
+  'clear aborts account-scoped reads and blocks late responses from restoring old data',
+  async () => {
   const originalGet = api.get;
   const requests: Array<{
     url: string;
@@ -141,7 +148,9 @@ test('clear aborts account-scoped reads and blocks late responses from restoring
   }
 });
 
-test('clear prevents a late save response from restoring previous-account configuration', async () => {
+test(
+  'clear prevents a late save response from restoring previous-account configuration',
+  async () => {
   const originalPost = api.post;
   const pending = deferred<AxiosResponse<StockSyncConfig>>();
 
@@ -168,7 +177,9 @@ test('clear prevents a late save response from restoring previous-account config
 
     const save = useStockSyncStore.getState().save();
     useStockSyncStore.getState().clear();
-    pending.resolve(response({ telegramCredentialId: 'old-account-credential' } as StockSyncConfig));
+    pending.resolve(
+      response({ telegramCredentialId: 'old-account-credential' } as StockSyncConfig)
+    );
     await save;
 
     assert.equal(useStockSyncStore.getState().config.telegramCredentialId, null);
