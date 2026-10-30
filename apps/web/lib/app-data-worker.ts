@@ -21,6 +21,7 @@ type AppDataWorkerState = {
 };
 type Task = { key: string; run: () => Promise<unknown> };
 let inFlight: Promise<void> | null = null;
+let workerGeneration = 0;
 const ROUTES = ['/overview', '/pools', '/position', '/order', '/engines', '/settings', '/profile'];
 const prefetchRoutes = (router?: AppRouterInstance) => {
   if (!router) return;
@@ -58,16 +59,18 @@ const staticTasks = (): Task[] => [
 async function runWithConcurrency(
   tasks: Task[],
   concurrency: number,
-  onDone: (failed: boolean) => void
+  onDone: (failed: boolean) => void,
+  isCurrent: () => boolean
 ) {
   let cursor = 0;
   const worker = async () => {
-    while (cursor < tasks.length) {
+    while (isCurrent() && cursor < tasks.length) {
       const task = tasks[cursor++];
       try {
         await task.run();
-        onDone(false);
+        if (isCurrent()) onDone(false);
       } catch (error) {
+        if (!isCurrent()) return;
         console.warn(`[APP_DATA_WORKER] ${task.key} failed`, error);
         onDone(true);
       }
@@ -84,6 +87,8 @@ export const useAppDataWorkerStore = create<AppDataWorkerState>((set, get) => ({
   finishedAt: null,
   start: async router => {
     if (inFlight || get().status === 'running') return inFlight ?? Promise.resolve();
+    const generation = ++workerGeneration;
+    const isCurrent = () => generation === workerGeneration;
     const tasks = staticTasks();
     set({
       status: 'running',
@@ -93,8 +98,10 @@ export const useAppDataWorkerStore = create<AppDataWorkerState>((set, get) => ({
       startedAt: Date.now(),
       finishedAt: null,
     });
-    const markDone = (failed: boolean) =>
+    const markDone = (failed: boolean) => {
+      if (!isCurrent()) return;
       set(state => ({ completed: state.completed + 1, failed: state.failed + (failed ? 1 : 0) }));
+    };
     inFlight = (async () => {
       try {
         prefetchRoutes(router);
@@ -104,16 +111,21 @@ export const useAppDataWorkerStore = create<AppDataWorkerState>((set, get) => ({
           { key: 'dividend-pool', run: () => useStockDividendPoolStore.getState().load() },
           { key: 'stock-sync', run: () => useStockSyncStore.getState().refresh() },
         ];
-        await runWithConcurrency([...storeTasks, ...tasks], 4, markDone);
+        await runWithConcurrency([...storeTasks, ...tasks], 4, markDone, isCurrent);
       } finally {
-        set({ status: 'completed', finishedAt: Date.now() });
-        inFlight = null;
+        if (isCurrent()) {
+          set({ status: 'completed', finishedAt: Date.now() });
+          inFlight = null;
+        }
       }
     })();
     return inFlight;
   },
-  clear: () =>
-    set({ status: 'idle', total: 0, completed: 0, failed: 0, startedAt: null, finishedAt: null }),
+  clear: () => {
+    workerGeneration += 1;
+    inFlight = null;
+    set({ status: 'idle', total: 0, completed: 0, failed: 0, startedAt: null, finishedAt: null });
+  },
 }));
 export const startAppDataWorker = (router?: AppRouterInstance) =>
   useAppDataWorkerStore.getState().start(router);
