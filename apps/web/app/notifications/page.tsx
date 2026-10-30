@@ -153,11 +153,7 @@ export default function NotificationsPage() {
         <div className="notification-section-head">
           <span>Telegram bots</span>
           <span>
-            {loadError
-              ? 'Unavailable'
-              : loading
-                ? 'Loading…'
-                : `${bots.length} configured`}
+            {loadError ? 'Unavailable' : loading ? 'Loading…' : `${bots.length} configured`}
           </span>
         </div>
         {loading ? (
