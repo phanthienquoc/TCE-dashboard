@@ -9,7 +9,17 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { isTceRuntimeEventType } from '@tce/contracts';
-import { catchError, exhaustMap, from, interval, map, of, startWith, switchMap, throwError } from 'rxjs';
+import {
+  catchError,
+  exhaustMap,
+  from,
+  interval,
+  map,
+  of,
+  startWith,
+  switchMap,
+  throwError,
+} from 'rxjs';
 import { JwtService } from '../auth/jwt.service';
 import { RuntimeEventsQueryService } from './runtime-events.query.service';
 
