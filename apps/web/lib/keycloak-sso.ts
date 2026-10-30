@@ -7,15 +7,22 @@ function required(name: string, value: string | undefined): string {
   return value;
 }
 
+const KEYCLOAK_URL_FALLBACK = 'https://sso.mrcute.space';
+const KEYCLOAK_REALM_FALLBACK = 'mrcute';
+const KEYCLOAK_CLIENT_ID_FALLBACK = 'tce-dashboard';
+
 function config() {
   const baseUrl = required(
     'NEXT_PUBLIC_KEYCLOAK_URL',
-    process.env.NEXT_PUBLIC_KEYCLOAK_URL
-  ).replace(/\/+$/, '');
-  const realm = required('NEXT_PUBLIC_KEYCLOAK_REALM', process.env.NEXT_PUBLIC_KEYCLOAK_REALM);
+    process.env.NEXT_PUBLIC_KEYCLOAK_URL || KEYCLOAK_URL_FALLBACK
+  ).replace(/\\/+$/, '');
+  const realm = required(
+    'NEXT_PUBLIC_KEYCLOAK_REALM',
+    process.env.NEXT_PUBLIC_KEYCLOAK_REALM || KEYCLOAK_REALM_FALLBACK
+  );
   const clientId = required(
     'NEXT_PUBLIC_KEYCLOAK_CLIENT_ID',
-    process.env.NEXT_PUBLIC_KEYCLOAK_CLIENT_ID
+    process.env.NEXT_PUBLIC_KEYCLOAK_CLIENT_ID || KEYCLOAK_CLIENT_ID_FALLBACK
   );
   const authBaseUrl = required(
     'NEXT_PUBLIC_AUTH_BASE_URL',
@@ -35,9 +42,9 @@ export function keycloakSsoEnabled(): boolean {
   return (
     process.env.NEXT_PUBLIC_AUTH_MODE === 'keycloak' &&
     Boolean(
-      process.env.NEXT_PUBLIC_KEYCLOAK_URL &&
-      process.env.NEXT_PUBLIC_KEYCLOAK_REALM &&
-      process.env.NEXT_PUBLIC_KEYCLOAK_CLIENT_ID &&
+      (process.env.NEXT_PUBLIC_KEYCLOAK_URL || KEYCLOAK_URL_FALLBACK) &&
+      (process.env.NEXT_PUBLIC_KEYCLOAK_REALM || KEYCLOAK_REALM_FALLBACK) &&
+      (process.env.NEXT_PUBLIC_KEYCLOAK_CLIENT_ID || KEYCLOAK_CLIENT_ID_FALLBACK) &&
       process.env.NEXT_PUBLIC_AUTH_BASE_URL
     )
   );
