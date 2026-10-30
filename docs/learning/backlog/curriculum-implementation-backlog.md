@@ -17,14 +17,14 @@ Use the shared contract in [Implementation Readiness Gate](../IMPLEMENTATION_REA
 
 - **Priority:** P0
 - **Status:** VERIFIED — source mapping completed for the five Day 9–13 lesson files present in `docs/learning/`
-- **Last source recheck:** 2026-10-30 after Day 10 quote validation merged at `48083829805ed3d60162c77604e11b8b084bde89`.
-- **Evidence:** [TCE Dashboard learning-to-source architecture map](../architecture-map.md), refreshed against master `48083829805ed3d60162c77604e11b8b084bde89`; Day 10 quote-validation source is `apps/web/lib/market-price-validation.ts`.
+- **Last source recheck:** 2026-10-30 after Day 10 pool-read lifecycle PR #953 merged at `2434a27510044e08ae1b0ba6ce5501bbc163b5cf`.
+- **Evidence:** [TCE Dashboard learning-to-source architecture map](../architecture-map.md), refreshed against master `2434a27510044e08ae1b0ba6ce5501bbc163b5cf`; Day 10 quote validation is in `apps/web/lib/market-price-validation.ts`, and pool-read cancellation/stale-response protection is in `apps/web/lib/stock-dividend-pool-store.ts` plus `apps/web/lib/app-data-worker.ts`.
 - **Boundary:** This verifies source-path/ownership mapping only. It does not mark Day 10–13 runtime requirements complete, and explicitly leaves WebSocket auth (`CURR-AUTH-07`), live schema/RLS/migration provenance (`CURR-DATA-04`), infra deployment details, and Day 13 profiling as unresolved.
 - **Affected lessons:** Day 9–13 currently present in `docs/learning/`; link other curriculum days when their files are added/found.
 - **Verified result:** The architecture map traces each existing Day 9–13 lesson to actual routes/components, API/store owners, service/event boundaries, and explicit N/A or unresolved layers. Missing Day 1–8 files remain tracked separately under `CURR-CATALOG-06`.
 - **Maintenance:** Update the map when a source owner, route, API contract, event cursor, or readiness decision changes; re-verify every referenced path against the current base branch.
 - **Acceptance:** MET for the five existing Day 9–13 files only: each lesson has source-backed entry points and affected layers, irrelevant layers are marked N/A with a reason, and unresolved contracts are explicit. Day 1–8 are not claimed reviewed.
-- **Verification:** Referenced paths/symbols, the Day 9 architecture-map link, and the Day 10 validator path were checked against current master; the associated refresh PR records its Markdown-formatting and backend-unit CI results.
+- **Verification:** Referenced paths/symbols, the Day 9 architecture-map link, the Day 10 validator, and the pool-read lifecycle paths were checked against current master. PR #953 exact-head frontend build, Prettier, and root unit-suite checks passed; separate post-merge status records were not surfaced.
 
 ### CURR-INFRA-02 — Verify infrastructure prerequisites for service-level exercises
 
@@ -42,6 +42,7 @@ Use the shared contract in [Implementation Readiness Gate](../IMPLEMENTATION_REA
 - **Status:** NEEDS AUDIT
 - **Affected lessons:** Day 10 REST cancellation; Day 11 realtime/recovery; Day 12 snapshot/event merge; Day 13 performance diagnosis.
 - **Gap to verify:** Confirm actual endpoint and event producers/consumers, auth scope, versioning, timeout/retry behavior, cancellation semantics, event identity/order/cursor, and recovery source before modifying clients.
+- **Verified slice (2026-10-30; not full acceptance):** PR #953 merged at `2434a275` implements client-side dividend-pool read cancellation, request-generation stale-response guards, normalized safe errors, and app-data-worker signal forwarding. Exact-head WF-01P run 41012494912, WF-02 run 41012494814, and WF-05 run 41012494856 passed on `39abde7`; tests are in `apps/web/lib/stock-dividend-pool-store.spec.ts` and `apps/web/lib/app-data-worker.spec.ts`. This does not complete `CURR-SVC-03`; the broader API/event contract audit remains open.
 - **Work:** Trace existing service handlers and frontend consumers; write down contract gaps only where source evidence demonstrates them.
 - **Acceptance:** No lesson claims end-to-end behavior based only on a client hook, mock, type, or unit test. Required service changes have an identified owner and integration test path.
 - **Unblock condition:** Relevant producer and consumer contracts are located and the intended behavior is agreed/documented.
