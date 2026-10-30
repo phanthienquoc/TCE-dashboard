@@ -7,6 +7,7 @@ import { isApiRequestCancelled, normalizeApiError } from './api-errors';
 import { useTCEDataStore } from './tce-data-store';
 import { useStockEventStore } from './stock-event-store';
 import { startAppDataWorker } from './app-data-worker';
+import { normalizeMarketPricePayload, type MarketPrice } from './market-price-validation';
 
 type User = { id: string; email: string; role: string; mfaEnabled: boolean };
 type AuthState = {
@@ -145,7 +146,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 }));
 
-type MarketPrice = { symbol: string; price: number; tradingDate?: string };
 type DashboardState = {
   data: any;
   marketPrices: Record<string, MarketPrice>;
@@ -284,17 +284,16 @@ export const useDashboardStore = create<DashboardState>(set => ({
       if (controller.signal.aborted || marketPriceSyncController !== controller) return;
       if (response.data?.ok === false) return;
 
-      const prices = (response.data?.data ?? []).reduce(
-        (acc: Record<string, MarketPrice>, quote: MarketPrice) => {
-          const symbol = String(quote.symbol ?? '')
-            .trim()
-            .toUpperCase();
-          if (symbol && Number.isFinite(Number(quote.price)))
-            acc[symbol] = { ...quote, symbol, price: Number(quote.price) };
-          return acc;
-        },
-        {}
-      );
+      const payload = response.data?.data;
+      const normalized = normalizeMarketPricePayload(payload, symbols);
+      if (normalized.rejectedCount > 0) {
+        console.warn('[FE_MARKET_PRICE_SYNC_INVALID_PAYLOAD]', {
+          received: Array.isArray(payload) ? payload.length : null,
+          accepted: normalized.acceptedCount,
+          rejected: normalized.rejectedCount,
+        });
+      }
+      const prices = normalized.prices;
       if (!Object.keys(prices).length) return;
       set(state => ({
         marketPrices: { ...state.marketPrices, ...prices },
