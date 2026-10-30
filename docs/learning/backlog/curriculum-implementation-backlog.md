@@ -17,14 +17,14 @@ Use the shared contract in [Implementation Readiness Gate](../IMPLEMENTATION_REA
 
 - **Priority:** P0
 - **Status:** VERIFIED — source mapping completed for the five Day 9–13 lesson files present in `docs/learning/`
-- **Last source recheck:** 2026-10-30 against master `d79404ec62250ddf2762620f6819318daf029412` after PR #955 merged.
-- **Evidence:** [TCE Dashboard learning-to-source architecture map](../architecture-map.md), refreshed against current master; Day 10 quote validation is in `apps/web/lib/market-price-validation.ts`, pool-read cancellation is in `apps/web/lib/stock-dividend-pool-store.ts`, and stock-event cancellation is in `apps/web/lib/stock-event-store.ts` plus `apps/web/lib/app-data-worker.ts`.
+- **Last source recheck:** 2026-10-30 against current master `6b3beb546409358cf9cc1a8f000a4527f02255ab` after PR #957 merged.
+- **Evidence:** [TCE Dashboard learning-to-source architecture map](../architecture-map.md), refreshed against current master; Day 10 quote validation is in `apps/web/lib/market-price-validation.ts`, pool-read cancellation is in `apps/web/lib/stock-dividend-pool-store.ts`, and stock-event cancellation is in `apps/web/lib/stock-event-store.ts` plus `apps/web/lib/app-data-worker.ts`. Telegram notification read cancellation is in `apps/web/lib/telegram-notification-data.ts` and the notifications list/detail/config consumers.
 - **Boundary:** This verifies source-path/ownership mapping only. It does not mark Day 10–13 runtime requirements complete, and explicitly leaves WebSocket auth (`CURR-AUTH-07`), live schema/RLS/migration provenance (`CURR-DATA-04`), infra deployment details, and Day 13 profiling as unresolved.
 - **Affected lessons:** Day 9–13 currently present in `docs/learning/`; link other curriculum days when their files are added/found.
 - **Verified result:** The architecture map traces each existing Day 9–13 lesson to actual routes/components, API/store owners, service/event boundaries, and explicit N/A or unresolved layers. Missing Day 1–8 files remain tracked separately under `CURR-CATALOG-06`.
 - **Maintenance:** Update the map when a source owner, route, API contract, event cursor, or readiness decision changes; re-verify every referenced path against the current base branch.
 - **Acceptance:** MET for the five existing Day 9–13 files only: each lesson has source-backed entry points and affected layers, irrelevant layers are marked N/A with a reason, and unresolved contracts are explicit. Day 1–8 are not claimed reviewed.
-- **Verification:** Referenced paths/symbols, the Day 9 architecture-map link, Day 10 validator, pool-read lifecycle and stock-event lifecycle were checked against master `d79404e`. PR #955 exact-head frontend build, Prettier and backend/root unit-suite checks passed; master backend tests, image/config verification and auto-format checks also passed. Duplicate post-merge runs were cancelled/skipped.
+- **Verification:** Referenced paths/symbols, the Day 9 architecture-map link, Day 10 validator, pool-read lifecycle, stock-event lifecycle and Telegram notification read helper were checked against master `6b3beb5`. PR #957 exact head `052c301ad522d98802a13e88ed48c6a48c636de7` passed WF-01P #41024683065, WF-02 #41024683023 and WF-05 #41024682994 before merge. The available connector did not surface post-merge status for merge SHA `6b3beb5`; no separate master push check or production deployment is claimed.
 
 ### CURR-INFRA-02 — Verify infrastructure prerequisites for service-level exercises
 
