@@ -24,6 +24,14 @@ export class BinancePositionWatcherService implements OnModuleInit, OnModuleDest
   ) {}
 
   onModuleInit() {
+    // Temporary traffic guard: keep the watcher off unless explicitly enabled.
+    // This prevents a 1.5s Supabase config-table poll from amplifying DB/API load.
+    if (process.env.TCE_BINANCE_POSITION_WATCHER_ENABLED !== 'true') {
+      this.logger.warn(
+        'Binance position watcher disabled; set TCE_BINANCE_POSITION_WATCHER_ENABLED=true to enable'
+      );
+      return;
+    }
     this.timer = setInterval(() => void this.poll(), 1500);
     void this.poll();
   }
