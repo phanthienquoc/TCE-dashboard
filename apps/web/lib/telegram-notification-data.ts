@@ -50,9 +50,11 @@ export async function loadTelegramNotificationData(
   };
 }
 
-
 /** A paired notification view is cache-ready only when both reads completed with arrays. */
-export function hasCompleteTelegramNotificationCache(bots: unknown, assignments: unknown): boolean {
+export function hasCompleteTelegramNotificationCache(
+  bots: unknown,
+  assignments: unknown
+): boolean {
   return Array.isArray(bots) && Array.isArray(assignments);
 }
 
