@@ -147,12 +147,13 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
   logout: async () => {
     const logoutUrl = keycloakLogoutUrl();
+    // Invalidate local account data immediately; the remote logout request may take time.
+    clearAccountScopedStores();
     try {
       await authApi.logout();
     } catch {
-      // Clear local state and continue to the IdP logout even if the app session expired.
+      // Continue to the IdP logout even if the app session expired.
     } finally {
-      clearAccountScopedStores();
       setAccessToken(null);
       set({ user: null, status: 'anonymous', initialized: true });
     }
