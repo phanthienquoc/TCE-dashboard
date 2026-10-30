@@ -357,16 +357,17 @@ Apply only if this price-sync request is still current
 
 ### Verification checklist
 
-- [ ] The optional signal reaches the actual Axios request.
-- [ ] A newer dashboard load aborts the previous load.
-- [ ] An obsolete response cannot update the store.
-- [ ] An old request cannot clear the newest request's loading state.
-- [ ] Market-price sync cancels its previous in-flight request.
-- [ ] Logout/clear aborts and invalidates in-flight reads.
-- [ ] Cancellation is not surfaced as a user-facing error.
-- [ ] Logs do not include raw Axios request config or credential headers.
+- [x] The optional signal reaches the actual Axios request.
+- [x] A newer dashboard load aborts the previous load.
+- [x] An obsolete response cannot update the store.
+- [x] An old request cannot clear the newest request's loading state.
+- [x] Market-price sync cancels its previous in-flight request.
+- [x] Logout/clear aborts and invalidates in-flight reads.
+- [x] Cancellation is not surfaced as a user-facing error.
+- [x] Logs do not include raw Axios request config or credential headers.
 - [x] Invalid market-price rows cannot overwrite state; unrequested symbols are rejected and diagnostics contain aggregate counts only.
-- [ ] Existing callers that omit `signal` still compile.
+- [x] If a payload contains no valid quote rows, existing market-price state is preserved.
+- [x] Existing callers that omit `signal` still compile.
 
 ---
 
