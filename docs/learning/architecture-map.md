@@ -264,4 +264,3 @@ flowchart TD
   F --> G[Increment failed count]
   D -. raw Axios object is not logged .-> H[Authorization headers and response body remain private]
 ```
-
