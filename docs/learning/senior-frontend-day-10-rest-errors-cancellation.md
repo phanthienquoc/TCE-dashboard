@@ -838,3 +838,38 @@ sequenceDiagram
 **Implementation evidence:** PR #983 merged at `66da3a008ba055ee3551dc520c12952ec58164b5`. Runtime path: `apps/web/lib/stock-sync-store.ts`; tests: `apps/web/lib/stock-sync-store.spec.ts`. Four new Node tests cover refresh 403, save 500, trigger 403, and a non-Axios error fallback; each verifies that simulated internal details are not surfaced. Exact PR head `5941d5aecaccb2aae4bc9928d4fb73aa709f369e` passed WF-01P `41077247885`, WF-02 `41077248228`, and WF-05 `41077247826`; the unit-test log reports 275 Node tests passed / 0 failed. Post-merge master WF-02 `41077445106` and WF-05 `41077444913` passed; WF-01 `41077445107` completed successfully (image/config verification only; no deployment).
 
 **Safety boundary:** No endpoint, Bearer JWT/authentication, response contract, stock-sync payload, cron schedule, account-generation guard, write semantics, database/schema, trading/execution behavior, production configuration or market-scan scheduling changed. Scheduled healthcheck run `41070484265` and rerun job `124135356886` reported TCE web HTTP 200 but central Auth liveness/readiness HTTP 503; this PR does not fix or claim recovery of that service issue. Keep `CURR-SVC-03` open for the broader API/event contract audit.
+
+## Telegram notification paired-cache and read-error handling (PR #990; 2026-10-30)
+
+A partial prefetch is not a complete notification view. The cache helper `hasCompleteTelegramNotificationCache` returns true only when both bot and debug-assignment values are arrays. If either collection is absent, `NotificationsPage` loads the pair through the existing authenticated `platformApi` methods with one effect-owned `AbortSignal`. Intentional cancellation remains silent. A genuine failure is normalized with `normalizeApiError` and shown with a Retry action; it no longer appears as “No Telegram bots configured.” `TelegramBotConfig` uses the same cache-completeness predicate and retains the existing safe error handling from PR #988.
+
+```mermaid
+sequenceDiagram
+  participant UI as Notifications / Telegram Config UI
+  participant Cache as Account-scoped TCE cache
+  participant Loader as loadTelegramNotificationData
+  participant API as Existing authenticated GETs
+  participant Errors as normalizeApiError
+  UI->>Cache: Read bots + debug assignments
+  alt Both cache values are arrays
+    Cache-->>UI: Complete paired view
+  else Either value is missing
+    UI->>Loader: Load both datasets with one AbortSignal
+    Loader->>API: GET bots + assignments
+    alt Both reads succeed
+      API-->>Loader: Existing response payloads
+      Loader-->>UI: Normalized arrays
+    else Read fails
+      API-->>UI: HTTP/network/generic error
+      UI->>Errors: Normalize with safe fallback
+      Errors-->>UI: Safe user-facing message
+      UI-->>UI: Show error + Retry, not empty state
+    end
+  end
+  Note over UI,API: Effect cleanup/account change aborts the read; cancellation is silent.
+```
+
+**Implementation evidence:** PR #990 merged at `2255b263fe0d5b7670ec51de21cc7dd70a41f1c4`. Runtime paths: `apps/web/app/notifications/page.tsx`, `apps/web/app/notifications/TelegramBotConfig.tsx`, `apps/web/lib/telegram-notification-data.ts`; tests: `apps/web/lib/telegram-notification-data.spec.ts`. The tests cover paired-cache completeness, HTTP 500 safe messaging, and generic fallback without internal details. Exact PR head `65e9e99241110a6b8a567844f2efab2384fe86f1` passed WF-01P `41087370680`, WF-02 `41087370830`, and WF-05 `41087370764`. The master commit is verified identical to the squash merge, but post-merge status/workflow records were not returned; post-merge verification remains WARN.
+
+**Readiness boundary:** no endpoint/auth protocol, server authorization, mutation semantics, database/schema/RLS, trading/execution, production configuration or market-scan schedule changed. No deployment is claimed. Keep `CURR-SVC-03` open for the broader API/event caller and end-to-end contract audit.
+
