@@ -221,3 +221,72 @@ test('intentional Axios cancellation does not become a dashboard error', async (
     dashboardApi.all = originalAll;
   }
 });
+
+test('market-price sync logs normalized failures without leaking Axios config or credentials', async () => {
+  const originalMarketPrices = dashboardApi.marketPrices;
+  const originalConsoleError = console.error;
+  const logCalls: unknown[][] = [];
+  const requestConfig = {
+    url: '/dashboard/market-prices',
+    method: 'get',
+    headers: new AxiosHeaders({
+      Authorization: 'Bearer should-not-leak',
+      'x-api-key': 'should-not-leak-api-key',
+    }),
+  } as InternalAxiosRequestConfig;
+  const error = new axios.AxiosError(
+    'private transport detail should not be logged',
+    'ERR_BAD_RESPONSE',
+    requestConfig,
+    undefined,
+    {
+      data: { secret: 'private response body should not be logged' },
+      status: 500,
+      statusText: 'Internal Server Error',
+      headers: new AxiosHeaders(),
+      config: requestConfig,
+    }
+  );
+
+  dashboardApi.marketPrices = (async () => {
+    throw error;
+  }) as typeof dashboardApi.marketPrices;
+  console.error = (...args) => {
+    logCalls.push(args);
+  };
+
+  try {
+    useDashboardStore.setState({
+      data: { positions: [{ symbol: 'DPM' }], currentPositions: [], pools: [] },
+      marketPrices: {},
+      loading: false,
+      error: null,
+    });
+
+    await useDashboardStore.getState().syncMarketPrices();
+
+    assert.deepEqual(logCalls, [
+      [
+        '[FE_MARKET_PRICE_SYNC]',
+        {
+          kind: 'http',
+          status: 500,
+          message: 'The service is temporarily unavailable. Please try again.',
+        },
+      ],
+    ]);
+
+    const serializedLogs = JSON.stringify(logCalls);
+    assert.equal(serializedLogs.includes('should-not-leak'), false);
+    assert.equal(serializedLogs.includes('should-not-leak-api-key'), false);
+    assert.equal(serializedLogs.includes('private transport detail'), false);
+    assert.equal(serializedLogs.includes('private response body'), false);
+    assert.equal(serializedLogs.includes('Authorization'), false);
+    assert.equal(serializedLogs.includes('x-api-key'), false);
+    assert.equal(serializedLogs.includes('Internal Server Error'), false);
+  } finally {
+    console.error = originalConsoleError;
+    useDashboardStore.getState().clear();
+    dashboardApi.marketPrices = originalMarketPrices;
+  }
+});
