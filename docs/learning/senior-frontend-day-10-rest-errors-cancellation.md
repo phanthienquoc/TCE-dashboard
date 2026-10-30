@@ -1,6 +1,6 @@
 # Senior Frontend Day 10 — REST APIs, Error Handling & Cancellation
 
-> Duration: 60 minutes. This lesson is aligned with the real TCE Dashboard repository and the implementation in `apps/web/lib/api.ts`, `apps/web/lib/api-errors.ts`, `apps/web/lib/store.ts`, `apps/web/lib/stock-dividend-pool-store.ts`, and `apps/web/lib/app-data-worker.ts`.
+> Duration: 60 minutes. This lesson is aligned with the real TCE Dashboard repository and the implementation in `apps/web/lib/api.ts`, `apps/web/lib/api-errors.ts`, `apps/web/lib/store.ts`, `apps/web/lib/stock-dividend-pool-store.ts`, `apps/web/lib/stock-event-store.ts`, and `apps/web/lib/app-data-worker.ts`.
 
 ## Implementation readiness — cross-layer assessment
 
@@ -476,6 +476,35 @@ sequenceDiagram
   Worker->>Worker: clear() aborts workerSignal
   Store->>API: Abort current pool GET
   Store->>Store: Ignore cancelled completion; do not surface an error
+```
+
+### Implementation follow-up — stock-event read lifecycle
+
+**Task:** `DAY10-READ-STOCK-EVENT-01`  
+**Status:** Runtime change and regression tests are on the dedicated task branch; exact-head CI and merge are pending. Do not mark this checklist verified until the required checks pass.
+
+The store's `clear()` previously reset visible state without aborting or invalidating its pending `/stock-events` request. Since logout/account change calls `clearAccountScopedStores()`, a late response could repopulate the store after it had been cleared. The app-data worker also did not forward its cancellation signal to this read. The bounded implementation adds an internal `AbortController`, a request generation guard, an optional caller signal, and normalized error messages without changing the authenticated endpoint contract.
+
+- [ ] `clear()` aborts the active request, invalidates its generation, and prevents late responses from repopulating state.
+- [ ] App-data-worker cancellation reaches the stock-event transport and intentional cancellation remains silent.
+- [ ] Stock-event read failures use normalized safe messages rather than arbitrary backend response bodies.
+- [ ] Regression tests cover clear/late-response behavior, worker cancellation, and normalized errors.
+
+```mermaid
+sequenceDiagram
+  participant Auth as Auth/account lifecycle
+  participant Worker as App-data worker
+  participant Store as Stock-event Zustand store
+  participant API as Central Axios client
+
+  Worker->>Store: load(200, false, null, workerSignal)
+  Store->>Store: Create controller and generation
+  Store->>API: GET /stock-events with internal signal
+  Auth->>Store: clear() on logout/account change
+  Store->>Store: Increment generation; abort controller; reset state
+  API-->>Store: Cancelled or late response
+  Store->>Store: Ignore stale/aborted completion
+  Note over Store: Cleared state remains empty; no cancellation error is surfaced
 ```
 
 ## 4. English interview practice (10 minutes)
