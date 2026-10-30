@@ -755,26 +755,25 @@ The Engine Workflow screen reads the authenticated GET /dashboard/engine-runtime
 
 \`\`\`mermaid
 sequenceDiagram
-  participant UI as EngineWorkflowScreen
-  participant API as dashboardApi
-  participant Controller as DashboardController
-  participant Service as EngineRuntimeService
-  participant DB as Existing engine config/state tables
-  UI->>UI: Create effect-owned AbortController
-  UI->>API: GET /dashboard/engine-runtime + signal
-  API->>Controller: Existing Bearer JWT request
-  Controller->>Controller: Resolve authenticated account ID
-  Controller->>Service: getRuntime(accountId)
-  Service->>DB: Read config/state rows filtered by account_id
-  DB-->>Service: Runtime rows
-  Service-->>Controller: Runtime snapshot
-  Controller-->>API: Existing response contract
-  API-->>UI: Response if request is still current
-  UI->>UI: On cleanup, abort and ignore stale/cancelled results
-  Note over UI,API: Client cancellation does not prove server-side work was rolled back
+participant UI as EngineWorkflowScreen
+participant API as dashboardApi
+participant Controller as DashboardController
+participant Service as EngineRuntimeService
+participant DB as Existing engine config/state tables
+UI->>UI: Create effect-owned AbortController
+UI->>API: GET /dashboard/engine-runtime + signal
+API->>Controller: Existing Bearer JWT request
+Controller->>Controller: Resolve authenticated account ID
+Controller->>Service: getRuntime(accountId)
+Service->>DB: Read config/state rows filtered by account_id
+DB-->>Service: Runtime rows
+Service-->>Controller: Runtime snapshot
+Controller-->>API: Existing response contract
+API-->>UI: Response if request is still current
+UI->>UI: On cleanup, abort and ignore stale/cancelled results
+Note over UI,API: Client cancellation does not prove server-side work was rolled back
 \`\`\`
 
 **Implementation evidence:** PR #978 merged at `ef40e664662b9df9c55c2cb30b54b4dabc3e4077`. `dashboardApi.engineRuntime` forwards the signal; `engine-runtime-data.ts` normalizes the response collection; `EngineWorkflowScreen.tsx` aborts on cleanup/superseding loads, guards state/loading commits, and displays normalized safe errors. `engine-runtime-data.spec.ts` verifies signal forwarding, malformed collection handling, in-flight cancellation, and pre-aborted signals. Exact PR head `58694a8241862aa2c1cc2a75f36ccf40691c0104` passed WF-01P `41060920532`, WF-02 `41060920537`, and WF-05 `41060920340`; WF-05 logs include all four new tests and 24 Vitest files / 103 tests passed. Post-merge status remains unverified.
 
 **Safety boundary:** The endpoint, JWT authentication, account binding, engine status/configuration writes, dependency gating, database schema, trading/execution behavior and market-scan schedule are unchanged. No production deployment is claimed. Keep `CURR-SVC-03` open for the broader API/event contract audit.
-
