@@ -71,11 +71,7 @@ export default function EngineWorkflowScreen() {
         })
       );
     } catch (requestError) {
-      if (
-        !mounted.current ||
-        controller.signal.aborted ||
-        isApiRequestCancelled(requestError)
-      ) {
+      if (!mounted.current || controller.signal.aborted || isApiRequestCancelled(requestError)) {
         return;
       }
       setError(normalizeApiError(requestError, 'Unable to load engine runtime').message);
