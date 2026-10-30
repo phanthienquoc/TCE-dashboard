@@ -93,9 +93,7 @@ test('dividend OHLCV reads forward the component lifecycle signal and normalize 
   }
 });
 
-test(
-  'unmount cancellation aborts the history request without leaving loading or an error',
-  async () => {
+test('unmount cancellation aborts the history request without leaving loading or an error', async () => {
   const originalPriceHistory = dashboardApi.priceHistory;
   const pending = deferred<AxiosResponse<{ data: unknown[] }>>();
   let receivedSignal: AbortSignal | undefined;
@@ -126,9 +124,7 @@ test(
   }
 });
 
-test(
-  'clear aborts an old history request and prevents its late response replacing a new read',
-  async () => {
+test('clear aborts an old history request and prevents its late response replacing a new read', async () => {
   const originalPriceHistory = dashboardApi.priceHistory;
   const requests: Array<{
     signal?: AbortSignal;
