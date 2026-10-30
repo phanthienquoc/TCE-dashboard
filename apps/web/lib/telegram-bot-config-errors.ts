@@ -1,6 +1,7 @@
 import { normalizeApiError } from './api-errors';
 
-export type TelegramBotConfigOperation = 'load' | 'save' | 'pause' | 'remove' | 'assign' | 'unassign';
+export type TelegramBotConfigOperation =
+  'load' | 'save' | 'pause' | 'remove' | 'assign' | 'unassign';
 
 const FALLBACK_MESSAGES: Record<TelegramBotConfigOperation, string> = {
   load: 'Unable to load Telegram bot configuration.',
