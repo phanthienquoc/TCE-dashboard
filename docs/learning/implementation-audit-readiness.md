@@ -34,8 +34,6 @@ This evidence-backed snapshot is current through master `05fc77704b2af8c87a2ed89
 - **Post-merge status — WARN:** combined-status and workflow-run queries returned no records for merge commits `5505809` and `05fc777`. This is unverified, not a claim of failure or success.
 - **Safety boundary:** no production deployment, database mutation, auth-protocol change, trading/execution change or market-scan schedule change occurred.
 
-
-
 ## System Readiness Check — Engine Workflow runtime read cancellation (pre-merge; base e75e338)
 
 **Task:** DAY10-ENGINE-RUNTIME-READ-01 — cancel the existing authenticated engine-runtime GET when its UI lifecycle ends or a newer read supersedes it; prevent stale state/loading commits and show a safe normalized read error. No engine writes or auth contracts are changed.
