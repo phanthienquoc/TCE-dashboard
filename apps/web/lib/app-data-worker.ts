@@ -22,6 +22,7 @@ type AppDataWorkerState = {
 type Task = { key: string; run: () => Promise<unknown> };
 let inFlight: Promise<void> | null = null;
 let workerGeneration = 0;
+let workerController: AbortController | null = null;
 const ROUTES = ['/overview', '/pools', '/position', '/order', '/engines', '/settings', '/profile'];
 const prefetchRoutes = (router?: AppRouterInstance) => {
   if (!router) return;
@@ -31,46 +32,47 @@ const prefetchRoutes = (router?: AppRouterInstance) => {
     } catch {}
   }
 };
-const staticTasks = (): Task[] => [
-  { key: 'dashboard.account', run: () => api.get('/dashboard/account') },
-  { key: 'dashboard.positions', run: () => api.get('/dashboard/positions') },
-  { key: 'dashboard.orders', run: () => api.get('/dashboard/orders') },
+const staticTasks = (signal: AbortSignal): Task[] => [
+  { key: 'dashboard.account', run: () => api.get('/dashboard/account', { signal }) },
+  { key: 'dashboard.positions', run: () => api.get('/dashboard/positions', { signal }) },
+  { key: 'dashboard.orders', run: () => api.get('/dashboard/orders', { signal }) },
   {
     key: 'dashboard.pools',
-    run: () => api.get('/dashboard/pools', { params: { status: 'WATCHING' } }),
+    run: () => api.get('/dashboard/pools', { params: { status: 'WATCHING' }, signal }),
   },
-  { key: 'dashboard.nextPositions', run: () => api.get('/dashboard/next-positions') },
-  { key: 'dashboard.strategy', run: () => api.get('/dashboard/strategy') },
-  { key: 'dashboard.sources', run: () => api.get('/dashboard/sources') },
-  { key: 'dashboard.dreCampaigns', run: () => api.get('/dre/dashboard/campaigns') },
-  { key: 'platform.fastApiConfig', run: () => api.get('/platform/config/fastapi') },
-  { key: 'platform.binanceXauConfig', run: () => api.get('/tce/engine/binance/config') },
-  { key: 'platform.binanceXauPositions', run: () => api.get('/tce/engine/binance/positions') },
-  { key: 'platform.binanceXauOrders', run: () => api.get('/tce/engine/binance/orders') },
-  { key: 'systemUpdates.config', run: () => api.get('/tce/system-updates/config') },
-  { key: 'systemUpdates.latest', run: () => api.get('/tce/system-updates/latest') },
-  { key: 'auth.passkeys', run: () => api.get('/auth/passkeys') },
-  { key: 'stockEventsCron.settings', run: () => api.get('/stock-events-cron/settings') },
+  { key: 'dashboard.nextPositions', run: () => api.get('/dashboard/next-positions', { signal }) },
+  { key: 'dashboard.strategy', run: () => api.get('/dashboard/strategy', { signal }) },
+  { key: 'dashboard.sources', run: () => api.get('/dashboard/sources', { signal }) },
+  { key: 'dashboard.dreCampaigns', run: () => api.get('/dre/dashboard/campaigns', { signal }) },
+  { key: 'platform.fastApiConfig', run: () => api.get('/platform/config/fastapi', { signal }) },
+  { key: 'platform.binanceXauConfig', run: () => api.get('/tce/engine/binance/config', { signal }) },
+  { key: 'platform.binanceXauPositions', run: () => api.get('/tce/engine/binance/positions', { signal }) },
+  { key: 'platform.binanceXauOrders', run: () => api.get('/tce/engine/binance/orders', { signal }) },
+  { key: 'systemUpdates.config', run: () => api.get('/tce/system-updates/config', { signal }) },
+  { key: 'systemUpdates.latest', run: () => api.get('/tce/system-updates/latest', { signal }) },
+  { key: 'auth.passkeys', run: () => api.get('/auth/passkeys', { signal }) },
+  { key: 'stockEventsCron.settings', run: () => api.get('/stock-events-cron/settings', { signal }) },
   {
     key: 'stockEventsCron.runs',
-    run: () => api.get('/stock-events-cron/runs', { params: { limit: 20 } }),
+    run: () => api.get('/stock-events-cron/runs', { params: { limit: 20 }, signal }),
   },
 ];
 async function runWithConcurrency(
   tasks: Task[],
   concurrency: number,
   onDone: (failed: boolean) => void,
-  isCurrent: () => boolean
+  isCurrent: () => boolean,
+  signal: AbortSignal
 ) {
   let cursor = 0;
   const worker = async () => {
-    while (isCurrent() && cursor < tasks.length) {
+    while (isCurrent() && !signal.aborted && cursor < tasks.length) {
       const task = tasks[cursor++];
       try {
         await task.run();
-        if (isCurrent()) onDone(false);
+        if (isCurrent() && !signal.aborted) onDone(false);
       } catch (error) {
-        if (!isCurrent()) return;
+        if (!isCurrent() || signal.aborted) return;
         console.warn(`[APP_DATA_WORKER] ${task.key} failed`, error);
         onDone(true);
       }
@@ -88,8 +90,10 @@ export const useAppDataWorkerStore = create<AppDataWorkerState>((set, get) => ({
   start: async router => {
     if (inFlight || get().status === 'running') return inFlight ?? Promise.resolve();
     const generation = ++workerGeneration;
+    const controller = new AbortController();
+    workerController = controller;
     const isCurrent = () => generation === workerGeneration;
-    const tasks = staticTasks();
+    const tasks = staticTasks(controller.signal);
     set({
       status: 'running',
       total: tasks.length + 4,
@@ -111,18 +115,21 @@ export const useAppDataWorkerStore = create<AppDataWorkerState>((set, get) => ({
           { key: 'dividend-pool', run: () => useStockDividendPoolStore.getState().load() },
           { key: 'stock-sync', run: () => useStockSyncStore.getState().refresh() },
         ];
-        await runWithConcurrency([...storeTasks, ...tasks], 4, markDone, isCurrent);
+        await runWithConcurrency([...storeTasks, ...tasks], 4, markDone, isCurrent, controller.signal);
       } finally {
         if (isCurrent()) {
           set({ status: 'completed', finishedAt: Date.now() });
           inFlight = null;
         }
+        if (workerController === controller) workerController = null;
       }
     })();
     return inFlight;
   },
   clear: () => {
     workerGeneration += 1;
+    workerController?.abort();
+    workerController = null;
     inFlight = null;
     set({ status: 'idle', total: 0, completed: 0, failed: 0, startedAt: null, finishedAt: null });
   },
