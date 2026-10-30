@@ -274,3 +274,6 @@ Tests-only changes do not count as runtime implementation. Documentation-only ch
 | Branch-protection visibility      | WARN                               | The connector returned HTTP 403 for the branch-protection endpoint. Final-head PR checks are directly verified; the inaccessible policy endpoint is not represented as PASS.                                                                                                                                                                       |
 
 **Readiness decision: READY for the bounded documentation audit.** Reconcile source and evidence only. Keep any runtime or environment verification claim bounded to the actual checks returned by GitHub.
+
+
+**Formatting follow-up:** The first Prettier check on the audit PR failed only on the newly added Day 10 cross-reference. Push formatter commit `c7c577a6` normalized that file; the failed run is stale and is not final-head evidence.
