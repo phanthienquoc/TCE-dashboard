@@ -97,6 +97,8 @@ sequenceDiagram
   Controller-->>Client: SSE event with canonical event ID
 ```
 
+Markdown formatting is checked by the repository's Prettier pull-request workflow.
+
 ## 5. Completion evidence required per learning item
 
 A learning item is complete only when its audit row identifies:
