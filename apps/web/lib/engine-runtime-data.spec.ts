@@ -70,14 +70,15 @@ test('engine runtime read rejects when its AbortSignal is cancelled', async () =
 
   api.defaults.adapter = config =>
     new Promise<AxiosResponse>((_resolve, reject) => {
-      signalObserved = config.signal ?? undefined;
+      const signal = config.signal as AbortSignal | undefined;
+      signalObserved = signal;
       resolveStarted?.();
       const rejectCancelled = () => reject(new axios.CanceledError('Request cancelled', config));
-      if (config.signal?.aborted) {
+      if (signal?.aborted) {
         rejectCancelled();
         return;
       }
-      config.signal?.addEventListener('abort', rejectCancelled, { once: true });
+      signal?.addEventListener('abort', rejectCancelled, { once: true });
     });
 
   const controller = new AbortController();
