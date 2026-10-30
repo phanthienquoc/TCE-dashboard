@@ -132,6 +132,7 @@ test('worker cancellation aborts the stock-event transport without surfacing an 
   }
 });
 
+// The first caller owns the transport; a waiting caller can cancel only its own wait.
 test('aborting a waiting caller does not abort the shared stock-event transport', async () => {
   const originalGet = api.get;
   const pending = deferred<AxiosResponse<unknown>>();
