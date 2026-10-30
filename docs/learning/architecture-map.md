@@ -138,5 +138,4 @@ This document completes the **source mapping/audit task** for the five lesson fi
 
 ## Maintenance
 
-Update this map when a source owner, route, API contract, event cursor, or readiness decision changes. Re-verify every referenced path against the current base branch and run the repository Prettier pull-request check.
-Run the repository Prettier pull-request check after updating this Markdown map.
+Update this map whenever a source owner, route, API contract, event cursor, or readiness decision changes. Re-verify referenced paths against the current base branch.
