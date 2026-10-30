@@ -6,7 +6,10 @@ import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/ca
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { platformApi } from '../../lib/api';
-import { loadBinanceXauPosition, type BinanceXauPosition } from '../../lib/binance-xau-position-data';
+import {
+  loadBinanceXauPosition,
+  type BinanceXauPosition,
+} from '../../lib/binance-xau-position-data';
 import { useAuthStore } from '../../lib/store';
 
 type Config = {
