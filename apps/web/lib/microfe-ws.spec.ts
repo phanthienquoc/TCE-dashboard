@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { microfeWs, type MicrofeEvent } from './microfe-ws';
+import { microfeWs, reconnectDelay, type MicrofeEvent } from './microfe-ws';
 
 type FakeEvent = {
   code?: number;
@@ -86,6 +86,15 @@ function event(id: string, channel: string, sequence?: number): MicrofeEvent {
     ...(sequence === undefined ? {} : { sequence }),
   };
 }
+
+test('reconnect delay grows exponentially, caps the exponent, and applies injectable jitter', () => {
+  assert.equal(reconnectDelay(0, () => 0), 500);
+  assert.equal(reconnectDelay(1, () => 0), 1000);
+  assert.equal(reconnectDelay(2, () => 0), 2000);
+  assert.equal(reconnectDelay(16, () => 0), 30_000);
+  assert.equal(reconnectDelay(100, () => 0), 30_000);
+  assert.equal(reconnectDelay(0, () => 0.5), 550);
+});
 
 test('platform WebSocket deduplicates IDs and scopes sequence gaps to each channel', () => {
   withFakeWebSocket(() => {
