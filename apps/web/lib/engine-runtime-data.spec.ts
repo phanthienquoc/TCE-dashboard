@@ -86,3 +86,21 @@ test('engine runtime read rejects when its AbortSignal is cancelled', async () =
     api.defaults.adapter = previousAdapter;
   }
 });
+
+test('an already-aborted engine runtime signal prevents the request from reaching the adapter', async () => {
+  const previousAdapter = api.defaults.adapter;
+  let requestCount = 0;
+  api.defaults.adapter = async config => {
+    requestCount += 1;
+    return response(config, { accountId: 'account-1', engines: [] });
+  };
+
+  const controller = new AbortController();
+  controller.abort();
+  try {
+    await assert.rejects(loadEngineRuntime(controller.signal), error => axios.isCancel(error));
+    assert.equal(requestCount, 0);
+  } finally {
+    api.defaults.adapter = previousAdapter;
+  }
+});
