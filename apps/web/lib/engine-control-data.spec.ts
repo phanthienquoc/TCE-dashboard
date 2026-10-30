@@ -15,7 +15,9 @@ function response<T>(data: T): AxiosResponse<T> {
   };
 }
 
-test('Engine Control reads forward one effect-owned AbortSignal to both existing GETs', async () => {
+test(
+  'Engine Control reads forward one effect-owned AbortSignal to both existing GETs',
+  async () => {
   const originalEngines = dashboardApi.engines;
   const originalConfig = dashboardApi.engineConfig;
   const signals: Array<AbortSignal | undefined> = [];
@@ -56,7 +58,7 @@ test('aborting the shared signal cancels both pending Engine Control reads', asy
   const originalConfig = dashboardApi.engineConfig;
   const signals: Array<AbortSignal | undefined> = [];
   const pendingRead = (signal?: AbortSignal) =>
-    new Promise<AxiosResponse<unknown>>((resolve, reject) => {
+    new Promise<AxiosResponse<unknown>>((_resolve, reject) => {
       signals.push(signal);
       if (signal?.aborted) {
         reject(new Error('cancelled'));
@@ -84,7 +86,9 @@ test('aborting the shared signal cancels both pending Engine Control reads', asy
   }
 });
 
-test('Engine Control read helper normalizes empty response collections without changing the API contract', async () => {
+test(
+  'Engine Control read helper normalizes empty response collections without changing the API contract',
+  async () => {
   const originalEngines = dashboardApi.engines;
   const originalConfig = dashboardApi.engineConfig;
 
