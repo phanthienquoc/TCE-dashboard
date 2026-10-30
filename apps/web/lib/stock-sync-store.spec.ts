@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
+  AxiosError,
   AxiosHeaders,
   type AxiosRequestConfig,
   type AxiosResponse,
@@ -43,6 +44,21 @@ function response<T>(data: T): AxiosResponse<T> {
     headers: new AxiosHeaders(),
     config: { headers: new AxiosHeaders() } as InternalAxiosRequestConfig,
   };
+}
+
+function httpError(status: number, internalMessage: string): AxiosError {
+  const config = {
+    headers: new AxiosHeaders(),
+  } as InternalAxiosRequestConfig;
+  const errorResponse: AxiosResponse<{ message: string }> = {
+    data: { message: internalMessage },
+    status,
+    statusText: status === 403 ? 'Forbidden' : 'Internal Server Error',
+    headers: new AxiosHeaders(),
+    config,
+  };
+
+  return new AxiosError(internalMessage, 'ERR_BAD_REQUEST', config, undefined, errorResponse);
 }
 
 test('clear aborts account-scoped reads and blocks late responses from restoring old data', async () => {
@@ -181,6 +197,67 @@ test('clear prevents a late save response from restoring previous-account config
     assert.equal(useStockSyncStore.getState().config.telegramCredentialId, null);
     assert.equal(useStockSyncStore.getState().saving, false);
     assert.equal(useStockSyncStore.getState().initialized, false);
+  } finally {
+    useStockSyncStore.getState().clear();
+    api.post = originalPost;
+  }
+});
+
+
+test('refresh normalizes backend errors instead of exposing internal response details', async () => {
+  const originalGet = api.get;
+  api.get = (async () => {
+    throw httpError(403, 'internal database schema and connection detail');
+  }) as typeof api.get;
+
+  try {
+    useStockSyncStore.getState().clear();
+    await useStockSyncStore.getState().refresh();
+
+    const state = useStockSyncStore.getState();
+    assert.equal(state.message, 'You do not have permission to perform this action.');
+    assert.equal(state.message?.includes('internal database'), false);
+    assert.equal(state.loading, false);
+  } finally {
+    useStockSyncStore.getState().clear();
+    api.get = originalGet;
+  }
+});
+
+test('save normalizes server errors without exposing raw backend details', async () => {
+  const originalPost = api.post;
+  api.post = (async () => {
+    throw httpError(500, 'internal database schema and connection detail');
+  }) as typeof api.post;
+
+  try {
+    useStockSyncStore.getState().clear();
+    await useStockSyncStore.getState().save();
+
+    const state = useStockSyncStore.getState();
+    assert.equal(state.message, 'The service is temporarily unavailable. Please try again.');
+    assert.equal(state.message?.includes('internal database'), false);
+    assert.equal(state.saving, false);
+  } finally {
+    useStockSyncStore.getState().clear();
+    api.post = originalPost;
+  }
+});
+
+test('trigger normalizes authorization errors without exposing raw backend details', async () => {
+  const originalPost = api.post;
+  api.post = (async () => {
+    throw httpError(403, 'internal database schema and connection detail');
+  }) as typeof api.post;
+
+  try {
+    useStockSyncStore.getState().clear();
+    await useStockSyncStore.getState().trigger();
+
+    const state = useStockSyncStore.getState();
+    assert.equal(state.message, 'You do not have permission to perform this action.');
+    assert.equal(state.message?.includes('internal database'), false);
+    assert.equal(state.triggering, false);
   } finally {
     useStockSyncStore.getState().clear();
     api.post = originalPost;
