@@ -244,7 +244,7 @@ jobs:
       - build-shell
       - build-ws
     runs-on: ubuntu-latest
-    timeout-minutes: 35
+    timeout-minutes: 45
     steps:
       - name: Download all image metadata
         uses: actions/download-artifact@v4
