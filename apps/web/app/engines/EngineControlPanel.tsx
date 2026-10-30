@@ -4,31 +4,24 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Card } from '../../components/ui/card';
 import { dashboardApi } from '../../lib/api';
+import { loadEngineControlData, type EngineControlConfig } from '../../lib/engine-control-data';
 import { useTCEDataStore } from '../../lib/tce-data-store';
 import { ENGINE_REGISTRY, EngineId } from './engine-registry';
 
-type EngineState = { engineId: string; status: string };
-type EngineConfig = {
-  engineId: string;
-  enabled: boolean;
-  config: Record<string, unknown>;
-  updatedAt?: string | null;
-};
-
 export default function EngineControlPanel() {
   const cachedEngines = useTCEDataStore(s => s.engines);
-  const [configs, setConfigs] = useState<EngineConfig[]>([]);
+  const [configs, setConfigs] = useState<EngineControlConfig[]>([]);
   const [enabled, setEnabled] = useState<Record<string, boolean>>({});
   const [loading, setLoading] = useState(cachedEngines === null);
   const [updating, setUpdating] = useState<string | null>(null);
 
   useEffect(() => {
-    let mounted = true;
-    Promise.all([dashboardApi.engines(), dashboardApi.engineConfig()])
-      .then(([stateResponse, configResponse]) => {
-        if (!mounted) return;
-        const states = (stateResponse.data ?? []) as EngineState[];
-        const dbConfigs = (configResponse.data ?? []) as EngineConfig[];
+    const controller = new AbortController();
+    let active = true;
+
+    void loadEngineControlData(controller.signal)
+      .then(({ states, configs: dbConfigs }) => {
+        if (!active || controller.signal.aborted) return;
         const byId = new Map(dbConfigs.map(row => [row.engineId, row]));
         const stateById = new Map(states.map(row => [row.engineId, row]));
         const merged = ENGINE_REGISTRY.map(definition => ({
@@ -43,9 +36,13 @@ export default function EngineControlPanel() {
         setEnabled(Object.fromEntries(merged.map(row => [row.engineId, row.enabled])));
         setLoading(false);
       })
-      .catch(() => mounted && setLoading(false));
+      .catch(() => {
+        if (active && !controller.signal.aborted) setLoading(false);
+      });
+
     return () => {
-      mounted = false;
+      active = false;
+      controller.abort();
     };
   }, [cachedEngines]);
 
