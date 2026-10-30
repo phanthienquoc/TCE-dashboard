@@ -201,7 +201,7 @@ sequenceDiagram
 
 ## Completion boundary
 
-This document maintains the **source mapping/audit task** for the five existing lesson files against source baseline `05fc77704b2af8c87a2ed89693e9da41b04126bb` (2026-10-30). Day 10 bounded read-lifecycle/error-handling slices are merged; Day 12 now includes Engine Runtime cache invalidation (PR #985) and Telegram config local UI state isolation (PR #986). Exact-head CI passed for both, but post-merge status remains WARN. Day 11 browser WebSocket auth, Day 12 snapshot/event ordering, Day 13 profiling, live database state and production verification remain incomplete.
+This document maintains the **source mapping/audit task** for the five existing lesson files against source baseline `171541ae67246c3aae264f05a2950bf9f56c7c54` (2026-10-31). Day 10 bounded read-lifecycle/error-handling slices include PR #994 safe worker logging; Day 12 includes account-scoped cache invalidation and local UI state isolation. Exact-head CI for PR #994 passed; post-merge WF-02 `41112463811`, WF-05 `41112463921`, and WF-01 image/config verification `41112463838` all passed. WF-01 verifies images/config/YAML only; it does not deploy production. Day 11 browser WebSocket auth, Day 12 snapshot/event ordering, Day 13 profiling, live database state and production verification remain incomplete.
 
 ## Maintenance
 
@@ -244,3 +244,23 @@ Master is `c44dbb58d33379fa53fefcad1958be0fc52c5636`, verified identical to PR #
 - **Readiness boundary:** no API/auth protocol, server authorization, database/schema/RLS, trading/execution, production configuration, or market-scan scheduling behavior changed. `CURR-DATA-04` remains open for server snapshot watermark/version, event ordering and replay/reconciliation evidence. No production deployment is claimed.
 - **Component boundary:** the account key isolates React-local state only; the existing paired authenticated GET remains the data source and server authorization remains unchanged.
 - **Cross-document contract:** Day 12, the shared backlog, and the audit matrix agree that this change is client-local; `CURR-DATA-04` remains open for snapshot/event ordering and replay/reconciliation.
+
+## Latest source recheck after PR #994
+
+Master is `171541ae67246c3aae264f05a2950bf9f56c7c54`, the squash merge of PR #994. The app-data worker now calls the existing `normalizeApiError` helper in its task rejection path and logs only an allow-listed object containing failure kind, controlled message, retryability, and optional HTTP status. The raw Axios error is no longer passed to `console.warn`, so request headers and arbitrary backend response bodies are not serialized into worker logs.
+
+- **Runtime paths:** `apps/web/lib/app-data-worker.ts` and `apps/web/lib/app-data-worker.spec.ts`.
+- **Exact-head CI:** PR head `7989c82675ef556d426fd2fa1f3d35db83c74118` passed WF-01P `41111968892`, WF-02 `41111968970`, and WF-05 `41111968847`. The test log confirms the new synthetic Axios-error redaction test ran; Vitest reported 24 files / 103 tests passed.
+- **Post-merge verification:** master equals `171541ae67246c3aae264f05a2950bf9f56c7c54`. WF-02 `41112463811`, WF-05 `41112463921`, and WF-01 `41112463838` all passed after merge. Post-merge verification for these checks is PASS; WF-01 is image/config/YAML verification, not a production deployment.
+- **Safety boundary:** no API/auth contract, account isolation, persistence, trading/execution, production configuration, or market-scan schedule changed. No secret values were read. `CURR-SVC-03` remains open for broader API/event caller and end-to-end contract audit.
+
+```mermaid
+flowchart TD
+  A[Worker task rejects] --> B{Generation current and signal active?}
+  B -->|No| C[Ignore stale or aborted work]
+  B -->|Yes| D[normalizeApiError]
+  D --> E[Allow-listed failure metadata]
+  E --> F[console.warn with task key + safe metadata]
+  F --> G[Increment failed count]
+  D -. raw Axios object is not logged .-> H[Authorization headers and response body remain private]
+```
