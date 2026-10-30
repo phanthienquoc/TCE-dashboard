@@ -19,7 +19,6 @@ const DEPENDENCIES: Record<string, string[]> = {
   'binance-xau': ['binance-derivatives'],
 };
 
-
 export default function EngineWorkflowScreen() {
   const [runtime, setRuntime] = useState<WorkflowEngine[]>([]);
   const [loading, setLoading] = useState(true);
@@ -39,7 +38,7 @@ export default function EngineWorkflowScreen() {
       if (!mounted.current || controller.signal.aborted) return;
       setRuntime(
         ENGINE_REGISTRY.map(definition => {
-          const row = rows.find((item: EngineRuntimeRow) => item.engineId === definition.id);
+          const row = rows.find(item => item.engineId === definition.id);
           return {
             id: definition.id,
             name: definition.name,
