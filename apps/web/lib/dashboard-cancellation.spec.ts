@@ -8,15 +8,12 @@ import { useDashboardStore } from './store';
 type Deferred<T> = {
   promise: Promise<T>;
   resolve: (value: T) => void;
-  reject: (reason?: unknown) => void;
 };
 
 function deferred<T>(): Deferred<T> {
   let resolvePromise: ((value: T) => void) | undefined;
-  let rejectPromise: ((reason?: unknown) => void) | undefined;
   const promise = new Promise<T>((resolve, reject) => {
     resolvePromise = resolve;
-    rejectPromise = reject;
   });
 
   return {
@@ -24,10 +21,6 @@ function deferred<T>(): Deferred<T> {
     resolve: value => {
       if (!resolvePromise) throw new Error('Deferred promise has not initialized its resolver');
       resolvePromise(value);
-    },
-    reject: reason => {
-      if (!rejectPromise) throw new Error('Deferred promise has not initialized its rejecter');
-      rejectPromise(reason);
     },
   };
 }
