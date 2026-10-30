@@ -1,6 +1,6 @@
 # Senior Frontend Day 10 — REST APIs, Error Handling & Cancellation
 
-> Duration: 60 minutes. This lesson is aligned with the real TCE Dashboard repository and the implementation in `apps/web/lib/api.ts`, `apps/web/lib/api-errors.ts`, `apps/web/lib/store.ts`, `apps/web/lib/stock-dividend-pool-store.ts`, `apps/web/lib/stock-event-store.ts`, `apps/web/lib/app-data-worker.ts`, `apps/web/lib/telegram-notification-data.ts` and its consumers, plus `apps/web/lib/engine-control-data.ts`, `apps/web/app/engines/EngineControlPanel.tsx`, `apps/web/lib/engine-runtime-data.ts`, and `apps/web/app/settings/engine/EngineWorkflowScreen.tsx`.
+> Duration: 60 minutes. This lesson is aligned with the real TCE Dashboard repository and the implementation in `apps/web/lib/api.ts`, `apps/web/lib/api-errors.ts`, `apps/web/lib/store.ts`, `apps/web/lib/stock-dividend-pool-store.ts`, `apps/web/lib/stock-event-store.ts`, `apps/web/lib/app-data-worker.ts`, `apps/web/lib/telegram-notification-data.ts` and its consumers, plus `apps/web/lib/engine-control-data.ts`, `apps/web/app/engines/EngineControlPanel.tsx`, `apps/web/lib/engine-runtime-data.ts`, `apps/web/app/settings/engine/EngineWorkflowScreen.tsx`, `apps/web/components/dashboard/DividendOneYearCandleChart.tsx`, `apps/web/lib/dividend-ohlcv-store.ts`, and `apps/web/lib/dividend-ohlcv-store.spec.ts`.
 
 ## Implementation readiness — cross-layer assessment
 
@@ -747,7 +747,7 @@ sequenceDiagram
 
 **Implementation evidence:** PR #976 merged at `4431264eea50c8adba67a6ca6160ea17a4fddc26`. The shared frontend request limit is used in `DividendPositionsView`, `DashboardViews`, the app-data worker and the stock-events page. The service's existing cap is named `MAX_LIMIT = 200`; `stock-event-read-lifecycle.spec.ts` and `stock-events.service.spec.ts` verify request-limit usage and server clamping. Final-head WF-01P/WF-02/WF-05/WF-11 passed; post-merge status remains unverified. The service maximum, authenticated route, repository selection, schema, trading/execution behavior and market-scan schedule remain unchanged.
 
-**Audit cross-reference:** Current Day 9–13 evidence is maintained in [Implementation Audit & Readiness](implementation-audit-readiness.md) and the [Cross-Layer Curriculum Backlog](backlog/curriculum-implementation-backlog.md), rechecked against latest master `ef40e664662b9df9c55c2cb30b54b4dabc3e4077`. PR #976's stock-event limit alignment and PR #978's Engine Workflow runtime-read cancellation are merged with exact-head CI passing; post-merge status for `ef40e664` remains unverified. PR #975's watcher traffic guard remains a separate service-file change.
+**Audit cross-reference:** Current Day 9–13 evidence is maintained in [Implementation Audit & Readiness](implementation-audit-readiness.md), the [Architecture Map](architecture-map.md), and the [Cross-Layer Curriculum Backlog](backlog/curriculum-implementation-backlog.md), rechecked against source baseline `dc11adc6aaa73436857512173d4f26a2a7b027a9`. PR #976's stock-event limit alignment, PR #978's Engine Workflow runtime-read cancellation, and PR #981's Dividend OHLCV chart-history cancellation are merged with exact-head CI passing; post-merge status for `dc11adc` remains unverified. PR #975's watcher traffic guard remains a separate service-file change.
 
 ## Engine Workflow runtime-read lifecycle (2026-10-30)
 
@@ -777,3 +777,37 @@ Note over UI,API: Client cancellation does not prove server-side work was rolled
 **Implementation evidence:** PR #978 merged at `ef40e664662b9df9c55c2cb30b54b4dabc3e4077`. `dashboardApi.engineRuntime` forwards the signal; `engine-runtime-data.ts` normalizes the response collection; `EngineWorkflowScreen.tsx` aborts on cleanup/superseding loads, guards state/loading commits, and displays normalized safe errors. `engine-runtime-data.spec.ts` verifies signal forwarding, malformed collection handling, in-flight cancellation, and pre-aborted signals. Exact PR head `58694a8241862aa2c1cc2a75f36ccf40691c0104` passed WF-01P `41060920532`, WF-02 `41060920537`, and WF-05 `41060920340`; WF-05 logs include all four new tests and 24 Vitest files / 103 tests passed. Post-merge status remains unverified.
 
 **Safety boundary:** The endpoint, JWT authentication, account binding, engine status/configuration writes, dependency gating, database schema, trading/execution behavior and market-scan schedule are unchanged. No production deployment is claimed. Keep `CURR-SVC-03` open for the broader API/event contract audit.
+
+## Dividend OHLCV chart read lifecycle (PR #981, 2026-10-30)
+
+The one-year mini candlestick chart now owns an `AbortController` in its effect and aborts the existing authenticated history read on unmount or symbol change. `useDividendOhlcvStore.load` accepts the caller signal, forwards a linked signal to `dashboardApi.priceHistory`, immediately resets loading when the caller cancels, and uses a per-symbol generation fence so late results cannot restore data after a clear/reload. Cancellation is control flow rather than a visible error; other errors pass through the shared safe API-error normalizer.
+
+```mermaid
+sequenceDiagram
+  participant Chart as DividendOneYearCandleChart
+  participant Store as useDividendOhlcvStore
+  participant API as dashboardApi.priceHistory
+  participant Controller as DashboardPriceHistoryController
+  participant Service as DividendOhlcvService
+  participant DB as tce_market_ohlcv_daily
+  Chart->>Chart: Create effect-owned AbortController
+  Chart->>Store: load(symbol, 365, signal)
+  Store->>Store: Create linked controller + generation
+  Store->>API: Existing authenticated history GET + linked signal
+  API->>Controller: Bearer JWT request
+  Controller->>Service: Existing history query
+  Service->>DB: Read shared rows by symbol/date
+  DB-->>Service: OHLCV rows
+  Service-->>API: Existing response shape
+  API-->>Store: Response
+  Store->>Store: Commit only while generation is current
+  alt Chart unmounts or symbol changes
+    Chart->>Store: Abort caller signal
+    Store->>API: Abort linked request and reset loading
+    Store->>Store: Ignore late response
+  end
+```
+
+**Implementation evidence:** PR #981 merged at `dc11adc6aaa73436857512173d4f26a2a7b027a9`. The changed runtime paths are `apps/web/components/dashboard/DividendOneYearCandleChart.tsx`, `apps/web/lib/dividend-ohlcv-store.ts`, and `apps/web/lib/dividend-ohlcv-store.spec.ts`. Four tests cover signal propagation and data normalization, cancellation/loading state, stale-response rejection after clear/reload, and safe error fallback. Final PR head `27ab1b9ea98f55286869d3fe21931dd55c442f8b` passed WF-01P `41069139823`, WF-02 `41069139440`, and WF-05 `41069139458`; WF-05 logs confirm 271 Node tests passed / 0 failed and 24 Vitest files / 103 tests passed. Post-merge status/workflow records for `dc11adc` were not surfaced, so post-merge verification remains WARN.
+
+**Safety boundary:** The authenticated endpoint, Bearer JWT, response shape, shared OHLCV data selection, database/schema, engine writes, trading/execution behavior, production configuration, and market-scan schedule are unchanged. Browser cancellation does not prove server work already received was rolled back. No production deployment is claimed. Keep `CURR-SVC-03` open for the broader API/event caller and end-to-end contract audit.
