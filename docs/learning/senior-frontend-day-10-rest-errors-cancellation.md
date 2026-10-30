@@ -812,7 +812,6 @@ sequenceDiagram
 
 **Safety boundary:** The authenticated endpoint, Bearer JWT, response shape, shared OHLCV data selection, database/schema, engine writes, trading/execution behavior, production configuration, and market-scan schedule are unchanged. Browser cancellation does not prove server work already received was rolled back. No production deployment is claimed. Keep `CURR-SVC-03` open for the broader API/event caller and end-to-end contract audit.
 
-
 ## Stock Events Sync safe error handling (PR #983, 2026-10-30)
 
 The Stock Events Sync store now uses the existing `normalizeApiError` helper for refresh, save, and trigger failures. Previously, these three catch paths copied `error.message` directly into the store's user-visible `message` state, which could expose low-level Axios text or an arbitrary thrown exception. The shared normalizer keeps stable, status-specific messages and uses the operation's safe fallback for non-Axios errors.
