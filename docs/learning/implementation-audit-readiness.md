@@ -25,7 +25,7 @@ This is an evidence-backed snapshot. It does not claim that unmeasured runtime b
 
 ### Readiness decisions
 
-- **GO / merged:** Day 10 market-price payload validation is implemented in the actual dashboard store path and passed exact-head frontend build, Prettier, and unit CI. Master post-merge WF-01 was pending at the time of this snapshot; do not claim environment or production verification.
+- **GO / merged:** Day 10 market-price payload validation is implemented in the actual dashboard store path and passed exact-head frontend build, Prettier, and unit CI. Master post-merge WF-01 passed on merge commit `4808382`; no environment or production verification is claimed.
 - **PARTIALLY READY:** Day 9 architecture/source mapping is verified, but an authenticated Server Component migration remains unjustified until session propagation, freshness, loading/error, and deployment contracts are designed.
 - **PARTIALLY READY:** Day 10's tested cancellation/error subset and quote-validation boundary are implemented. The broader audit of every API read caller is not yet complete.
 - **BLOCKED:** Day 11 browser quote streaming remains blocked by `CURR-AUTH-07`. An HTTP preflight does not authenticate the later browser WebSocket upgrade; never put bearer tokens in a URL.
