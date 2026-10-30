@@ -37,6 +37,7 @@ flowchart TD
   Auth[useAuthStore / session-token]
   API[apps/web/lib/api.ts<br/>Axios API + authClient]
   DashboardStore[useDashboardStore<br/>apps/web/lib/store.ts]
+  PriceValidator[normalizeMarketPricePayload<br/>apps/web/lib/market-price-validation.ts]
   TCEStore[useTCEDataStore<br/>apps/web/lib/tce-data-store.ts]
   Service[apps/service API]
   RuntimeEvents[Runtime Events Controller]
@@ -55,6 +56,8 @@ flowchart TD
   DashboardStore --> API
   TCEStore --> API
   API --> Service
+  DashboardStore -. "untrusted quote payload" .-> PriceValidator
+  PriceValidator -. "accepted rows + rejection counts" .-> DashboardStore
   WSClient -. "separate upgrade/auth contract" .-> WSService
   Service --> RuntimeEvents --> RuntimeQuery --> Supabase
   WSService --> RuntimeQuery
