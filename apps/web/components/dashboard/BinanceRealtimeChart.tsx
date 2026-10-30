@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { fetchBinanceKlineHistory } from '../../lib/binance-kline-history';
 import {
   CandlestickSeries,
   ColorType,
@@ -62,6 +63,7 @@ export function BinanceRealtimeChart({
     const container = containerRef.current;
     if (!container) return;
 
+    const historyController = new AbortController();
     const chart = createChart(container, {
       autoSize: true,
       layout: {
@@ -99,13 +101,13 @@ export function BinanceRealtimeChart({
 
     const loadHistory = async () => {
       try {
-        const response = await fetch(
-          `https://api.binance.com/api/v3/klines?symbol=${normalized.toUpperCase()}&interval=${encodeURIComponent(interval)}&limit=${Math.min(Math.max(limit, 50), 1000)}`,
-          { cache: 'no-store' }
+        const rows = await fetchBinanceKlineHistory(
+          normalized,
+          interval,
+          limit,
+          historyController.signal
         );
-        if (!response.ok) throw new Error(`Binance HTTP ${response.status}`);
-        const rows = (await response.json()) as string[][];
-        if (disposed) return;
+        if (disposed || historyController.signal.aborted) return;
         const candles = rows.map(row => ({
           time: Math.floor(Number(row[0]) / 1000) as UTCTimestamp,
           open: Number(row[1]),
@@ -119,7 +121,7 @@ export function BinanceRealtimeChart({
         const last = candles.at(-1);
         if (last) setPrice(last.close);
       } catch (cause) {
-        if (!disposed)
+        if (!disposed && !historyController.signal.aborted)
           setError(cause instanceof Error ? cause.message : 'Unable to load Binance history');
       }
     };
@@ -180,6 +182,7 @@ export function BinanceRealtimeChart({
 
     return () => {
       disposed = true;
+      historyController.abort();
       socketRef.current?.close(1000, 'unmount');
       socketRef.current = null;
       chart.remove();
