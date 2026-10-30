@@ -60,6 +60,7 @@ function stockEvent(id: string): StockEvent {
   };
 }
 
+// Resolve the mock even after abort so the store's generation guard is verified independently of Axios.
 test('clear aborts the in-flight stock-event read and ignores its late response', async () => {
   const originalGet = api.get;
   const pending = deferred<AxiosResponse<unknown>>();
