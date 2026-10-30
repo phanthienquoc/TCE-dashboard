@@ -424,23 +424,23 @@ These are useful foundations, but they do not mean every response in the applica
 REST snapshot ─────────────┐
                            v
 Runtime events ──> Validate contract
-                           |
+|     |
                            v
                  Normalize entity identity
-                           |
+|     |
                            v
               Merge using version/watermark
-                           |
+|     |
                  +---------+---------+
-                 |                   |
+|     |
                  v                   v
           Canonical entities     Cache metadata
           by stable key          cursor/freshness
-                 |                   |
+|     |
                  +---------+---------+
                            v
                     Narrow selectors
-                           |
+|     |
                            v
                    React dashboard UI
 ```
