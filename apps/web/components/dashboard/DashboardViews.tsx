@@ -17,6 +17,7 @@ import {
 import { useEffect, useMemo, useState } from 'react';
 import PlatformConfigTab from '../config/PlatformConfigTab';
 import { useStockEventStore, type StockEvent } from '../../lib/stock-event-store';
+import { startStockEventRead } from '../../lib/stock-event-read-lifecycle';
 import { useDashboardStore } from '../../lib/store';
 import type { DashboardActions, DashboardData } from './DashboardShell';
 
@@ -239,9 +240,7 @@ export function PositionsView({ data, actions }: ViewProps) {
   const syncMarketPrices = useDashboardStore(s => s.syncMarketPrices);
   const [expandedDividend, setExpandedDividend] = useState<string | null>(null);
   const [collapsedDividendMonths, setCollapsedDividendMonths] = useState<Set<string>>(new Set());
-  useEffect(() => {
-    void load(200, false, null);
-  }, [load]);
+  useEffect(() => startStockEventRead({ limit: 200, force: false, month: null }, load), [load]);
   const dividendMonthGroups = useMemo(() => {
     const grouped = new Map<string, Map<string, StockEvent[]>>();
     const now = new Date();
