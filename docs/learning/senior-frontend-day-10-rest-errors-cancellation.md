@@ -697,4 +697,3 @@ sequenceDiagram
 ```
 
 **Readiness decision:** GO for this bounded client-side cancellation slice only. The broader `CURR-SVC-03` API/event contract audit remains open; post-merge checks and production behavior remain unverified.
-
