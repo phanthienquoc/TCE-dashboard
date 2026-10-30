@@ -134,12 +134,21 @@ export function DividendOneYearCandleChart({ symbol }: Props) {
                 width={bodyWidth}
                 height={bodyHeight}
                 fill="currentColor"
-                rx="0.5"
+                fillOpacity="0.78"
+                rx="0.7"
               />
             </g>
           );
         })}
       </svg>
+      <div className="flex items-center justify-between px-1 text-[8px] text-slate-500">
+        <span>Low {formatPrice(chart.min)}</span>
+        <span>High {formatPrice(chart.max)}</span>
+      </div>
     </div>
   );
+}
+
+function formatPrice(value: number) {
+  return value.toLocaleString('vi-VN');
 }
