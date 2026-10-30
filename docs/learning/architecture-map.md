@@ -251,7 +251,7 @@ Master is `171541ae67246c3aae264f05a2950bf9f56c7c54`, the squash merge of PR #99
 
 - **Runtime paths:** `apps/web/lib/app-data-worker.ts` and `apps/web/lib/app-data-worker.spec.ts`.
 - **Exact-head CI:** PR head `7989c82675ef556d426fd2fa1f3d35db83c74118` passed WF-01P `41111968892`, WF-02 `41111968970`, and WF-05 `41111968847`. The test log confirms the new synthetic Axios-error redaction test ran; Vitest reported 24 files / 103 tests passed.
-- **Post-merge verification:** master equals `171541ae67246c3aae264f05a2950bf9f56c7c54`. WF-02 `41112463811` passed; WF-05 `41112463921` and WF-01 `41112463838` were still in progress at this audit snapshot. Treat post-merge verification as WARN until the remaining checks finish. WF-01 is image/config/YAML verification, not a production deployment.
+- **Post-merge verification:** master equals `171541ae67246c3aae264f05a2950bf9f56c7c54`. WF-02 `41112463811` and WF-05 `41112463921` passed; WF-01 `41112463838` remained in progress at this audit snapshot. Treat post-merge verification as WARN until the remaining checks finish. WF-01 is image/config/YAML verification, not a production deployment.
 - **Safety boundary:** no API/auth contract, account isolation, persistence, trading/execution, production configuration, or market-scan schedule changed. No secret values were read. `CURR-SVC-03` remains open for broader API/event caller and end-to-end contract audit.
 
 ```mermaid
