@@ -7,6 +7,12 @@ import { RuntimeEventsQueryService } from './runtime-events.query.service';
 
 type UpgradeRequest = import('node:http').IncomingMessage;
 
+export const RUNTIME_EVENTS_WS_MAX_BUFFERED_BYTES = 1024 * 1024;
+
+export function isRuntimeEventsWsBackpressured(bufferedAmount: number): boolean {
+  return bufferedAmount >= RUNTIME_EVENTS_WS_MAX_BUFFERED_BYTES;
+}
+
 function originAllowed(request: UpgradeRequest, hasCookie: boolean): boolean {
   const origin = request.headers.origin;
   if (!origin) return !hasCookie;
@@ -44,10 +50,10 @@ async function resolveAccountId(request: UpgradeRequest, jwt: JwtService): Promi
 
 function rejectUpgrade(socket: Duplex, status: 400 | 401 | 403, message: string): void {
   socket.write(
-    `HTTP/1.1 ${status} ${status === 400 ? 'Bad Request' : status === 401 ? 'Unauthorized' : 'Forbidden'}\r\n` +
-      'Connection: close\r\n' +
-      'Content-Type: text/plain; charset=utf-8\r\n' +
-      `Content-Length: ${Buffer.byteLength(message)}\r\n\r\n` +
+    `HTTP/1.1 ${status} ${status === 400 ? 'Bad Request' : status === 401 ? 'Unauthorized' : 'Forbidden'}\\r\\n` +
+      'Connection: close\\r\\n' +
+      'Content-Type: text/plain; charset=utf-8\\r\\n' +
+      `Content-Length: ${Buffer.byteLength(message)}\\r\\n\\r\\n` +
       message
   );
   socket.destroy();
@@ -108,7 +114,13 @@ export function attachRuntimeEventsWebSocket(
         const sent = new Set<string>();
 
         const poll = async () => {
-          if (polling || client.readyState !== WebSocket.OPEN) return;
+          if (
+            polling ||
+            client.readyState !== WebSocket.OPEN ||
+            isRuntimeEventsWsBackpressured(client.bufferedAmount)
+          ) {
+            return;
+          }
           polling = true;
           try {
             const batch = await events.listForAccount(accountId, {
@@ -118,14 +130,28 @@ export function attachRuntimeEventsWebSocket(
               ...(eventType ? { eventType } : {}),
             });
             for (const event of batch) {
+              if (sent.has(event.eventId)) {
+                cursor = event.occurredAt;
+                cursorEventId = event.eventId;
+                continue;
+              }
+
+              // Pause without advancing the cursor when the socket buffer is full.
+              // The next poll resumes from the last event queued for delivery.
+              if (
+                client.readyState !== WebSocket.OPEN ||
+                isRuntimeEventsWsBackpressured(client.bufferedAmount)
+              ) {
+                break;
+              }
+
+              client.send(JSON.stringify(event));
               cursor = event.occurredAt;
               cursorEventId = event.eventId;
-              if (sent.has(event.eventId)) continue;
               sent.add(event.eventId);
               while (sent.size > 1000) {
                 sent.delete(sent.values().next().value as string);
               }
-              if (client.readyState === WebSocket.OPEN) client.send(JSON.stringify(event));
             }
           } catch {
             if (client.readyState === WebSocket.OPEN) {
