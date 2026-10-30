@@ -10,67 +10,49 @@ This is an evidence-backed snapshot. It does not claim that unmeasured runtime b
 
 ## 1. System Readiness Check
 
-- **Scope and criteria — PASS:** reviewed all five Day 9–13 lesson files, the shared readiness gate, and both implementation backlogs.
-- **Default branch/base — PASS:** repository default branch is `master`; audited SHA is `41b0afa91ebaa201564620a9278a131306642329`.
-- **PR overlap — WARN:** [PR #936](https://github.com/phanthienquoc/TCE-dashboard/pull/936) was closed without merge because it was stale, had a failing Prettier check, and introduced a WebSocket quote client without a verified browser-to-socket auth handshake. Its branch is reference only. [PR #946](https://github.com/phanthienquoc/TCE-dashboard/pull/946) merged as `c324e3b`; its Prettier and backend unit checks passed. Master post-merge image/build verification is still running. [PR #947](https://github.com/phanthienquoc/TCE-dashboard/pull/947) tracks the remaining secure WebSocket auth design.
-- **Source/dependencies — PASS with gaps:** master contains the centralized API/auth client, cancellation-aware dashboard reads, runtime-event REST/SSE controller, persisted event query service, and read-only WebSocket adapter. The frontend quote-stream implementation from PR #936 is not on master.
-- **Working-tree safety — WARN:** dedicated branches are used. A local working-tree snapshot is not observable through the GitHub connector.
-- **Build/test baseline — WARN:** PR #946 Prettier and backend unit tests passed before merge; master backend unit tests also passed. The post-merge Build + Verify job is still running at this snapshot. Historical PR #936 frontend build, backend tests and mobile viewport contract passed, but Prettier failed; those results do not validate unmerged code.
-- **Infrastructure/deployment — N/A:** this audit made no deployment or live service mutation. Verify actual service health and routing before runtime rollout.
-- **Secrets/permissions — N/A:** no secret values were read or changed. Verify the actual credential path before any socket-auth implementation.
-- **Database/migrations — PASS for cursor design:** existing `tce_runtime_events` has `event_id` as primary key and includes `account_id` and `occurred_at`. The SSE cursor task requires no schema change. Live schema drift was not queried.
-- **Production risk/rollback — WARN:** no production deployment is authorized. Auth, RLS, schema, live execution and schedule changes require their own readiness check and rollback plan.
+| Area | Status | Evidence |
+|---|---|---|
+| Scope and criteria | PASS | Reviewed all five existing Day 9–13 lesson files, shared readiness gate, cross-layer backlog, Day 13 backlog, source map, and related merged/open PRs. No root `curriculum/` directory exists; the learning-specific backlog is under `docs/learning/backlog/`. |
+| Default branch and base | PASS | Default branch is `master`. This audit branch was created from master `48083829805ed3d60162c77604e11b8b084bde89` after Day 10 quote validation merged. |
+| Open PR overlap | PASS | PR #949 is merged at `4808382`. The only remaining open PR found is #928, which changes only `plan/agentic-task-queue.md`; it does not overlap the learning audit, source map, backlog, or Day 10 lesson. PR #936 remains closed without merge. |
+| Source and dependencies | PASS for Day 10 quote validation; PARTIAL for the curriculum overall | Verified `apps/web/lib/store.ts`, `apps/web/lib/api.ts`, `apps/web/lib/market-price-validation.ts`, `apps/service/src/dashboard/dashboard.controller.ts`, and `libs/ssi/src/ssi.broker.adapter.ts`. Day 11 WebSocket auth, Day 12 snapshot/event ordering, and Day 13 profiling remain unresolved as detailed below. |
+| Working-tree/change safety | WARN | Branch heads and complete PR diffs are observable through GitHub; a local working-tree snapshot is not available through this connector. |
+| Build/test baseline | WARN pending post-merge build | PR #949 exact-head WF-01P frontend build, WF-02 Prettier, and WF-05 unit tests passed on `ab82c8a`. On merge commit `4808382`, WF-02 and WF-05 passed; master WF-01 Build + Verify was still running at this audit snapshot. Do not treat the pending job as PASS. |
+| Infrastructure and deployment | N/A for this audit refresh | This branch changes learning documentation only. No deployment, workflow, manifest, service configuration, or live environment was changed. |
+| Secrets and permissions | N/A for this audit refresh | No secret values were read or changed. The merged PR's master workflow checked required-secret presence without printing values; that is not a production verification claim. |
+| Database/schema/migrations | WARN / unresolved | No live schema, RLS, or migration-ledger query was performed. Keep `CURR-DATA-04` and the open migration-provenance PR #928 as unresolved; no database mutation is authorized. |
+| Production risk and rollback | PASS for documentation; PASS for bounded Day 10 UI validation | PR #949 changes only client-side market-price validation, its tests, and Day 10 evidence. It does not change auth, database schema/RLS, trading strategy, execution, market-scan schedules, or deployment. The runtime change can be reverted by reverting squash commit `4808382`; no deployment rollback is applicable because no deployment was performed. |
 
 ### Readiness decisions
 
-- **GO:** documentation/readiness maintenance and the bounded SSE `Last-Event-ID` change in PR #946, subject to CI and diff review.
-- **NO-GO:** merging PR #936 as-is. It combines Days 9–12, diverges from master, has a failing Prettier check, and has no verified browser-to-WebSocket identity transfer. An HTTP preflight does not authenticate the later WebSocket handshake.
-- **NO-GO:** Day 13 runtime optimization until a reproducible profile identifies a real bottleneck.
-- **BLOCKED:** frontend quote streaming from PR #936 until a secure socket-auth handshake is designed and integration-tested. Never put bearer tokens in a URL.
+- **GO / merged:** Day 10 market-price payload validation is implemented in the actual dashboard store path and passed exact-head frontend build, Prettier, and unit CI. Master post-merge WF-01 was pending at the time of this snapshot; do not claim environment or production verification.
+- **PARTIALLY READY:** Day 9 architecture/source mapping is verified, but an authenticated Server Component migration remains unjustified until session propagation, freshness, loading/error, and deployment contracts are designed.
+- **PARTIALLY READY:** Day 10's tested cancellation/error subset and quote-validation boundary are implemented. The broader audit of every API read caller is not yet complete.
+- **BLOCKED:** Day 11 browser quote streaming remains blocked by `CURR-AUTH-07`. An HTTP preflight does not authenticate the later browser WebSocket upgrade; never put bearer tokens in a URL.
+- **PARTIALLY READY / contract blocked:** Day 12 has existing stores and account-scoped replay, but no verified universal snapshot watermark or complete normalized entity cache. Keep `CURR-DATA-04` unresolved.
+- **BLOCKED:** Day 13 runtime optimization remains blocked until `PERF-13-01` call-site tracing, `PERF-13-02` reproducible baseline, and `PERF-13-03` acceptance criteria are completed. Do not add speculative memoization or virtualization.
+- **Inventory gap:** Day 1–8 lesson files are absent from the inspected `docs/learning/` listing. Keep `CURR-CATALOG-06` blocked; do not invent or claim those lessons were reviewed.
 
 ## 2. Audit matrix — existing Day 9–13 lessons
 
-| Lesson | Status  | Evidence                                                 | Next action                                                  |
-| ------ | ------- | -------------------------------------------------------- | ------------------------------------------------------------ |
-| Day 9  | PARTIAL | `layout.tsx`, `overview/page.tsx`, `providers.tsx`       | Map auth/cache ownership before SSR migration.               |
-| Day 10 | PARTIAL | `api-errors.ts`, `store.ts`, `tce-data-store.ts`         | Audit read callers for cancellation and safe errors.         |
-| Day 11 | PARTIAL | `microfe-ws.ts`, runtime-event service/controller        | Verify SSE resume; keep quote stream blocked on socket auth. |
-| Day 12 | PARTIAL | `store.ts`, `tce-data-store.ts`, `tce-event.contract.ts` | Confirm entity identity and snapshot/event ordering.         |
-| Day 13 | BLOCKED | Profiling lesson and backlog                             | Capture a baseline before optimizing.                        |
+| Lesson | Explicit requirement | Source paths | Actual implementation evidence on master | Tests and verification | Diagram/design artifact | Readiness | Remaining work | PR/merge status |
+|---|---|---|---|---|---|---|---|---|
+| Day 9 — Next.js | Keep Server/Client boundaries, route ownership, auth/session and cache freshness correct; do not migrate SSR without a verified session design. | `apps/web/app/layout.tsx`; `app/providers.tsx`; `app/dashboard/page.tsx`; `app/overview/page.tsx`; `components/dashboard/DashboardShell`; `lib/api.ts`. | `/dashboard` redirects to `/overview`; overview and providers are Client Components owning browser state/auth/realtime. No SSR migration was implemented or required by the lesson alone. | Current frontend build verifies compilation only; no end-to-end SSR/session propagation test was evidenced in this audit. | Component architecture diagram in `architecture-map.md`; no mock needed because no UI change is proposed. | PARTIALLY READY | Document session propagation, freshness, loading/error and runtime deployment before any SSR migration. | Lesson PR #909 merged docs-only at `9d7df52`; source map PR #948 merged at `e798834`. |
+| Day 10 — REST/errors/cancellation | Normalize safe errors; propagate `AbortSignal`; guard stale responses/loading; reject malformed market-price data before state/P&L display. | `apps/web/lib/api.ts`; `api-errors.ts`; `store.ts`; `market-price-validation.ts`; `tce-data-store.ts`. | `useDashboardStore.syncMarketPrices` validates untrusted rows against requested symbols and accepts only finite positive numeric prices; invalid rows are counted without logging payload values. Existing request-generation and clear/abort guards remain in place. | `api-errors.spec.ts`; `dashboard-cancellation.spec.ts`; `market-price-validation.spec.ts`; `tce-data-store.spec.ts`. PR #949 exact-head WF-01P, WF-02, and WF-05 passed; master WF-02 and WF-05 passed, while post-merge WF-01 was pending at this snapshot. | Market-price validation sequence diagram in Day 10 lesson; no mock needed for a data-boundary change. | PARTIALLY READY overall; quote-validation slice is implemented and CI-verified. | Audit remaining API read callers and their loading/error/freshness behavior; do not claim production verification. | Runtime PR #929 merged at `a06d89d`; test-only PRs #938 and #939 merged at `66dfb4a` and `9346151`; runtime validation PR #949 merged at `4808382`. The test-only PRs did not themselves implement behavior. |
+| Day 11 — WebSocket/SSE/reconnect/backpressure | Preserve bounded reconnect, durable replay, cursor ordering, event identity, auth-expiry handling, and backpressure safety. | `apps/web/lib/microfe-ws.ts`; `microfe-ws.spec.ts`; `apps/service/src/runtime-events/runtime-events.controller.ts`; `runtime-events.query.service.ts`; `runtime-events.websocket.ts`; `libs/contracts/src/tce-event.contract.ts`. | Platform deployment WebSocket has bounded reconnect behavior; runtime event API supports account-scoped replay and `Last-Event-ID` resume. The frontend quote-stream proposal from PR #936 is not on master. | `microfe-ws.spec.ts`; runtime-events controller/query/cursor specs cover relevant server-side paths. No verified browser-to-runtime-WebSocket auth integration test exists. | SSE resume sequence in this document; secure socket handshake remains a design target in the backlog, not an implementation. | PARTIALLY READY; quote stream BLOCKED. | Verify deployed routing/cookie scope and approve a secure handshake; add integration tests for identity, expiry/replay, origin and account binding before a frontend stream is implemented. | Lesson PR #931 docs-only merged at `a76e9aa`; reconnect fix PR #943 merged at `55ca862`; SSE resume PR #946 merged at `c324e3b`; auth blocker PR #947 merged at `746d2c5`; broad PR #936 closed unmerged. |
+| Day 12 — Normalization/cache | Establish stable scope-correct entity identity, cache ownership, freshness, and snapshot/event ordering before merging streams into state. | `apps/web/lib/store.ts`; `tce-data-store.ts`; `libs/contracts/src/tce-event.contract.ts`; `apps/service/src/runtime-events/runtime-events.query.service.ts`. | Dashboard state uses `marketPrices` keyed by normalized symbol and pool normalization; event envelopes support optional aggregate-scoped sequence rather than a universal global sequence. A fully normalized entity cache and end-to-end snapshot/event merge are not established. | Existing store, event contract, and runtime-event query tests cover their own assertions; a complete snapshot/event race and account-switch integration test was not evidenced here. | Day 12 state/merge examples plus current component/data-flow map; examples remain illustrative where source contracts are absent. | PARTIALLY READY; merge ordering contract unresolved. | Verify entity keys, account-switch/logout cleanup, producer watermark/version semantics, and replay/reconciliation before changing cache shape or adding schema. | Lesson PR #933 merged docs-only at `fa7a4bf`; no runtime completion claim. Shared persistence/versioning work remains `CURR-DATA-04`. |
+| Day 13 — Performance profiling | Trace actual selectors/components, establish a reproducible profile, and define correctness/performance acceptance before optimizing. | `apps/web/lib/store.ts`; `tce-data-store.ts`; actual components under `apps/web/components/dashboard/`; Day 13 implementation backlog. | No measured bottleneck or runtime optimization is evidenced. Store and components are investigation entry points only; current quote sync is API polling, not a verified quote WebSocket. | No performance-specific baseline or replay harness has been recorded. Existing correctness tests do not prove a performance gain. | Profiling workflow in Day 13 lesson; no before/after profile artifact exists. | BLOCKED for runtime optimization. | Complete `PERF-13-01`, `PERF-13-02`, and `PERF-13-03`; then implement only a measured, correctness-preserving change. | Lesson PR #937 merged docs-only at `6dfd83d`; runtime implementation not started. |
 
-### Day 9 — Next.js architecture
+### Review of previous test-only PRs
 
-- **Source:** `apps/web/app/layout.tsx`, `apps/web/app/overview/page.tsx`, `apps/web/app/providers.tsx`, `DashboardShell`, and `apps/web/lib/api.ts`.
-- **Readiness:** PARTIALLY READY. Do not migrate authenticated fetching to Server Components without an explicit session, freshness, loading/error, and deployment design.
-- **Verification:** relevant route/build coverage exists; this audit did not introduce a runtime change.
+- PR #938 added deterministic cancellation/race tests only; the runtime behavior it exercises originated in PR #929 and is present in current source.
+- PR #939 added sanitized-error logging tests only; the logger implementation is in the real `store.ts` path and is not made complete by the test PR alone.
+- PR #949 adds the actual market-price validator and store integration plus regression tests. All-invalid payloads preserve existing quote state; invalid/unrequested rows cannot overwrite it.
+- PR #936 remains closed without merge. Do not treat its tests or code as present on master; its proposed browser quote stream is blocked by `CURR-AUTH-07`.
 
-### Day 10 — REST, errors, cancellation
+### Curriculum inventory and roadmap boundary
 
-- **Source:** `apps/web/lib/api-errors.ts`, `apps/web/lib/api.ts`, `apps/web/lib/store.ts`, and `apps/web/lib/tce-data-store.ts`.
-- **Tests:** `api-errors.spec.ts` covers safe error normalization; `tce-data-store.spec.ts` verifies clear/abort prevents late data from repopulating the store.
-- **Readiness:** PARTIALLY IMPLEMENTED. Several read methods support `AbortSignal`, but this does not prove every relevant caller does. Check each checklist item against the owning store and caller.
-
-### Day 11 — WebSocket, SSE, replay and backpressure
-
-- **Source:** `apps/web/lib/microfe-ws.ts` has bounded reconnect backoff; `apps/service/src/runtime-events/runtime-events.websocket.ts` has account-scoped replay cursors and a bounded outbound buffer. REST replay is ordered by `occurred_at,event_id`.
-- **Tests:** existing controller/query tests cover account scope, cursor validation and event envelopes. PR #946 adds focused SSE resume tests.
-- **Readiness:** PARTIALLY IMPLEMENTED. PR #946 resolves `Last-Event-ID` within the authenticated account and resumes with the composite cursor. Pre-merge Prettier and backend unit checks passed; master post-merge Build + Verify is pending. The platform deployment socket is not the canonical runtime-event consumer. The frontend quote stream remains blocked on socket authentication; see `CURR-AUTH-07` in PR #947.
-
-### Day 12 — normalization and cache
-
-- **Source:** `store.ts` contains dashboard state, market-price data, request guards and pool normalization. `tce-event.contract.ts` supports optional aggregate-scoped sequences, not a universal global sequence.
-- **Tests:** existing runtime-event query and contract tests validate account-scoped replay and event envelopes.
-- **Readiness:** PARTIALLY READY. Confirm canonical entity keys, cache ownership and snapshot/event ordering from actual producer contracts. Account-switch/logout cleanup and stale-event recovery need integration evidence. No schema/RLS change is justified by this audit.
-
-### Day 13 — performance profiling
-
-- **Source:** `store.ts`, `tce-data-store.ts`, and dashboard components are investigation entry points; the dominant bottleneck was not measured in this run.
-- **Acceptance:** comparable before/after profiles and unchanged data/UI behavior are required.
-- **Readiness:** BLOCKED for runtime optimization. Complete PERF-13-01/02/03 in the [Day 13 backlog](backlog/day13-performance-profiling-implementation-backlog.md) before selecting a change. Do not add memoization or virtualization speculatively.
-
-### Curriculum inventory
-
-The audited directory contains Day 9–13 lesson files plus the readiness standard and backlogs. Day 1–8 lesson files were not present in the inspected listing. This is tracked as `CURR-CATALOG-06`; do not fabricate content or claim the missing lessons were reviewed.
+`docs/learning/` contains five lesson files (Days 9–13) plus shared readiness, source-map, and backlog documents. Day 1–8 lesson files were not present in the inspected listing. No root `curriculum/` directory exists; the project `plan/` roadmap contains separate runtime/infrastructure work and is not a substitute for missing lesson files. Keep `CURR-CATALOG-06` blocked until the canonical Day 1–8 source is found or the owner authorizes creating it.
 
 ## 3. Mandatory task lifecycle
 
