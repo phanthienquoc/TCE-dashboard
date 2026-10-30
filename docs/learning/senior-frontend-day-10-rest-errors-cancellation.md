@@ -814,7 +814,7 @@ sequenceDiagram
 
 ## Stock Events Sync safe error handling (PR #983, 2026-10-30)
 
-The Stock Events Sync store now uses the existing `normalizeApiError` helper for refresh, save, and trigger failures. Previously, these three catch paths copied `error.message` directly into the store's user-visible `message` state, which could expose low-level Axios text or an arbitrary thrown exception. The shared normalizer keeps stable, status-specific messages and uses the operation's safe fallback for non-Axios errors.
+The Stock Events Sync store now uses the existing `normalizeApiError` helper for refresh, save, and trigger failures. Previously, these three catch paths copied `error.message` directly into the store's user-visible `message` state, which could expose low-level Axios text or an arbitrary thrown exception. The shared normalizer keeps stable, status-specific messages and uses the operation's safe fallback for non-Axios errors. Intentional request cancellation remains a separate control-flow path; the existing cancellation guard and account-generation checks are unchanged.
 
 ```mermaid
 sequenceDiagram
