@@ -21,7 +21,9 @@ export function DividendOneYearCandleChart({ symbol }: Props) {
   const load = useDividendOhlcvStore(state => state.load);
 
   useEffect(() => {
-    void load(normalized, 365);
+    const controller = new AbortController();
+    void load(normalized, 365, controller.signal);
+    return () => controller.abort();
   }, [load, normalized]);
 
   const chart = useMemo(() => {
