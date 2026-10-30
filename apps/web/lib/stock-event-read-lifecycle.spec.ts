@@ -22,10 +22,7 @@ function captureLoader() {
 
 test('dividend-position event read preserves its refresh arguments and aborts on cleanup', () => {
   const captured = captureLoader();
-  const cleanup = startStockEventRead(
-    { limit: 2000, force: true, month: null },
-    captured.load
-  );
+  const cleanup = startStockEventRead({ limit: 2000, force: true, month: null }, captured.load);
 
   const request = captured.getRequest();
   assert.ok(request);
@@ -41,10 +38,7 @@ test('dividend-position event read preserves its refresh arguments and aborts on
 
 test('dashboard positions event read preserves its request arguments and aborts on cleanup', () => {
   const captured = captureLoader();
-  const cleanup = startStockEventRead(
-    { limit: 200, force: false, month: null },
-    captured.load
-  );
+  const cleanup = startStockEventRead({ limit: 200, force: false, month: null }, captured.load);
 
   const request = captured.getRequest();
   assert.ok(request);
