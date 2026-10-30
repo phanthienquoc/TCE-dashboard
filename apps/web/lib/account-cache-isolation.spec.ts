@@ -40,7 +40,9 @@ function response<T>(data: T): AxiosResponse<T> {
   };
 }
 
-test('SSO account switch clears old account caches before new account prefetch starts', async () => {
+test(
+  'SSO account switch clears old account caches before new account prefetch starts',
+  async () => {
   const originalMe = authApi.me;
   const originalPrefetch = useTCEDataStore.getState().prefetch;
   const originalStockEventLoad = useStockEventStore.getState().load;
