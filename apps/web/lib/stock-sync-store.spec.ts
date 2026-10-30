@@ -262,3 +262,23 @@ test('trigger normalizes authorization errors without exposing raw backend detai
     api.post = originalPost;
   }
 });
+
+test('refresh uses the safe fallback for non-Axios errors', async () => {
+  const originalGet = api.get;
+  api.get = (async () => {
+    throw new Error('raw internal stack or connection detail');
+  }) as typeof api.get;
+
+  try {
+    useStockSyncStore.getState().clear();
+    await useStockSyncStore.getState().refresh();
+
+    const state = useStockSyncStore.getState();
+    assert.equal(state.message, 'Unable to load stock events cron data');
+    assert.equal(state.message?.includes('raw internal'), false);
+    assert.equal(state.loading, false);
+  } finally {
+    useStockSyncStore.getState().clear();
+    api.get = originalGet;
+  }
+});
