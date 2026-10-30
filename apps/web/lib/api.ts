@@ -171,7 +171,8 @@ export const platformApi = {
     api.post('/platform/telegram/resume', body),
   telegramRemove: (body: { environment?: string; name?: string }) =>
     api.delete('/platform/telegram', { data: body }),
-  telegramDebugAssignments: (signal?: AbortSignal) => api.get('/platform/telegram/debug/assignments', { signal }),
+  telegramDebugAssignments: (signal?: AbortSignal) =>
+    api.get('/platform/telegram/debug/assignments', { signal }),
   telegramAssignDebug: (body: {
     telegramCredentialId: string;
     serviceName: string;
