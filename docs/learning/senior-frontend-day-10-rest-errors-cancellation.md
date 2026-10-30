@@ -930,3 +930,34 @@ sequenceDiagram
 **Implementation evidence:** PR #990 merged at `2255b263fe0d5b7670ec51de21cc7dd70a41f1c4`. Runtime paths: `apps/web/app/notifications/page.tsx`, `apps/web/app/notifications/TelegramBotConfig.tsx`, `apps/web/lib/telegram-notification-data.ts`; tests: `apps/web/lib/telegram-notification-data.spec.ts`. The tests cover paired-cache completeness, HTTP 500 safe messaging, and generic fallback without internal details. Exact PR head `65e9e99241110a6b8a567844f2efab2384fe86f1` passed WF-01P `41087370680`, WF-02 `41087370830`, and WF-05 `41087370764`. The master commit is verified identical to the squash merge, but post-merge status/workflow records were not returned; post-merge verification remains WARN.
 
 **Readiness boundary:** no endpoint/auth protocol, server authorization, mutation semantics, database/schema/RLS, trading/execution, production configuration or market-scan schedule changed. No deployment is claimed. Keep `CURR-SVC-03` open for the broader API/event caller and end-to-end contract audit.
+
+## System Update Push safe error logging (2026-10-31)
+
+`NotificationsPage.enablePush()` calls `enableSystemUpdateNotifications()`, which reads the existing authenticated system-update configuration and posts the browser's push subscription through `systemUpdatesApi`. Its catch previously passed the raw error object to `console.error`. Axios errors can carry request configuration, including Authorization headers, and backend response bodies.
+
+The catch now uses `normalizeSystemUpdatePushFailure()`, which delegates to the existing `normalizeApiError()` contract and returns only allow-listed `kind`, controlled `message`, `retryable`, and optional HTTP `status`. The UI still transitions to its existing error state; subscription flow, endpoint, payload, and permission behavior are unchanged.
+
+- **Runtime paths:** `apps/web/app/notifications/page.tsx`, `apps/web/lib/system-update-push-errors.ts`.
+- **Regression coverage:** `apps/web/lib/system-update-push-errors.spec.ts` injects a synthetic HTTP 500 Axios error with a fake Authorization token and private response body, and verifies neither value nor the raw Axios error code is returned. A generic browser/permission error uses a fixed fallback message.
+- **Safety boundary:** No auth protocol, server authorization, database/schema, trading/execution, production configuration, or market-scan scheduling change. No production deployment is claimed.
+
+```mermaid
+sequenceDiagram
+  participant UI as NotificationsPage
+  participant Push as enableSystemUpdateNotifications
+  participant API as Existing authenticated systemUpdatesApi
+  participant Safe as normalizeSystemUpdatePushFailure
+  participant Log as Browser console
+
+  UI->>Push: Enable push notifications
+  Push->>API: Read config / save subscription
+  API-->>Push: Success or rejected request
+  Push-->>UI: Resolve or throw
+  UI->>Safe: Normalize caught failure
+  Safe->>Safe: normalizeApiError + allow-list fields
+  Safe-->>UI: kind / safe message / retryable / optional status
+  UI->>Log: Log safe metadata only
+  UI->>UI: Keep existing pushState = error
+  Note over Safe,Log: Raw Axios config, credentials and response body are never logged
+```
+
