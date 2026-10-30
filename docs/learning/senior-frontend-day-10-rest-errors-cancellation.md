@@ -717,4 +717,34 @@ sequenceDiagram
 
 **Implementation evidence (PR #965, merged):** `apps/web/lib/api.ts` now accepts optional signals for the existing config/position GET methods; `apps/web/lib/binance-xau-position-data.ts` owns position selection; and `apps/web/app/engines/BinanceXauTradingPanel.tsx` scopes config/bot reads to authenticated account lifecycle, clears prior account-local view state, and aborts the position poll on account/environment cleanup while scheduling the next poll only after completion. Regression tests are in `apps/web/lib/binance-xau-position-data.spec.ts` and `apps/web/lib/dashboard-cancellation.spec.ts`. PR #965 squash-merged at `ff274e77bcd5d6c835654b96423342061a3d0df2`. Final-head checks passed: WF-01P `41045939056`, WF-02 `41045938623`, WF-05 `41045938628`. Post-merge current-master checks passed: WF-01 `41046146755`, WF-02 `41046146855`, WF-05 `41046146842`. This verifies the merged build, formatting, unit tests and image/config/YAML build checks, not live production deployment or downstream server-side cancellation.
 
-**Audit cross-reference:** Current Day 9–13 evidence is maintained in [Implementation Audit & Readiness](implementation-audit-readiness.md) and the [Cross-Layer Curriculum Backlog](backlog/curriculum-implementation-backlog.md), rechecked at master `ff274e77bcd5d6c835654b96423342061a3d0df2`.
+## Stock-event read-limit contract (2026-10-30)
+
+The authenticated `GET /stock-events` endpoint defaults to 100 rows. `StockEventsService.getUpcoming` enforces a maximum of 200 rows before querying the configured source. The positions view previously requested 2000, which did not increase the response because the service clamps the request to 200. This task aligns all identified frontend callers to `STOCK_EVENTS_READ_LIMIT = 200`; it does not raise the service cap or change the API response contract.
+
+```mermaid
+sequenceDiagram
+  participant UI as Positions / Dashboard / Worker / Stock Events
+  participant Store as Stock-event Zustand store
+  participant API as Central Axios client
+  participant Controller as StockEventsController
+  participant Service as StockEventsService
+  participant Repo as Configured event repository
+
+  Note over UI,Store: Frontend readers use STOCK_EVENTS_READ_LIMIT = 200
+  UI->>Store: load(200, force, month, optional AbortSignal)
+  Store->>API: GET /stock-events?limit=200 + Bearer JWT
+  API->>Controller: Authenticated GET
+  Controller->>Controller: Verify Bearer JWT
+  Controller->>Service: getUpcoming(200)
+  Service->>Service: Clamp to 1..200
+  Service->>Repo: Query upcoming rows, ordered by ex-date, limit 200
+  Repo-->>Service: Event rows
+  Service-->>Controller: Existing response shape
+  Controller-->>API: Event rows
+  API-->>Store: Event rows
+  Store-->>UI: Update state if request generation is current
+```
+
+**Implementation evidence:** The task branch centralizes the frontend request limit and uses it in `DividendPositionsView`, `DashboardViews`, the app-data worker and the stock-events page. The service's existing cap is named `MAX_LIMIT = 200`; tests cover frontend limit usage and server clamping. Exact-head CI is required before merge. The service maximum, authenticated route, repository selection, schema, trading/execution behavior and market-scan schedule remain unchanged.
+
+**Audit cross-reference:** Current Day 9–13 evidence is maintained in [Implementation Audit & Readiness](implementation-audit-readiness.md) and the [Cross-Layer Curriculum Backlog](backlog/curriculum-implementation-backlog.md), rechecked against latest master `216f2d11863a0936edd74529d1405221a3e2eb08`. PR #975's watcher traffic guard is a separate service-file change; the stock-event limit-alignment branch is based on this latest master and pending fresh exact-head CI.
