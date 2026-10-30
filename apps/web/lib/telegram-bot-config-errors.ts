@@ -11,7 +11,7 @@ const FALLBACK_MESSAGES: Record<TelegramBotConfigOperation, string> = {
   unassign: 'Unable to remove debug routing.',
 };
 
-/** Return a stable, user-safe message without exposing arbitrary backend details. */
+/** Return a stable user-facing message without exposing arbitrary backend details to the UI. */
 export function normalizeTelegramBotConfigError(
   error: unknown,
   operation: TelegramBotConfigOperation
