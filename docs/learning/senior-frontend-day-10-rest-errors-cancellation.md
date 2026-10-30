@@ -551,6 +551,27 @@ sequenceDiagram
   Note over Store: Cleared state remains empty; no cancellation error is surfaced
 ```
 
+## App-data worker safe error logging (PR #994; 2026-10-31)
+
+The app-data worker previously passed the raw rejected Axios error to `console.warn`. Axios errors can carry request configuration (including Authorization headers) and backend response payloads. PR #994 now uses the existing `normalizeApiError` helper and logs only the task key plus allow-listed failure kind, controlled message, retryability, and optional HTTP status. It preserves the existing worker failure count, task scheduling, and concurrency behavior.
+
+- **Runtime paths:** `apps/web/lib/app-data-worker.ts` and `apps/web/lib/app-data-worker.spec.ts`.
+- **Regression coverage:** the test injects a synthetic HTTP 500 Axios error containing a fake bearer token and private response body. It asserts neither value nor the raw Axios error code appears in logs, verifies the normalized safe message/retryability/status, and confirms failed tasks remain counted.
+- **Exact-head CI:** PR head `7989c82675ef556d426fd2fa1f3d35db83c74118` passed WF-01P `41111968892`, WF-02 `41111968970`, and WF-05 `41111968847`. The test log confirms the new test ran; Vitest reported 24 files / 103 tests passed.
+- **Post-merge evidence:** master equals merge `171541ae67246c3aae264f05a2950bf9f56c7c54`. WF-02 `41112463811` passed; WF-05 `41112463921` and WF-01 image/config verification `41112463838` were still in progress at the audit snapshot. Keep post-merge status WARN until those checks finish.
+- **Readiness boundary:** no endpoint/auth contract, account isolation, database/schema/RLS, trading/execution, production configuration, or market-scan scheduling behavior changed. No real secret was read and no production deployment occurred. `CURR-SVC-03` remains open for the broader API/event caller and end-to-end contract audit.
+
+```mermaid
+flowchart TD
+  A[Worker task rejects] --> B{Generation current and signal active?}
+  B -->|No| C[Ignore stale or aborted work]
+  B -->|Yes| D[normalizeApiError]
+  D --> E[Allow-listed kind/message/retryability/status]
+  E --> F[Log task key + safe metadata]
+  F --> G[Increment failed count]
+  D -. raw Axios error is never logged .-> H[Authorization headers and response body stay private]
+```
+
 ## 4. English interview practice (10 minutes)
 
 ### Question 1: How do you prevent race conditions in frontend data fetching?
