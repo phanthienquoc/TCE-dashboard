@@ -2,6 +2,18 @@
 
 > Duration: 60 minutes. This lesson follows Day 11 and connects normalized client state, REST snapshots, and realtime TCE events. Documentation-only: it does not change runtime behavior, Supabase schema, credentials, strategy, or execution settings.
 
+
+## Implementation readiness — cross-layer assessment
+
+Before treating this lesson as complete, apply the shared [Learning Implementation Readiness Gate](IMPLEMENTATION_READINESS.md). A code snippet, test-only change, or documentation update is not proof that the product behavior exists end to end.
+
+### TCE-specific inspection scope
+- **System design:** identify canonical entities, their keys/scope, source of truth, and every real producer/consumer before normalizing state.
+- **Service/API and persistence:** verify snapshot/event payloads, entity IDs, versions/timestamps, ordering and freshness guarantees from current contracts and schema. Do not assume the client can reject stale data without a trustworthy version rule.
+- **Infrastructure:** assess only if the proposed cache/recovery policy relies on a service, persistent store, or deployment capability.
+- **Integration:** test snapshot/event races, duplicates, out-of-order updates, account/venue scope, invalidation and reconnect recovery. Do not change Supabase schema/RLS or trading behavior as a shortcut.
+
+Record a **READY / PARTIALLY READY / BLOCKED** decision. Implement real runtime behavior only where ownership and contracts are established; otherwise link a concrete item in [the cross-layer curriculum backlog](backlog/curriculum-implementation-backlog.md). Assess system design, infrastructure, service/backend, database, frontend and integration impacts; mark irrelevant layers N/A with a reason. Do not claim deployment or production verification without evidence.
 ## Learning objectives
 
 By the end of this session, you should be able to:

@@ -2,6 +2,19 @@
 
 > Scope: learning notes aligned to the existing TCE Dashboard implementation. This document does not introduce a new market route or alter runtime behavior.
 
+
+## Implementation readiness — cross-layer assessment
+
+Before treating this lesson as complete, apply the shared [Learning Implementation Readiness Gate](IMPLEMENTATION_READINESS.md). A code snippet, test-only change, or documentation update is not proof that the product behavior exists end to end.
+
+### TCE-specific inspection scope
+- **System design:** verify the actual App Router entry point, Server/Client Component boundary, providers, route ownership, and where data fetching belongs.
+- **Service/API:** trace the centralized API/auth client and the real backend contract before moving data access across a server/client boundary.
+- **Infrastructure:** if changing SSR, runtime environment, or server-only code, inspect build/deployment runtime compatibility and secret exposure; do not assume browser environment variables exist server-side or vice versa.
+- **Integration:** verify navigation, auth/session behavior, loading/error states, and the actual deployed route where relevant.
+- **Database:** assess only if the proposed data-access change reaches persistence; do not add schema changes for a routing/rendering exercise.
+
+Record a **READY / PARTIALLY READY / BLOCKED** decision. Implement real runtime behavior only where ownership and contracts are established; otherwise link a concrete item in [the cross-layer curriculum backlog](backlog/curriculum-implementation-backlog.md). Assess system design, infrastructure, service/backend, database, frontend and integration impacts; mark irrelevant layers N/A with a reason. Do not claim deployment or production verification without evidence.
 ## Current repository findings
 
 - Frontend is Next.js 16 + React 19 under `apps/web`, inside an Nx monorepo.
