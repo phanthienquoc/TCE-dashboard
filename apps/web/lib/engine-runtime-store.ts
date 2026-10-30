@@ -2,6 +2,7 @@
 
 import { create } from 'zustand';
 import { dashboardApi } from './api';
+import { isApiRequestCancelled, normalizeApiError } from './api-errors';
 
 export type EngineRuntimeNode = {
   engineId: string;
@@ -25,6 +26,8 @@ type EngineRuntimeState = {
 };
 
 let inFlight: Promise<void> | null = null;
+let inFlightController: AbortController | null = null;
+let runtimeGeneration = 0;
 
 export const useEngineRuntimeStore = create<EngineRuntimeState>(set => ({
   engines: [],
@@ -34,36 +37,57 @@ export const useEngineRuntimeStore = create<EngineRuntimeState>(set => ({
 
   refresh: async () => {
     if (inFlight) return inFlight;
+
+    const generation = runtimeGeneration;
+    const controller = new AbortController();
+    inFlightController = controller;
     set({ loading: true, error: null });
 
-    inFlight = dashboardApi
-      .engineRuntime()
+    const request = Promise.resolve()
+      .then(() => dashboardApi.engineRuntime(controller.signal))
       .then(({ data }) => {
+        if (controller.signal.aborted || generation !== runtimeGeneration) return;
         set({
           engines: Array.isArray(data?.engines) ? data.engines : [],
           initialized: true,
           loading: false,
+          error: null,
         });
       })
       .catch(error => {
+        if (generation !== runtimeGeneration) return;
+        if (controller.signal.aborted || isApiRequestCancelled(error)) {
+          set({ loading: false });
+          return;
+        }
+
         set({
           initialized: true,
           loading: false,
-          error: error instanceof Error ? error.message : 'Unable to load engine runtime',
+          error: normalizeApiError(error, 'Unable to load engine runtime').message,
         });
       })
       .finally(() => {
-        inFlight = null;
+        if (generation === runtimeGeneration && inFlight === request) {
+          inFlight = null;
+          inFlightController = null;
+        }
       });
 
-    return inFlight;
+    inFlight = request;
+    return request;
   },
 
-  clear: () =>
+  clear: () => {
+    runtimeGeneration += 1;
+    inFlightController?.abort();
+    inFlightController = null;
+    inFlight = null;
     set({
       engines: [],
       loading: false,
       initialized: false,
       error: null,
-    }),
+    });
+  },
 }));
