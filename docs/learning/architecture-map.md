@@ -2,7 +2,7 @@
 
 **Task:** `CURR-ARCH-01` — Map learning exercises to the real TCE architecture  
 **Readiness:** `PARTIALLY READY` for source mapping; `NO-GO` for any new auth/SSR/DB/runtime contract changes inferred from this map  
-**Audited source baseline:** `master` at `53b70f907eb24462db207269ddc2092e9c6563c3` (2026-10-30; PR #961 merged)  
+**Audited source baseline:** `master` at `086d5370f80128e20683dc792f3f02c7608015e3` (2026-10-30; PR #963 merged)  
 **Purpose:** Trace the existing Day 9–13 learning notes to actual repository entry points and owners. This map records what source establishes and explicitly labels unresolved contracts; it does not claim every lesson's desired behavior is complete.
 
 ## System Readiness Check
@@ -23,6 +23,8 @@
 
 **PARTIALLY READY:** the existing source map can be recorded safely. Runtime changes that depend on browser-to-WebSocket authentication, SSR session propagation, database/RLS guarantees, or deployment behavior remain blocked until their owning contracts are verified. This is not a blanket GO for all learning tasks.
 
+**Current source recheck after PR #963:** master is `086d5370f80128e20683dc792f3f02c7608015e3`. The public Binance chart-history read now forwards an effect-owned `AbortSignal` and aborts on cleanup. Exact-head WF-01P/WF-02/WF-05 passed before merge; post-merge workflow status remains unverified. `CURR-SVC-03` stays open.
+
 ## 1. Current architecture
 
 ```mermaid
@@ -39,6 +41,9 @@ flowchart TD
   DashboardStore[useDashboardStore<br/>apps/web/lib/store.ts]
   PriceValidator[normalizeMarketPricePayload<br/>apps/web/lib/market-price-validation.ts]
   TCEStore[useTCEDataStore<br/>apps/web/lib/tce-data-store.ts]
+  BinanceChart[BinanceRealtimeChart<br/>public chart route]
+  BinanceHistory[binance-kline-history.ts<br/>effect-owned AbortSignal]
+  PublicBinance[Public Binance REST<br/>/api/v3/klines]
   Service[apps/service API]
   RuntimeEvents[Runtime Events Controller]
   RuntimeQuery[RuntimeEventsQueryService]
@@ -49,6 +54,7 @@ flowchart TD
   Browser --> Layout --> Providers --> Routes
   Routes --> Redirect
   Routes --> Overview --> Shell
+  Routes --> BinanceChart --> BinanceHistory --> PublicBinance
   Providers --> Auth
   Providers --> WSClient
   Shell --> DashboardStore
@@ -86,6 +92,13 @@ flowchart TD
 | WebSocket server             | `apps/service/src/runtime-events/runtime-events.websocket.ts`                                                                                                     | Actual server-side upgrade/auth contract must be reviewed before enabling a browser-to-service stream; see `CURR-AUTH-07` in the backlog.                                                                                                                                                                                                                                      |
 | Performance consumers        | `apps/web/lib/store.ts`, `apps/web/lib/tce-data-store.ts`, real dashboard components under `apps/web/components/dashboard/`                                       | PERF-13-01 source mapping is complete in the Day 13 backlog and PR #952. This is a source map, not a profile; it identifies candidate broad subscriptions/row rebuilding but does not establish a dominant bottleneck. PERF-13-02/03 remain open.                                                                                                                              |
 | Stock-event read lifecycle   | `apps/web/lib/stock-event-store.ts`; `apps/web/lib/app-data-worker.ts`; `apps/web/lib/stock-event-store.spec.ts`; `apps/web/lib/store.ts`                         | PR #955 adds internal abort/generation guards, forwards the worker signal and normalizes safe read errors; `clearAccountScopedStores()` clears this store on logout/account change. The authenticated endpoint contract is unchanged.                                                                                                                                          |
+
+### Public Binance chart-history read — PR #963
+
+- **Runtime owner:** `apps/web/components/dashboard/BinanceRealtimeChart.tsx` creates an `AbortController` for the effect and aborts it during cleanup or input changes.
+- **Request helper:** `apps/web/lib/binance-kline-history.ts` keeps the public `/api/v3/klines` URL/query and forwards the caller signal. `apps/web/lib/binance-kline-history.spec.ts` verifies signal propagation, abort behavior, limit bounds, and HTTP error handling.
+- **Boundary:** this cancels the browser-side fetch and suppresses stale chart/error updates. It does not alter the WebSocket lifecycle, API/auth contracts, database, trading/execution behavior, or production deployment.
+- **Validation:** PR #963 exact head passed WF-01P `41037561091`, WF-02 `41037561173`, and WF-05 `41037561127`; the three new Node tests passed. Post-merge checks remain unverified.
 
 ## 2. Mapping existing learning documents
 
@@ -135,14 +148,14 @@ sequenceDiagram
 ## 5. Task ordering after CURR-ARCH-01
 
 1. **Day 9:** architecture mapping is now source-backed. No runtime change is warranted solely to force a Server Component conversion.
-2. **Day 10:** quote validation, pool/event lifecycle guards, Telegram notification reads and Engine Control read cancellation are merged. PR #961 exact-head WF-01P/WF-02/WF-05 passed; post-merge status remains unverified. Continue the broader API-read audit only for source-backed gaps.
+2. **Day 10:** quote validation, pool/event lifecycle guards, Telegram notification reads, Engine Control reads and public Binance chart-history cancellation are merged. PR #963 exact-head WF-01P/WF-02/WF-05 passed; post-merge status remains unverified. Continue the broader API-read audit only for source-backed gaps.
 3. **Day 11:** keep WebSocket transport integration blocked until `CURR-AUTH-07` is resolved. Continue only independent safe tasks, such as verifying current SSE cursor/replay and existing client gap behavior.
 4. **Day 12:** account-scoped cache clearing is implemented and tested by PR #951; continue only with snapshot/event ordering, producer watermark/version and replay guarantees under `CURR-DATA-04`.
 5. **Day 13:** `PERF-13-01` source mapping is complete via PR #952; capture `PERF-13-02` baseline and define `PERF-13-03` acceptance before choosing an optimization.
 
 ## Completion boundary
 
-This document maintains the **source mapping/audit task** for the five existing lesson files against current master `53b70f9` after PR #961. Day 10 has bounded runtime slices merged for quote validation, pool/event reads, Telegram reads and Engine Control reads; broader API-read coverage remains open. Day 11 browser WebSocket auth, Day 12 snapshot/event ordering, Day 13 profiling, live database state and production verification are not complete.
+This document maintains the **source mapping/audit task** for the five existing lesson files against current master `086d537` after PR #963. Day 10 has bounded runtime slices merged for quote validation, pool/event reads, Telegram reads, Engine Control reads and public Binance chart-history cancellation; broader API-read coverage remains open. Day 11 browser WebSocket auth, Day 12 snapshot/event ordering, Day 13 profiling, live database state and production verification are not complete.
 
 ## Maintenance
 

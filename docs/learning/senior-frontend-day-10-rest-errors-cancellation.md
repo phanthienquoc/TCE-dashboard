@@ -655,4 +655,11 @@ sequenceDiagram
 - **Post-merge checks — WARN:** Combined status and the available workflow-run query returned no post-merge records for merge SHA `53b70f9`. This is unverified, not PASS.
 - **Production — N/A:** No production deployment or live engine/config mutation was performed.
 
+## Runtime update — Binance chart-history cancellation (PR #963)
+
+- `BinanceRealtimeChart` now owns an `AbortController` for public Binance kline history; effect cleanup aborts the GET, and the existing disposed guard suppresses stale chart/error updates.
+- `binance-kline-history.ts` forwards the caller signal while preserving the public endpoint, query limits, cache policy and HTTP error contract. `binance-kline-history.spec.ts` covers signal forwarding, abort behavior, limit bounds and HTTP 429.
+- Exact PR head `d18f18464a4b8ed151fbc2a6b304f56e126821b2` passed WF-01P `41037561091`, WF-02 `41037561173` and WF-05 `41037561127`. The three new Node tests passed; Vitest reported 23 files and 101 tests passed.
+- **Readiness:** GO for this bounded client read-lifecycle change only. Post-merge checks for `086d537` remain unverified; `CURR-SVC-03` remains open. No production, database, auth, WebSocket, trading or execution behavior changed.
+
 Next: **Day 11 — WebSocket/SSE, reconnection and backpressure**, using the TCE realtime contract and keeping correctness separate from rendering optimizations.
