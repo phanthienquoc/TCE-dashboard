@@ -13,7 +13,6 @@ name: 'WF-08B TCE MicroFE Build Publish'
     branches: [master]
     paths:
       - microfe/**
-      - .github/workflows/wf-08b-tce-microfe-build-publish.yml
 
 permissions:
   contents: read
@@ -78,6 +77,8 @@ jobs:
         run: |
           set -euo pipefail
           workflow=.github/workflows/wf-08b-tce-microfe-build-publish.yml
+          push_block="$(sed -n '/^  push:/,/^permissions:/p' "$workflow")"
+          ! grep -Fq '.github/workflows/wf-08b-tce-microfe-build-publish.yml' <<< "$push_block"
           payload_block="$(sed -n '/const payload = {/,/};/p' "$workflow")"
           grep -Fq 'shell_digest:' <<< "$payload_block"
           grep -Fq 'ws_digest:' <<< "$payload_block"
