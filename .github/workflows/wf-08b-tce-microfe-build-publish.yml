@@ -83,6 +83,8 @@ jobs:
           ! grep -Fq 'auth_digest:' <<< "$payload_block"
           build_job_count="$(grep -Ec '^  build-[a-z0-9-]+:' "$workflow")"
           [[ "$build_job_count" -eq 2 ]]
+          grep -Eq '^  build-shell:$' "$workflow"
+          grep -Eq '^  build-ws:$' "$workflow"
           ! grep -Eq '^  build-auth:$' "$workflow"
 
   validate-release-handoff:
