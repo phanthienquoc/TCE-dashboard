@@ -86,6 +86,9 @@ jobs:
           expected_jobs=$'build-shell\nbuild-ws'
           [[ "$published_jobs" == "$expected_jobs" ]]
           ! grep -Eq '^  build-auth:' "$workflow"
+  validate-release-handoff:
+    if: ${{ github.event_name != 'pull_request' && github.ref == 'refs/heads/master' }}
+    name: Validate Platform Infra release handoff credential
     runs-on: ubuntu-latest
     timeout-minutes: 2
     steps:
