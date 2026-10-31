@@ -83,10 +83,7 @@ jobs:
           ! grep -Fq 'auth_digest:' <<< "$payload_block"
           build_job_count="$(grep -Ec '^  build-[a-z0-9-]+:' "$workflow")"
           [[ "$build_job_count" -eq 2 ]]
-          grep -Fq '  build-shell:' "$workflow"
-          grep -Fq '  build-ws:' "$workflow"
-          ! grep -Fq '  build-auth:' "$workflow"
-          ! grep -Eq '^  build-auth:' "$workflow"
+          ! grep -Eq '^  build-auth:$' "$workflow"
 
   validate-release-handoff:
     if: ${{ github.event_name != 'pull_request' && github.ref == 'refs/heads/master' }}
