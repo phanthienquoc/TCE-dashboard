@@ -6,6 +6,7 @@ name: 'WF-08B TCE MicroFE Build Publish'
     branches: [master]
     paths:
       - microfe/auth/**
+      - microfe/shell/**
       - microfe/ws-gateway/**
       - .github/workflows/wf-08b-tce-microfe-build-publish.yml
   push:
@@ -108,63 +109,6 @@ jobs:
             -H "X-GitHub-Api-Version: 2022-11-28" \
             "https://api.github.com/repos/phanthienquoc/platform-infra" |
             jq -e '.full_name == "phanthienquoc/platform-infra"'
-
-  build-auth:
-    if: ${{ github.event_name != 'pull_request' && github.ref == 'refs/heads/master' }}
-    name: Build and publish MicroFE Auth image
-    needs:
-      - test-auth
-      - validate-release-handoff
-    runs-on: ubuntu-24.04-arm
-    timeout-minutes: 20
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
-        with:
-          fetch-depth: 1
-          clean: true
-          persist-credentials: false
-
-      - name: Login to GHCR
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          set -euo pipefail
-          printf '%s' "$GITHUB_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@988b5a0280414f521da01fcc63a27aeeb4b104db
-        with:
-          driver: docker-container
-
-      - name: Build and publish Auth image
-        id: image
-        env:
-          IMAGE: ghcr.io/${{ github.repository_owner }}/microfe-auth
-          TAG: ${{ github.sha }}
-        run: |
-          set -euo pipefail
-          mkdir -p /tmp/microfe-build-meta
-          docker buildx build \
-            --platform linux/arm64 \
-            --provenance=true \
-            --sbom=true \
-            --metadata-file /tmp/microfe-build-meta/auth.json \
-            --push \
-            --tag "$IMAGE:$TAG" \
-            --file microfe/auth/Dockerfile .
-          DIGEST="$(node -e "const d=require('/tmp/microfe-build-meta/auth.json')['containerimage.digest']; if(typeof d!=='string'||!d.startsWith('sha256:'))process.exit(1); process.stdout.write(d)")"
-          [[ "$DIGEST" =~ ^sha256:[0-9a-f]{64}$ ]]
-          echo "digest=$DIGEST" >> "$GITHUB_OUTPUT"
-          echo "$IMAGE=$DIGEST" > /tmp/microfe-auth.txt
-
-      - name: Upload Auth image metadata
-        uses: actions/upload-artifact@v4
-        with:
-          name: microfe-auth-metadata
-          path: /tmp/microfe-auth.txt
-          if-no-files-found: error
-          retention-days: 1
 
   build-ws:
     if: ${{ github.event_name != 'pull_request' && github.ref == 'refs/heads/master' }}
@@ -279,7 +223,6 @@ jobs:
     if: ${{ github.event_name != 'pull_request' && github.ref == 'refs/heads/master' }}
     name: Dispatch immutable image promotion and verify production
     needs:
-      - build-auth
       - build-shell
       - build-ws
     runs-on: ubuntu-latest
@@ -298,13 +241,11 @@ jobs:
         run: |
           set -euo pipefail
           test -n "${PLATFORM_INFRA_TOKEN:-}"
-          test -s /tmp/microfe-build-meta/microfe-auth.txt
           test -s /tmp/microfe-build-meta/microfe-shell.txt
           test -s /tmp/microfe-build-meta/microfe-ws.txt
-          auth_digest="$(cut -d= -f2 /tmp/microfe-build-meta/microfe-auth.txt)"
           shell_digest="$(cut -d= -f2 /tmp/microfe-build-meta/microfe-shell.txt)"
           ws_digest="$(cut -d= -f2 /tmp/microfe-build-meta/microfe-ws.txt)"
-          for digest in "$auth_digest" "$shell_digest" "$ws_digest"; do
+          for digest in "$shell_digest" "$ws_digest"; do
             [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]] || { echo "::error::Invalid image digest: $digest"; exit 1; }
           done
 
@@ -316,7 +257,6 @@ jobs:
             client_payload: {
               commit: process.env.GITHUB_SHA,
               release: `microfe-${process.env.GITHUB_SHA.slice(0, 7)}`,
-              auth_digest: digestFrom('/tmp/microfe-build-meta/microfe-auth.txt'),
               shell_digest: digestFrom('/tmp/microfe-build-meta/microfe-shell.txt'),
               ws_digest: digestFrom('/tmp/microfe-build-meta/microfe-ws.txt'),
             },
@@ -329,7 +269,6 @@ jobs:
             .event_type == "microfe-images-published"
             and .client_payload.commit == $commit
             and .client_payload.release == $release
-            and (.client_payload.auth_digest | test("^sha256:[0-9a-f]{64}$"))
             and (.client_payload.shell_digest | test("^sha256:[0-9a-f]{64}$"))
             and (.client_payload.ws_digest | test("^sha256:[0-9a-f]{64}$"))
           ' /tmp/microfe-dispatch.json >/dev/null
