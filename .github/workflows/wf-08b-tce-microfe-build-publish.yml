@@ -12,7 +12,8 @@ name: 'WF-08B TCE MicroFE Build Publish'
   push:
     branches: [master]
     paths:
-      - microfe/**
+      - microfe/shell/**
+      - microfe/ws-gateway/**
 
 permissions:
   contents: read
@@ -79,6 +80,10 @@ jobs:
           workflow=.github/workflows/wf-08b-tce-microfe-build-publish.yml
           push_block="$(sed -n '/^  push:/,/^permissions:/p' "$workflow")"
           ! grep -Fq '.github/workflows/wf-08b-tce-microfe-build-publish.yml' <<< "$push_block"
+          grep -Fq '      - microfe/shell/**' <<< "$push_block"
+          grep -Fq '      - microfe/ws-gateway/**' <<< "$push_block"
+          ! grep -Fq '      - microfe/auth/**' <<< "$push_block"
+          ! grep -Fq '      - microfe/**' <<< "$push_block"
           payload_block="$(sed -n '/const payload = {/,/};/p' "$workflow")"
           grep -Fq 'shell_digest:' <<< "$payload_block"
           grep -Fq 'ws_digest:' <<< "$payload_block"
