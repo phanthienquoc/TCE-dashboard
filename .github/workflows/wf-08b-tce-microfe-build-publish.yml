@@ -79,9 +79,9 @@ jobs:
           set -euo pipefail
           workflow=.github/workflows/wf-08b-tce-microfe-build-publish.yml
           payload_block="$(sed -n '/const payload = {/,/};/p' "$workflow")"
-          printf '%s\\n' "$payload_block" | grep -Fq 'shell_digest:'
-          printf '%s\\n' "$payload_block" | grep -Fq 'ws_digest:'
-          ! printf '%s\\n' "$payload_block" | grep -Fq 'auth_digest:'
+          grep -Fq 'shell_digest:' <<< "$payload_block"
+          grep -Fq 'ws_digest:' <<< "$payload_block"
+          ! grep -Fq 'auth_digest:' <<< "$payload_block"
           job_names="$(grep -E '^  [a-z0-9-]+:
   validate-release-handoff:
     if: ${{ github.event_name != 'pull_request' && github.ref == 'refs/heads/master' }}
@@ -393,7 +393,7 @@ jobs:
           }
           echo "Shared GitOps promotion and targeted MicroFE reconciliation/health gate completed successfully."
  "$workflow")"
-          ! printf '%s\\n' "$job_names" | grep -Fxq '  build-auth:'
+          ! grep -Fxq '  build-auth:' <<< "$job_names"
 
   validate-release-handoff:
     if: ${{ github.event_name != 'pull_request' && github.ref == 'refs/heads/master' }}
