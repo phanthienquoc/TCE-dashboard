@@ -81,9 +81,11 @@ jobs:
           grep -Fq 'shell_digest:' <<< "$payload_block"
           grep -Fq 'ws_digest:' <<< "$payload_block"
           ! grep -Fq 'auth_digest:' <<< "$payload_block"
-          published_jobs="$(grep -E '^  build-[a-z0-9-]+:' "$workflow" | sed -E 's/^  ([^:]+):$/\1/' | sort)"
-          expected_jobs=$'build-shell\nbuild-ws'
-          [[ "$published_jobs" == "$expected_jobs" ]]
+          build_job_count="$(grep -Ec '^  build-[a-z0-9-]+:' "$workflow")"
+          [[ "$build_job_count" -eq 2 ]]
+          grep -Fq '  build-shell:' "$workflow"
+          grep -Fq '  build-ws:' "$workflow"
+          ! grep -Fq '  build-auth:' "$workflow"
           ! grep -Eq '^  build-auth:' "$workflow"
 
   validate-release-handoff:
