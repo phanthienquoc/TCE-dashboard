@@ -82,10 +82,10 @@ jobs:
           grep -Fq 'shell_digest:' <<< "$payload_block"
           grep -Fq 'ws_digest:' <<< "$payload_block"
           ! grep -Fq 'auth_digest:' <<< "$payload_block"
-          published_jobs="$(grep -E '^  build-[a-z0-9-]+:' "$workflow" | sed -E 's/^  ([^:]+):$/\\1/' | sort)"
-          expected_jobs=  validate-release-handoff:
-    if: ${{ github.event_name != 'pull_request' && github.ref == 'refs/heads/master' }}
-    name: Validate Platform Infra release handoff credential
+          published_jobs="$(grep -E '^  build-[a-z0-9-]+:' "$workflow" | sed -E 's/^  ([^:]+):$/\1/' | sort)"
+          expected_jobs=$'build-shell\nbuild-ws'
+          [[ "$published_jobs" == "$expected_jobs" ]]
+          ! grep -Eq '^  build-auth:' "$workflow"
     runs-on: ubuntu-latest
     timeout-minutes: 2
     steps:
