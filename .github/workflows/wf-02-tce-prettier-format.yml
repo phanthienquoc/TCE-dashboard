@@ -73,7 +73,7 @@ jobs:
         run: |
           set -euo pipefail
           diff_range="origin/${BASE_REF}...HEAD"
-          if git diff --name-only "$diff_range" | grep -Eq '^(\\.github/workflows/wf-06-tce-healthcheck\\.yml|scripts/validate-wf-06-healthcheck-contract\\.sh); then
+          if git diff --name-only "$diff_range" | grep -Eq '^(\.github/workflows/wf-06-tce-healthcheck\.yml|scripts/validate-wf-06-healthcheck-contract\.sh); then
             bash scripts/validate-wf-06-healthcheck-contract.sh
           else
             echo "No WF-06 healthcheck contract files changed."
