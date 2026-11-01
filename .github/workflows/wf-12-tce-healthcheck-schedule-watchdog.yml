@@ -1,0 +1,121 @@
+name: WF-12 TCE Healthcheck Schedule Watchdog
+
+'on':
+  schedule:
+    - cron: '7,22,37,52 * * * *'
+  workflow_dispatch:
+  push:
+    branches: [master]
+    paths:
+      - '.github/workflows/wf-12-tce-healthcheck-schedule-watchdog.yml'
+  workflow_run:
+    workflows:
+      - WF-06 TCE Healthcheck
+    types:
+      - completed
+
+permissions:
+  actions: read
+  contents: read
+
+concurrency:
+  group: tce-wf06-schedule-watchdog
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    name: Verify WF-06 schedule delivery
+    if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.event == 'schedule' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    env:
+      GH_TOKEN: ${{ github.token }}
+      MAX_AGE_MINUTES: "25"
+      MAX_QUEUE_MINUTES: "15"
+    steps:
+      - name: Verify WF-06 workflow is enabled
+        shell: bash
+        run: |
+          set -euo pipefail
+          workflow="$(gh api \
+            -X GET \
+            -H "Accept: application/vnd.github+json" \
+            "repos/${GITHUB_REPOSITORY}/actions/workflows/wf-06-tce-healthcheck.yml")"
+          state="$(jq -r '.state // empty' <<< "$workflow")"
+          if [[ "$state" != "active" ]]; then
+            if [[ "$GITHUB_EVENT_NAME" == "push" ]]; then
+              echo "::warning::WF-06 is not active (state=${state:-missing}); push smoke is warning-only."
+              exit 0
+            fi
+            echo "::error::WF-06 TCE Healthcheck is not active (state=${state:-missing})."
+            exit 1
+          fi
+          echo "WF-06 workflow state: active"
+
+      - name: Inspect latest scheduled WF-06 run
+        shell: bash
+        run: |
+          set -euo pipefail
+          response="$(gh api \
+            -X GET \
+            -H "Accept: application/vnd.github+json" \
+            "repos/${GITHUB_REPOSITORY}/actions/workflows/wf-06-tce-healthcheck.yml/runs" \
+            -f event=schedule \
+            -F per_page=1)"
+          latest="$(jq -c '.workflow_runs | sort_by(.created_at) | last // empty' <<< "$response")"
+          if [[ -z "$latest" ]]; then
+            if [[ "$GITHUB_EVENT_NAME" == "push" ]]; then
+              echo "::warning::WF-06 has no scheduled run yet; push smoke remains warning-only."
+              exit 0
+            fi
+            echo "::error::No scheduled WF-06 run exists in Actions history."
+            exit 1
+          fi
+
+          created_at="$(jq -r '.created_at' <<< "$latest")"
+          created_epoch="$(jq -r '.created_at | fromdateiso8601' <<< "$latest")"
+          run_id="$(jq -r '.id' <<< "$latest")"
+          run_url="$(jq -r '.html_url' <<< "$latest")"
+          status="$(jq -r '.status' <<< "$latest")"
+          conclusion="$(jq -r '.conclusion // "pending"' <<< "$latest")"
+          started_at="$(jq -r '.run_started_at // empty' <<< "$latest")"
+          now_epoch="$(date -u +%s)"
+          age_seconds=$((now_epoch - created_epoch))
+          age_minutes=$((age_seconds / 60))
+
+          if [[ -n "$started_at" ]]; then
+            started_epoch="$(jq -r '.run_started_at | fromdateiso8601' <<< "$latest")"
+          else
+            started_epoch="$now_epoch"
+          fi
+          queue_seconds=$((started_epoch - created_epoch))
+          queue_minutes=$((queue_seconds / 60))
+
+          if (( age_seconds < 0 || queue_seconds < 0 )); then
+            echo "::error::GitHub returned an invalid timestamp for WF-06 run #${run_id}."
+            exit 1
+          fi
+
+          stale=0
+          if (( queue_minutes > MAX_QUEUE_MINUTES )); then
+            echo "::error::WF-06 run #${run_id} waited ${queue_minutes}m for a runner; budget=${MAX_QUEUE_MINUTES}m."
+            stale=1
+          fi
+          if (( age_minutes > MAX_AGE_MINUTES )); then
+            echo "::error::No scheduled WF-06 run within ${MAX_AGE_MINUTES}m; latest age=${age_minutes}m."
+            stale=1
+          fi
+
+          echo "WF-06 run #${run_id}: created=${created_at} age=${age_minutes}m queue=${queue_minutes}m status=${status} conclusion=${conclusion}."
+          echo "Run evidence: ${run_url}"
+          echo "Schedule delivery is monitored independently of public endpoint health; a completed WF-06 failure does not mean its schedule was missed."
+
+          if (( stale != 0 )); then
+            if [[ "$GITHUB_EVENT_NAME" == "push" ]]; then
+              echo "::warning::Read-only API smoke detected stale WF-06 schedule delivery."
+              exit 0
+            fi
+            exit 1
+          fi
+
+          echo "WF-06 schedule delivery is fresh and within runner queue budget."
