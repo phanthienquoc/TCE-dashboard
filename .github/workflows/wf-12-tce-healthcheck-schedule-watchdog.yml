@@ -72,6 +72,20 @@ jobs:
             exit 1
           fi
 
+          # Use GitHub's own timestamp for this watchdog run as the reference clock.
+          # Hosted runner wall clocks can differ from the Actions API by an hour; comparing
+          # two API-created timestamps avoids false "future run" failures.
+          current_run="$(gh api \
+            -X GET \
+            -H "Accept: application/vnd.github+json" \
+            "repos/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}")"
+          reference_at="$(jq -r '.created_at // empty' <<< "$current_run")"
+          reference_epoch="$(jq -r 'if .created_at then (.created_at | fromdateiso8601) else empty end' <<< "$current_run")"
+          if [[ -z "$reference_at" || -z "$reference_epoch" ]]; then
+            echo "::error::Unable to obtain the current watchdog run timestamp from the Actions API."
+            exit 1
+          fi
+
           created_at="$(jq -r '.created_at' <<< "$latest")"
           created_epoch="$(jq -r '.created_at | fromdateiso8601' <<< "$latest")"
           run_id="$(jq -r '.id' <<< "$latest")"
@@ -79,20 +93,22 @@ jobs:
           status="$(jq -r '.status' <<< "$latest")"
           conclusion="$(jq -r '.conclusion // "pending"' <<< "$latest")"
           started_at="$(jq -r '.run_started_at // empty' <<< "$latest")"
-          now_epoch="$(date -u +%s)"
-          age_seconds=$((now_epoch - created_epoch))
+          age_seconds=$((reference_epoch - created_epoch))
           age_minutes=$((age_seconds / 60))
 
           if [[ -n "$started_at" ]]; then
             started_epoch="$(jq -r '.run_started_at | fromdateiso8601' <<< "$latest")"
           else
-            started_epoch="$now_epoch"
+            # A queued run has not acquired a runner yet; measure its wait to this
+            # watchdog run's GitHub API timestamp, not the hosted runner wall clock.
+            started_epoch="$reference_epoch"
           fi
           queue_seconds=$((started_epoch - created_epoch))
           queue_minutes=$((queue_seconds / 60))
 
           if (( age_seconds < 0 || queue_seconds < 0 )); then
-            echo "::error::GitHub returned an invalid timestamp for WF-06 run #${run_id}."
+            echo "::error::Actions API timestamps are inconsistent for WF-06 run #${run_id}; refusing to infer freshness."
+            echo "::error::watchdog_reference=${reference_at} scheduled_run=${created_at} started_at=${started_at:-not-started}"
             exit 1
           fi
 
@@ -107,6 +123,7 @@ jobs:
           fi
 
           echo "WF-06 run #${run_id}: created=${created_at} age=${age_minutes}m queue=${queue_minutes}m status=${status} conclusion=${conclusion}."
+          echo "Age reference: watchdog run #${GITHUB_RUN_ID} created=${reference_at} (GitHub Actions API clock)."
           echo "Run evidence: ${run_url}"
           echo "Schedule delivery is monitored independently of public endpoint health; a completed WF-06 failure does not mean its schedule was missed."
 
