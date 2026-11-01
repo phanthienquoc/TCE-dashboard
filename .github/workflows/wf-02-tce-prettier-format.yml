@@ -61,13 +61,13 @@ jobs:
               grep -E '[.](cjs|cts|css|html|js|jsx|json|jsonc|md|mdx|mjs|mts|scss|ts|tsx|yaml|yml)$' |
               grep -v '^[.]github/workflows/' || true
           )
-          if ((${#files[@]})); then
+          if (("${#files[@]}")); then
             npx prettier --check "${files[@]}"
           else
             echo "No eligible changed files to check."
           fi
 
-      - name: Validate WF-06 endpoint contract when changed
+      - name: Validate WF-06 healthcheck and WF-12 schedule-delivery contracts when changed
         env:
           BASE_REF: ${{ github.base_ref }}
         run: |
@@ -75,10 +75,11 @@ jobs:
           diff_range="origin/${BASE_REF}...HEAD"
           changed_files="$(git diff --name-only "$diff_range")"
           if grep -Fqx '.github/workflows/wf-06-tce-healthcheck.yml' <<< "$changed_files" ||
+             grep -Fqx '.github/workflows/wf-12-tce-healthcheck-schedule-watchdog.yml' <<< "$changed_files" ||
              grep -Fqx 'scripts/validate-wf-06-healthcheck-contract.sh' <<< "$changed_files"; then
             bash scripts/validate-wf-06-healthcheck-contract.sh
           else
-            echo "No WF-06 healthcheck contract files changed."
+            echo "No WF-06/WF-12 healthcheck contract files changed."
           fi
 
 
@@ -131,7 +132,7 @@ jobs:
               grep -E '[.](cjs|cts|css|html|js|jsx|json|jsonc|md|mdx|mjs|mts|scss|ts|tsx|yaml|yml)$' |
               grep -v '^[.]github/workflows/' || true
           )
-          if ((${#files[@]})); then
+          if (("${#files[@]}")); then
             npx prettier --write "${files[@]}"
           else
             echo "No eligible changed files to format."
