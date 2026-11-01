@@ -7,43 +7,45 @@ on:
 
 jobs:
   public-smoke:
-    name: Verify public MVP HTTP endpoints
+    name: Public endpoint — ${{ matrix.name }}
     runs-on: ubuntu-latest
     timeout-minutes: 3
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: TCE web
+            url: https://tce.mrcute.space/
+            expected_status: "200"
+          - name: TCE API
+            url: https://tce.mrcute.space/api/health
+            expected_status: "200"
+          - name: Auth liveness
+            url: https://auth.mrcute.space/api/health
+            expected_status: "200"
+          - name: Auth readiness
+            url: https://auth.mrcute.space/api/ready
+            expected_status: "200"
     steps:
-      - name: Check TCE and central Auth endpoints
+      - name: Check ${{ matrix.name }}
         shell: bash
+        env:
+          ENDPOINT_NAME: ${{ matrix.name }}
+          URL: ${{ matrix.url }}
+          EXPECTED_STATUS: ${{ matrix.expected_status }}
         run: |
           set -euo pipefail
-          failed=0
-          check_endpoint() {
-            local name="$1"
-            local url="$2"
-            local expected="$3"
-            local body
-            local status
-            body="$(mktemp)"
-            if status="$(curl --location --silent --show-error --retry 2 --retry-all-errors --connect-timeout 5 --max-time 15 --output "$body" --write-out '%{http_code}' "$url")"; then
-              if [[ "$status" == "$expected" ]]; then
-                echo "PASS $name: HTTP $status"
-              else
-                echo "::error::$name returned HTTP $status; expected $expected"
-                failed=1
-              fi
-            else
-              echo "::error::$name could not be reached: $url"
-              failed=1
-            fi
-            rm -f "$body"
-          }
-
-          check_endpoint "TCE web" "https://tce.mrcute.space/" "200"
-          check_endpoint "Auth liveness" "https://auth.mrcute.space/api/health" "200"
-          check_endpoint "Auth readiness" "https://auth.mrcute.space/api/ready" "200"
-
-          if [[ "$failed" -ne 0 ]]; then
+          body="$(mktemp)"
+          trap 'rm -f "$body"' EXIT
+          if ! status="$(curl --location --silent --show-error --retry 2 --retry-all-errors --connect-timeout 5 --max-time 15 --output "$body" --write-out '%{http_code}' "$URL")"; then
+            echo "::error::$ENDPOINT_NAME could not be reached: $URL"
             exit 1
           fi
+          if [[ "$status" != "$EXPECTED_STATUS" ]]; then
+            echo "::error::$ENDPOINT_NAME returned HTTP $status; expected $EXPECTED_STATUS"
+            exit 1
+          fi
+          echo "PASS $ENDPOINT_NAME: HTTP $status"
 
   healthcheck:
     runs-on: ubuntu-latest

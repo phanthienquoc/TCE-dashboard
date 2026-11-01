@@ -67,6 +67,21 @@ jobs:
             echo "No eligible changed files to check."
           fi
 
+      - name: Validate WF-06 endpoint contract when changed
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          set -euo pipefail
+          diff_range="origin/${BASE_REF}...HEAD"
+          changed_files="$(git diff --name-only "$diff_range")"
+          if grep -Fqx '.github/workflows/wf-06-tce-healthcheck.yml' <<< "$changed_files" ||
+             grep -Fqx 'scripts/validate-wf-06-healthcheck-contract.sh' <<< "$changed_files"; then
+            bash scripts/validate-wf-06-healthcheck-contract.sh
+          else
+            echo "No WF-06 healthcheck contract files changed."
+          fi
+
+
   prettier-write:
     if: github.event_name != 'pull_request'
     name: Auto-format on push
