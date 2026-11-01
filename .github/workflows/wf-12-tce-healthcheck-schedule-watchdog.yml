@@ -11,6 +11,7 @@ name: WF-12 TCE Healthcheck Schedule Watchdog
   workflow_run:
     workflows:
       - WF-06 TCE Healthcheck
+      - WF-07 TCE 3rd-Party Integration Check
     types:
       - completed
 
@@ -25,7 +26,8 @@ concurrency:
 jobs:
   verify:
     name: Verify WF-06 schedule delivery
-    if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.event == 'schedule' }}
+    # WF-07 is an independent scheduled heartbeat; only scheduled WF-06/WF-07 completions may trigger this read-only check.
+    if: ${{ github.event_name != 'workflow_run' || (github.event.workflow_run.event == 'schedule' && (github.event.workflow.path == '.github/workflows/wf-06-tce-healthcheck.yml' || github.event.workflow.path == '.github/workflows/wf-07-tce-integration-check.yml')) }}
     runs-on: ubuntu-latest
     timeout-minutes: 3
     env:
