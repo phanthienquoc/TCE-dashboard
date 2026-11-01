@@ -57,13 +57,11 @@ if grep -Eq '^[[:space:]]+actions:[[:space:]]*write' "$watchdog_workflow"; then
   exit 1
 fi
 
-echo "WF-06 healthcheck and WF-12 schedule-delivery contracts validated."
-
 # WF-12 forwards scheduled activity to Platform Infra using the existing,
 # least-privilege repository-dispatch token. The receiver remains the only
 # GitOps/inspection authority; the heartbeat payload carries no deployment inputs.
 grep -Fq "name: Notify Platform Infra — TCE schedule heartbeat" "$watchdog_workflow"
-grep -Fq "PLATFORM_INFRA_TOKEN: ${{ secrets.PLATFORM_INFRA_TOKEN }}" "$watchdog_workflow"
+grep -Fq 'PLATFORM_INFRA_TOKEN: ${{ secrets.PLATFORM_INFRA_TOKEN }}' "$watchdog_workflow"
 grep -Fq "https://api.github.com/repos/phanthienquoc/platform-infra/dispatches" "$watchdog_workflow"
 grep -Fq 'event_type:"tce-schedule-heartbeat"' "$watchdog_workflow"
 grep -Fq 'source_repository:$source_repository' "$watchdog_workflow"
@@ -79,3 +77,5 @@ grep -Fq "github.event_name == 'schedule'" <<< "$heartbeat_block"
 grep -Fq "github.event.workflow_run.event == 'schedule'" <<< "$heartbeat_block"
 grep -Fq "wf-06-tce-healthcheck.yml" <<< "$heartbeat_block"
 grep -Fq "wf-07-tce-integration-check.yml" <<< "$heartbeat_block"
+
+echo "WF-06, WF-12 schedule-delivery, and Platform Infra heartbeat contracts validated."
