@@ -38,6 +38,10 @@ grep -Fq 'MAX_QUEUE_MINUTES: "15"' "$watchdog_workflow"
 grep -Fq 'actions/runs/${GITHUB_RUN_ID}' "$watchdog_workflow"
 grep -Fq 'age_seconds=$((reference_epoch - created_epoch))' "$watchdog_workflow"
 grep -Fq 'reference_epoch=' "$watchdog_workflow"
+grep -Fq "run_attempt" "$watchdog_workflow"
+grep -Fq "queue_measurable=false" "$watchdog_workflow"
+grep -Fq "queue=not-measurable" "$watchdog_workflow"
+grep -Fq "queue wait is not measurable on rerun attempt" "$watchdog_workflow"
 if grep -Fq 'date -u +%s' "$watchdog_workflow"; then
   echo "WF-12 must not compare Actions API timestamps with the hosted runner wall clock." >&2
   exit 1
