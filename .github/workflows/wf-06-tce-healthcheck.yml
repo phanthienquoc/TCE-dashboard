@@ -7,43 +7,45 @@ on:
 
 jobs:
   public-smoke:
-    name: Verify public MVP HTTP endpoints
+    name: Public endpoint — ${{ matrix.name }}
     runs-on: ubuntu-latest
     timeout-minutes: 3
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: TCE web
+            url: https://tce.mrcute.space/
+            expected_status: "200"
+          - name: TCE API
+            url: https://tce.mrcute.space/api/health
+            expected_status: "200"
+          - name: Auth liveness
+            url: https://auth.mrcute.space/api/health
+            expected_status: "200"
+          - name: Auth readiness
+            url: https://auth.mrcute.space/api/ready
+            expected_status: "200"
     steps:
-      - name: Check TCE and central Auth endpoints
+      - name: Check ${{ matrix.name }}
         shell: bash
+        env:
+          ENDPOINT_NAME: ${{ matrix.name }}
+          URL: ${{ matrix.url }}
+          EXPECTED_STATUS: ${{ matrix.expected_status }}
         run: |
           set -euo pipefail
-          failed=0
-          check_endpoint() {
-            local name="$1"
-            local url="$2"
-            local expected="$3"
-            local body
-            local status
-            body="$(mktemp)"
-            if status="$(curl --location --silent --show-error --retry 2 --retry-all-errors --connect-timeout 5 --max-time 15 --output "$body" --write-out '%{http_code}' "$url")"; then
-              if [[ "$status" == "$expected" ]]; then
-                echo "PASS $name: HTTP $status"
-              else
-                echo "::error::$name returned HTTP $status; expected $expected"
-                failed=1
-              fi
-            else
-              echo "::error::$name could not be reached: $url"
-              failed=1
-            fi
-            rm -f "$body"
-          }
-
-          check_endpoint "TCE web" "https://tce.mrcute.space/" "200"
-          check_endpoint "Auth liveness" "https://auth.mrcute.space/api/health" "200"
-          check_endpoint "Auth readiness" "https://auth.mrcute.space/api/ready" "200"
-
-          if [[ "$failed" -ne 0 ]]; then
+          body="$(mktemp)"
+          trap 'rm -f "$body"' EXIT
+          if ! status="$(curl --location --silent --show-error --retry 2 --retry-all-errors --connect-timeout 5 --max-time 15 --output "$body" --write-out '%{http_code}' "$URL")"; then
+            echo "::error::$ENDPOINT_NAME could not be reached: $URL"
             exit 1
           fi
+          if [[ "$status" != "$EXPECTED_STATUS" ]]; then
+            echo "::error::$ENDPOINT_NAME returned HTTP $status; expected $EXPECTED_STATUS"
+            exit 1
+          fi
+          echo "PASS $ENDPOINT_NAME: HTTP $status"
 
   healthcheck:
     runs-on: ubuntu-latest
@@ -55,7 +57,7 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p ~/.ssh
-          printf '%s\n' "$KEY" | tr -d '\r' > ~/.ssh/tce_vps_key
+          printf '%s\\n' "$KEY" | tr -d '\\r' > ~/.ssh/tce_vps_key
           chmod 600 ~/.ssh/tce_vps_key
       - name: Check TCE containers and legacy development ports
         run: |
@@ -63,7 +65,7 @@ jobs:
           ssh -i ~/.ssh/tce_vps_key -o IdentitiesOnly=yes -o StrictHostKeyChecking=no -o ConnectTimeout=10 ubuntu@132.226.175.206 'bash -s' <<'REMOTE'
           set -euo pipefail
           echo "=== TCE CONTAINERS ==="
-          docker ps --filter name=tce- --format 'table {{.Names}}\t{{.Status}}\t{{.Ports}}'
+          docker ps --filter name=tce- --format 'table {{.Names}}\\t{{.Status}}\\t{{.Ports}}'
           echo "=== LEGACY/DEVELOPMENT PORTS (INFORMATIONAL; PUBLIC SMOKE JOB IS THE MVP GATE) ==="
           for port in 3210 3211 3212; do
             if curl -fsS --max-time 5 "http://127.0.0.1:${port}/" >/dev/null 2>&1; then
@@ -73,7 +75,7 @@ jobs:
             fi
           done
           echo "=== EXISTING SERVICES ==="
-          docker ps --format '{{.Names}}\t{{.Status}}' | grep -E 'docker-web-1|docker-api-1|mrcute|stock-|nginx' || true
+          docker ps --format '{{.Names}}\\t{{.Status}}' | grep -E 'docker-web-1|docker-api-1|mrcute|stock-|nginx' || true
           REMOTE
       - name: Cleanup
         if: always()
