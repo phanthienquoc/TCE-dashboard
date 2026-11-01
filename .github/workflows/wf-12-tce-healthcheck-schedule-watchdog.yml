@@ -92,6 +92,8 @@ jobs:
           run_url="$(jq -r '.html_url' <<< "$latest")"
           status="$(jq -r '.status' <<< "$latest")"
           conclusion="$(jq -r '.conclusion // "pending"' <<< "$latest")"
+          age_seconds=$((reference_epoch - created_epoch))
+          age_minutes=$((age_seconds / 60))
           run_attempt="$(jq -r '.run_attempt // 1' <<< "$latest")"
           queue_measurable=true
           if (( run_attempt > 1 )); then
