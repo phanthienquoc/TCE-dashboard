@@ -33,6 +33,16 @@ grep -Fq "actions/workflows/wf-06-tce-healthcheck.yml" "$watchdog_workflow"
 grep -Fq "event=schedule" "$watchdog_workflow"
 grep -Fq 'MAX_AGE_MINUTES: "25"' "$watchdog_workflow"
 grep -Fq 'MAX_QUEUE_MINUTES: "15"' "$watchdog_workflow"
+# Compare run timestamps from the same GitHub Actions API clock. The runner host
+# clock is not a reliable reference for freshness (observed one-hour skew).
+grep -Fq 'actions/runs/${GITHUB_RUN_ID}' "$watchdog_workflow"
+grep -Fq 'age_seconds=$((reference_epoch - created_epoch))' "$watchdog_workflow"
+grep -Fq 'reference_epoch=' "$watchdog_workflow"
+if grep -Fq 'date -u +%s' "$watchdog_workflow"; then
+  echo "WF-12 must not compare Actions API timestamps with the hosted runner wall clock." >&2
+  exit 1
+fi
+
 grep -Fq "actions: read" "$watchdog_workflow"
 
 if grep -Eq '^[[:space:]]+actions:[[:space:]]*write' "$watchdog_workflow"; then
