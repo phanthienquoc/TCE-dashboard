@@ -14,6 +14,7 @@ on:
       - 'apps/service/**'
       - 'infra/k3s/**'
       - '.github/workflows/**'
+      - 'scripts/validate-tce-release-contract.sh'
   workflow_dispatch:
 
 jobs:
@@ -23,6 +24,9 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
+
+      - name: Validate TCE production release contract
+        run: bash scripts/validate-tce-release-contract.sh
 
       - name: Verify required repository secrets
         env:
