@@ -8,6 +8,8 @@ ruby -e 'require "yaml"; ARGV.each { |path| YAML.parse_file(path) }' "$healthche
 
 grep -Fq "cron: '*/15 * * * *'" "$healthcheck_workflow"
 grep -Fq "workflow_dispatch:" "$healthcheck_workflow"
+grep -Fq "permissions: {}" "$healthcheck_workflow"
+grep -Fq "public-smoke:" "$healthcheck_workflow"
 grep -Fq "fail-fast: false" "$healthcheck_workflow"
 
 for endpoint in \
@@ -21,7 +23,13 @@ for endpoint in \
   }
 done
 
-grep -Fq "Check TCE containers and legacy development ports" "$healthcheck_workflow"
+# Runtime inspection belongs to Platform Infra's read-only inspect-vps workflow.
+# Keep WF-06 public-smoke-only: no VPS key, SSH session, Docker/Compose inspection,
+# or legacy development-port probes in the application repository.
+if grep -Eiq 'VPS_SSH_PRIVATE_KEY|StrictHostKeyChecking|ssh[[:space:]]+-i|docker[[:space:]]+ps|3210|3211|3212' "$healthcheck_workflow"; then
+  echo "WF-06 must not perform direct VPS/SSH/Docker inspection; use Platform Infra inspect-vps." >&2
+  exit 1
+fi
 
 # WF-12 is a read-only monitor for delivery of the existing WF-06 schedule.
 # It must not change WF-06's cadence or acquire Actions write permission.
@@ -78,4 +86,4 @@ grep -Fq "github.event.workflow_run.event == 'schedule'" <<< "$heartbeat_block"
 grep -Fq "wf-06-tce-healthcheck.yml" <<< "$heartbeat_block"
 grep -Fq "wf-07-tce-integration-check.yml" <<< "$heartbeat_block"
 
-echo "WF-06, WF-12 schedule-delivery, and Platform Infra heartbeat contracts validated."
+echo "WF-06 public-smoke, WF-12 schedule-delivery, and Platform Infra heartbeat contracts validated."
