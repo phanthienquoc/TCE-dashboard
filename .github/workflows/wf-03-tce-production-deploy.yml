@@ -74,10 +74,17 @@ jobs:
         run: |
           set -euo pipefail
           VERSION="$(node -p "require('./package.json').version")"
-          SHA="${GITHUB_SHA::7}"
+          SHA="$GITHUB_SHA"
+          [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || {
+            echo "::error::package.json version must be stable semver (x.y.z)." >&2
+            exit 1
+          }
+          [[ "$SHA" =~ ^[0-9a-f]{40}$ ]] || {
+            echo "::error::Expected the full immutable 40-character source SHA." >&2
+            exit 1
+          }
           IMAGE_TAG="prod-v${VERSION}-${SHA}"
 
-          test -n "$VERSION"
           test "$IMAGE_TAG" = "prod-v${VERSION}-${SHA}"
 
           echo "image_tag=$IMAGE_TAG" >> "$GITHUB_OUTPUT"
@@ -249,6 +256,9 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Set up Buildx for registry digest inspection
+        uses: docker/setup-buildx-action@v3
+
       - name: Publish exact release images
         shell: bash
         run: |
@@ -263,11 +273,48 @@ jobs:
           docker push "$WEB_IMAGE"
           docker push "$SERVICE_IMAGE"
 
+      - name: Verify immutable registry digests and ARM64 manifests
+        id: image-digests
+        shell: bash
+        env:
+          TAG: ${{ needs.detect.outputs.image_tag }}
+        run: |
+          set -euo pipefail
+          [[ "$TAG" =~ ^prod-v[0-9]+\.[0-9]+\.[0-9]+-[0-9a-f]{40}$ ]] || {
+            echo "::error::Expected a full-source-SHA TCE release tag before registry verification." >&2
+            exit 1
+          }
+
+          for component in web service; do
+            image="ghcr.io/phanthienquoc/tce-dashboard/$component:$TAG"
+            inspect="$(docker buildx imagetools inspect "$image")"
+            if ! grep -Eq 'Platform: linux/arm64|linux/arm64' <<< "$inspect"; then
+              echo "::error::Published TCE image $image has no linux/arm64 manifest." >&2
+              printf '%s\\n' "$inspect" >&2
+              exit 1
+            fi
+
+            digest="$(awk '/^Digest:/ {print $2; exit}' <<< "$inspect")"
+            [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]] || {
+              echo "::error::Unable to resolve immutable registry digest for $image." >&2
+              printf '%s\\n' "$inspect" >&2
+              exit 1
+            }
+            echo "${component}_digest=$digest" >> "$GITHUB_OUTPUT"
+            echo "Verified TCE $component: $digest (linux/arm64)"
+          done
+
+          grep -Eq '^web_digest=sha256:[0-9a-f]{64}$' "$GITHUB_OUTPUT"
+          grep -Eq '^service_digest=sha256:[0-9a-f]{64}$' "$GITHUB_OUTPUT"
+
       - name: Validate TCE release handoff contract
         run: bash scripts/validate-tce-release-contract.sh
       - name: Notify platform-infra
         id: dispatch
         shell: bash
+        env:
+          WEB_DIGEST: ${{ steps.image-digests.outputs.web_digest }}
+          SERVICE_DIGEST: ${{ steps.image-digests.outputs.service_digest }}
         run: |
           set -euo pipefail
 
@@ -294,27 +341,39 @@ jobs:
             echo "::error::TCE publisher source SHA is invalid."
             exit 1
           }
-          [[ "$TAG" == *-"${SOURCE_HEAD_SHA:0:7}" ]] || {
-            echo "::error::TCE immutable release tag does not match the source SHA prefix."
+          [[ "$TAG" == *-"$SOURCE_HEAD_SHA" ]] || {
+            echo "::error::TCE immutable release tag must contain the full source SHA."
+            exit 1
+          }
+          [[ "$WEB_DIGEST" =~ ^sha256:[0-9a-f]{64}$ ]] || {
+            echo "::error::TCE web registry digest is missing or malformed."
+            exit 1
+          }
+          [[ "$SERVICE_DIGEST" =~ ^sha256:[0-9a-f]{64}$ ]] || {
+            echo "::error::TCE service registry digest is missing or malformed."
             exit 1
           }
 
           payload="$(jq -cn \
             --arg app "tce-dashboard" \
             --arg release "$TAG" \
+            --arg web_digest "$WEB_DIGEST" \
+            --arg service_digest "$SERVICE_DIGEST" \
             --arg source_run_id "$SOURCE_RUN_ID" \
             --arg source_workflow_path "$SOURCE_WORKFLOW_PATH" \
             --arg source_event "$SOURCE_EVENT" \
             --arg source_head_sha "$SOURCE_HEAD_SHA" \
-            '{event_type:"tce-release-requested",client_payload:{app:$app,release:$release,source_run_id:$source_run_id,source_workflow_path:$source_workflow_path,source_event:$source_event,source_head_sha:$source_head_sha}}')"
+            '{event_type:"tce-release-requested",client_payload:{app:$app,release:$release,web_digest:$web_digest,service_digest:$service_digest,source_run_id:$source_run_id,source_workflow_path:$source_workflow_path,source_event:$source_event,source_head_sha:$source_head_sha}}')"
           jq -e \
             --arg app "tce-dashboard" \
             --arg release "$TAG" \
+            --arg web_digest "$WEB_DIGEST" \
+            --arg service_digest "$SERVICE_DIGEST" \
             --arg source_run_id "$SOURCE_RUN_ID" \
             --arg source_workflow_path "$SOURCE_WORKFLOW_PATH" \
             --arg source_event "$SOURCE_EVENT" \
             --arg source_head_sha "$SOURCE_HEAD_SHA" \
-            '.event_type == "tce-release-requested" and .client_payload.app == $app and .client_payload.release == $release and .client_payload.source_run_id == $source_run_id and .client_payload.source_workflow_path == $source_workflow_path and .client_payload.source_event == $source_event and .client_payload.source_head_sha == $source_head_sha' \
+            '.event_type == "tce-release-requested" and .client_payload.app == $app and .client_payload.release == $release and .client_payload.web_digest == $web_digest and .client_payload.service_digest == $service_digest and .client_payload.source_run_id == $source_run_id and .client_payload.source_workflow_path == $source_workflow_path and .client_payload.source_event == $source_event and .client_payload.source_head_sha == $source_head_sha' \
             <<< "$payload" >/dev/null
 
           DISPATCHED_AT="$(date -u +%s)"
@@ -347,12 +406,12 @@ jobs:
               -H "X-GitHub-Api-Version: 2022-11-28" \
               "$API?event=repository_dispatch&per_page=20")"
 
-            MATCH="$(printf '%s' "$RUNS_JSON" | jq -r --argjson cutoff "$DISPATCHED_AT" '
+            MATCH="$(printf '%s' "$RUNS_JSON" | jq -r --argjson cutoff "$DISPATCHED_AT" --arg release "$RELEASE" '
               .workflow_runs[]
               | select(.created_at != null)
               | select((.created_at | fromdateiso8601) >= ($cutoff - 5))
-              | select(.name | startswith("GitOps Image Promotion"))
-              | [.id, .name, .status, .html_url]
+              | select(.display_title == ("GitOps Image Promotion — tce-dashboard / " + $release))
+              | [.id, .display_title, .status, .html_url]
               | @tsv
             ')"
 
@@ -377,8 +436,9 @@ jobs:
             echo "### Platform Infra image release"
             echo ""
             echo "- Tag: $TAG"
-            echo "- Web: ghcr.io/phanthienquoc/tce-dashboard/web:$TAG"
-            echo "- Service: ghcr.io/phanthienquoc/tce-dashboard/service:$TAG"
+            echo "- Web: ghcr.io/phanthienquoc/tce-dashboard/web@$WEB_DIGEST"
+            echo "- Service: ghcr.io/phanthienquoc/tce-dashboard/service@$SERVICE_DIGEST"
+            echo "- Release tag: $TAG"
             echo "- Event: tce-release-requested"
             echo "- Platform Infra: release request dispatched and GitOps Image Promotion workflow verified"
           } >> "$GITHUB_STEP_SUMMARY"
