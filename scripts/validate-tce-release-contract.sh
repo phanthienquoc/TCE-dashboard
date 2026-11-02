@@ -20,7 +20,7 @@ required=(
   '[[ "$TAG" == *-"$SOURCE_HEAD_SHA" ]]'
   'SHA="$GITHUB_SHA"'
   '[[ "$SHA" =~ ^[0-9a-f]{40}$ ]]'
-  'docker/setup-buildx-action@v3'
+  'docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1'
   'docker buildx imagetools inspect "$image"'
   'echo "${component}_digest=$digest"'
   'WEB_DIGEST: ${{ steps.image-digests.outputs.web_digest }}'
