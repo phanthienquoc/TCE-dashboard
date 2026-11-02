@@ -263,6 +263,8 @@ jobs:
           docker push "$WEB_IMAGE"
           docker push "$SERVICE_IMAGE"
 
+      - name: Validate TCE release handoff contract
+        run: bash scripts/validate-tce-release-contract.sh
       - name: Notify platform-infra
         id: dispatch
         shell: bash
@@ -274,6 +276,47 @@ jobs:
             exit 1
           }
 
+          SOURCE_RUN_ID="$GITHUB_RUN_ID"
+          SOURCE_WORKFLOW_PATH=".github/workflows/wf-03-tce-production-deploy.yml"
+          SOURCE_EVENT="$GITHUB_EVENT_NAME"
+          SOURCE_HEAD_SHA="$GITHUB_SHA"
+
+          [[ "$SOURCE_RUN_ID" =~ ^[0-9]+$ ]] || {
+            echo "::error::TCE source Actions run ID is invalid."
+            exit 1
+          }
+          [[ "$SOURCE_EVENT" == "workflow_dispatch" ]] || {
+            echo "::error::TCE production publisher must originate from workflow_dispatch."
+            exit 1
+          }
+          [[ "$SOURCE_WORKFLOW_PATH" == ".github/workflows/wf-03-tce-production-deploy.yml" ]]
+          [[ "$SOURCE_HEAD_SHA" =~ ^[0-9a-f]{40}$ && "$SOURCE_HEAD_SHA" == "$GITHUB_SHA" ]] || {
+            echo "::error::TCE publisher source SHA is invalid."
+            exit 1
+          }
+          [[ "$TAG" == *-"${SOURCE_HEAD_SHA:0:7}" ]] || {
+            echo "::error::TCE immutable release tag does not match the source SHA prefix."
+            exit 1
+          }
+
+          payload="$(jq -cn \
+            --arg app "tce-dashboard" \
+            --arg release "$TAG" \
+            --arg source_run_id "$SOURCE_RUN_ID" \
+            --arg source_workflow_path "$SOURCE_WORKFLOW_PATH" \
+            --arg source_event "$SOURCE_EVENT" \
+            --arg source_head_sha "$SOURCE_HEAD_SHA" \
+            '{event_type:"tce-release-requested",client_payload:{app:$app,release:$release,source_run_id:$source_run_id,source_workflow_path:$source_workflow_path,source_event:$source_event,source_head_sha:$source_head_sha}}')"
+          jq -e \
+            --arg app "tce-dashboard" \
+            --arg release "$TAG" \
+            --arg source_run_id "$SOURCE_RUN_ID" \
+            --arg source_workflow_path "$SOURCE_WORKFLOW_PATH" \
+            --arg source_event "$SOURCE_EVENT" \
+            --arg source_head_sha "$SOURCE_HEAD_SHA" \
+            '.event_type == "tce-release-requested" and .client_payload.app == $app and .client_payload.release == $release and .client_payload.source_run_id == $source_run_id and .client_payload.source_workflow_path == $source_workflow_path and .client_payload.source_event == $source_event and .client_payload.source_head_sha == $source_head_sha' \
+            <<< "$payload" >/dev/null
+
           DISPATCHED_AT="$(date -u +%s)"
           echo "dispatched_at=$DISPATCHED_AT" >> "$GITHUB_OUTPUT"
 
@@ -282,7 +325,7 @@ jobs:
             -H "Authorization: Bearer $TOKEN" \
             -H "X-GitHub-Api-Version: 2022-11-28" \
             https://api.github.com/repos/phanthienquoc/platform-infra/dispatches \
-            -d "{\"event_type\":\"tce-release-requested\",\"client_payload\":{\"app\":\"tce-dashboard\",\"release\":\"$TAG\"}}"
+            -d "$payload"
 
       - name: Verify platform-infra release workflow
         shell: bash
