@@ -46,6 +46,13 @@ required=(
   'Verify platform-infra release workflow'
 )
 
+grep -Fq 'uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1' "$workflow"
+[[ "$(grep -Fc 'uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2' "$workflow")" -eq 3 ]]
+grep -Fq 'uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2' "$workflow"
+grep -Fq 'uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4.7.0' "$workflow"
+grep -Fq 'uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1' "$workflow"
+if grep -Eq '^  (push|pull_request|schedule):' "$workflow"; then echo "::error::TCE production publisher must remain manual-only." >&2; exit 1; fi
+
 for pattern in "${required[@]}"; do
   grep -Fq -- "$pattern" "$workflow" || {
     echo "::error::TCE production release contract is missing: $pattern" >&2
