@@ -163,7 +163,7 @@ jobs:
           echo "$IMAGE=$DIGEST" > /tmp/microfe-ws.txt
 
       - name: Upload WebSocket image metadata
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: microfe-ws-metadata
           path: /tmp/microfe-ws.txt
@@ -218,7 +218,7 @@ jobs:
           echo "$IMAGE=$DIGEST" > /tmp/microfe-shell.txt
 
       - name: Upload Shell image metadata
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: microfe-shell-metadata
           path: /tmp/microfe-shell.txt
@@ -235,7 +235,7 @@ jobs:
     timeout-minutes: 45
     steps:
       - name: Download all image metadata
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           pattern: microfe-*-metadata
           merge-multiple: true
