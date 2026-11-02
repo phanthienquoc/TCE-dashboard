@@ -10,6 +10,8 @@ on:
       - 'nx.json'
       - 'tsconfig.base.json'
       - '.github/workflows/wf-01p-tce-web-pr-build.yml'
+      - '.github/workflows/wf-03-tce-production-deploy.yml'
+      - 'scripts/validate-tce-release-contract.sh'
   workflow_dispatch:
 
 permissions:
@@ -26,6 +28,9 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
+
+      - name: Validate TCE production release contract
+        run: bash scripts/validate-tce-release-contract.sh
       - uses: actions/setup-node@v4
         with:
           node-version: 24
