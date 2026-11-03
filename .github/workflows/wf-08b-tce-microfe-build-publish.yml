@@ -85,9 +85,14 @@ jobs:
           ! grep -Fq '      - microfe/auth/**' <<< "$push_block"
           ! grep -Fq '      - microfe/**' <<< "$push_block"
           payload_block="$(sed -n '/const payload = {/,/};/p' "$workflow")"
-          grep -Fq 'shell_digest:' <<< "$payload_block"
-          grep -Fq 'ws_digest:' <<< "$payload_block"
+          for field in app commit release shell_digest ws_digest source_repository source_run_id source_workflow_path source_event source_head_sha; do
+            grep -Fq "$field:" <<< "$payload_block"
+          done
           ! grep -Fq 'auth_digest:' <<< "$payload_block"
+          for field in source_repository source_run_id source_workflow_path source_event source_head_sha; do
+            grep -Fq ".client_payload.$field" "$workflow"
+          done
+          grep -Fq 'source_event == "push" or .client_payload.source_event == "workflow_dispatch"' "$workflow"
           build_job_count="$(grep -Ec '^  build-[a-z0-9-]+:' "$workflow")"
           [[ "$build_job_count" -eq 2 ]]
           grep -Eq '^  build-shell:$' "$workflow"
@@ -261,20 +266,36 @@ jobs:
           const payload = {
             event_type: 'microfe-images-published',
             client_payload: {
+              app: 'microfe',
               commit: process.env.GITHUB_SHA,
               release: `microfe-${process.env.GITHUB_SHA.slice(0, 7)}`,
               shell_digest: digestFrom('/tmp/microfe-build-meta/microfe-shell.txt'),
               ws_digest: digestFrom('/tmp/microfe-build-meta/microfe-ws.txt'),
+              source_repository: process.env.GITHUB_REPOSITORY,
+              source_run_id: process.env.GITHUB_RUN_ID,
+              source_workflow_path: '.github/workflows/wf-08b-tce-microfe-build-publish.yml',
+              source_event: process.env.GITHUB_EVENT_NAME,
+              source_head_sha: process.env.GITHUB_SHA,
             },
           };
           process.stdout.write(JSON.stringify(payload) + '\n');
           NODE
 
           EXPECTED_RELEASE="microfe-${GITHUB_SHA:0:7}"
-          jq -e --arg commit "$GITHUB_SHA" --arg release "$EXPECTED_RELEASE" '
+          jq -e --arg commit "$GITHUB_SHA" --arg release "$EXPECTED_RELEASE" \
+            --arg repository "$GITHUB_REPOSITORY" --arg run_id "$GITHUB_RUN_ID" \
+            --arg event "$GITHUB_EVENT_NAME" '
             .event_type == "microfe-images-published"
+            and .client_payload.app == "microfe"
             and .client_payload.commit == $commit
             and .client_payload.release == $release
+            and .client_payload.source_repository == $repository
+            and .client_payload.source_repository == "phanthienquoc/TCE-dashboard"
+            and .client_payload.source_run_id == $run_id
+            and .client_payload.source_workflow_path == ".github/workflows/wf-08b-tce-microfe-build-publish.yml"
+            and .client_payload.source_event == $event
+            and (.client_payload.source_event == "push" or .client_payload.source_event == "workflow_dispatch")
+            and .client_payload.source_head_sha == $commit
             and (.client_payload.shell_digest | test("^sha256:[0-9a-f]{64}$"))
             and (.client_payload.ws_digest | test("^sha256:[0-9a-f]{64}$"))
           ' /tmp/microfe-dispatch.json >/dev/null
