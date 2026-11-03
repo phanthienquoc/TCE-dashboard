@@ -48,6 +48,31 @@ grep -Fq 'MAX_QUEUE_MINUTES: "15"' "$watchdog_workflow"
 # clock is not a reliable reference for freshness (observed one-hour skew).
 grep -Fq 'actions/runs/${GITHUB_RUN_ID}' "$watchdog_workflow"
 grep -Fq 'age_seconds=$((reference_epoch - created_epoch))' "$watchdog_workflow"
+grep -Fq 'if (( age_seconds > MAX_AGE_MINUTES * 60 )); then' "$watchdog_workflow"
+grep -Fq 'if [[ "$queue_measurable" == true ]] && (( queue_seconds > MAX_QUEUE_MINUTES * 60 )); then' "$watchdog_workflow"
+if grep -Fq '(( age_minutes > MAX_AGE_MINUTES ))' "$watchdog_workflow" ||
+   grep -Fq '(( queue_minutes > MAX_QUEUE_MINUTES ))' "$watchdog_workflow"; then
+  echo "WF-12 freshness and runner queue budgets must compare exact seconds." >&2
+  exit 1
+fi
+
+# Boundary regressions: exact budget is accepted; one second over is stale.
+assert_budget_result() {
+  local label="$1" elapsed_seconds="$2" budget_minutes="$3" expected="$4"
+  local actual=false
+  if (( elapsed_seconds > budget_minutes * 60 )); then
+    actual=true
+  fi
+  if [[ "$actual" != "$expected" ]]; then
+    echo "Unexpected budget result for $label: elapsed=${elapsed_seconds}s budget=${budget_minutes}m expected=${expected} actual=${actual}" >&2
+    exit 1
+  fi
+}
+assert_budget_result "WF-06 freshness exact 25m" 1500 25 false
+assert_budget_result "WF-06 freshness 25m01s" 1501 25 true
+assert_budget_result "WF-06 runner queue exact 15m" 900 15 false
+assert_budget_result "WF-06 runner queue 15m01s" 901 15 true
+
 grep -Fq 'reference_epoch=' "$watchdog_workflow"
 grep -Fq "run_attempt" "$watchdog_workflow"
 grep -Fq "queue_measurable=false" "$watchdog_workflow"
