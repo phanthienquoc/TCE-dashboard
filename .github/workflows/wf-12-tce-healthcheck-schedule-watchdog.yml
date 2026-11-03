@@ -125,12 +125,12 @@ jobs:
           fi
 
           stale=0
-          if [[ "$queue_measurable" == true ]] && (( queue_minutes > MAX_QUEUE_MINUTES )); then
-            echo "::error::WF-06 run #${run_id} waited ${queue_minutes}m for a runner; budget=${MAX_QUEUE_MINUTES}m."
+          if [[ "$queue_measurable" == true ]] && (( queue_seconds > MAX_QUEUE_MINUTES * 60 )); then
+            echo "::error::WF-06 run #${run_id} waited ${queue_seconds}s (${queue_minutes}m) for a runner; budget=${MAX_QUEUE_MINUTES}m."
             stale=1
           fi
-          if (( age_minutes > MAX_AGE_MINUTES )); then
-            echo "::error::No scheduled WF-06 run within ${MAX_AGE_MINUTES}m; latest age=${age_minutes}m."
+          if (( age_seconds > MAX_AGE_MINUTES * 60 )); then
+            echo "::error::No scheduled WF-06 run within ${MAX_AGE_MINUTES}m; latest age=${age_seconds}s (${age_minutes}m)."
             stale=1
           fi
 
