@@ -3,8 +3,40 @@ set -euo pipefail
 
 healthcheck_workflow="${1:-.github/workflows/wf-06-tce-healthcheck.yml}"
 watchdog_workflow="${2:-.github/workflows/wf-12-tce-healthcheck-schedule-watchdog.yml}"
+backend_ci_workflow="${3:-.github/workflows/wf-02-tce-backend-unit-test.yml}"
+prettier_workflow="${4:-.github/workflows/wf-02-tce-prettier-format.yml}"
 
-ruby -e 'require "yaml"; ARGV.each { |path| YAML.parse_file(path) }' "$healthcheck_workflow" "$watchdog_workflow"
+ruby -e 'require "yaml"; ARGV.each { |path| YAML.parse_file(path) }' \
+  "$healthcheck_workflow" "$watchdog_workflow" "$backend_ci_workflow" "$prettier_workflow"
+
+# Keep one mandatory owner for this cross-workflow contract. WF-05 runs on every
+# push, pull_request and manual dispatch; Prettier must not duplicate the same
+# validation only for a subset of changed paths.
+grep -Fq "push:" "$backend_ci_workflow"
+grep -Fq "pull_request:" "$backend_ci_workflow"
+grep -Fq "workflow_dispatch:" "$backend_ci_workflow"
+
+ruby - "$backend_ci_workflow" "$prettier_workflow" <<'RUBY'
+require "yaml"
+
+backend = YAML.load_file(ARGV[0])
+job = backend.fetch("jobs").fetch("backend-unit-test")
+step = job.fetch("steps").find do |item|
+  item["name"] == "Validate WF-06/WF-12 schedule and heartbeat contract"
+end
+unless step && step["run"] == "bash scripts/validate-wf-06-healthcheck-contract.sh" && !step.key?("if")
+  abort "WF-05 must run the WF-06/WF-12 contract unconditionally."
+end
+
+prettier = YAML.load_file(ARGV[1])
+duplicate = prettier.fetch("jobs").values.any? do |prettier_job|
+  prettier_job.fetch("steps", []).any? do |item|
+    item["run"].to_s.include?("scripts/validate-wf-06-healthcheck-contract.sh")
+  end
+end
+abort "Prettier must not duplicate the mandatory WF-05 contract validation." if duplicate
+RUBY
+
 
 grep -Fq "cron: '*/15 * * * *'" "$healthcheck_workflow"
 grep -Fq "workflow_dispatch:" "$healthcheck_workflow"
