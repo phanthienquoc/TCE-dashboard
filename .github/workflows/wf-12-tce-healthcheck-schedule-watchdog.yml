@@ -27,7 +27,14 @@ jobs:
   verify:
     name: Verify WF-06 schedule delivery
     # WF-07 is an independent scheduled heartbeat; only scheduled WF-06/WF-07 completions may trigger this read-only check.
-    if: ${{ github.event_name != 'workflow_run' || (github.event.workflow_run.event == 'schedule' && (github.event.workflow.path == '.github/workflows/wf-06-tce-healthcheck.yml' || github.event.workflow.path == '.github/workflows/wf-07-tce-integration-check.yml')) }}
+    if: >-
+      ${{ (github.event_name != 'schedule' || github.run_attempt == 1) &&
+          (github.event_name != 'workflow_run' ||
+           (github.run_attempt == 1 &&
+            github.event.workflow_run.run_attempt == 1 &&
+            github.event.workflow_run.event == 'schedule' &&
+            (github.event.workflow.path == '.github/workflows/wf-06-tce-healthcheck.yml' ||
+             github.event.workflow.path == '.github/workflows/wf-07-tce-integration-check.yml'))) }}
     runs-on: ubuntu-latest
     timeout-minutes: 3
     env:
@@ -156,8 +163,10 @@ jobs:
   notify-platform-infra:
     name: Notify Platform Infra — TCE schedule heartbeat
     if: >-
-      ${{ github.event_name == 'schedule' ||
+      ${{ (github.event_name == 'schedule' && github.run_attempt == 1) ||
           (github.event_name == 'workflow_run' &&
+           github.run_attempt == 1 &&
+           github.event.workflow_run.run_attempt == 1 &&
            github.event.workflow_run.event == 'schedule' &&
            (github.event.workflow.path == '.github/workflows/wf-06-tce-healthcheck.yml' ||
             github.event.workflow.path == '.github/workflows/wf-07-tce-integration-check.yml')) }}
@@ -170,8 +179,10 @@ jobs:
           SOURCE_EVENT: ${{ github.event_name == 'schedule' && 'schedule' || github.event.workflow_run.event }}
           SOURCE_WORKFLOW_PATH: ${{ github.event_name == 'schedule' && '.github/workflows/wf-12-tce-healthcheck-schedule-watchdog.yml' || github.event.workflow.path }}
           SOURCE_RUN_ID: ${{ github.event_name == 'schedule' && github.run_id || github.event.workflow_run.id }}
+          SOURCE_RUN_ATTEMPT: ${{ github.event_name == 'schedule' && github.run_attempt || github.event.workflow_run.run_attempt }}
           SOURCE_HEAD_SHA: ${{ github.event_name == 'schedule' && github.sha || github.event.workflow_run.head_sha }}
           HEARTBEAT_RUN_ID: ${{ github.run_id }}
+          HEARTBEAT_RUN_ATTEMPT: ${{ github.run_attempt }}
           HEARTBEAT_HEAD_SHA: ${{ github.sha }}
         shell: bash
         run: |
@@ -182,6 +193,14 @@ jobs:
           }
           [[ "$SOURCE_EVENT" == "schedule" ]] || {
             echo "::error::Only scheduled TCE activity may be forwarded as a Platform heartbeat."
+            exit 1
+          }
+          [[ "$SOURCE_RUN_ATTEMPT" =~ ^[0-9]+$ && "$HEARTBEAT_RUN_ATTEMPT" =~ ^[0-9]+$ ]] || {
+            echo "::error::TCE heartbeat run attempts must be numeric."
+            exit 1
+          }
+          [[ "$SOURCE_RUN_ATTEMPT" == "1" && "$HEARTBEAT_RUN_ATTEMPT" == "1" ]] || {
+            echo "::error::Rerun attempts cannot be forwarded as native schedule heartbeats (source=$SOURCE_RUN_ATTEMPT heartbeat=$HEARTBEAT_RUN_ATTEMPT)."
             exit 1
           }
           case "$SOURCE_WORKFLOW_PATH" in
@@ -195,16 +214,20 @@ jobs:
             --arg source_event "$SOURCE_EVENT" \
             --arg source_workflow_path "$SOURCE_WORKFLOW_PATH" \
             --arg source_run_id "$SOURCE_RUN_ID" \
+            --arg source_run_attempt "$SOURCE_RUN_ATTEMPT" \
             --arg source_head_sha "$SOURCE_HEAD_SHA" \
             --arg heartbeat_run_id "$HEARTBEAT_RUN_ID" \
+            --arg heartbeat_run_attempt "$HEARTBEAT_RUN_ATTEMPT" \
             --arg heartbeat_head_sha "$HEARTBEAT_HEAD_SHA" \
             '{event_type:"tce-schedule-heartbeat",client_payload:{
               source_repository:$source_repository,
               source_event:$source_event,
               source_workflow_path:$source_workflow_path,
               source_run_id:$source_run_id,
+              source_run_attempt:$source_run_attempt,
               source_head_sha:$source_head_sha,
               heartbeat_run_id:$heartbeat_run_id,
+              heartbeat_run_attempt:$heartbeat_run_attempt,
               heartbeat_head_sha:$heartbeat_head_sha
             }}')"
           response_file="$(mktemp)"
@@ -222,4 +245,4 @@ jobs:
             cat "$response_file"
             exit 1
           }
-          echo "Verified Platform Infra schedule heartbeat accepted: source=$SOURCE_WORKFLOW_PATH run=$SOURCE_RUN_ID sha=$SOURCE_HEAD_SHA heartbeat_run=$HEARTBEAT_RUN_ID."
+          echo "Verified Platform Infra schedule heartbeat accepted: source=$SOURCE_WORKFLOW_PATH run=$SOURCE_RUN_ID attempt=$SOURCE_RUN_ATTEMPT sha=$SOURCE_HEAD_SHA heartbeat_run=$HEARTBEAT_RUN_ID attempt=$HEARTBEAT_RUN_ATTEMPT."
