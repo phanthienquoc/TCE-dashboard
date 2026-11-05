@@ -160,6 +160,94 @@ jobs:
 
           echo "WF-06 schedule delivery is fresh and within runner queue budget."
 
+  dispatch-stale-wf06-recovery:
+    name: Request WF-13 recovery after stale WF-06 schedule delivery
+    needs: verify
+    if: >-
+      ${{ failure() &&
+          needs.verify.result == 'failure' &&
+          github.event_name == 'workflow_run' &&
+          github.run_attempt == 1 &&
+          github.event.workflow_run.run_attempt == 1 &&
+          github.event.workflow_run.workflow_id == 341818078 &&
+          github.event.workflow_run.event == 'schedule' &&
+          github.event.workflow_run.conclusion == 'success' &&
+          github.event.workflow_run.head_branch == 'master' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    permissions:
+      actions: write
+      contents: read
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Verify stale watchdog failure and native WF-07 source
+        env:
+          UPSTREAM_RUN_ID: ${{ github.event.workflow_run.id }}
+          UPSTREAM_WORKFLOW_ID: ${{ github.event.workflow_run.workflow_id }}
+          UPSTREAM_EVENT: ${{ github.event.workflow_run.event }}
+          UPSTREAM_CONCLUSION: ${{ github.event.workflow_run.conclusion }}
+          UPSTREAM_ATTEMPT: ${{ github.event.workflow_run.run_attempt }}
+          UPSTREAM_BRANCH: ${{ github.event.workflow_run.head_branch }}
+          UPSTREAM_SHA: ${{ github.event.workflow_run.head_sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$UPSTREAM_RUN_ID" =~ ^[0-9]+$ ]]
+          [[ "$UPSTREAM_WORKFLOW_ID" == "341818078" ]]
+          [[ "$UPSTREAM_EVENT" == "schedule" && "$UPSTREAM_CONCLUSION" == "success" ]]
+          [[ "$UPSTREAM_ATTEMPT" == "1" && "$UPSTREAM_BRANCH" == "master" ]]
+          [[ "$UPSTREAM_SHA" =~ ^[0-9a-f]{40}$ ]]
+
+          watchdog_run="$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}")"
+          jq -e --arg sha "$GITHUB_SHA" '
+            .workflow_id == 403352324 and
+            .path == ".github/workflows/wf-12-tce-healthcheck-schedule-watchdog.yml" and
+            .event == "workflow_run" and
+            .head_branch == "master" and
+            .head_sha == $sha and
+            .run_attempt == 1 and
+            .conclusion == "failure"
+          ' <<< "$watchdog_run" >/dev/null
+
+          jobs="$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}/jobs?per_page=100")"
+          verify_job="$(jq -c '[.jobs[] | select(.name == "Verify WF-06 schedule delivery")] | if length == 1 then .[0] else empty end' <<< "$jobs")"
+          [[ -n "$verify_job" ]]
+          jq -e '
+            .status == "completed" and
+            .conclusion == "failure" and
+            ([.steps[] | select(.name == "Verify WF-06 workflow is enabled" and .conclusion == "success")] | length == 1) and
+            ([.steps[] | select(.name == "Inspect latest scheduled WF-06 run" and .conclusion == "failure")] | length == 1)
+          ' <<< "$verify_job" >/dev/null
+          echo "Verified stale WF-06 schedule detection in watchdog #$GITHUB_RUN_ID from native WF-07 schedule #$UPSTREAM_RUN_ID."
+
+      - name: Dispatch WF-13 recovery request
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh workflow run wf-13-tce-healthcheck-recovery.yml \
+            --repo "$GITHUB_REPOSITORY" \
+            --ref master \
+            -f "source_run_id=$GITHUB_RUN_ID"
+
+          expected_title="WF-13 TCE Healthcheck Schedule Recovery / source $GITHUB_RUN_ID"
+          dispatched_run=""
+          for attempt in $(seq 1 8); do
+            response="$(gh api -X GET "repos/${GITHUB_REPOSITORY}/actions/workflows/wf-13-tce-healthcheck-recovery.yml/runs" -f event=workflow_dispatch -F branch=master -F per_page=100)"
+            dispatched_run="$(jq -c --arg title "$expected_title" --arg sha "$GITHUB_SHA" '[.workflow_runs[] | select(.display_title == $title and .head_branch == "master" and .head_sha == $sha and .event == "workflow_dispatch")] | sort_by(.created_at) | last // empty' <<< "$response")"
+            if [[ -n "$dispatched_run" ]]; then
+              run_id="$(jq -r '.id' <<< "$dispatched_run")"
+              run_url="$(jq -r '.html_url' <<< "$dispatched_run")"
+              echo "Verified WF-13 workflow_dispatch recovery request: #$run_id $run_url (source WF-12 #$GITHUB_RUN_ID)."
+              exit 0
+            fi
+            echo "Waiting for WF-13 recovery dispatch correlation (attempt $attempt/8)..."
+            sleep 5
+          done
+
+          echo "::error::GitHub accepted no correlatable WF-13 workflow_dispatch recovery for source #$GITHUB_RUN_ID."
+          exit 1
+
   notify-platform-infra:
     name: Notify Platform Infra — TCE schedule heartbeat
     if: >-
