@@ -151,4 +151,22 @@ grep -Fq "github.event.workflow_run.event == 'schedule'" <<< "$heartbeat_block"
 grep -Fq "wf-06-tce-healthcheck.yml" <<< "$heartbeat_block"
 grep -Fq "wf-07-tce-integration-check.yml" <<< "$heartbeat_block"
 
+# WF-13 is a separate, narrowly-scoped dispatcher. WF-12 must remain read-only.
+grep -Fq "name: WF-13 TCE Healthcheck Schedule Recovery" "$recovery_workflow"
+grep -Fq "WF-12 TCE Healthcheck Schedule Watchdog" "$recovery_workflow"
+grep -Fq "github.event.workflow_run.event == 'schedule'" "$recovery_workflow"
+grep -Fq "github.event.workflow_run.conclusion == 'failure'" "$recovery_workflow"
+grep -Fq "github.event.workflow.path == '.github/workflows/wf-12-tce-healthcheck-schedule-watchdog.yml'" "$recovery_workflow"
+grep -Fq "github.event.workflow_run.run_attempt == 1" "$recovery_workflow"
+grep -Fq "actions: write" "$recovery_workflow"
+grep -Fq "actions/workflows/wf-06-tce-healthcheck.yml" "$recovery_workflow"
+grep -Fq "event=workflow_dispatch" "$recovery_workflow"
+grep -Fq "gh workflow run wf-06-tce-healthcheck.yml" "$recovery_workflow"
+grep -Fq 'MAX_AGE_MINUTES: "25"' "$recovery_workflow"
+grep -Fq "This workflow_dispatch fallback does not satisfy native schedule freshness." "$recovery_workflow"
+if grep -Eiq 'VPS_SSH_PRIVATE_KEY|StrictHostKeyChecking|ssh[[:space:]]+-i|docker[[:space:]]+ps|kubectl[[:space:]]+(apply|delete|patch|scale)' "$recovery_workflow"; then
+  echo "WF-13 must only dispatch the read-only public healthcheck; direct host/cluster mutation is forbidden." >&2
+  exit 1
+fi
+
 echo "WF-06 public-smoke, WF-12 schedule-delivery, and Platform Infra heartbeat contracts validated."
