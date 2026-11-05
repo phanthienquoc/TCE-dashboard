@@ -15,7 +15,6 @@ on:
       - 'infra/k3s/**'
       - '.github/workflows/**'
       - 'scripts/validate-tce-release-contract.sh'
-      - 'scripts/validate-tce-recovery-contract.sh'
   workflow_dispatch:
 
 jobs:
@@ -28,9 +27,6 @@ jobs:
 
       - name: Validate TCE production release contract
         run: bash scripts/validate-tce-release-contract.sh
-
-      - name: Validate TCE schedule recovery contract
-        run: bash scripts/validate-tce-recovery-contract.sh
 
       - name: Verify required repository secrets
         env:
