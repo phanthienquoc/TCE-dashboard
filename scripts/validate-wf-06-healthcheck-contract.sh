@@ -5,9 +5,10 @@ healthcheck_workflow="${1:-.github/workflows/wf-06-tce-healthcheck.yml}"
 watchdog_workflow="${2:-.github/workflows/wf-12-tce-healthcheck-schedule-watchdog.yml}"
 backend_ci_workflow="${3:-.github/workflows/wf-02-tce-backend-unit-test.yml}"
 prettier_workflow="${4:-.github/workflows/wf-02-tce-prettier-format.yml}"
+recovery_workflow="${5:-.github/workflows/wf-13-tce-healthcheck-recovery.yml}"
 
 ruby -e 'require "yaml"; ARGV.each { |path| YAML.parse_file(path) }' \
-  "$healthcheck_workflow" "$watchdog_workflow" "$backend_ci_workflow" "$prettier_workflow"
+  "$healthcheck_workflow" "$watchdog_workflow" "$backend_ci_workflow" "$prettier_workflow" "$recovery_workflow"
 
 # Keep one mandatory owner for this cross-workflow contract. WF-05 runs on every
 # push, pull_request and manual dispatch; Prettier must not duplicate the same
