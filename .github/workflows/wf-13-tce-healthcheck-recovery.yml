@@ -1,15 +1,9 @@
 name: WF-13 TCE Healthcheck Schedule Recovery
 run-name: >-
   WF-13 TCE Healthcheck Schedule Recovery / source
-  ${{ github.event.workflow_run.id || inputs.source_run_id || 'none' }}
+  ${{ github.event.workflow_run.id || 'none' }}
 
 'on':
-  workflow_dispatch:
-    inputs:
-      source_run_id:
-        description: Failed WF-12 workflow_run ID that detected stale WF-06 schedule delivery
-        required: true
-        type: string
   workflow_run:
     workflows:
       - WF-06 TCE Healthcheck
@@ -30,16 +24,14 @@ jobs:
     name: Dispatch read-only WF-06 fallback for a verified stale schedule
     if: >-
       ${{ github.run_attempt == 1 &&
-          ((github.event_name == 'workflow_run' &&
-            github.event.workflow_run.run_attempt == 1 &&
-            github.event.workflow_run.event == 'schedule' &&
-            github.event.workflow_run.head_branch == 'master' &&
+          github.event.workflow_run.run_attempt == 1 &&
+          github.event.workflow_run.head_branch == 'master' &&
+          github.event.workflow_run.conclusion == 'failure' &&
+          ((github.event.workflow_run.event == 'schedule' &&
             (github.event.workflow_run.workflow_id == 339198323 ||
-             github.event.workflow_run.workflow_id == 403352324) &&
-            github.event.workflow_run.conclusion == 'failure') ||
-           (github.event_name == 'workflow_dispatch' &&
-            github.ref == 'refs/heads/master' &&
-            inputs.source_run_id != '')) }}
+             github.event.workflow_run.workflow_id == 403352324)) ||
+           (github.event.workflow_run.event == 'workflow_run' &&
+            github.event.workflow_run.workflow_id == 403352324)) }}
     runs-on: ubuntu-latest
     timeout-minutes: 3
     env:
@@ -47,16 +39,23 @@ jobs:
       MAX_AGE_MINUTES: "25"
     steps:
       - id: source
-        name: Resolve and validate the failed recovery source
+        name: Validate native failure or stale watchdog source
         shell: bash
         env:
-          SOURCE_RUN_ID: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.id || inputs.source_run_id }}
+          SOURCE_RUN_ID: ${{ github.event.workflow_run.id }}
+          SOURCE_WORKFLOW_ID: ${{ github.event.workflow_run.workflow_id }}
+          SOURCE_RUN_ATTEMPT: ${{ github.event.workflow_run.run_attempt }}
+          SOURCE_EVENT: ${{ github.event.workflow_run.event }}
+          SOURCE_CONCLUSION: ${{ github.event.workflow_run.conclusion }}
+          SOURCE_HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
+          SOURCE_HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
         run: |
           set -euo pipefail
-          [[ "$SOURCE_RUN_ID" =~ ^[0-9]+$ ]] || {
-            echo "::error::A numeric source_run_id is required for WF-13 recovery."
-            exit 1
-          }
+          [[ "$SOURCE_RUN_ID" =~ ^[0-9]+$ ]]
+          [[ "$SOURCE_RUN_ATTEMPT" == "1" ]]
+          [[ "$SOURCE_HEAD_BRANCH" == "master" ]]
+          [[ "$SOURCE_CONCLUSION" == "failure" ]]
+          [[ "$SOURCE_HEAD_SHA" =~ ^[0-9a-f]{40}$ ]]
 
           source_run="$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${SOURCE_RUN_ID}")"
           source_id="$(jq -r '.id // empty' <<< "$source_run")"
@@ -71,46 +70,40 @@ jobs:
           reference_epoch="$(jq -r 'if .created_at then (.created_at | fromdateiso8601) else empty end' <<< "$source_run")"
 
           [[ "$source_id" == "$SOURCE_RUN_ID" ]]
+          [[ "$source_workflow_id" == "$SOURCE_WORKFLOW_ID" ]]
           [[ "$source_attempt" == "1" && "$source_branch" == "master" && "$source_conclusion" == "failure" ]]
-          [[ "$source_sha" =~ ^[0-9a-f]{40}$ && -n "$reference_at" && "$reference_epoch" =~ ^[0-9]+$ ]]
+          [[ "$source_sha" == "$SOURCE_HEAD_SHA" && -n "$reference_at" && "$reference_epoch" =~ ^[0-9]+$ ]]
 
           direct_wf06_failure=false
           source_mode=""
-          if [[ "$GITHUB_EVENT_NAME" == "workflow_run" ]]; then
-            [[ "$source_event" == "schedule" ]] || {
-              echo "::error::Direct WF-13 workflow_run recovery requires a native schedule source."
+          case "$source_workflow_id:$source_event" in
+            339198323:schedule)
+              [[ "$source_workflow_path" == ".github/workflows/wf-06-tce-healthcheck.yml" ]]
+              direct_wf06_failure=true
+              source_mode="native-wf06-failure"
+              ;;
+            403352324:schedule)
+              [[ "$source_workflow_path" == ".github/workflows/wf-12-tce-healthcheck-schedule-watchdog.yml" ]]
+              source_mode="native-wf12-failure"
+              ;;
+            403352324:workflow_run)
+              [[ "$source_workflow_path" == ".github/workflows/wf-12-tce-healthcheck-schedule-watchdog.yml" ]]
+              jobs="$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${SOURCE_RUN_ID}/jobs?per_page=100")"
+              verify_job="$(jq -c '[.jobs[] | select(.name == "Verify WF-06 schedule delivery")] | if length == 1 then .[0] else empty end' <<< "$jobs")"
+              [[ -n "$verify_job" ]]
+              jq -e '
+                .status == "completed" and
+                .conclusion == "failure" and
+                ([.steps[] | select(.name == "Verify WF-06 workflow is enabled" and .conclusion == "success")] | length == 1) and
+                ([.steps[] | select(.name == "Inspect latest scheduled WF-06 run" and .conclusion == "failure")] | length == 1)
+              ' <<< "$verify_job" >/dev/null
+              source_mode="watchdog-detected-stale-wf06"
+              ;;
+            *)
+              echo "::error::Source is not an approved native WF-06/WF-12 failure or failed stale WF-12 watchdog."
               exit 1
-            }
-            case "$source_workflow_id" in
-              339198323)
-                [[ "$source_workflow_path" == ".github/workflows/wf-06-tce-healthcheck.yml" ]]
-                direct_wf06_failure=true
-                source_mode="native-wf06-failure"
-                ;;
-              403352324)
-                [[ "$source_workflow_path" == ".github/workflows/wf-12-tce-healthcheck-schedule-watchdog.yml" ]]
-                source_mode="native-wf12-failure"
-                ;;
-              *)
-                echo "::error::Source run is not an approved native WF-06/WF-12 schedule."
-                exit 1
-                ;;
-            esac
-          elif [[ "$GITHUB_EVENT_NAME" == "workflow_dispatch" ]]; then
-            [[ "$source_workflow_id" == "403352324" ]] || {
-              echo "::error::WF-13 workflow_dispatch source must be WF-12."
-              exit 1
-            }
-            [[ "$source_workflow_path" == ".github/workflows/wf-12-tce-healthcheck-schedule-watchdog.yml" ]]
-            [[ "$source_event" == "workflow_run" ]] || {
-              echo "::error::WF-13 workflow_dispatch source must be a WF-12 workflow_run watchdog."
-              exit 1
-            }
-            source_mode="watchdog-detected-stale-wf06"
-          else
-            echo "::error::Unsupported WF-13 recovery event: $GITHUB_EVENT_NAME"
-            exit 1
-          fi
+              ;;
+          esac
 
           {
             echo "source_run_id=$source_id"
