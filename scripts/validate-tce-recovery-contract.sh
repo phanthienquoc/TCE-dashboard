@@ -27,6 +27,8 @@ require_text "$wf12" "actions: read"
 require_text "$wf13" "github.event.workflow_run.event == 'schedule'"
 require_text "$wf13" "github.event.workflow_run.workflow_id == 339198323"
 require_text "$wf13" "github.event.workflow_run.workflow_id == 403352324"
+require_text "$wf13" '339198323) source_workflow_path=".github/workflows/wf-06-tce-healthcheck.yml"'
+require_text "$wf13" '403352324) source_workflow_path=".github/workflows/wf-12-tce-healthcheck-schedule-watchdog.yml"'
 
 # WF-12 remains read-only; WF-13 is the only workflow allowed to dispatch WF-06.
 if grep -Eq '^  actions: write$|^      actions: write$' "$wf12"; then
