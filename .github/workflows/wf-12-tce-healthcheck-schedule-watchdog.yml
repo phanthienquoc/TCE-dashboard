@@ -160,6 +160,109 @@ jobs:
 
           echo "WF-06 schedule delivery is fresh and within runner queue budget."
 
+  recover-wf06-fallback:
+    name: Dispatch read-only WF-06 fallback when native schedule is stale
+    if: ${{ github.event_name == 'schedule' && github.run_attempt == 1 }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    permissions:
+      actions: write
+      contents: read
+    env:
+      GH_TOKEN: ${{ github.token }}
+      MAX_AGE_MINUTES: "25"
+    steps:
+      - name: Dispatch a deduplicated read-only WF-06 fallback
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          workflow="$(gh api -X GET "repos/${GITHUB_REPOSITORY}/actions/workflows/wf-06-tce-healthcheck.yml")"
+          state="$(jq -r '.state // empty' <<< "$workflow")"
+          if [[ "$state" != "active" ]]; then
+            echo "::warning::WF-06 is not active (state=${state:-missing}); fallback dispatch is skipped."
+            exit 0
+          fi
+
+          current_run="$(gh api -X GET "repos/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}")"
+          reference_at="$(jq -r '.created_at // empty' <<< "$current_run")"
+          reference_epoch="$(jq -r 'if .created_at then (.created_at | fromdateiso8601) else empty end' <<< "$current_run")"
+          [[ -n "$reference_at" && "$reference_epoch" =~ ^[0-9]+$ ]] || {
+            echo "::error::Unable to obtain the watchdog run's GitHub API timestamp."
+            exit 1
+          }
+
+          native_runs="$(gh api -X GET "repos/${GITHUB_REPOSITORY}/actions/workflows/wf-06-tce-healthcheck.yml/runs" -f event=schedule -F per_page=100)"
+          native_latest="$(jq -c '.workflow_runs | sort_by(.created_at) | last // empty' <<< "$native_runs")"
+          if [[ -n "$native_latest" ]]; then
+            native_id="$(jq -r '.id' <<< "$native_latest")"
+            native_created="$(jq -r '.created_at' <<< "$native_latest")"
+            native_epoch="$(jq -r '.created_at | fromdateiso8601' <<< "$native_latest")"
+            native_age=$((reference_epoch - native_epoch))
+            (( native_age >= 0 )) || {
+              echo "::error::Native WF-06 run #${native_id} is newer than the GitHub API reference clock."
+              exit 1
+            }
+            if (( native_age <= MAX_AGE_MINUTES * 60 )); then
+              echo "Native WF-06 run #${native_id} is fresh (age=$((native_age / 60))m); no fallback dispatch."
+              exit 0
+            fi
+            echo "::warning::Native WF-06 run #${native_id} is stale (created=${native_created}, age=$((native_age / 60))m)."
+          else
+            echo "::warning::No native scheduled WF-06 run exists; checking fallback history."
+          fi
+
+          fallback_runs="$(gh api -X GET "repos/${GITHUB_REPOSITORY}/actions/workflows/wf-06-tce-healthcheck.yml/runs" -f event=workflow_dispatch -F branch=master -F per_page=100)"
+          fallback_latest="$(jq -c '.workflow_runs | sort_by(.created_at) | last // empty' <<< "$fallback_runs")"
+          if [[ -n "$fallback_latest" ]]; then
+            fallback_id="$(jq -r '.id' <<< "$fallback_latest")"
+            fallback_status="$(jq -r '.status' <<< "$fallback_latest")"
+            fallback_created="$(jq -r '.created_at' <<< "$fallback_latest")"
+            fallback_epoch="$(jq -r '.created_at | fromdateiso8601' <<< "$fallback_latest")"
+            fallback_age=$((reference_epoch - fallback_epoch))
+            (( fallback_age >= 0 )) || {
+              echo "::error::Fallback WF-06 run #${fallback_id} is newer than the GitHub API reference clock."
+              exit 1
+            }
+            if [[ "$fallback_status" != "completed" ]]; then
+              echo "WF-06 fallback #${fallback_id} is ${fallback_status}; avoiding duplicate dispatch."
+              exit 0
+            fi
+            if (( fallback_age <= MAX_AGE_MINUTES * 60 )); then
+              fallback_conclusion="$(jq -r '.conclusion // "unknown"' <<< "$fallback_latest")"
+              echo "Recent WF-06 fallback #${fallback_id} is fresh (age=$((fallback_age / 60))m, conclusion=${fallback_conclusion}); no duplicate dispatch."
+              exit 0
+            fi
+            echo "::notice::Latest WF-06 fallback #${fallback_id} is stale (created=${fallback_created}, age=$((fallback_age / 60))m)."
+          fi
+
+          dispatch_sha="$(gh api "repos/${GITHUB_REPOSITORY}/commits/master" --jq .sha)"
+          [[ "$dispatch_sha" =~ ^[0-9a-f]{40}$ ]] || {
+            echo "::error::Unable to resolve exact master SHA before WF-06 fallback dispatch."
+            exit 1
+          }
+          echo "Dispatch payload: workflow=wf-06-tce-healthcheck.yml ref=master sha=${dispatch_sha} (no inputs)."
+          gh workflow run wf-06-tce-healthcheck.yml --repo "$GITHUB_REPOSITORY" --ref master
+
+          dispatched_run=""
+          for attempt in $(seq 1 8); do
+            response="$(gh api -X GET "repos/${GITHUB_REPOSITORY}/actions/workflows/wf-06-tce-healthcheck.yml/runs" -f event=workflow_dispatch -F branch=master -F per_page=100)"
+            dispatched_run="$(jq -c --arg started "$reference_at" --arg sha "$dispatch_sha" '[.workflow_runs[] | select(.head_branch == "master" and .head_sha == $sha and .created_at >= $started)] | sort_by(.created_at) | last // empty' <<< "$response")"
+            if [[ -n "$dispatched_run" ]]; then
+              run_id="$(jq -r '.id' <<< "$dispatched_run")"
+              run_url="$(jq -r '.html_url' <<< "$dispatched_run")"
+              run_status="$(jq -r '.status' <<< "$dispatched_run")"
+              echo "Verified read-only WF-06 fallback dispatch: #${run_id} status=${run_status} sha=${dispatch_sha} ${run_url}"
+              echo "This workflow_dispatch fallback does not satisfy native schedule freshness."
+              exit 0
+            fi
+            echo "Waiting for exact-ref WF-06 fallback run correlation (attempt ${attempt}/8)..."
+            sleep 5
+          done
+
+          echo "::error::GitHub accepted no correlatable master WF-06 workflow_dispatch run for SHA ${dispatch_sha}."
+          exit 1
+
   notify-platform-infra:
     name: Notify Platform Infra — TCE schedule heartbeat
     if: >-
