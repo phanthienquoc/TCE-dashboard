@@ -112,22 +112,22 @@ jobs:
             native_created="$(jq -r '.created_at' <<< "$native_latest")"
             native_epoch="$(jq -r '.created_at | fromdateiso8601' <<< "$native_latest")"
             native_conclusion="$(jq -r '.conclusion // "pending"' <<< "$native_latest")"
-            native_age=$((reference_epoch - native_epoch))
-            (( native_age >= 0 )) || {
-              echo "::error::Native WF-06 run #${native_id} is newer than the GitHub API reference clock."
-              exit 1
-            }
-
             if [[ "$direct_wf06_failure" == true ]]; then
               if [[ "$native_id" != "$SOURCE_RUN_ID" && "$native_epoch" -gt "$reference_epoch" && "$native_conclusion" == "success" ]]; then
                 echo "A newer successful native WF-06 run #${native_id} supersedes failed source #${SOURCE_RUN_ID}; no fallback needed."
                 exit 0
               fi
               echo "::warning::Native WF-06 source #${SOURCE_RUN_ID} failed; dispatching one read-only fallback despite its fresh schedule timestamp."
-            elif (( native_age <= MAX_AGE_MINUTES * 60 )); then
-              echo "Native WF-06 run #${native_id} is fresh (age=$((native_age / 60))m); no fallback dispatch."
-              exit 0
             else
+              native_age=$((reference_epoch - native_epoch))
+              (( native_age >= 0 )) || {
+                echo "::error::Native WF-06 run #${native_id} is newer than the GitHub API reference clock."
+                exit 1
+              }
+              if (( native_age <= MAX_AGE_MINUTES * 60 )); then
+                echo "Native WF-06 run #${native_id} is fresh (age=$((native_age / 60))m); no fallback dispatch."
+                exit 0
+              fi
               echo "::warning::Native WF-06 run #${native_id} is stale (created=${native_created}, age=$((native_age / 60))m)."
             fi
           elif [[ "$direct_wf06_failure" == true ]]; then
