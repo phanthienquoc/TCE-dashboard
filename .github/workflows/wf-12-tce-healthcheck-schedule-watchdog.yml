@@ -26,7 +26,7 @@ concurrency:
 jobs:
   verify:
     name: Verify WF-06 schedule delivery
-    # WF-07 is an independent scheduled heartbeat; only scheduled WF-06/WF-07 completions may trigger this read-only check.
+    # A failed WF-06 schedule is monitored here; only a successful WF-07 schedule may trigger the stale-WF-06 watchdog path.
     if: >-
       ${{ (github.event_name != 'schedule' || github.run_attempt == 1) &&
           (github.event_name != 'workflow_run' ||
@@ -34,7 +34,8 @@ jobs:
             github.event.workflow_run.run_attempt == 1 &&
             github.event.workflow_run.event == 'schedule' &&
             (github.event.workflow.path == '.github/workflows/wf-06-tce-healthcheck.yml' ||
-             github.event.workflow.path == '.github/workflows/wf-07-tce-integration-check.yml'))) }}
+             (github.event.workflow.path == '.github/workflows/wf-07-tce-integration-check.yml' &&
+              github.event.workflow_run.conclusion == 'success')))) }}
     runs-on: ubuntu-latest
     timeout-minutes: 3
     env:
