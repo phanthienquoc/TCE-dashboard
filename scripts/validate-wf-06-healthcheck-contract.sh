@@ -125,6 +125,13 @@ if grep -Eq '^[[:space:]]+actions:[[:space:]]*write' "$watchdog_workflow"; then
   exit 1
 fi
 
+# The stale-WF-06 watchdog path is driven by a successful native WF-07 schedule only.
+# WF-06 failures are independently handled by WF-13; failed WF-07 runs must not
+# turn an unrelated integration failure into a stale-WF-06 fallback request.
+verify_block="$(sed -n '/^  verify:/,/^  notify-platform-infra:/p' "$watchdog_workflow")"
+grep -Fq "github.event.workflow_run.conclusion == 'success'" <<< "$verify_block"
+grep -Fq "github.event.workflow.path == '.github/workflows/wf-07-tce-integration-check.yml'" <<< "$verify_block"
+
 # WF-12 forwards scheduled activity to Platform Infra using the existing,
 # least-privilege repository-dispatch token. The receiver remains the only
 # GitOps/inspection authority; the heartbeat payload carries no deployment inputs.
