@@ -203,7 +203,7 @@ jobs:
               exit 1
             }
             if [[ "$fallback_status" != "completed" ]]; then
-              echo "WF-06 fallback #${fallback_id} is ${{fallback_status}}; avoiding duplicate dispatch."
+              echo "WF-06 fallback #${fallback_id} is ${fallback_status}; avoiding duplicate dispatch."
               exit 0
             fi
             if (( fallback_age <= MAX_AGE_MINUTES * 60 )); then
@@ -238,5 +238,5 @@ jobs:
             sleep 5
           done
 
-          echo "::error::GitHub accepted no correlatable master WF-06 workflow_dispatch run for SHA ${{dispatch_sha}}."
+          echo "::error::GitHub accepted no correlatable master WF-06 workflow_dispatch run for SHA ${dispatch_sha}."
           exit 1
