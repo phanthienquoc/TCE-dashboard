@@ -151,13 +151,25 @@ grep -Fq "github.event.workflow_run.event == 'schedule'" <<< "$heartbeat_block"
 grep -Fq "wf-06-tce-healthcheck.yml" <<< "$heartbeat_block"
 grep -Fq "wf-07-tce-integration-check.yml" <<< "$heartbeat_block"
 
-# WF-13 is a separate, narrowly-scoped dispatcher. WF-12 must remain read-only.
+# WF-13 is a separate dispatcher. WF-12 remains read-only; WF-13 accepts
+# only failed native schedule runs from the exact WF-06/WF-12 workflow IDs.
 grep -Fq "name: WF-13 TCE Healthcheck Schedule Recovery" "$recovery_workflow"
+grep -Fq "WF-06 TCE Healthcheck" "$recovery_workflow"
 grep -Fq "WF-12 TCE Healthcheck Schedule Watchdog" "$recovery_workflow"
 grep -Fq "github.event.workflow_run.event == 'schedule'" "$recovery_workflow"
 grep -Fq "github.event.workflow_run.conclusion == 'failure'" "$recovery_workflow"
-grep -Fq "github.event.workflow.path == '.github/workflows/wf-12-tce-healthcheck-schedule-watchdog.yml'" "$recovery_workflow"
+grep -Fq "github.event.workflow_run.workflow_id == 339198323" "$recovery_workflow"
+grep -Fq "github.event.workflow_run.workflow_id == 403352324" "$recovery_workflow"
+if grep -Fq "github.event.workflow.path" "$recovery_workflow"; then
+  echo "WF-13 must use workflow_run.workflow_id; workflow_run payloads do not expose top-level workflow.path." >&2
+  exit 1
+fi
 grep -Fq "github.event.workflow_run.run_attempt == 1" "$recovery_workflow"
+grep -Fq "SOURCE_WORKFLOW_ID" "$recovery_workflow"
+grep -Fq '339198323) source_workflow_path=".github/workflows/wf-06-tce-healthcheck.yml"' "$recovery_workflow"
+grep -Fq '403352324) source_workflow_path=".github/workflows/wf-12-tce-healthcheck-schedule-watchdog.yml"' "$recovery_workflow"
+grep -Fq "direct_wf06_failure=true" "$recovery_workflow"
+grep -Fq "native_age <= MAX_AGE_MINUTES * 60" "$recovery_workflow"
 grep -Fq "actions: write" "$recovery_workflow"
 grep -Fq "actions/workflows/wf-06-tce-healthcheck.yml" "$recovery_workflow"
 grep -Fq "event=workflow_dispatch" "$recovery_workflow"
