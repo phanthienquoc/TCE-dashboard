@@ -1,8 +1,12 @@
 name: WF-13 TCE Healthcheck Schedule Recovery
+run-name: >-
+  WF-13 TCE Healthcheck Schedule Recovery / source
+  ${{ github.event.workflow_run.id || 'none' }}
 
 'on':
   workflow_run:
     workflows:
+      - WF-06 TCE Healthcheck
       - WF-12 TCE Healthcheck Schedule Watchdog
     types:
       - completed
@@ -17,13 +21,14 @@ concurrency:
 
 jobs:
   recover:
-    name: Dispatch read-only WF-06 fallback after stale watchdog
+    name: Dispatch read-only WF-06 fallback after a failed native schedule
     if: >-
       ${{ github.run_attempt == 1 &&
           github.event.workflow_run.run_attempt == 1 &&
           github.event.workflow_run.event == 'schedule' &&
           github.event.workflow_run.head_branch == 'master' &&
-          github.event.workflow.path == '.github/workflows/wf-12-tce-healthcheck-schedule-watchdog.yml' &&
+          (github.event.workflow_run.workflow_id == 339198323 ||
+           github.event.workflow_run.workflow_id == 403352324) &&
           github.event.workflow_run.conclusion == 'failure' }}
     runs-on: ubuntu-latest
     timeout-minutes: 3
@@ -31,16 +36,16 @@ jobs:
       GH_TOKEN: ${{ github.token }}
       MAX_AGE_MINUTES: "25"
     steps:
-      - name: Validate the failed native watchdog event
+      - name: Validate the failed native schedule source
         shell: bash
         env:
           SOURCE_RUN_ID: ${{ github.event.workflow_run.id }}
+          SOURCE_WORKFLOW_ID: ${{ github.event.workflow_run.workflow_id }}
           SOURCE_RUN_ATTEMPT: ${{ github.event.workflow_run.run_attempt }}
           SOURCE_EVENT: ${{ github.event.workflow_run.event }}
           SOURCE_CONCLUSION: ${{ github.event.workflow_run.conclusion }}
           SOURCE_HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
           SOURCE_HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
-          SOURCE_WORKFLOW_PATH: ${{ github.event.workflow.path }}
         run: |
           set -euo pipefail
           [[ "$SOURCE_RUN_ID" =~ ^[0-9]+$ ]]
@@ -49,17 +54,24 @@ jobs:
           [[ "$SOURCE_CONCLUSION" == "failure" ]]
           [[ "$SOURCE_HEAD_BRANCH" == "master" ]]
           [[ "$SOURCE_HEAD_SHA" =~ ^[0-9a-f]{40}$ ]]
-          [[ "$SOURCE_WORKFLOW_PATH" == ".github/workflows/wf-12-tce-healthcheck-schedule-watchdog.yml" ]]
-          echo "Verified native WF-12 schedule failure #$SOURCE_RUN_ID at $SOURCE_HEAD_SHA."
+          case "$SOURCE_WORKFLOW_ID" in
+            339198323) source_workflow_path=".github/workflows/wf-06-tce-healthcheck.yml" ;;
+            403352324) source_workflow_path=".github/workflows/wf-12-tce-healthcheck-schedule-watchdog.yml" ;;
+            *) echo "::error::Unapproved scheduled source workflow ID."; exit 1 ;;
+          esac
+          echo "Verified native scheduled failure #$SOURCE_RUN_ID ($source_workflow_path) at $SOURCE_HEAD_SHA."
 
       - name: Dispatch a deduplicated read-only WF-06 fallback
         shell: bash
         env:
           SOURCE_RUN_ID: ${{ github.event.workflow_run.id }}
+          SOURCE_WORKFLOW_ID: ${{ github.event.workflow_run.workflow_id }}
         run: |
           set -euo pipefail
 
           source_run="$(gh api -X GET "repos/${GITHUB_REPOSITORY}/actions/runs/${SOURCE_RUN_ID}")"
+          source_workflow_id="$(jq -r '.workflow_id // 0' <<< "$source_run")"
+          source_workflow_path="$(jq -r '.path // empty' <<< "$source_run")"
           source_event="$(jq -r '.event // empty' <<< "$source_run")"
           source_attempt="$(jq -r '.run_attempt // 0' <<< "$source_run")"
           source_branch="$(jq -r '.head_branch // empty' <<< "$source_run")"
@@ -67,8 +79,24 @@ jobs:
           source_sha="$(jq -r '.head_sha // empty' <<< "$source_run")"
           reference_at="$(jq -r '.created_at // empty' <<< "$source_run")"
           reference_epoch="$(jq -r 'if .created_at then (.created_at | fromdateiso8601) else empty end' <<< "$source_run")"
+
+          [[ "$source_workflow_id" == "$SOURCE_WORKFLOW_ID" ]]
           [[ "$source_event" == "schedule" && "$source_attempt" == "1" && "$source_branch" == "master" && "$source_conclusion" == "failure" ]]
           [[ "$source_sha" =~ ^[0-9a-f]{40}$ && -n "$reference_at" && "$reference_epoch" =~ ^[0-9]+$ ]]
+          case "$source_workflow_id" in
+            339198323)
+              [[ "$source_workflow_path" == ".github/workflows/wf-06-tce-healthcheck.yml" ]]
+              direct_wf06_failure=true
+              ;;
+            403352324)
+              [[ "$source_workflow_path" == ".github/workflows/wf-12-tce-healthcheck-schedule-watchdog.yml" ]]
+              direct_wf06_failure=false
+              ;;
+            *)
+              echo "::error::Source run is not an approved WF-06/WF-12 schedule."
+              exit 1
+              ;;
+          esac
 
           workflow="$(gh api -X GET "repos/${GITHUB_REPOSITORY}/actions/workflows/wf-06-tce-healthcheck.yml")"
           state="$(jq -r '.state // empty' <<< "$workflow")"
@@ -83,16 +111,27 @@ jobs:
             native_id="$(jq -r '.id' <<< "$native_latest")"
             native_created="$(jq -r '.created_at' <<< "$native_latest")"
             native_epoch="$(jq -r '.created_at | fromdateiso8601' <<< "$native_latest")"
+            native_conclusion="$(jq -r '.conclusion // "pending"' <<< "$native_latest")"
             native_age=$((reference_epoch - native_epoch))
             (( native_age >= 0 )) || {
               echo "::error::Native WF-06 run #${native_id} is newer than the GitHub API reference clock."
               exit 1
             }
-            if (( native_age <= MAX_AGE_MINUTES * 60 )); then
+
+            if [[ "$direct_wf06_failure" == true ]]; then
+              if [[ "$native_id" != "$SOURCE_RUN_ID" && "$native_epoch" -gt "$reference_epoch" && "$native_conclusion" == "success" ]]; then
+                echo "A newer successful native WF-06 run #${native_id} supersedes failed source #${SOURCE_RUN_ID}; no fallback needed."
+                exit 0
+              fi
+              echo "::warning::Native WF-06 source #${SOURCE_RUN_ID} failed; dispatching one read-only fallback despite its fresh schedule timestamp."
+            elif (( native_age <= MAX_AGE_MINUTES * 60 )); then
               echo "Native WF-06 run #${native_id} is fresh (age=$((native_age / 60))m); no fallback dispatch."
               exit 0
+            else
+              echo "::warning::Native WF-06 run #${native_id} is stale (created=${native_created}, age=$((native_age / 60))m)."
             fi
-            echo "::warning::Native WF-06 run #${native_id} is stale (created=${native_created}, age=$((native_age / 60))m)."
+          elif [[ "$direct_wf06_failure" == true ]]; then
+            echo "::warning::Failed WF-06 source #${SOURCE_RUN_ID} is not present in the latest native run page; dispatching the verified source fallback."
           else
             echo "::warning::No native scheduled WF-06 run exists; checking fallback history."
           fi
@@ -132,7 +171,7 @@ jobs:
           dispatched_run=""
           for attempt in $(seq 1 8); do
             response="$(gh api -X GET "repos/${GITHUB_REPOSITORY}/actions/workflows/wf-06-tce-healthcheck.yml/runs" -f event=workflow_dispatch -F branch=master -F per_page=100)"
-            dispatched_run="$(jq -c --arg started "$reference_at" --arg sha "$dispatch_sha" '[.workflow_runs[] | select(.head_branch == "master" and .head_sha == $sha and .created_at >= $started)] | sort_by(.created_at) | last // empty' <<< "$response")"
+            dispatched_run="$(jq -c --arg started "$reference_at" --arg sha "$dispatch_sha" '[.workflow_runs[] | select(.head_branch == "master" and .head_sha == $sha and .event == "workflow_dispatch" and .created_at >= $started)] | sort_by(.created_at) | last // empty' <<< "$response")"
             if [[ -n "$dispatched_run" ]]; then
               run_id="$(jq -r '.id' <<< "$dispatched_run")"
               run_url="$(jq -r '.html_url' <<< "$dispatched_run")"
