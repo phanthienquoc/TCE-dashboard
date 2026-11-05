@@ -20,33 +20,24 @@ require_text() {
   }
 }
 
-# Preserve the existing native schedules and native-failure recovery path.
+# Preserve the existing schedules and native schedule-failure recovery.
 require_text "$wf06" "cron: '*/15 * * * *'"
 require_text "$wf12" "cron: '7,22,37,52 * * * *'"
+require_text "$wf12" "actions: read"
 require_text "$wf13" "github.event.workflow_run.event == 'schedule'"
 require_text "$wf13" "github.event.workflow_run.workflow_id == 339198323"
 require_text "$wf13" "github.event.workflow_run.workflow_id == 403352324"
 
-# A successful native WF-07 heartbeat must request the single WF-13 authority
-# when WF-12 proves that native WF-06 schedule delivery is stale.
-require_text "$wf12" "dispatch-stale-wf06-recovery:"
-require_text "$wf12" "github.event.workflow_run.workflow_id == 341818078"
-require_text "$wf12" "needs.verify.result == 'failure'"
-require_text "$wf12" "Inspect latest scheduled WF-06 run"
-require_text "$wf12" "Verify WF-06 workflow is enabled"
-require_text "$wf12" "actions: write"
-require_text "$wf12" "wf-13-tce-healthcheck-recovery.yml"
-require_text "$wf12" 'source_run_id=$GITHUB_RUN_ID'
-require_text "$wf12" "event=workflow_dispatch"
-
-# WF-13 accepts the request only when the referenced run is a failed WF-12
-# workflow_run on master; it remains the only dispatcher of the WF-06 fallback.
-require_text "$wf13" "workflow_dispatch:"
-require_text "$wf13" "source_run_id:"
-require_text "$wf13" '[[ "$source_event" == "workflow_run" ]]'
-require_text "$wf13" '[[ "$source_conclusion" == "failure" ]]'
-require_text "$wf13" '[[ "$source_workflow_id" == "403352324" ]]'
-require_text "$wf13" '[[ "$source_attempt" == "1" && "$source_branch" == "master" && "$source_conclusion" == "failure" ]]'
+# WF-12 remains read-only; WF-13 is the only workflow allowed to dispatch WF-06.
+if grep -Eq '^  actions: write$|^      actions: write$' "$wf12"; then
+  echo "::error::WF-12 must remain read-only; Actions write permission is forbidden." >&2
+  exit 1
+fi
+require_text "$wf13" "github.event.workflow_run.event == 'workflow_run'"
+require_text "$wf13" '403352324:workflow_run)'
+require_text "$wf13" 'Verify WF-06 schedule delivery'
+require_text "$wf13" 'Verify WF-06 workflow is enabled'
+require_text "$wf13" 'Inspect latest scheduled WF-06 run'
 require_text "$wf13" 'source_mode="watchdog-detected-stale-wf06"'
 require_text "$wf13" 'gh workflow run wf-06-tce-healthcheck.yml'
 require_text "$wf13" 'Recent WF-06 fallback #'
