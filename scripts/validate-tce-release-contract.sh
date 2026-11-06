@@ -60,6 +60,17 @@ for pattern in "${required[@]}"; do
   }
 done
 
+top_level_permissions="$(sed -n '/^permissions:/,/^[^ ]/p' "$workflow")"
+grep -Fq '  contents: read' <<< "$top_level_permissions"
+! grep -Fq '  packages: write' <<< "$top_level_permissions"
+! grep -Fq '  actions: read' <<< "$top_level_permissions"
+release_job="$(sed -n '/^  platform-infra-release:/,/^  [a-z0-9-]*:/p' "$workflow")"
+grep -Fq '    permissions:' <<< "$release_job"
+grep -Fq '      contents: read' <<< "$release_job"
+grep -Fq '      actions: read' <<< "$release_job"
+grep -Fq '      packages: write' <<< "$release_job"
+[[ "$(grep -Fc 'packages: write' "$workflow")" -eq 1 ]]
+
 if grep -Eiq '(^|[[:space:]])(ssh|scp|docker[[:space:]]+compose|docker-compose|kubectl[[:space:]]+apply)([[:space:]]|$)' "$workflow"; then
   echo "::error::TCE app release workflow must publish immutable images and dispatch Platform; it must not own SSH/Compose/Kubernetes deployment." >&2
   exit 1

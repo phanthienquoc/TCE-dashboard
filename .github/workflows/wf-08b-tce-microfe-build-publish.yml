@@ -17,7 +17,6 @@ name: 'WF-08B TCE MicroFE Build Publish'
 
 permissions:
   contents: read
-  packages: write
 
 concurrency:
   group: microfe-build-publish
@@ -98,6 +97,19 @@ jobs:
           grep -Eq '^  build-shell:$' "$workflow"
           grep -Eq '^  build-ws:$' "$workflow"
           ! grep -Eq '^  build-auth:$' "$workflow"
+          top_level_permissions="$(sed -n '/^permissions:/,/^[^ ]/p' "$workflow")"
+          grep -Fq '  contents: read' <<< "$top_level_permissions"
+          ! grep -Fq '  packages: write' <<< "$top_level_permissions"
+          for job in build-shell build-ws; do
+            job_block="$(sed -n "/^  ${job}:/,/^  [a-z0-9-]*:/p" "$workflow")"
+            grep -Fq '    permissions:' <<< "$job_block"
+            grep -Fq '      contents: read' <<< "$job_block"
+            grep -Fq '      packages: write' <<< "$job_block"
+          done
+          for job in test-auth test-ws validate-release-handoff dispatch-and-verify; do
+            job_block="$(sed -n "/^  ${job}:/,/^  [a-z0-9-]*:/p" "$workflow")"
+            ! grep -Fq 'packages: write' <<< "$job_block"
+          done
 
   validate-release-handoff:
     if: ${{ github.event_name != 'pull_request' && github.ref == 'refs/heads/master' }}
@@ -129,6 +141,9 @@ jobs:
       - validate-release-handoff
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 20
+    permissions:
+      contents: read
+      packages: write
     steps:
       - name: Checkout repository
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
@@ -184,6 +199,9 @@ jobs:
       - validate-release-handoff
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 20
+    permissions:
+      contents: read
+      packages: write
     steps:
       - name: Checkout repository
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
