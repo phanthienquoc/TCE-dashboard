@@ -9,8 +9,6 @@ on:
 
 permissions:
   contents: read
-  actions: read
-  packages: write
 
 jobs:
   validate-release-ref:
@@ -214,6 +212,10 @@ jobs:
       - build-backend
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 20
+    permissions:
+      contents: read
+      actions: read
+      packages: write
     env:
       TAG: ${{ needs.detect.outputs.image_tag }}
       TOKEN: ${{ secrets.PLATFORM_INFRA_TOKEN }}
