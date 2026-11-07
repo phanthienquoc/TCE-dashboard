@@ -67,6 +67,16 @@ fi
 # WF-12 is a read-only monitor for delivery of the existing WF-06 schedule.
 # It must not change WF-06's cadence or acquire Actions write permission.
 grep -Fq "cron: '7,22,37,52 * * * *'" "$watchdog_workflow"
+
+# Keep native scheduled WF-12 enforcement isolated from diagnostic events.
+# GitHub retains one pending run per group; workflow_run/push/manual events must
+# not replace a pending native schedule run.
+grep -Fq 'group: tce-wf06-schedule-watchdog-${{ github.event_name }}' "$watchdog_workflow"
+grep -Fq 'cancel-in-progress: false' "$watchdog_workflow"
+! grep -Fqx '  group: tce-wf06-schedule-watchdog' "$watchdog_workflow" || {
+  echo "WF-12 schedule and diagnostic events must not share a concurrency group." >&2
+  exit 1
+}
 grep -Fq "workflow_dispatch:" "$watchdog_workflow"
 grep -Fq "workflow_run:" "$watchdog_workflow"
 grep -Fq "WF-06 TCE Healthcheck" "$watchdog_workflow"
