@@ -7,6 +7,19 @@ cd "$ROOT"
 workflow=".github/workflows/wf-03-tce-production-deploy.yml"
 [[ -f "$workflow" ]] || { echo "Missing TCE production release workflow: $workflow" >&2; exit 1; }
 
+build_verify_workflow=".github/workflows/wf-01-tce-build-verify.yml"
+[[ -f "$build_verify_workflow" ]] || { echo "Missing TCE build verification workflow: $build_verify_workflow" >&2; exit 1; }
+if grep -Eiq 'VPS_SSH_PRIVATE_KEY|StrictHostKeyChecking|ssh[[:space:]]+-i|docker[[:space:]]+compose|docker-compose|kubectl[[:space:]]+apply' "$build_verify_workflow"; then
+  echo "::error::WF-01 must remain an app CI/build validator and must not depend on production SSH or own host/cluster deployment." >&2
+  exit 1
+fi
+
+legacy_cleanup_workflow=".github/workflows/wf-04-tce-k3s-cleanup.yml"
+if [[ -e "$legacy_cleanup_workflow" ]]; then
+  echo "::error::Legacy WF-04 direct-SSH production cleanup must not be restored; Platform Infra owns K3s image cleanup." >&2
+  exit 1
+fi
+
 required=(
   "workflow_dispatch:"
   'if [[ "$GITHUB_REF" != "refs/heads/master" ]]'
