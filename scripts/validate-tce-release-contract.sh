@@ -20,6 +20,18 @@ if [[ -e "$legacy_cleanup_workflow" ]]; then
   exit 1
 fi
 
+staging_bootstrap_workflow=".github/workflows/wf-10-tce-k3s-bootstrap.yml"
+if [[ -f "$staging_bootstrap_workflow" ]]; then
+  if grep -Eiq 'MFA_ENCRYPTION_KEY_PROD|MFA_PROD|TCE_PROD_NAMESPACE|tce-prod' "$staging_bootstrap_workflow"; then
+    echo "::error::TCE WF-10 may bootstrap staging only; production namespaces and runtime secrets belong to Platform Infra." >&2
+    exit 1
+  fi
+  grep -Fq 'MFA_ENCRYPTION_KEY_STG' "$staging_bootstrap_workflow" || {
+    echo "::error::TCE WF-10 must retain its staging-only MFA secret contract." >&2
+    exit 1
+  }
+fi
+
 required=(
   "workflow_dispatch:"
   'if [[ "$GITHUB_REF" != "refs/heads/master" ]]'
