@@ -33,6 +33,10 @@ if [[ -f "$staging_bootstrap_workflow" ]]; then
 fi
 
 required=(
+  'group: tce-production-release-${{ github.sha }}'
+  'cancel-in-progress: false'
+  'Refuse to overwrite existing immutable GHCR release tags'
+  'run: bash scripts/verify-tce-ghcr-tags-absent.sh "$REPOSITORY" "$RELEASE_TAG" "$SOURCE_SHA"'
   "workflow_dispatch:"
   'if [[ "$GITHUB_REF" != "refs/heads/master" ]]'
   "runs-on: ubuntu-24.04-arm"
@@ -77,6 +81,10 @@ grep -Fq 'uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef83
 grep -Fq 'uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4.7.0' "$workflow"
 grep -Fq 'uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1' "$workflow"
 if grep -Eq '^  (push|pull_request|schedule):' "$workflow"; then echo "::error::TCE production publisher must remain manual-only." >&2; exit 1; fi
+
+[[ -f scripts/verify-tce-ghcr-tags-absent.sh ]]
+[[ -f scripts/tests/verify-tce-ghcr-tags-absent.test.sh ]]
+bash scripts/tests/verify-tce-ghcr-tags-absent.test.sh
 
 for pattern in "${required[@]}"; do
   grep -Fq -- "$pattern" "$workflow" || {
