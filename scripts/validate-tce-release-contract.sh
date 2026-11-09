@@ -39,8 +39,10 @@ required=(
   'run: bash scripts/verify-tce-ghcr-tags-absent.sh "$REPOSITORY" "$RELEASE_TAG" "$SOURCE_SHA"'
   "workflow_dispatch:"
   'if [[ "$GITHUB_REF" != "refs/heads/master" ]]'
+  'run: bash scripts/verify-tce-release-source-context.sh'
   "runs-on: ubuntu-24.04-arm"
   'SOURCE_RUN_ID="$GITHUB_RUN_ID"'
+  '[[ "$SOURCE_RUN_ID" =~ ^[1-9][0-9]*$ ]]'
   'SOURCE_RUN_ATTEMPT="$GITHUB_RUN_ATTEMPT"'
   '[[ "$SOURCE_RUN_ATTEMPT" =~ ^[1-9][0-9]*$ ]]'
   'SOURCE_WORKFLOW_PATH=".github/workflows/wf-03-tce-production-deploy.yml"'
@@ -89,6 +91,20 @@ if grep -Eq '^  (push|pull_request|schedule):' "$workflow"; then echo "::error::
 [[ -f scripts/verify-tce-ghcr-tags-absent.sh ]]
 [[ -f scripts/tests/verify-tce-ghcr-tags-absent.test.sh ]]
 bash scripts/tests/verify-tce-ghcr-tags-absent.test.sh
+[[ -f scripts/tests/verify-tce-dispatch-payload.test.sh ]]
+bash scripts/tests/verify-tce-dispatch-payload.test.sh
+[[ -f scripts/tests/verify-tce-release-source-context.test.sh ]]
+bash scripts/tests/verify-tce-release-source-context.test.sh
+
+preflight_job="$(sed -n '/^  validate-release-ref:/,/^  notify-telegram-start:/p' "$workflow")"
+grep -Fq 'name: Validate release source context before builds or publication' <<< "$preflight_job" || {
+  echo "::error::TCE source-context validation must run in the first release gate, before notifications, builds or publication." >&2
+  exit 1
+}
+grep -Fq 'run: bash scripts/verify-tce-release-source-context.sh' <<< "$preflight_job" || {
+  echo "::error::TCE source-context validator is missing from the pre-publication release gate." >&2
+  exit 1
+}
 
 for pattern in "${required[@]}"; do
   grep -Fq -- "$pattern" "$workflow" || {
