@@ -7,6 +7,14 @@ cd "$ROOT"
 workflow=".github/workflows/wf-03-tce-production-deploy.yml"
 [[ -f "$workflow" ]] || { echo "Missing TCE production release workflow: $workflow" >&2; exit 1; }
 
+microfe_workflow=".github/workflows/wf-08b-tce-microfe-build-publish.yml"
+[[ -f "$microfe_workflow" ]] || { echo "Missing MicroFE publisher workflow: $microfe_workflow" >&2; exit 1; }
+[[ -f scripts/verify-microfe-dispatch-payload.sh ]]
+[[ -f scripts/tests/verify-microfe-dispatch-payload.test.sh ]]
+grep -Fq 'bash scripts/verify-microfe-dispatch-payload.sh /tmp/microfe-dispatch.json' "$microfe_workflow"
+grep -Fq 'bash scripts/tests/verify-microfe-dispatch-payload.test.sh' "$microfe_workflow"
+bash scripts/tests/verify-microfe-dispatch-payload.test.sh
+
 build_verify_workflow=".github/workflows/wf-01-tce-build-verify.yml"
 [[ -f "$build_verify_workflow" ]] || { echo "Missing TCE build verification workflow: $build_verify_workflow" >&2; exit 1; }
 if grep -Eiq 'VPS_SSH_PRIVATE_KEY|StrictHostKeyChecking|ssh[[:space:]]+-i|docker[[:space:]]+compose|docker-compose|kubectl[[:space:]]+apply' "$build_verify_workflow"; then
