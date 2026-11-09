@@ -28,6 +28,9 @@ jobs:
             exit 1
           fi
 
+      - name: Validate release source context before builds or publication
+        run: bash scripts/verify-tce-release-source-context.sh
+
   notify-telegram-start:
     needs: validate-release-ref
     name: Notify Telegram — release started
