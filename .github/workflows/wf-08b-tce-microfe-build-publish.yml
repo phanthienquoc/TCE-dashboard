@@ -8,6 +8,7 @@ name: 'WF-08B TCE MicroFE Build Publish'
       - microfe/auth/**
       - microfe/shell/**
       - microfe/ws-gateway/**
+      - scripts/**
       - .github/workflows/wf-08b-tce-microfe-build-publish.yml
   push:
     branches: [master]
@@ -88,6 +89,8 @@ jobs:
             grep -Fq "$field:" <<< "$payload_block"
           done
           ! grep -Fq 'auth_digest:' <<< "$payload_block"
+          grep -Fq 'bash scripts/verify-microfe-dispatch-payload.sh /tmp/microfe-dispatch.json' "$workflow"
+          bash scripts/tests/verify-microfe-dispatch-payload.test.sh
           for field in source_repository source_run_id source_run_attempt source_workflow_path source_event source_head_sha; do
             grep -Fq ".client_payload.$field" "$workflow"
           done
@@ -320,6 +323,7 @@ jobs:
             and (.client_payload.shell_digest | test("^sha256:[0-9a-f]{64}$"))
             and (.client_payload.ws_digest | test("^sha256:[0-9a-f]{64}$"))
           ' /tmp/microfe-dispatch.json >/dev/null
+          bash scripts/verify-microfe-dispatch-payload.sh /tmp/microfe-dispatch.json
 
           DISPATCHED_AT="$(date -u +%s)"
           echo "DISPATCHED_AT=$DISPATCHED_AT" >> "$GITHUB_ENV"
