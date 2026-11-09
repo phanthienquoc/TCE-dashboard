@@ -39,6 +39,7 @@ required=(
   'run: bash scripts/verify-tce-ghcr-tags-absent.sh "$REPOSITORY" "$RELEASE_TAG" "$SOURCE_SHA"'
   "workflow_dispatch:"
   'if [[ "$GITHUB_REF" != "refs/heads/master" ]]'
+  'run: bash scripts/verify-tce-release-source-context.sh'
   "runs-on: ubuntu-24.04-arm"
   'SOURCE_RUN_ID="$GITHUB_RUN_ID"'
   '[[ "$SOURCE_RUN_ID" =~ ^[1-9][0-9]*$ ]]'
@@ -92,6 +93,8 @@ if grep -Eq '^  (push|pull_request|schedule):' "$workflow"; then echo "::error::
 bash scripts/tests/verify-tce-ghcr-tags-absent.test.sh
 [[ -f scripts/tests/verify-tce-dispatch-payload.test.sh ]]
 bash scripts/tests/verify-tce-dispatch-payload.test.sh
+[[ -f scripts/tests/verify-tce-release-source-context.test.sh ]]
+bash scripts/tests/verify-tce-release-source-context.test.sh
 
 for pattern in "${required[@]}"; do
   grep -Fq -- "$pattern" "$workflow" || {
