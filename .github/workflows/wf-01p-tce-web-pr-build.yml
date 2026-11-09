@@ -13,6 +13,8 @@ on:
       - '.github/workflows/wf-03-tce-production-deploy.yml'
       - 'scripts/validate-tce-release-contract.sh'
       - 'scripts/tests/verify-tce-dispatch-payload.test.sh'
+      - 'scripts/verify-tce-release-source-context.sh'
+      - 'scripts/tests/verify-tce-release-source-context.test.sh'
   workflow_dispatch:
 
 permissions:
