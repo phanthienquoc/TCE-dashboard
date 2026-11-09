@@ -41,4 +41,4 @@ expect_failure "zero run attempt" GITHUB_RUN_ATTEMPT=0
 expect_failure "short source SHA" GITHUB_SHA=abc123
 expect_failure "missing run ID" GITHUB_RUN_ID=
 
-printf '%s\\n' "TCE pre-publication source-context tests passed (1 positive, 8 negative cases)."
+printf '%s\n' "TCE pre-publication source-context tests passed (1 positive, 8 negative cases)."
