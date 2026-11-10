@@ -87,7 +87,7 @@ jobs:
           echo "IMPORTANT: existing Docker containers, nginx, ports and mrcute.space were NOT modified."
           REMOTE
 
-      - name: Upload TCE source to isolated staging directory
+      - name: Upload TCE source to isolated development directory
         env:
           HOST: ${{ inputs.host }}
           PORT: ${{ inputs.port }}

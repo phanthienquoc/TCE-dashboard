@@ -11,6 +11,7 @@ on:
       - 'tsconfig.base.json'
       - '.github/workflows/wf-01p-tce-web-pr-build.yml'
       - '.github/workflows/wf-03-tce-production-deploy.yml'
+      - '.github/workflows/wf-09-tce-vps-safe-setup.yml'
       - 'scripts/validate-tce-release-contract.sh'
       - 'scripts/tests/verify-tce-dispatch-payload.test.sh'
       - 'scripts/verify-tce-release-source-context.sh'
