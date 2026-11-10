@@ -75,8 +75,13 @@ if [[ -f "$safe_setup_workflow" ]]; then
     echo "::error::TCE WF-09 must not mutate production containers, services or Kubernetes workloads." >&2
     exit 1
   fi
-  if grep -Eiq '(scp|tar[[:space:]].*-C)[^\n]*(/home/ubuntu/tce/(staging|production))' "$safe_setup_workflow"; then
-    echo "::error::TCE WF-09 source transfer must not target staging or production runtime directories." >&2
+  extract_count="$(grep -Fc 'tar -xzf /tmp/tce-source.tar.gz -C ' "$safe_setup_workflow" || true)"
+  [[ "$extract_count" -eq 1 ]] || {
+    echo "::error::TCE WF-09 must have exactly one source extraction target, under the isolated development directory." >&2
+    exit 1
+  }
+  if grep -Eiq 'scp[[:space:]].*/home/ubuntu/tce/(staging|production)' "$safe_setup_workflow"; then
+    echo "::error::TCE WF-09 must not transfer source directly into staging or production runtime directories." >&2
     exit 1
   fi
   grep -Fq 'if: always()' "$safe_setup_workflow" || {
