@@ -56,6 +56,27 @@ for endpoint in \
   }
 done
 
+# Keep every public-smoke matrix target strict: HTTP 200 is the service-health
+# acceptance contract. A maintenance 0/0 state or HTTP 503 must never be
+# normalized into a successful healthcheck by weakening an expected status.
+ruby - "$healthcheck_workflow" <<'RUBY'
+require "yaml"
+
+workflow = YAML.load_file(ARGV[0])
+matrix = workflow.fetch("jobs").fetch("public-smoke")
+  .fetch("strategy").fetch("matrix").fetch("include")
+expected = {
+  "https://tce.mrcute.space/" => "200",
+  "https://tce.mrcute.space/api/health" => "200",
+  "https://auth.mrcute.space/api/health" => "200",
+  "https://auth.mrcute.space/api/ready" => "200"
+}
+actual = matrix.to_h { |entry| [entry.fetch("url"), entry.fetch("expected_status")] }
+unless matrix.length == expected.length && actual == expected
+  abort "WF-06 must retain exactly the four approved public endpoints with expected_status 200."
+end
+RUBY
+
 # Runtime inspection belongs to Platform Infra's read-only inspect-vps workflow.
 # Keep WF-06 public-smoke-only: no VPS key, SSH session, Docker/Compose inspection,
 # or legacy development-port probes in the application repository.
