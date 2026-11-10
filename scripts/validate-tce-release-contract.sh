@@ -40,6 +40,51 @@ if [[ -f "$staging_bootstrap_workflow" ]]; then
   }
 fi
 
+
+# WF-09 is a manual, read-only VPS inspection plus source staging utility.
+# Keep it out of production deployment authority and ensure source is confined
+# to the isolated development tree. Its SSH host-key pinning remains a separate
+# owner-dependent security follow-up; do not silently trust a scanned key here.
+safe_setup_workflow=".github/workflows/wf-09-tce-vps-safe-setup.yml"
+if [[ -f "$safe_setup_workflow" ]]; then
+  if grep -Eq '^  (push|pull_request|schedule|repository_dispatch):' "$safe_setup_workflow"; then
+    echo "::error::TCE WF-09 must remain manual-only; it is not a production release or scheduled deployment workflow." >&2
+    exit 1
+  fi
+  grep -Fq '  workflow_dispatch:' "$safe_setup_workflow" || {
+    echo "::error::TCE WF-09 must retain its explicit manual workflow_dispatch entry point." >&2
+    exit 1
+  }
+  grep -Fq 'name: Inspect VPS without changing existing services' "$safe_setup_workflow" || {
+    echo "::error::TCE WF-09 must retain its read-only VPS inspection step." >&2
+    exit 1
+  }
+  grep -Fq 'name: Upload TCE source to isolated development directory' "$safe_setup_workflow" || {
+    echo "::error::TCE WF-09 source upload must be clearly labeled as development-only." >&2
+    exit 1
+  }
+  grep -Fq '/home/ubuntu/tce/development/source.tmp' "$safe_setup_workflow" || {
+    echo "::error::TCE WF-09 must confine source extraction to /home/ubuntu/tce/development/source.tmp." >&2
+    exit 1
+  }
+  grep -Fq 'tar -xzf /tmp/tce-source.tar.gz -C /home/ubuntu/tce/development/source.tmp' "$safe_setup_workflow" || {
+    echo "::error::TCE WF-09 must extract its upload only into the isolated development source directory." >&2
+    exit 1
+  }
+  if grep -Eiq 'docker[[:space:]]+compose|docker-compose|kubectl[[:space:]]+(apply|delete|scale|rollout)|systemctl[[:space:]]+(restart|stop|disable)|docker[[:space:]]+(restart|stop|rm)|rsync[[:space:]].*--delete' "$safe_setup_workflow"; then
+    echo "::error::TCE WF-09 must not mutate production containers, services or Kubernetes workloads." >&2
+    exit 1
+  fi
+  if grep -Eiq '(scp|tar[[:space:]].*-C)[^\n]*(/home/ubuntu/tce/(staging|production))' "$safe_setup_workflow"; then
+    echo "::error::TCE WF-09 source transfer must not target staging or production runtime directories." >&2
+    exit 1
+  fi
+  grep -Fq 'if: always()' "$safe_setup_workflow" || {
+    echo "::error::TCE WF-09 must always clean up its temporary SSH key." >&2
+    exit 1
+  }
+fi
+
 required=(
   'group: tce-production-release-${{ github.sha }}'
   'cancel-in-progress: false'
