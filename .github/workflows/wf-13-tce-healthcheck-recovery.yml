@@ -38,7 +38,31 @@ jobs:
       GH_TOKEN: ${{ github.token }}
       MAX_AGE_MINUTES: "25"
     steps:
+      # Planned zero-replica maintenance suppresses only redundant fallback probes.
+      # WF-06 HTTP 200 health checks and WF-12 native schedule monitoring stay strict.
+      - id: maintenance
+        name: Honor explicit TCE maintenance mode
+        shell: bash
+        env:
+          TCE_MAINTENANCE_MODE: ${{ vars.TCE_MAINTENANCE_MODE }}
+        run: |
+          set -euo pipefail
+          case "${TCE_MAINTENANCE_MODE,,}" in
+            true|1|yes)
+              echo "enabled=true" >> "$GITHUB_OUTPUT"
+              echo "::notice::TCE maintenance mode is enabled; suppressing only the read-only WF-06 fallback. WF-06 HTTP 200 probes and WF-12 schedule monitoring remain strict; maintenance is not healthy."
+              ;;
+            ""|false|0|no)
+              echo "enabled=false" >> "$GITHUB_OUTPUT"
+              ;;
+            *)
+              echo "::error::TCE_MAINTENANCE_MODE must be true or false; refusing ambiguous recovery behavior."
+              exit 1
+              ;;
+          esac
+
       - id: source
+        if: steps.maintenance.outputs.enabled != 'true'
         name: Validate native failure or stale watchdog source
         shell: bash
         env:
@@ -123,6 +147,7 @@ jobs:
           echo "Verified recovery source #$source_id: workflow_id=$source_workflow_id event=$source_event mode=$source_mode sha=$source_sha."
 
       - name: Dispatch a deduplicated read-only WF-06 fallback
+        if: steps.maintenance.outputs.enabled != 'true'
         shell: bash
         env:
           SOURCE_RUN_ID: ${{ steps.source.outputs.source_run_id }}
