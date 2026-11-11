@@ -11,6 +11,8 @@ on:
       - 'tsconfig.base.json'
       - '.github/workflows/wf-01p-tce-web-pr-build.yml'
       - '.github/workflows/wf-03-tce-production-deploy.yml'
+      - '.github/workflows/wf-13-tce-healthcheck-recovery.yml'
+      - 'scripts/validate-tce-health-recovery-contract.sh'
       - '.github/workflows/wf-09-tce-vps-safe-setup.yml'
       - 'scripts/validate-tce-release-contract.sh'
       - 'scripts/tests/verify-tce-dispatch-payload.test.sh'
@@ -32,6 +34,9 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Validate TCE health recovery maintenance contract
+        run: bash scripts/validate-tce-health-recovery-contract.sh
 
       - name: Validate TCE production release contract
         run: bash scripts/validate-tce-release-contract.sh
