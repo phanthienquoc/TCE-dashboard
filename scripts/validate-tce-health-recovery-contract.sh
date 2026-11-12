@@ -13,7 +13,13 @@ done
 grep -Fq 'TCE_MAINTENANCE_MODE: ${{ vars.TCE_MAINTENANCE_MODE }}' "$recovery"
 grep -Fq 'case "${TCE_MAINTENANCE_MODE,,}" in' "$recovery"
 grep -Fq 'true|1|yes)' "$recovery"
-grep -Fq '""|false|0|no)' "$recovery"
+grep -Fq '"" )' "$recovery"
+grep -Fq 'false|0|no)' "$recovery"
+grep -Fq 'TCE_MAINTENANCE_MODE is unset; treating this run as non-maintenance' "$recovery"
+if grep -Fq '""|false|0|no)' "$recovery"; then
+  echo "::error::An unset maintenance flag must not be silently conflated with an explicit false value."
+  exit 1
+fi
 guard_count="$(grep -Fc "if: steps.maintenance.outputs.enabled != 'true'" "$recovery")"
 [[ "$guard_count" == "2" ]] || {
   echo "::error::Both recovery source validation and fallback dispatch must be gated by explicit maintenance mode (found $guard_count guards)."
@@ -32,4 +38,4 @@ grep -Fq "scripts/validate-tce-health-recovery-contract.sh" "$pr_build"
 
 ruby -e 'require "yaml"; ARGV.each { |file| YAML.parse_file(file); puts "YAML OK: #{file}" }' "$recovery" "$health" "$watchdog" "$pr_build"
 
-echo "PASS: explicit maintenance suppresses only WF-06 fallback; strict HTTP 200 health and both native schedules are preserved."
+echo "PASS: explicit maintenance suppresses only WF-06 fallback; an unset flag is visibly warned and remains non-maintenance; strict HTTP 200 health and both native schedules are preserved."
