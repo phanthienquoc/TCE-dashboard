@@ -13,7 +13,7 @@ done
 grep -Fq 'TCE_MAINTENANCE_MODE: ${{ vars.TCE_MAINTENANCE_MODE }}' "$recovery"
 grep -Fq 'case "${TCE_MAINTENANCE_MODE,,}" in' "$recovery"
 grep -Fq 'true|1|yes)' "$recovery"
-grep -Fq '"" )' "$recovery"
+grep -Fq '            "")' "$recovery"
 grep -Fq 'false|0|no)' "$recovery"
 grep -Fq 'TCE_MAINTENANCE_MODE is unset; treating this run as non-maintenance' "$recovery"
 if grep -Fq '""|false|0|no)' "$recovery"; then
