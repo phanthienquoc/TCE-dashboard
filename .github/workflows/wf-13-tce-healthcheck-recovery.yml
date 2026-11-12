@@ -52,7 +52,11 @@ jobs:
               echo "enabled=true" >> "$GITHUB_OUTPUT"
               echo "::notice::TCE maintenance mode is enabled; suppressing only the read-only WF-06 fallback. WF-06 HTTP 200 probes and WF-12 schedule monitoring remain strict; maintenance is not healthy."
               ;;
-            ""|false|0|no)
+            "")
+              echo "enabled=false" >> "$GITHUB_OUTPUT"
+              echo "::warning::TCE_MAINTENANCE_MODE is unset; treating this run as non-maintenance and keeping the read-only WF-06 fallback enabled. Set true only for approved zero-replica maintenance; this warning does not make health green."
+              ;;
+            false|0|no)
               echo "enabled=false" >> "$GITHUB_OUTPUT"
               ;;
             *)
