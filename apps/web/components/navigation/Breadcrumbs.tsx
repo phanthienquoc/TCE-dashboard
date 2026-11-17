@@ -6,7 +6,7 @@ import { usePathname } from 'next/navigation';
 
 const labels: Record<string, string> = {
   overview: 'Home',
-  debts: 'Quản lý khoản nợ',\n  debts: 'Quản lý khoản nợ',
+  debts: 'Quản lý khoản nợ',
   pools: 'Pools',
   pool: 'Pool',
   position: 'Positions',
