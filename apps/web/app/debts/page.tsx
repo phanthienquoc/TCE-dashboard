@@ -197,7 +197,7 @@ export default function DebtsPage() {
       next_due_date: form.next_due_date || null,
       data_confidence: form.data_confidence as any,
       source_note: form.source_note.trim() || null,
-      status: 'active',
+      status: 'active',\n      as_of_date: '2026-11-18',
     };
     setSaving(true);
     try {
