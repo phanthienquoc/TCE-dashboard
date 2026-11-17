@@ -57,37 +57,6 @@ export class DebtsController {
     return data;
   }
 
-  @Patch(':id')
-  async update(
-    @Headers('authorization') auth: string | undefined,
-    @Param('id') id: string,
-    @Body() body: Record<string, unknown>
-  ) {
-    const userId = this.userId(auth);
-    const payload = this.validate(body, true);
-    const { data, error } = await this.supabase.db
-      .from('personal_debts')
-      .update({ ...payload, updated_at: new Date().toISOString() })
-      .eq('id', id)
-      .eq('user_id', userId)
-      .select('*')
-      .maybeSingle();
-    if (error) throw error;
-    if (!data) throw new UnauthorizedException('Debt record not found');
-    return data;
-  }
-
-  @Delete(':id')
-  async remove(@Headers('authorization') auth: string | undefined, @Param('id') id: string) {
-    const userId = this.userId(auth);
-    const { error, count } = await this.supabase.db
-      .from('personal_debts')
-      .delete({ count: 'exact' })
-      .eq('id', id)
-      .eq('user_id', userId);
-    if (error) throw error;
-    return { ok: true, deleted: count ?? 0 };
-  }
 
   private validate(body: Record<string, unknown>, partial = false) {
     const allowed = [
