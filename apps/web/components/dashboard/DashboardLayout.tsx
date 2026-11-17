@@ -1,7 +1,7 @@
 'use client';
 
 import type { ReactNode } from 'react';
-import { ArrowLeftRight, Cpu, Home, Layers3, Settings, UserCircle, TrendingUp } from 'lucide-react';
+import { ArrowLeftRight, Cpu, Home, Layers3, Settings, UserCircle, TrendingUp, WalletCards } from 'lucide-react';
 import { NavigationDock } from '../navigation/NavigationDock';
 import Breadcrumbs from '../navigation/Breadcrumbs';
 
@@ -15,7 +15,7 @@ type DashboardNavigationId =
   | 'notifications'
   | 'settings'
   | 'profile'
-  | 'chart';
+  | 'chart'\n  | 'debts';
 
 export const dashboardNavigation = [
   { id: 'overview' as const, label: 'Home', icon: Home, href: '/overview' },
@@ -24,7 +24,7 @@ export const dashboardNavigation = [
   { id: 'engine' as const, label: 'Engines', icon: Cpu, href: '/engines' },
   { id: 'settings' as const, label: 'Settings', icon: Settings, href: '/settings' },
   { id: 'profile' as const, label: 'Profile', icon: UserCircle, href: '/profile' },
-  { id: 'chart' as const, label: 'Chart', icon: TrendingUp, href: '/binance-chart' },
+  { id: 'chart' as const, label: 'Chart', icon: TrendingUp, href: '/binance-chart' },\n  { id: 'debts' as const, label: 'Nợ', icon: WalletCards, href: '/debts' },
 ];
 
 export default function DashboardLayout({
