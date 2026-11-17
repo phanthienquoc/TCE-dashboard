@@ -5,7 +5,8 @@ import { ChevronRight, Home } from 'lucide-react';
 import { usePathname } from 'next/navigation';
 
 const labels: Record<string, string> = {
-  overview: 'Home',\n  debts: 'Quản lý khoản nợ',
+  overview: 'Home',
+  debts: 'Quản lý khoản nợ',\n  debts: 'Quản lý khoản nợ',
   pools: 'Pools',
   pool: 'Pool',
   position: 'Positions',
