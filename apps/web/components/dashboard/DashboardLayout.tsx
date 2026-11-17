@@ -15,7 +15,8 @@ type DashboardNavigationId =
   | 'notifications'
   | 'settings'
   | 'profile'
-  | 'chart'\n  | 'debts';
+  | 'chart'
+  | 'debts';
 
 export const dashboardNavigation = [
   { id: 'overview' as const, label: 'Home', icon: Home, href: '/overview' },
@@ -24,7 +25,8 @@ export const dashboardNavigation = [
   { id: 'engine' as const, label: 'Engines', icon: Cpu, href: '/engines' },
   { id: 'settings' as const, label: 'Settings', icon: Settings, href: '/settings' },
   { id: 'profile' as const, label: 'Profile', icon: UserCircle, href: '/profile' },
-  { id: 'chart' as const, label: 'Chart', icon: TrendingUp, href: '/binance-chart' },\n  { id: 'debts' as const, label: 'Nợ', icon: WalletCards, href: '/debts' },
+  { id: 'chart' as const, label: 'Chart', icon: TrendingUp, href: '/binance-chart' },
+  { id: 'debts' as const, label: 'Nợ', icon: WalletCards, href: '/debts' },
 ];
 
 export default function DashboardLayout({
