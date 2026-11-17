@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
-import { Plus, RefreshCw, Search, Wallet, X } from 'lucide-react';
+import { Plus, RefreshCw, Wallet, X } from 'lucide-react';
 import DashboardLayout from '../../components/dashboard/DashboardLayout';
 import { useAuthStore } from '../../lib/store';
 import { api } from '../../lib/api';
@@ -101,9 +101,7 @@ export default function DebtsPage() {
     setLoading(true);
     setError('');
     try {
-      const response = await api.get('/rest/v1/personal_debts', {
-        params: { select: '*', order: 'bank_code.asc,created_at.asc', user_id: 'eq.' + user.id },
-      });
+      const response = await api.get('/debts');
       const records = (Array.isArray(response.data) ? response.data : []) as PersonalDebt[];
       setRows(records);
       setSelectedId(current =>
@@ -203,11 +201,7 @@ export default function DebtsPage() {
     };
     setSaving(true);
     try {
-      await api.post(
-        '/rest/v1/personal_debts',
-        { ...payload, user_id: user.id },
-        { headers: { Prefer: 'return=representation' } }
-      );
+      await api.post('/debts', payload);
       toast('Đã lưu khoản nợ.', 'success');
       setFormOpen(false);
       setForm(emptyForm);
