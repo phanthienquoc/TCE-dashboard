@@ -75,23 +75,6 @@ export class DebtsController {
     return data ?? [];
   }
 
-  @Get('summary')
-  async summary(@Headers('authorization') auth?: string) {
-    const userId = this.userId(auth);
-    const { data, error } = await this.supabase.db
-      .from('personal_debt_dashboard')
-      .select('active_contracts,indicative_remaining_total,estimated_monthly_due_total,records_need_verification')
-      .eq('user_id', userId)
-      .maybeSingle();
-    if (error) throw error;
-    return data ?? {
-      active_contracts: 0,
-      indicative_remaining_total: 0,
-      estimated_monthly_due_total: 0,
-      records_need_verification: 0
-    };
-  }
-
   @Post()
   async create(@Headers('authorization') auth: string | undefined, @Body() body: Record<string, unknown>) {
     const userId = this.userId(auth);
