@@ -9,6 +9,7 @@ import { NextPositionController } from './next-position.controller';
 import { DashboardService } from './dashboard.service';
 import { DashboardSourcesService } from './dashboard-sources.service';
 import { EngineRuntimeService } from './engine-runtime.service';
+import { DebtsController } from '../debts/debts.controller';
 
 @Module({
   imports: [AuthModule, PlatformCredentialsModule, StockEventsModule],
@@ -17,6 +18,7 @@ import { EngineRuntimeService } from './engine-runtime.service';
     DashboardPriceHistoryController,
     PoolPromotionController,
     NextPositionController,
+    DebtsController,
   ],
   providers: [DashboardService, DashboardSourcesService, EngineRuntimeService],
   exports: [DashboardSourcesService, EngineRuntimeService],
