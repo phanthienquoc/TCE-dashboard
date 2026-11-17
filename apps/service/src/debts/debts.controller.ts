@@ -6,7 +6,6 @@ import {
   Headers,
   Param,
   Post,
-  Query,
   UnauthorizedException,
 } from '@nestjs/common';
 import { JwtService } from '../auth/jwt.service';
@@ -30,7 +29,7 @@ export class DebtsController {
   }
 
   @Get()
-  async list(@Headers('authorization') auth?: string, @Query('includeTcb') includeTcb?: string) {
+  async list(@Headers('authorization') auth?: string) {
     const userId = this.userId(auth);
     let query = this.supabase.db
       .from('personal_debts')
@@ -38,7 +37,7 @@ export class DebtsController {
       .eq('user_id', userId)
       .order('bank_code', { ascending: true })
       .order('created_at', { ascending: true });
-    if (includeTcb !== 'true') query = query.neq('bank_code', 'TCB');
+    query = query.neq('bank_code', 'TCB');
     const { data, error } = await query;
     if (error) throw error;
     return data ?? [];
