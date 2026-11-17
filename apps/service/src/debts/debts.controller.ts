@@ -17,37 +17,6 @@ const DEBT_TYPES = ['loan', 'card_installment', 'credit_card', 'bnpl', 'other'] 
 const STATUSES = ['active', 'paid_off', 'pending_verification', 'overdue'] as const;
 const CONFIDENCE = ['verified', 'source_snapshot', 'historical', 'estimated', 'needs_statement'] as const;
 
-type DebtRow = {
-  id: string;
-  user_id: string;
-  bank_code: string;
-  bank_name: string;
-  debt_name: string;
-  debt_type: string;
-  contract_no: string | null;
-  status: string;
-  principal_original: number | null;
-  principal_balance: number | null;
-  app_remaining_amount: number | null;
-  monthly_payment: number | null;
-  monthly_principal: number | null;
-  monthly_interest: number | null;
-  interest_rate_monthly: number | null;
-  interest_rate_annual: number | null;
-  term_months: number | null;
-  months_paid: number | null;
-  months_remaining: number | null;
-  next_due_date: string | null;
-  disbursed_at: string | null;
-  paid_amount_displayed: number | null;
-  remaining_installments_total: number | null;
-  data_confidence: string;
-  source_note: string | null;
-  as_of_date: string;
-  created_at: string;
-  updated_at: string;
-};
-
 @Controller('debts')
 export class DebtsController {
   constructor(
