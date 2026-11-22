@@ -176,6 +176,50 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 2
     steps:
+      - name: Wait for heartbeat run visibility in Actions API
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HEARTBEAT_RUN_ID: ${{ github.run_id }}
+          HEARTBEAT_RUN_ATTEMPT: ${{ github.run_attempt }}
+          HEARTBEAT_HEAD_SHA: ${{ github.sha }}
+          HEARTBEAT_EXPECTED_EVENT: ${{ github.event_name }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          for attempt in {1..10}; do
+            run="$(gh api -X GET -H "Accept: application/vnd.github+json" "repos/${GITHUB_REPOSITORY}/actions/runs/${HEARTBEAT_RUN_ID}")"
+            path="$(jq -r '.path // empty' <<< "$run")"
+            event="$(jq -r '.event // empty' <<< "$run")"
+            branch="$(jq -r '.head_branch // empty' <<< "$run")"
+            sha="$(jq -r '.head_sha // empty' <<< "$run")"
+            run_attempt="$(jq -r '.run_attempt // empty' <<< "$run")"
+            status="$(jq -r '.status // empty' <<< "$run")"
+
+            if [[ "$path" != ".github/workflows/wf-12-tce-healthcheck-schedule-watchdog.yml" ||
+                  "$event" != "$HEARTBEAT_EXPECTED_EVENT" ||
+                  "$branch" != "master" ||
+                  "$sha" != "$HEARTBEAT_HEAD_SHA" ||
+                  "$run_attempt" != "$HEARTBEAT_RUN_ATTEMPT" ]]; then
+              echo "::error::TCE heartbeat run identity does not match the current WF-12 execution."
+              exit 1
+            fi
+
+            if [[ "$status" == "in_progress" || "$status" == "completed" ]]; then
+              echo "Verified WF-12 heartbeat run #$HEARTBEAT_RUN_ID is visible with status=$status."
+              exit 0
+            fi
+            if [[ "$status" != "queued" ]]; then
+              echo "::error::WF-12 heartbeat run has unexpected Actions API status: ${status:-missing}."
+              exit 1
+            fi
+
+            echo "WF-12 heartbeat run is still reported as queued (attempt $attempt/10); waiting for Actions API visibility."
+            sleep 2
+          done
+
+          echo "::error::WF-12 heartbeat run remained queued after the bounded visibility wait; refusing to dispatch an unverified heartbeat."
+          exit 1
+
       - name: Dispatch authenticated schedule heartbeat
         env:
           PLATFORM_INFRA_TOKEN: ${{ secrets.PLATFORM_INFRA_TOKEN }}
