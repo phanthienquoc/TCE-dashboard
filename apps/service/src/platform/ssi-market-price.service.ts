@@ -22,6 +22,7 @@ export class SsiMarketPriceService implements OnModuleInit, OnModuleDestroy {
   private timer?: NodeJS.Timeout;
   private lastRunKey?: string;
   private readonly runningLocks = new Set<SyncLockKey>();
+  private tickInFlight = false;
   constructor(
     private readonly ssi: SsiApplicationService,
     private readonly db: SupabaseClientService
@@ -127,20 +128,20 @@ export class SsiMarketPriceService implements OnModuleInit, OnModuleDestroy {
         if (missing.length) {
           const tradingDate = this.tradingDate(this.nowParts());
           const fallback = await this.ssi.dailyCloses(userId, 'production', missing, tradingDate);
-          if (fallback.ok)
-            for (const close of fallback.data) {
-              const symbol = close.symbol.toUpperCase();
-              fallbackSymbols.add(symbol);
-              await this.persistPrice(
-                userId,
-                symbol,
-                close.closePrice,
-                close.closePrice,
+          if (fallback.ok) {
+            for (const close of fallback.data) fallbackSymbols.add(close.symbol.toUpperCase());
+            await this.persistPricesBatch(
+              userId,
+              fallback.data.map(close => ({
+                symbol: close.symbol,
+                price: close.closePrice,
+                closePrice: close.closePrice,
                 tradingDate,
-                new Date().toISOString()
-              );
-              symbolsSynced += 1;
-            }
+              })),
+              new Date().toISOString()
+            );
+            symbolsSynced += fallback.data.length;
+          }
         }
         const unresolved = missing.filter(symbol => !fallbackSymbols.has(symbol));
         unresolved.forEach(symbol => failedSymbols.add(symbol));
@@ -221,7 +222,7 @@ export class SsiMarketPriceService implements OnModuleInit, OnModuleDestroy {
     return `${p.year.toString().padStart(4, '0')}-${p.month.toString().padStart(2, '0')}-${p.day.toString().padStart(2, '0')}`;
   }
   private async tick() {
-    if (this.runningLocks.has('scheduled')) return;
+    if (this.tickInFlight || this.runningLocks.has('scheduled')) return;
     const now = this.nowParts();
     const weekday = new Date(Date.UTC(now.year, now.month - 1, now.day)).getUTCDay();
     if (!this.isWeekday(weekday)) return;
@@ -231,6 +232,7 @@ export class SsiMarketPriceService implements OnModuleInit, OnModuleDestroy {
     const runKey = `${this.tradingDate(now)}:${now.hour}:${isClose ? 'close' : 'hourly'}`;
     if (this.lastRunKey === runKey) return;
     if (!this.acquireLock('scheduled')) return;
+    this.tickInFlight = true;
     try {
       if (isClose) await this.syncDailyClose(this.tradingDate(now));
       else await this.syncHourlyPrices();
@@ -238,6 +240,7 @@ export class SsiMarketPriceService implements OnModuleInit, OnModuleDestroy {
     } catch (error) {
       console.error('[SSI_MARKET_PRICE_SYNC]', error);
     } finally {
+      this.tickInFlight = false;
       this.releaseLock('scheduled');
     }
   }
@@ -314,20 +317,20 @@ export class SsiMarketPriceService implements OnModuleInit, OnModuleDestroy {
           missing,
           tradingDate
         );
-        if (fallback.ok)
-          for (const close of fallback.data) {
-            const symbol = close.symbol.toUpperCase();
-            fallbackSymbols.add(symbol);
-            await this.persistPrice(
-              user.userId,
-              symbol,
-              close.closePrice,
-              close.closePrice,
+        if (fallback.ok) {
+          for (const close of fallback.data) fallbackSymbols.add(close.symbol.toUpperCase());
+          await this.persistPricesBatch(
+            user.userId,
+            fallback.data.map(close => ({
+              symbol: close.symbol,
+              price: close.closePrice,
+              closePrice: close.closePrice,
               tradingDate,
-              observedAt
-            );
-            symbolsSynced += 1;
-          }
+            })),
+            observedAt
+          );
+          symbolsSynced += fallback.data.length;
+        }
       }
       const unresolved = missing.filter(
         symbol => !fallbackSymbols.has(symbol) && !returnedSymbols.has(symbol)
@@ -340,17 +343,16 @@ export class SsiMarketPriceService implements OnModuleInit, OnModuleDestroy {
           message: `SSI returned no usable market data for ${unresolved.length}/${user.symbols.length} requested symbols`,
           symbols: unresolved,
         });
-      for (const quote of quotes.data) {
-        await this.persistPrice(
-          user.userId,
-          quote.symbol,
-          quote.price,
-          undefined,
-          quote.tradingDate,
-          observedAt
-        );
-        symbolsSynced += 1;
-      }
+      await this.persistPricesBatch(
+        user.userId,
+        quotes.data.map(quote => ({
+          symbol: quote.symbol,
+          price: quote.price,
+          tradingDate: quote.tradingDate,
+        })),
+        observedAt
+      );
+      symbolsSynced += quotes.data.length;
     }
     return {
       usersProcessed: users.length,
@@ -376,17 +378,89 @@ export class SsiMarketPriceService implements OnModuleInit, OnModuleDestroy {
         console.error('[SSI_DAILY_CLOSE_USER]', user.userId, closes.error);
         continue;
       }
-      for (const close of closes.data)
-        await this.persistPrice(
-          user.userId,
-          close.symbol,
-          close.closePrice,
-          close.closePrice,
+      await this.persistPricesBatch(
+        user.userId,
+        closes.data.map(close => ({
+          symbol: close.symbol,
+          price: close.closePrice,
+          closePrice: close.closePrice,
           tradingDate,
-          observedAt
-        );
+        })),
+        observedAt
+      );
     }
   }
+  private async persistPricesBatch(
+    userId: string,
+    prices: Array<{
+      symbol: string;
+      price: number;
+      closePrice?: number;
+      tradingDate: string;
+    }>,
+    observedAt: string
+  ) {
+    if (!prices.length) return;
+    const payloads = prices.map(item => {
+      const payload: Record<string, unknown> = {
+        user_id: userId,
+        symbol: item.symbol.toUpperCase(),
+        trading_date: item.tradingDate,
+        price: item.price,
+        source: 'ssi',
+        observed_at: observedAt,
+        updated_at: observedAt,
+      };
+      if (item.closePrice !== undefined) payload.close_price = item.closePrice;
+      return payload;
+    });
+
+    const { error: historyError } = await this.db.db
+      .from('tce_market_prices')
+      .upsert(payloads, { onConflict: 'user_id,symbol,trading_date' });
+    if (historyError) throw historyError;
+
+    const symbols = [...new Set(prices.map(item => item.symbol.toUpperCase()))];
+    const { data: positions, error: positionError } = await this.db.db
+      .from('tce_positions')
+      .select('id,symbol,quantity,avg_cost')
+      .eq('user_id', userId)
+      .in('symbol', symbols)
+      .neq('status', 'CLOSED');
+    if (positionError) throw positionError;
+
+    const priceBySymbol = new Map(prices.map(item => [item.symbol.toUpperCase(), item.price]));
+    const updates = (positions ?? []).flatMap(position => {
+      const price = priceBySymbol.get(String(position.symbol).toUpperCase());
+      if (price == null) return [];
+      const quantity = Number(position.quantity ?? 0);
+      const avgCost = Number(position.avg_cost ?? 0);
+      return [{
+        id: position.id,
+        market_price: price,
+        market_value: quantity * price,
+        unrealized_pnl: quantity * (price - avgCost),
+        updated_at: observedAt,
+      }];
+    });
+
+    // Bound write concurrency to protect PostgREST and the database pool.
+    const chunkSize = 50;
+    for (let offset = 0; offset < updates.length; offset += chunkSize) {
+      const chunk = updates.slice(offset, offset + chunkSize);
+      const results = await Promise.all(chunk.map(update =>
+        this.db.db.from('tce_positions').update({
+          market_price: update.market_price,
+          market_value: update.market_value,
+          unrealized_pnl: update.unrealized_pnl,
+          updated_at: update.updated_at,
+        }).eq('id', update.id)
+      ));
+      const failed = results.find(result => result.error);
+      if (failed?.error) throw failed.error;
+    }
+  }
+
   private async persistPrice(
     userId: string,
     symbol: string,

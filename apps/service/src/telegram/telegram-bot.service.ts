@@ -29,6 +29,8 @@ export class TelegramBotService implements OnModuleInit {
   private readonly offsets = new Map<string, number>();
   private readonly timers = new Map<string, ReturnType<typeof setTimeout>>();
   private readonly running = new Set<string>();
+  private readonly pollingState = new Map<string, { enabled: boolean; checkedAt: number }>();
+  private readonly pollingStateTtlMs = 15_000;
   constructor(
     @Inject(CONTRACT_TOKENS.credentials) private readonly credentials: PlatformCredentialPort,
     private readonly signals: TceSignalService,
@@ -289,6 +291,7 @@ export class TelegramBotService implements OnModuleInit {
     if (timer) clearTimeout(timer);
     this.timers.delete(credentialId);
     this.offsets.delete(credentialId);
+    this.pollingState.delete(credentialId);
   }
   async stop(userId: string, environment = 'production') {
     await this.removeBot(userId, environment, 'default');
@@ -426,6 +429,8 @@ export class TelegramBotService implements OnModuleInit {
   }
 
   private async isPollingEnabled(credentialId: string) {
+    const cached = this.pollingState.get(credentialId);
+    if (cached && Date.now() - cached.checkedAt < this.pollingStateTtlMs) return cached.enabled;
     const { data, error } = await this.supabase.db
       .from('platform_credentials')
       .select('is_active,telegram_paused')
@@ -434,9 +439,12 @@ export class TelegramBotService implements OnModuleInit {
       .maybeSingle();
     if (error) {
       this.logger.warn(`Unable to verify Telegram polling state: ${error.message}`);
+      this.pollingState.set(credentialId, { enabled: false, checkedAt: Date.now() });
       return false;
     }
-    return Boolean(data?.is_active) && !Boolean(data?.telegram_paused);
+    const enabled = Boolean(data?.is_active) && !Boolean(data?.telegram_paused);
+    this.pollingState.set(credentialId, { enabled, checkedAt: Date.now() });
+    return enabled;
   }
   private normalizeName(value: string) {
     return (
