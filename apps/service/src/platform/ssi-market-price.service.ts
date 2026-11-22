@@ -435,27 +435,34 @@ export class SsiMarketPriceService implements OnModuleInit, OnModuleDestroy {
       if (price == null) return [];
       const quantity = Number(position.quantity ?? 0);
       const avgCost = Number(position.avg_cost ?? 0);
-      return [{
-        id: position.id,
-        market_price: price,
-        market_value: quantity * price,
-        unrealized_pnl: quantity * (price - avgCost),
-        updated_at: observedAt,
-      }];
+      return [
+        {
+          id: position.id,
+          market_price: price,
+          market_value: quantity * price,
+          unrealized_pnl: quantity * (price - avgCost),
+          updated_at: observedAt,
+        },
+      ];
     });
 
     // Bound write concurrency to protect PostgREST and the database pool.
     const chunkSize = 50;
     for (let offset = 0; offset < updates.length; offset += chunkSize) {
       const chunk = updates.slice(offset, offset + chunkSize);
-      const results = await Promise.all(chunk.map(update =>
-        this.db.db.from('tce_positions').update({
-          market_price: update.market_price,
-          market_value: update.market_value,
-          unrealized_pnl: update.unrealized_pnl,
-          updated_at: update.updated_at,
-        }).eq('id', update.id)
-      ));
+      const results = await Promise.all(
+        chunk.map(update =>
+          this.db.db
+            .from('tce_positions')
+            .update({
+              market_price: update.market_price,
+              market_value: update.market_value,
+              unrealized_pnl: update.unrealized_pnl,
+              updated_at: update.updated_at,
+            })
+            .eq('id', update.id)
+        )
+      );
       const failed = results.find(result => result.error);
       if (failed?.error) throw failed.error;
     }
