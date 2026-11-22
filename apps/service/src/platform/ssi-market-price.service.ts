@@ -128,20 +128,20 @@ export class SsiMarketPriceService implements OnModuleInit, OnModuleDestroy {
         if (missing.length) {
           const tradingDate = this.tradingDate(this.nowParts());
           const fallback = await this.ssi.dailyCloses(userId, 'production', missing, tradingDate);
-          if (fallback.ok)
-            for (const close of fallback.data) {
-              const symbol = close.symbol.toUpperCase();
-              fallbackSymbols.add(symbol);
-              await this.persistPrice(
-                userId,
-                symbol,
-                close.closePrice,
-                close.closePrice,
+          if (fallback.ok) {
+            for (const close of fallback.data) fallbackSymbols.add(close.symbol.toUpperCase());
+            await this.persistPricesBatch(
+              userId,
+              fallback.data.map(close => ({
+                symbol: close.symbol,
+                price: close.closePrice,
+                closePrice: close.closePrice,
                 tradingDate,
-                new Date().toISOString()
-              );
-              symbolsSynced += 1;
-            }
+              })),
+              new Date().toISOString()
+            );
+            symbolsSynced += fallback.data.length;
+          }
         }
         const unresolved = missing.filter(symbol => !fallbackSymbols.has(symbol));
         unresolved.forEach(symbol => failedSymbols.add(symbol));
