@@ -2,11 +2,11 @@ FROM node:24-bookworm-slim AS deps
 WORKDIR /app
 ENV PUPPETEER_CACHE_DIR=/app/.cache/puppeteer
 
-# This is an npm monorepo without a workspace lockfile. Install the root
-# dependency graph once; service/package.json duplicates runtime dependencies
-# for local development but must not create a second node_modules tree in CI.
-COPY package.json ./
-RUN npm install --include=dev --no-audit --no-fund
+# Use the root lockfile for a deterministic dependency graph. The service
+# package manifest mirrors runtime dependencies for local development; CI
+# installs the root graph once so Nest Schedule and cron resolve one copy.
+COPY package.json package-lock.json ./
+RUN npm ci --include=dev --no-audit --no-fund
 
 # Puppeteer extracts Chrome for Testing from a zip archive. Keep the build
 # image minimal but provide the extractor required by @puppeteer/browsers.
