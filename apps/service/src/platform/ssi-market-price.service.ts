@@ -317,10 +317,8 @@ export class SsiMarketPriceService implements OnModuleInit, OnModuleDestroy {
           missing,
           tradingDate
         );
-        if (fallback.ok)
-          for (const close of fallback.data) {
-            fallbackSymbols.add(close.symbol.toUpperCase());
-          }
+        if (fallback.ok) {
+          for (const close of fallback.data) fallbackSymbols.add(close.symbol.toUpperCase());
           await this.persistPricesBatch(
             user.userId,
             fallback.data.map(close => ({
@@ -332,6 +330,7 @@ export class SsiMarketPriceService implements OnModuleInit, OnModuleDestroy {
             observedAt
           );
           symbolsSynced += fallback.data.length;
+        }
       }
       const unresolved = missing.filter(
         symbol => !fallbackSymbols.has(symbol) && !returnedSymbols.has(symbol)
