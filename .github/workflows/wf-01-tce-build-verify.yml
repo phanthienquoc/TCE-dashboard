@@ -15,7 +15,24 @@ on:
       - 'infra/k3s/**'
       - '.github/workflows/**'
       - 'scripts/validate-tce-release-contract.sh'
+  pull_request:
+    branches: [master]
+    paths:
+      - 'src/**'
+      - 'index.html'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'vite.config.*'
+      - 'Dockerfile'
+      - 'apps/web/**'
+      - 'apps/service/**'
+      - 'infra/k3s/**'
+      - '.github/workflows/**'
+      - 'scripts/validate-tce-release-contract.sh'
   workflow_dispatch:
+
+permissions:
+  contents: read
 
 jobs:
   build:
@@ -29,6 +46,7 @@ jobs:
         run: bash scripts/validate-tce-release-contract.sh
 
       - name: Verify required repository secrets
+        if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
