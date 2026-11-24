@@ -11,13 +11,10 @@ test('paginates the full stock-event universe and returns normalized unique symb
     [4, [{ symbol: 'vix' }]],
   ]);
 
-  const symbols = await collectDistinctDividendSymbols(
-    async (from, to) => {
-      calls.push({ from, to });
-      return pages.get(from) ?? [];
-    },
-    2
-  );
+  const symbols = await collectDistinctDividendSymbols(async (from, to) => {
+    calls.push({ from, to });
+    return pages.get(from) ?? [];
+  }, 2);
 
   assert.deepEqual(calls, [
     { from: 0, to: 1 },
