@@ -24,6 +24,25 @@ test('paginates the full stock-event universe and returns normalized unique symb
   assert.deepEqual(symbols, ['DPM', 'PNJ', 'VIX']);
 });
 
+
+test('uses 1,000-row pages by default', async () => {
+  const calls: Array<{ from: number; to: number }> = [];
+  const firstPage = Array.from({ length: 1000 }, (_, index) => ({
+    symbol: index === 999 ? 'bbb' : 'aaa',
+  }));
+
+  const symbols = await collectDistinctDividendSymbols(async (from, to) => {
+    calls.push({ from, to });
+    return from === 0 ? firstPage : [{ symbol: 'ccc' }];
+  });
+
+  assert.deepEqual(calls, [
+    { from: 0, to: 999 },
+    { from: 1000, to: 1999 },
+  ]);
+  assert.deepEqual(symbols, ['AAA', 'BBB', 'CCC']);
+});
+
 test('returns an empty universe when the source has no rows', async () => {
   const calls: number[] = [];
   const symbols = await collectDistinctDividendSymbols(async from => {
