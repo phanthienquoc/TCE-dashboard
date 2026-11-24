@@ -26,6 +26,7 @@ test('paginates the full stock-event universe and returns normalized unique symb
 
 test('uses 1,000-row pages by default', async () => {
   const calls: Array<{ from: number; to: number }> = [];
+  // A full first page must not terminate pagination prematurely.
   const firstPage = Array.from({ length: 1000 }, (_, index) => ({
     symbol: index === 999 ? 'bbb' : 'aaa',
   }));
