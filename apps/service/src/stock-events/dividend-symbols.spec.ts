@@ -3,7 +3,9 @@ import test from 'node:test';
 
 import { collectDistinctDividendSymbols } from './dividend-symbols';
 
-test('paginates the full stock-event universe and returns normalized unique symbols', async () => {
+test(
+  'paginates the full stock-event universe and returns normalized unique symbols',
+  async () => {
   const calls: Array<{ from: number; to: number }> = [];
   const pages = new Map([
     [0, [{ symbol: 'dpm' }, { symbol: ' DPM ' }]],
@@ -21,8 +23,9 @@ test('paginates the full stock-event universe and returns normalized unique symb
     { from: 2, to: 3 },
     { from: 4, to: 5 },
   ]);
-  assert.deepEqual(symbols, ['DPM', 'PNJ', 'VIX']);
-});
+    assert.deepEqual(symbols, ['DPM', 'PNJ', 'VIX']);
+  }
+);
 
 test('returns an empty universe when the source has no rows', async () => {
   const calls: number[] = [];
