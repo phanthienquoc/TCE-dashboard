@@ -6,23 +6,23 @@ import { collectDistinctDividendSymbols } from './dividend-symbols';
 test(
   'paginates the full stock-event universe and returns normalized unique symbols',
   async () => {
-  const calls: Array<{ from: number; to: number }> = [];
-  const pages = new Map([
-    [0, [{ symbol: 'dpm' }, { symbol: ' DPM ' }]],
-    [2, [{ symbol: 'pnj' }, { symbol: null }]],
-    [4, [{ symbol: 'vix' }]],
-  ]);
+    const calls: Array<{ from: number; to: number }> = [];
+    const pages = new Map([
+      [0, [{ symbol: 'dpm' }, { symbol: ' DPM ' }]],
+      [2, [{ symbol: 'pnj' }, { symbol: null }]],
+      [4, [{ symbol: 'vix' }]],
+    ]);
 
-  const symbols = await collectDistinctDividendSymbols(async (from, to) => {
-    calls.push({ from, to });
-    return pages.get(from) ?? [];
-  }, 2);
+    const symbols = await collectDistinctDividendSymbols(async (from, to) => {
+      calls.push({ from, to });
+      return pages.get(from) ?? [];
+    }, 2);
 
-  assert.deepEqual(calls, [
-    { from: 0, to: 1 },
-    { from: 2, to: 3 },
-    { from: 4, to: 5 },
-  ]);
+    assert.deepEqual(calls, [
+      { from: 0, to: 1 },
+      { from: 2, to: 3 },
+      { from: 4, to: 5 },
+    ]);
     assert.deepEqual(symbols, ['DPM', 'PNJ', 'VIX']);
   }
 );
