@@ -24,7 +24,6 @@ test('paginates the full stock-event universe and returns normalized unique symb
   assert.deepEqual(symbols, ['DPM', 'PNJ', 'VIX']);
 });
 
-
 test('uses 1,000-row pages by default', async () => {
   const calls: Array<{ from: number; to: number }> = [];
   const firstPage = Array.from({ length: 1000 }, (_, index) => ({
