@@ -53,7 +53,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       set({ loading: false });
     }
   },
-  completeSsoLogin: async accessToken => {
+  completeAuthSession: async accessToken => {
     set({ status: 'loading', loading: true, error: null });
     setAccessToken(accessToken);
     try {
