@@ -18,7 +18,7 @@ type AuthState = {
   initialized: boolean;
   error: string | null;
   init: () => Promise<void>;
-  completeSsoLogin: (accessToken: string) => Promise<void>;
+  completeAuthSession: (accessToken: string) => Promise<void>;
   login: (e: string, p: string) => Promise<{ mfaRequired?: boolean; userId?: string }>;
   loginWithPasskey: () => Promise<{ mfaRequired?: boolean; userId?: string }>;
   mfa: (id: string, c: string) => Promise<void>;
@@ -67,7 +67,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       set({
         user: null,
         status: 'anonymous',
-        error: err?.response?.data?.message ?? 'SSO sign-in failed',
+        error: err?.response?.data?.message ?? 'Authentication session could not be completed',
         initialized: true,
       });
       throw err;
