@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { SupabaseClientService } from '../db/supabase.client';
 import { SsiApplicationService } from '../platform/ssi.application.service';
+import { collectDistinctDividendSymbols } from './dividend-symbols';
 
 const DEFAULT_DAYS = 365;
 const TIMEZONE = 'Asia/Ho_Chi_Minh';
@@ -59,6 +60,17 @@ export class DividendOhlcvService {
     const endDate = toDate ?? todayVietnam();
     const fallbackStart = fromDate ?? oneYearWindowStart(endDate);
     const runId = await this.createSyncRun(userId, symbols);
+    if (symbols.length === 0) {
+      const errorMessage =
+        'No dividend symbols discovered from stock_events; refusing zero-work success';
+      await this.finishSyncRun(runId, {
+        status: 'FAILED',
+        symbols_synced: 0,
+        rows_synced: 0,
+        error_message: errorMessage,
+      });
+      throw new Error(errorMessage);
+    }
     let syncedSymbols = 0;
     let syncedRows = 0;
     let failedSymbols = 0;
@@ -264,26 +276,16 @@ export class DividendOhlcvService {
   }
 
   async dividendSymbols() {
-    const today = todayVietnam();
-    const { data, error } = await this.db.db
-      .from('stock_events')
-      .select('symbol,ex_right_date')
-      .not('symbol', 'is', null)
-      .gte('ex_right_date', today)
-      .order('ex_right_date', { ascending: true })
-      .order('symbol', { ascending: true });
-    if (error) throw error;
-    return [
-      ...new Set(
-        (data ?? [])
-          .map(row =>
-            String(row.symbol ?? '')
-              .trim()
-              .toUpperCase()
-          )
-          .filter(Boolean)
-      ),
-    ];
+    return collectDistinctDividendSymbols(async (from, to) => {
+      const { data, error } = await this.db.db
+        .from('stock_events')
+        .select('id,symbol')
+        .not('symbol', 'is', null)
+        .order('id', { ascending: true })
+        .range(from, to);
+      if (error) throw error;
+      return data ?? [];
+    });
   }
 
   private async createSyncRun(userId: string, symbols: string[]) {
