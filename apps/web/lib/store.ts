@@ -1,6 +1,5 @@
 'use client';
 import { getAccessToken, setAccessToken } from './session-token';
-import { keycloakLogoutUrl } from './keycloak-sso';
 import { create } from 'zustand';
 import { authApi, dashboardApi } from './api';
 import { isApiRequestCancelled, normalizeApiError } from './api-errors';
@@ -151,19 +150,16 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
   },
   logout: async () => {
-    const logoutUrl = keycloakLogoutUrl();
     // Invalidate local account data immediately; the remote logout request may take time.
     clearAccountScopedStores();
     set({ user: null, status: 'anonymous', initialized: true });
     try {
       await authApi.logout();
     } catch {
-      // Continue to the IdP logout even if the app session expired.
     } finally {
       setAccessToken(null);
       set({ user: null, status: 'anonymous', initialized: true });
     }
-    if (logoutUrl && typeof window !== 'undefined') window.location.assign(logoutUrl);
   },
 }));
 
