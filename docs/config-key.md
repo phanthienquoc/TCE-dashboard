@@ -52,4 +52,3 @@ The staging deployment workflow provisions/updates the `tce-auth` Kubernetes Sec
 - `libs/db/src/supabase.credentials.adapter.ts`
 - `infra/k3s/service-stg.yaml`
 - `.github/workflows/wf-04-tce-staging-deploy.yml`
-
