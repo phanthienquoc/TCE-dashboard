@@ -136,11 +136,9 @@ export class VietstockEventsCrawler {
     toDate: string,
     pageSize: number
   ): Promise<BrowserSession> {
-    const executablePath = process.env.PUPPETEER_EXECUTABLE_PATH;
-    if (!executablePath) throw new Error('PUPPETEER_EXECUTABLE_PATH is not configured');
-
     const browser = await puppeteer.launch({
-      executablePath,
+      // Resolve Chrome Headless Shell from Puppeteer's platform-specific cache.
+      // Do not point at a detached binary: Chromium needs adjacent ICU/locales.
       headless: 'shell',
       args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
     });
