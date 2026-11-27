@@ -1,6 +1,5 @@
 'use client';
 import { getAccessToken, setAccessToken } from './session-token';
-import { keycloakLogoutUrl } from './keycloak-sso';
 import { create } from 'zustand';
 import { authApi, dashboardApi } from './api';
 import { isApiRequestCancelled, normalizeApiError } from './api-errors';
@@ -19,7 +18,7 @@ type AuthState = {
   initialized: boolean;
   error: string | null;
   init: () => Promise<void>;
-  completeSsoLogin: (accessToken: string) => Promise<void>;
+  completeAuthSession: (accessToken: string) => Promise<void>;
   login: (e: string, p: string) => Promise<{ mfaRequired?: boolean; userId?: string }>;
   loginWithPasskey: () => Promise<{ mfaRequired?: boolean; userId?: string }>;
   mfa: (id: string, c: string) => Promise<void>;
@@ -54,7 +53,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       set({ loading: false });
     }
   },
-  completeSsoLogin: async accessToken => {
+  completeAuthSession: async accessToken => {
     set({ status: 'loading', loading: true, error: null });
     setAccessToken(accessToken);
     try {
@@ -68,7 +67,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       set({
         user: null,
         status: 'anonymous',
-        error: err?.response?.data?.message ?? 'SSO sign-in failed',
+        error: err?.response?.data?.message ?? 'Authentication session could not be completed',
         initialized: true,
       });
       throw err;
@@ -151,19 +150,16 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
   },
   logout: async () => {
-    const logoutUrl = keycloakLogoutUrl();
     // Invalidate local account data immediately; the remote logout request may take time.
     clearAccountScopedStores();
     set({ user: null, status: 'anonymous', initialized: true });
     try {
       await authApi.logout();
     } catch {
-      // Continue to the IdP logout even if the app session expired.
     } finally {
       setAccessToken(null);
       set({ user: null, status: 'anonymous', initialized: true });
     }
-    if (logoutUrl && typeof window !== 'undefined') window.location.assign(logoutUrl);
   },
 }));
 

@@ -55,7 +55,7 @@ function oldEngineRuntime(): EngineRuntimeNode {
   };
 }
 
-test('SSO account switch clears old account caches before new account prefetch starts', async () => {
+test('Authenticated account switch clears old account caches before new account prefetch starts', async () => {
   const originalMe = authApi.me;
   const originalPrefetch = useTCEDataStore.getState().prefetch;
   const originalStockEventLoad = useStockEventStore.getState().load;
@@ -134,7 +134,7 @@ test('SSO account switch clears old account caches before new account prefetch s
     useAppDataWorkerStore.setState({ start: async () => {} });
     authApi.me = (async () => response({ user: newUser })) as typeof authApi.me;
 
-    await useAuthStore.getState().completeSsoLogin('new-account-access-token');
+    await useAuthStore.getState().completeAuthSession('new-account-access-token-test');
 
     assert.equal(useAuthStore.getState().user?.id, 'new-account');
     assert.equal(useTCEDataStore.getState().credentials, null);
